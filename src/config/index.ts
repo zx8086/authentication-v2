@@ -3,37 +3,28 @@
 import { z } from "zod";
 
 const ServerConfigSchema = z.object({
-  port: z
-    .number()
-    .min(1, "Port must be at least 1")
-    .max(65535, "Port must be at most 65535"),
-  nodeEnv: z.string().min(1, "Node environment is required"),
+  port: z.number().min(1).max(65535),
+  nodeEnv: z.string().min(1),
 });
 
 const JwtConfigSchema = z.object({
-  authority: z.string().min(1, "JWT authority is required"),
-  audience: z.string().min(1, "JWT audience is required"),
-  keyClaimName: z.string().min(1, "JWT key claim name is required"),
-  expirationMinutes: z
-    .number()
-    .min(1, "JWT expiration must be at least 1 minute"),
+  authority: z.string().min(1),
+  audience: z.string().min(1), 
+  keyClaimName: z.string().min(1),
+  expirationMinutes: z.number().min(1),
 });
 
 const KongConfigSchema = z.object({
-  adminUrl: z.string().url("Kong admin URL must be a valid URL"),
-  adminToken: z.string().min(1, "Kong admin token is required"),
-  consumerIdHeader: z.string().min(1, "Consumer ID header is required"),
-  consumerUsernameHeader: z
-    .string()
-    .min(1, "Consumer username header is required"),
-  anonymousHeader: z.string().min(1, "Anonymous header is required"),
+  adminUrl: z.string().url(),
+  adminToken: z.string().min(1),
+  consumerIdHeader: z.string().min(1),
+  consumerUsernameHeader: z.string().min(1),
+  anonymousHeader: z.string().min(1),
 });
 
-const TelemetryConfigSchema = z
-  .object({
-    endpoint: z.string().url("Telemetry endpoint must be a valid URL"),
-  })
-  .optional();
+const TelemetryConfigSchema = z.object({
+  endpoint: z.string().url(),
+}).optional();
 
 const AppConfigSchema = z.object({
   server: ServerConfigSchema,
@@ -73,6 +64,7 @@ const envVarMapping = {
     authority: "JWT_AUTHORITY",
     audience: "JWT_AUDIENCE",
     keyClaimName: "JWT_KEY_CLAIM_NAME",
+    expirationMinutes: "JWT_EXPIRATION_MINUTES",
   },
   kong: {
     adminUrl: "KONG_ADMIN_URL",
@@ -81,141 +73,110 @@ const envVarMapping = {
   telemetry: {
     endpoint: "OPEN_TELEMETRY_ENDPOINT",
   },
-};
+} as const;
 
-function parseEnvVar(
-  value: string | undefined,
-  type: "string" | "number" | "array",
-): unknown {
-  if (value === undefined || value === "") return undefined;
-
-  value = value.replace(/^['"]+|['"]+$/g, "").trim();
-
-  switch (type) {
-    case "number":
-      const num = Number(value);
-      return isNaN(num) ? undefined : num;
-    case "array":
-      return value
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    default:
-      return value;
-  }
+function parseEnvVar(value: string | undefined, type: "string" | "number" | "boolean"): unknown {
+  if (value === undefined) return undefined;
+  if (type === "number") return Number(value);
+  if (type === "boolean") return value.toLowerCase() === "true";
+  return value;
 }
 
-function getEnvValue(key: string): string | undefined {
-  return Bun.env[key] || process.env[key];
-}
 
-function loadFromEnvironment(): Partial<AppConfig> {
-  const config: any = {
-    server: {},
-    jwt: {},
-    kong: {},
+function loadConfigFromEnv(): Partial<AppConfig> {
+  const config: Partial<AppConfig> = {};
+
+  // Load server config
+  config.server = {
+    port: (parseEnvVar(Bun.env[envVarMapping.server.port], "number") as number) || defaultConfig.server.port,
+    nodeEnv: (parseEnvVar(Bun.env[envVarMapping.server.nodeEnv], "string") as string) || defaultConfig.server.nodeEnv,
   };
 
-  const serverPort = getEnvValue(envVarMapping.server.port);
-  if (serverPort) config.server.port = parseEnvVar(serverPort, "number");
+  // Load JWT config
+  config.jwt = {
+    authority: (parseEnvVar(Bun.env[envVarMapping.jwt.authority], "string") as string) || defaultConfig.jwt.authority,
+    audience: (parseEnvVar(Bun.env[envVarMapping.jwt.audience], "string") as string) || defaultConfig.jwt.audience,
+    keyClaimName: (parseEnvVar(Bun.env[envVarMapping.jwt.keyClaimName], "string") as string) || defaultConfig.jwt.keyClaimName,
+    expirationMinutes: (parseEnvVar(Bun.env[envVarMapping.jwt.expirationMinutes], "number") as number) || defaultConfig.jwt.expirationMinutes,
+  };
 
-  const nodeEnv = getEnvValue(envVarMapping.server.nodeEnv);
-  if (nodeEnv) config.server.nodeEnv = parseEnvVar(nodeEnv, "string");
+  // Load Kong config
+  config.kong = {
+    adminUrl: (parseEnvVar(Bun.env[envVarMapping.kong.adminUrl], "string") as string) || defaultConfig.kong.adminUrl,
+    adminToken: (parseEnvVar(Bun.env[envVarMapping.kong.adminToken], "string") as string) || defaultConfig.kong.adminToken,
+    consumerIdHeader: defaultConfig.kong.consumerIdHeader,
+    consumerUsernameHeader: defaultConfig.kong.consumerUsernameHeader,
+    anonymousHeader: defaultConfig.kong.anonymousHeader,
+  };
 
-  const jwtAuthority = getEnvValue(envVarMapping.jwt.authority);
-  if (jwtAuthority) config.jwt.authority = parseEnvVar(jwtAuthority, "string");
-
-  const jwtAudience = getEnvValue(envVarMapping.jwt.audience);
-  if (jwtAudience) config.jwt.audience = parseEnvVar(jwtAudience, "string");
-
-  const jwtKeyClaimName = getEnvValue(envVarMapping.jwt.keyClaimName);
-  if (jwtKeyClaimName)
-    config.jwt.keyClaimName = parseEnvVar(jwtKeyClaimName, "string");
-
-  const kongAdminUrl = getEnvValue(envVarMapping.kong.adminUrl);
-  if (kongAdminUrl) config.kong.adminUrl = parseEnvVar(kongAdminUrl, "string");
-
-  const kongAdminToken = getEnvValue(envVarMapping.kong.adminToken);
-  if (kongAdminToken)
-    config.kong.adminToken = parseEnvVar(kongAdminToken, "string");
-
-  const telemetryEndpoint = getEnvValue(envVarMapping.telemetry.endpoint);
+  // Load Telemetry config
+  const telemetryEndpoint = parseEnvVar(Bun.env[envVarMapping.telemetry.endpoint], "string") as string;
   if (telemetryEndpoint) {
     config.telemetry = {
-      endpoint: parseEnvVar(telemetryEndpoint, "string"),
+      endpoint: telemetryEndpoint,
     };
   }
 
   return config;
 }
 
-function deepMerge<T>(target: T, source: Partial<T>): T {
-  const output = { ...target } as any;
 
-  for (const key in source) {
-    const sourceValue = source[key];
-    if (
-      sourceValue &&
-      typeof sourceValue === "object" &&
-      !Array.isArray(sourceValue)
-    ) {
-      output[key] = deepMerge(
-        target[key as keyof T] || ({} as any),
-        sourceValue,
-      );
-    } else if (sourceValue !== undefined) {
-      output[key] = sourceValue;
-    }
+let config: AppConfig;
+
+try {
+  // Merge default config with environment variables
+  const envConfig = loadConfigFromEnv();
+  const mergedConfig = {
+    server: { ...defaultConfig.server, ...envConfig.server },
+    jwt: { ...defaultConfig.jwt, ...envConfig.jwt },
+    kong: { ...defaultConfig.kong, ...envConfig.kong },
+    telemetry: envConfig.telemetry,
+  };
+
+  // Validate merged configuration against schemas
+  config = AppConfigSchema.parse(mergedConfig);
+
+  // Check required variables
+  const requiredVars = [
+    { key: "JWT_AUTHORITY", value: config.jwt.authority },
+    { key: "JWT_AUDIENCE", value: config.jwt.audience },
+    { key: "KONG_ADMIN_URL", value: config.kong.adminUrl },
+    { key: "KONG_ADMIN_TOKEN", value: config.kong.adminToken },
+  ];
+
+  const missingVars = requiredVars.filter(
+    ({ value }) => !value || value.trim() === ""
+  );
+
+  if (missingVars.length > 0) {
+    const missing = missingVars.map(({ key }) => key).join(", ");
+    throw new Error(`Missing required environment variables: ${missing}`);
   }
 
-  return output;
+  console.log("✅ Configuration loaded successfully");
+  console.log(`   Server: ${config.server.nodeEnv} mode on port ${config.server.port}`);
+  console.log(`   JWT Authority: ${config.jwt.authority}`);
+  console.log(`   Kong Admin: ${config.kong.adminUrl}`);
+
+  if (config.telemetry) {
+    console.log(`   Telemetry: ${config.telemetry.endpoint}`);
+  }
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    const issues = error.issues
+      .map((issue) => {
+        const path = issue.path.join(".");
+        return `  - ${path}: ${issue.message}`;
+      })
+      .join("\n");
+
+    throw new Error(`Configuration validation failed:\n${issues}`);
+  }
+
+  throw error;
 }
 
 export function loadConfig(): AppConfig {
-  try {
-    const envConfig = loadFromEnvironment();
-    const mergedConfig = deepMerge(defaultConfig, envConfig);
-    const config = AppConfigSchema.parse(mergedConfig);
-
-    const requiredVars = [
-      { key: "JWT_AUTHORITY", value: config.jwt.authority },
-      { key: "JWT_AUDIENCE", value: config.jwt.audience },
-      { key: "KONG_ADMIN_URL", value: config.kong.adminUrl },
-      { key: "KONG_ADMIN_TOKEN", value: config.kong.adminToken },
-    ];
-
-    const missingVars = requiredVars.filter(
-      ({ value }) => !value || value.trim() === "",
-    );
-    if (missingVars.length > 0) {
-      const missing = missingVars.map(({ key }) => key).join(", ");
-      throw new Error(`Missing required environment variables: ${missing}`);
-    }
-
-    console.log("✅ Configuration loaded successfully");
-    console.log(
-      `   Server: ${config.server.nodeEnv} mode on port ${config.server.port}`,
-    );
-    console.log(`   JWT Authority: ${config.jwt.authority}`);
-    console.log(`   Kong Admin: ${config.kong.adminUrl}`);
-
-    if (config.telemetry) {
-      console.log(`   Telemetry: ${config.telemetry.endpoint}`);
-    }
-
-    return config;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const issues = error.issues
-        .map((issue) => {
-          const path = issue.path.join(".");
-          return `  - ${path}: ${issue.message}`;
-        })
-        .join("\n");
-
-      throw new Error(`Configuration validation failed:\n${issues}`);
-    }
-
-    throw error;
-  }
+  return config;
 }
+
