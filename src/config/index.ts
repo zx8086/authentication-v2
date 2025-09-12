@@ -29,15 +29,6 @@ const KongConfigSchema = z.object({
   anonymousHeader: z.string().min(1, "Anonymous header is required"),
 });
 
-const CorsConfigSchema = z.object({
-  origins: z.array(z.string()).min(1, "At least one CORS origin is required"),
-});
-
-const RateLimitConfigSchema = z.object({
-  windowMs: z.number().min(1000, "Rate limit window must be at least 1000ms"),
-  maxRequests: z.number().min(1, "Rate limit max requests must be at least 1"),
-});
-
 const TelemetryConfigSchema = z
   .object({
     endpoint: z.string().url("Telemetry endpoint must be a valid URL"),
@@ -48,8 +39,6 @@ const AppConfigSchema = z.object({
   server: ServerConfigSchema,
   jwt: JwtConfigSchema,
   kong: KongConfigSchema,
-  cors: CorsConfigSchema,
-  rateLimit: RateLimitConfigSchema,
   telemetry: TelemetryConfigSchema,
 });
 
@@ -61,24 +50,17 @@ const defaultConfig: AppConfig = {
     nodeEnv: "development",
   },
   jwt: {
-    authority: "", // Required - no default
-    audience: "", // Required - no default
+    authority: "",
+    audience: "",
     keyClaimName: "key",
     expirationMinutes: 15,
   },
   kong: {
-    adminUrl: "", // Required - no default
-    adminToken: "", // Required - no default
+    adminUrl: "",
+    adminToken: "",
     consumerIdHeader: "x-consumer-id",
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",
-  },
-  cors: {
-    origins: ["*"],
-  },
-  rateLimit: {
-    windowMs: 900000, // 15 minutes
-    maxRequests: 100,
   },
 };
 
@@ -95,13 +77,6 @@ const envVarMapping = {
   kong: {
     adminUrl: "KONG_ADMIN_URL",
     adminToken: "KONG_ADMIN_TOKEN",
-  },
-  cors: {
-    origins: "API_CORS",
-  },
-  rateLimit: {
-    windowMs: "RATE_LIMIT_WINDOW_MS",
-    maxRequests: "RATE_LIMIT_MAX_REQUESTS",
   },
   telemetry: {
     endpoint: "OPEN_TELEMETRY_ENDPOINT",
@@ -139,8 +114,6 @@ function loadFromEnvironment(): Partial<AppConfig> {
     server: {},
     jwt: {},
     kong: {},
-    cors: {},
-    rateLimit: {},
   };
 
   const serverPort = getEnvValue(envVarMapping.server.port);
@@ -165,17 +138,6 @@ function loadFromEnvironment(): Partial<AppConfig> {
   const kongAdminToken = getEnvValue(envVarMapping.kong.adminToken);
   if (kongAdminToken)
     config.kong.adminToken = parseEnvVar(kongAdminToken, "string");
-
-  const corsOrigins = getEnvValue(envVarMapping.cors.origins);
-  if (corsOrigins) config.cors.origins = parseEnvVar(corsOrigins, "array");
-
-  const rateLimitWindowMs = getEnvValue(envVarMapping.rateLimit.windowMs);
-  if (rateLimitWindowMs)
-    config.rateLimit.windowMs = parseEnvVar(rateLimitWindowMs, "number");
-
-  const rateLimitMaxRequests = getEnvValue(envVarMapping.rateLimit.maxRequests);
-  if (rateLimitMaxRequests)
-    config.rateLimit.maxRequests = parseEnvVar(rateLimitMaxRequests, "number");
 
   const telemetryEndpoint = getEnvValue(envVarMapping.telemetry.endpoint);
   if (telemetryEndpoint) {
@@ -212,9 +174,7 @@ function deepMerge<T>(target: T, source: Partial<T>): T {
 export function loadConfig(): AppConfig {
   try {
     const envConfig = loadFromEnvironment();
-
     const mergedConfig = deepMerge(defaultConfig, envConfig);
-
     const config = AppConfigSchema.parse(mergedConfig);
 
     const requiredVars = [
@@ -238,7 +198,6 @@ export function loadConfig(): AppConfig {
     );
     console.log(`   JWT Authority: ${config.jwt.authority}`);
     console.log(`   Kong Admin: ${config.kong.adminUrl}`);
-    console.log(`   CORS Origins: ${config.cors.origins.join(", ")}`);
 
     if (config.telemetry) {
       console.log(`   Telemetry: ${config.telemetry.endpoint}`);

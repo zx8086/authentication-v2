@@ -1,6 +1,6 @@
-# PVH Authentication Service - Bun Migration
+# Authentication Service
 
-This is a complete migration of the PVH Authentication Service from .NET Core 3.1 to Bun runtime using only native APIs.
+This is a complete migration of the Authentication Service from .NET Core 3.1 to Bun runtime using only native APIs.
 
 ## 🚀 Features
 

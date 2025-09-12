@@ -22,11 +22,6 @@ export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
   private static readonly decoder = new TextDecoder();
 
-   * @param consumerSecret Secret used for HMAC signing
-   * @param authority JWT issuer
-   * @param audience JWT audience
-   * @returns Promise<TokenResponse>
-   */
   static async createToken(
     username: string,
     consumerKey: string,
@@ -95,8 +90,6 @@ export class NativeBunJWT {
     }
   }
 
-   * @returns Promise<JWTPayload | null>
-   */
   static async verifyToken(
     token: string,
     consumerSecret: string
