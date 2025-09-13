@@ -1,0 +1,233 @@
+/* src/telemetry/logger.ts */
+
+// Pure OpenTelemetry logger implementation optimized for Bun
+// Using console-based structured logging since api-logs may not be available in this version
+
+export enum LogLevel {
+  DEBUG = 'debug',
+  INFO = 'info', 
+  WARN = 'warn',
+  ERROR = 'error'
+}
+
+export interface LogContext {
+  requestId?: string;
+  userId?: string;
+  consumerId?: string;
+  operation?: string;
+  duration?: number;
+  httpMethod?: string;
+  httpUrl?: string;
+  httpStatusCode?: number;
+  error?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+  kong?: {
+    operation?: string;
+    consumerUuid?: string;
+    responseTime?: number;
+  };
+  jwt?: {
+    operation?: string;
+    keyId?: string;
+    duration?: number;
+  };
+  [key: string]: any;
+}
+
+export interface StructuredLogData {
+  message: string;
+  level: LogLevel;
+  timestamp: number;
+  context?: LogContext;
+  meta?: Record<string, any>;
+}
+
+class BunTelemetryLogger {
+  private isInitialized = false;
+  private config: any;
+
+  public initialize(config?: any): void {
+    if (this.isInitialized) return;
+    
+    this.config = config || (globalThis as any).__appConfig?.telemetry;
+    this.isInitialized = true;
+  }
+
+
+  private shouldSampleLog(level: LogLevel): boolean {
+    if (!this.config?.sampling) return true;
+    
+    // Always sample errors (100% retention)
+    if (level === LogLevel.ERROR) {
+      const errorRate = this.config.sampling.errors ?? 1.0;
+      return Math.random() < errorRate;
+    }
+    
+    // Sample other logs at configured rate (15% default)
+    const logRate = this.config.sampling.logs ?? 0.15;
+    return Math.random() < logRate;
+  }
+
+  private getSeverityNumber(level: LogLevel): number {
+    switch (level) {
+      case LogLevel.DEBUG: return 5;
+      case LogLevel.INFO: return 9;
+      case LogLevel.WARN: return 13; 
+      case LogLevel.ERROR: return 17;
+      default: return 9;
+    }
+  }
+
+  private emit(logData: StructuredLogData): void {
+    // Apply sampling decision
+    if (!this.shouldSampleLog(logData.level)) {
+      return; // Skip this log based on sampling
+    }
+
+    // For now, use structured console logging (OTLP logs not available in this version)
+    this.emitToConsole(logData);
+  }
+
+
+  private emitToConsole(logData: StructuredLogData): void {
+    const structuredOutput = {
+      timestamp: new Date(logData.timestamp).toISOString(),
+      level: logData.level.toUpperCase(),
+      message: logData.message,
+      service: this.config?.serviceName || 'pvh-authentication-service',
+      runtime: 'bun',
+      ...logData.context,
+      ...logData.meta,
+    };
+
+    // Use appropriate console method based on log level
+    switch (logData.level) {
+      case LogLevel.ERROR:
+        console.error(JSON.stringify(structuredOutput));
+        break;
+      case LogLevel.WARN:
+        console.warn(JSON.stringify(structuredOutput));
+        break;
+      case LogLevel.DEBUG:
+        console.debug(JSON.stringify(structuredOutput));
+        break;
+      default:
+        console.log(JSON.stringify(structuredOutput));
+    }
+  }
+
+  // Unified logger interface - single method with context-based categorization
+  public debug(message: string, context?: LogContext): void {
+    this.emit({
+      message,
+      level: LogLevel.DEBUG,
+      timestamp: Date.now(),
+      context,
+    });
+  }
+
+  public info(message: string, context?: LogContext): void {
+    this.emit({
+      message,
+      level: LogLevel.INFO,
+      timestamp: Date.now(),
+      context,
+    });
+  }
+
+  public warn(message: string, context?: LogContext): void {
+    this.emit({
+      message,
+      level: LogLevel.WARN,
+      timestamp: Date.now(),
+      context,
+    });
+  }
+
+  public error(message: string, context?: LogContext): void {
+    this.emit({
+      message,
+      level: LogLevel.ERROR,
+      timestamp: Date.now(),
+      context,
+    });
+  }
+
+  // Specialized methods for authentication service operations
+  public logHttpRequest(method: string, url: string, statusCode: number, duration: number, context?: LogContext): void {
+    this.info('HTTP request processed', {
+      ...context,
+      httpMethod: method,
+      httpUrl: url,
+      httpStatusCode: statusCode,
+      duration,
+      type: 'http_request'
+    });
+  }
+
+  public logKongOperation(operation: string, duration: number, success: boolean, context?: LogContext): void {
+    const level = success ? LogLevel.INFO : LogLevel.ERROR;
+    const message = success 
+      ? `Kong operation completed: ${operation}` 
+      : `Kong operation failed: ${operation}`;
+      
+    this.emit({
+      message,
+      level,
+      timestamp: Date.now(),
+      context: {
+        ...context,
+        kong: {
+          operation,
+          responseTime: duration,
+          success
+        },
+        type: 'kong_operation'
+      }
+    });
+  }
+
+  public logJWTOperation(operation: string, duration: number, username?: string, context?: LogContext): void {
+    this.info(`JWT operation completed: ${operation}`, {
+      ...context,
+      jwt: {
+        operation,
+        duration,
+        username
+      },
+      type: 'jwt_operation'
+    });
+  }
+
+  public logAuthenticationEvent(event: string, success: boolean, context?: LogContext): void {
+    const level = success ? LogLevel.INFO : LogLevel.WARN;
+    const message = `Authentication event: ${event}`;
+    
+    this.emit({
+      message,
+      level,
+      timestamp: Date.now(),
+      context: {
+        ...context,
+        authentication: {
+          event,
+          success
+        },
+        type: 'authentication_event'
+      }
+    });
+  }
+
+  // Force flush for shutdown sequences
+  public async flush(): Promise<void> {
+    // For console logging, no flush needed
+    // In a full implementation, this would flush OTLP log batches
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
+// Global logger instance
+export const telemetryLogger = new BunTelemetryLogger();

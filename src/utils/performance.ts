@@ -9,22 +9,20 @@ export class PerformanceMonitor {
     fn: () => Promise<T>,
     logResults = true
   ): Promise<{ result: T; duration: number }> {
-    const start = Bun.nanoseconds();
+    const start = Number(Bun.nanoseconds());
     
     try {
       const result = await fn();
-      const duration = (Bun.nanoseconds() - start) / 1_000_000; // Convert to milliseconds
+      const duration = (Number(Bun.nanoseconds()) - start) / 1_000_000; // Convert to milliseconds
       
       if (logResults) {
-        console.log(`⏱️  ${operation}: ${duration.toFixed(2)}ms`);
       }
       
       this.recordMeasurement(operation, duration);
       
       return { result, duration };
     } catch (error) {
-      const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      console.error(`❌ ${operation} failed after ${duration.toFixed(2)}ms:`, error);
+      const duration = (Number(Bun.nanoseconds()) - start) / 1_000_000;
       throw error;
     }
   }
@@ -34,22 +32,20 @@ export class PerformanceMonitor {
     fn: () => T,
     logResults = true
   ): { result: T; duration: number } {
-    const start = Bun.nanoseconds();
+    const start = Number(Bun.nanoseconds());
     
     try {
       const result = fn();
-      const duration = (Bun.nanoseconds() - start) / 1_000_000; // Convert to milliseconds
+      const duration = (Number(Bun.nanoseconds()) - start) / 1_000_000; // Convert to milliseconds
       
       if (logResults) {
-        console.log(`⏱️  ${operation}: ${duration.toFixed(2)}ms`);
       }
       
       this.recordMeasurement(operation, duration);
       
       return { result, duration };
     } catch (error) {
-      const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      console.error(`❌ ${operation} failed after ${duration.toFixed(2)}ms:`, error);
+      const duration = (Number(Bun.nanoseconds()) - start) / 1_000_000;
       throw error;
     }
   }
@@ -105,7 +101,7 @@ export class PerformanceMonitor {
 }
 
 export class RateLimiter {
-  private limits = new Map<number, number[]>();
+  private limits = new Map<string, number[]>();
   private windowMs: number;
   private maxRequests: number;
 
@@ -115,8 +111,8 @@ export class RateLimiter {
   }
 
   checkLimit(identifier: string): boolean {
-    const key = Bun.hash(identifier);
-    const now = Bun.nanoseconds() / 1_000_000; // Convert to milliseconds
+    const key = Bun.hash(identifier).toString();
+    const now = Number(Bun.nanoseconds()) / 1_000_000; // Convert to milliseconds
     
     const requests = this.limits.get(key) || [];
     
@@ -135,8 +131,8 @@ export class RateLimiter {
   }
 
   getStats(identifier: string): { requests: number; remaining: number; resetTime: number } {
-    const key = Bun.hash(identifier);
-    const now = Bun.nanoseconds() / 1_000_000;
+    const key = Bun.hash(identifier).toString();
+    const now = Number(Bun.nanoseconds()) / 1_000_000;
     
     const requests = this.limits.get(key) || [];
     const recentRequests = requests.filter(timestamp => 
@@ -155,7 +151,7 @@ export class RateLimiter {
   }
 
   cleanup(): void {
-    const now = Bun.nanoseconds() / 1_000_000;
+    const now = Number(Bun.nanoseconds()) / 1_000_000;
     
     for (const [key, requests] of this.limits.entries()) {
       const recentRequests = requests.filter(timestamp => 

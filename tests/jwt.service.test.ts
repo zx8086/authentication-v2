@@ -190,8 +190,8 @@ describe('NativeBunJWT', () => {
 
       // Manually create an expired token for testing
       const header = { alg: 'HS256', typ: 'JWT' };
-      const headerB64 = btoa(JSON.stringify(header)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m]));
-      const payloadB64 = btoa(JSON.stringify(expiredPayload)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m]));
+      const headerB64 = btoa(JSON.stringify(header)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
+      const payloadB64 = btoa(JSON.stringify(expiredPayload)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
       const message = `${headerB64}.${payloadB64}`;
 
       // Sign it properly
@@ -204,7 +204,7 @@ describe('NativeBunJWT', () => {
       );
       const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
       const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-        .replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m]));
+        .replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
       
       const expiredToken = `${message}.${signatureB64}`;
 

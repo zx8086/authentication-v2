@@ -1,6 +1,7 @@
 /* src/services/jwt.service.ts */
 
-// JWT Service using Bun's native crypto.subtle API
+// JWT Service using Bun's native crypto.subtle API with OpenTelemetry tracing
+import { trace } from '@opentelemetry/api';
 export interface TokenResponse {
   access_token: string;
   expires_in: number;
@@ -31,6 +32,15 @@ export class NativeBunJWT {
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
+    // Create telemetry span
+    const tracer = trace.getTracer('pvh-authentication-service');
+    const span = tracer.startSpan('jwt_create', {
+      attributes: {
+        'jwt.username': username,
+        'jwt.operation': 'create'
+      }
+    });
+    
     try {
       const key = await crypto.subtle.importKey(
         'raw',
@@ -77,7 +87,14 @@ export class NativeBunJWT {
       const token = `${message}.${signatureB64}`;
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
-      console.log(`JWT created in ${duration.toFixed(2)}ms for user: ${username}`);
+      span.setAttributes({
+        'jwt.token_id': payload.jti,
+        'jwt.authority': authority,
+        'jwt.audience': audience,
+        'jwt.duration_ms': duration,
+        'jwt.expires_in': 900
+      });
+
 
       return {
         access_token: token,
@@ -85,8 +102,17 @@ export class NativeBunJWT {
       };
     } catch (error) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-      console.error(`JWT creation failed after ${duration.toFixed(2)}ms:`, error);
+      
+      span.setAttributes({
+        'error.type': 'jwt_creation_error',
+        'error.message': (error as Error).message,
+        'jwt.duration_ms': duration
+      });
+      
+      
       throw new Error('Failed to create JWT token');
+    } finally {
+      span.end();
     }
   }
 
@@ -94,6 +120,16 @@ export class NativeBunJWT {
     token: string,
     consumerSecret: string
   ): Promise<JWTPayload | null> {
+    const startTime = Bun.nanoseconds();
+    
+    // Create telemetry span
+    const tracer = trace.getTracer('pvh-authentication-service');
+    const span = tracer.startSpan('jwt_verify', {
+      attributes: {
+        'jwt.operation': 'verify'
+      }
+    });
+    
     try {
       const parts = token.split('.');
       if (parts.length !== 3) {
@@ -135,10 +171,32 @@ export class NativeBunJWT {
         throw new Error('Token expired');
       }
 
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      
+      span.setAttributes({
+        'jwt.username': payload.sub,
+        'jwt.token_id': payload.jti,
+        'jwt.issuer': payload.iss,
+        'jwt.audience': payload.aud,
+        'jwt.expires_at': payload.exp,
+        'jwt.duration_ms': duration
+      });
+      
+      
       return payload;
     } catch (error) {
-      console.error('JWT verification failed:', error);
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      
+      span.setAttributes({
+        'error.type': 'jwt_verification_error',
+        'error.message': (error as Error).message,
+        'jwt.duration_ms': duration
+      });
+      
+      
       return null;
+    } finally {
+      span.end();
     }
   }
 

@@ -5,7 +5,7 @@
   "description": "PVH Authentication Service - Migrated to Bun Runtime",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "bun --hot src/server.ts",
+    "dev": "bun src/server.ts",
     "start": "bun run src/server.ts",
     "build": "bun build src/server.ts --target=bun --outdir=dist --minify",
     "test": "bun test",
@@ -43,6 +43,22 @@
     }
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.0.0",
+    "@opentelemetry/api-logs": "^0.205.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.64.1",
+    "@opentelemetry/core": "^2.1.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.205.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.205.0",
+    "@opentelemetry/exporter-otlp-http": "^0.26.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
+    "@opentelemetry/instrumentation-fetch": "^0.205.0",
+    "@opentelemetry/instrumentation-http": "^0.205.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-logs": "^0.205.0",
+    "@opentelemetry/sdk-metrics": "^2.1.0",
+    "@opentelemetry/sdk-node": "^0.205.0",
+    "@opentelemetry/sdk-trace-base": "^2.1.0",
+    "@opentelemetry/semantic-conventions": "^1.0.0",
     "zod": "^4.1.8"
   }
 }

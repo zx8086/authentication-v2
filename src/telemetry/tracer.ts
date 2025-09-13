@@ -1,0 +1,194 @@
+/* src/telemetry/tracer.ts */
+
+// OpenTelemetry tracer implementation for authentication service
+import { trace, context, SpanStatusCode, SpanKind } from '@opentelemetry/api';
+import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
+
+export interface SpanContext {
+  operationName: string;
+  kind?: SpanKind;
+  attributes?: Record<string, string | number | boolean>;
+  parentSpan?: any;
+}
+
+class BunTelemetryTracer {
+  private tracer = trace.getTracer('pvh-authentication-service', '1.0.0');
+  private config: any;
+
+  public initialize(config?: any): void {
+    this.config = config || (globalThis as any).__appConfig?.telemetry;
+  }
+
+
+  // Create span with automatic telemetry mode and error handling
+  public createSpan<T>(
+    spanContext: SpanContext,
+    operation: () => T | Promise<T>
+  ): T | Promise<T> {
+    // Full telemetry - no sampling
+
+    const span = this.tracer.startSpan(spanContext.operationName, {
+      kind: spanContext.kind || SpanKind.INTERNAL,
+      attributes: spanContext.attributes || {},
+    });
+
+    const runWithSpan = <TResult>(fn: () => TResult | Promise<TResult>): TResult | Promise<TResult> => {
+      return context.with(trace.setSpan(context.active(), span), () => {
+        let result: TResult | Promise<TResult>;
+        try {
+          result = fn();
+          
+          // Handle Promise results
+          if (result instanceof Promise) {
+            return result
+              .then((res) => {
+                span.setStatus({ code: SpanStatusCode.OK });
+                return res;
+              })
+              .catch((error) => {
+                span.recordException(error);
+                span.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: error.message || 'Unknown error',
+                });
+                throw error;
+              })
+              .finally(() => {
+                span.end();
+              });
+          }
+          
+          // Handle synchronous results
+          span.setStatus({ code: SpanStatusCode.OK });
+          span.end();
+          return result;
+        } catch (error) {
+          span.recordException(error as Error);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (error as Error).message || 'Unknown error',
+          });
+          span.end();
+          throw error;
+        }
+      });
+    };
+
+    return runWithSpan(operation);
+  }
+
+  // Specialized span creation for HTTP requests
+  public createHttpSpan<T>(
+    method: string,
+    url: string,
+    statusCode: number,
+    operation: () => T | Promise<T>
+  ): T | Promise<T> {
+    return this.createSpan(
+      {
+        operationName: `HTTP ${method}`,
+        kind: SpanKind.SERVER,
+        attributes: {
+          [SemanticAttributes.HTTP_METHOD]: method,
+          [SemanticAttributes.HTTP_URL]: url,
+          [SemanticAttributes.HTTP_STATUS_CODE]: statusCode,
+          'http.server.type': 'bun_serve',
+        },
+      },
+      operation
+    );
+  }
+
+  // Specialized span creation for Kong API calls
+  public createKongSpan<T>(
+    operation: string,
+    url: string,
+    method: string = 'GET',
+    spanOperation: () => T | Promise<T>
+  ): T | Promise<T> {
+    return this.createSpan(
+      {
+        operationName: `Kong ${operation}`,
+        kind: SpanKind.CLIENT,
+        attributes: {
+          [SemanticAttributes.HTTP_METHOD]: method,
+          [SemanticAttributes.HTTP_URL]: url,
+          'kong.operation': operation,
+          'kong.api.type': 'admin_api',
+          'http.client.type': 'kong_gateway',
+        },
+      },
+      spanOperation
+    );
+  }
+
+  // Specialized span creation for JWT operations
+  public createJWTSpan<T>(
+    operation: string,
+    spanOperation: () => T | Promise<T>,
+    username?: string
+  ): T | Promise<T> {
+    return this.createSpan(
+      {
+        operationName: `JWT ${operation}`,
+        kind: SpanKind.INTERNAL,
+        attributes: {
+          'jwt.operation': operation,
+          'jwt.username': username || 'unknown',
+          'crypto.algorithm': 'HS256',
+          'crypto.key_type': 'hmac',
+        },
+      },
+      spanOperation
+    );
+  }
+
+  // Add attributes to current active span
+  public addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      activeSpan.setAttributes(attributes);
+    }
+  }
+
+  // Record exception in current active span
+  public recordException(error: Error): void {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      activeSpan.recordException(error);
+      activeSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error.message,
+      });
+    }
+  }
+
+  // Get current trace ID for logging correlation
+  public getCurrentTraceId(): string | undefined {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      return activeSpan.spanContext().traceId;
+    }
+    return undefined;
+  }
+
+  // Get current span ID for logging correlation
+  public getCurrentSpanId(): string | undefined {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      return activeSpan.spanContext().spanId;
+    }
+    return undefined;
+  }
+}
+
+// Global tracer instance
+export const telemetryTracer = new BunTelemetryTracer();
+
+// Convenience function for creating spans
+export function createSpan<T>(
+  spanContext: SpanContext,
+  operation: () => T | Promise<T>
+): T | Promise<T> {
+  return telemetryTracer.createSpan(spanContext, operation);
+}
