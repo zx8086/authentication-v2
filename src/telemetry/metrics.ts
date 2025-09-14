@@ -1,7 +1,11 @@
 /* src/telemetry/metrics.ts */
 
 // Comprehensive metrics collection for production observability
-import { type Attributes, metrics, type ObservableResult } from "@opentelemetry/api";
+import {
+  type Attributes,
+  metrics,
+  type ObservableResult,
+} from "@opentelemetry/api";
 
 let isInitialized = false;
 
@@ -48,7 +52,7 @@ export function initializeMetrics(): void {
   // Use the global metrics API - should be configured by NodeSDK
   const _meterProvider = metrics.getMeterProvider();
 
-  const meter = metrics.getMeter("authentication-service-metrics", "1.0.0");
+  const meter = metrics.getMeter("authentication-service", "1.0.0");
 
   // HTTP Metrics
   httpRequestCounter = meter.createCounter("http_requests_total", {
@@ -56,59 +60,85 @@ export function initializeMetrics(): void {
     unit: "1",
   });
 
-  httpResponseTimeHistogram = meter.createHistogram("http_response_time_seconds", {
-    description: "HTTP request response time in seconds",
-    unit: "s",
-    advice: {
-      explicitBucketBoundaries: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  httpResponseTimeHistogram = meter.createHistogram(
+    "http_response_time_seconds",
+    {
+      description: "HTTP request response time in seconds",
+      unit: "s",
+      advice: {
+        explicitBucketBoundaries: [
+          0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+        ],
+      },
     },
-  });
+  );
 
-  httpRequestsByStatusCounter = meter.createCounter("http_requests_by_status_total", {
-    description: "HTTP requests grouped by status code",
-    unit: "1",
-  });
+  httpRequestsByStatusCounter = meter.createCounter(
+    "http_requests_by_status_total",
+    {
+      description: "HTTP requests grouped by status code",
+      unit: "1",
+    },
+  );
 
-  httpActiveConnectionsGauge = meter.createUpDownCounter("http_active_connections", {
-    description: "Number of active HTTP connections",
-    unit: "1",
-  });
+  httpActiveConnectionsGauge = meter.createUpDownCounter(
+    "http_active_connections",
+    {
+      description: "Number of active HTTP connections",
+      unit: "1",
+    },
+  );
 
   httpRequestSizeHistogram = meter.createHistogram("http_request_size_bytes", {
     description: "HTTP request payload size in bytes",
     unit: "By",
   });
 
-  httpResponseSizeHistogram = meter.createHistogram("http_response_size_bytes", {
-    description: "HTTP response payload size in bytes",
-    unit: "By",
-  });
+  httpResponseSizeHistogram = meter.createHistogram(
+    "http_response_size_bytes",
+    {
+      description: "HTTP response payload size in bytes",
+      unit: "By",
+    },
+  );
 
   // System Metrics
-  processMemoryUsageGauge = meter.createObservableGauge("process_memory_usage_bytes", {
-    description: "Process memory usage in bytes",
-    unit: "By",
-  });
+  processMemoryUsageGauge = meter.createObservableGauge(
+    "process_memory_usage_bytes",
+    {
+      description: "Process memory usage in bytes",
+      unit: "By",
+    },
+  );
 
-  processHeapUsageGauge = meter.createObservableGauge("process_heap_usage_bytes", {
-    description: "Process heap memory usage in bytes",
-    unit: "By",
-  });
+  processHeapUsageGauge = meter.createObservableGauge(
+    "process_heap_usage_bytes",
+    {
+      description: "Process heap memory usage in bytes",
+      unit: "By",
+    },
+  );
 
-  processCpuUsageGauge = meter.createObservableGauge("process_cpu_usage_percent", {
-    description: "Process CPU usage percentage",
-    unit: "%",
-  });
+  processCpuUsageGauge = meter.createObservableGauge(
+    "process_cpu_usage_percent",
+    {
+      description: "Process CPU usage percentage",
+      unit: "%",
+    },
+  );
 
   processUptimeGauge = meter.createObservableGauge("process_uptime_seconds", {
     description: "Process uptime in seconds",
     unit: "s",
   });
 
-  processActiveHandlesGauge = meter.createObservableGauge("process_active_handles", {
-    description: "Number of active handles",
-    unit: "1",
-  });
+  processActiveHandlesGauge = meter.createObservableGauge(
+    "process_active_handles",
+    {
+      description: "Number of active handles",
+      unit: "1",
+    },
+  );
 
   // Business/Application Metrics
   jwtTokensIssuedCounter = meter.createCounter("jwt_tokens_issued_total", {
@@ -116,35 +146,50 @@ export function initializeMetrics(): void {
     unit: "1",
   });
 
-  jwtTokenCreationTimeHistogram = meter.createHistogram("jwt_token_creation_duration_seconds", {
-    description: "Time taken to create JWT tokens",
-    unit: "s",
-  });
+  jwtTokenCreationTimeHistogram = meter.createHistogram(
+    "jwt_token_creation_duration_seconds",
+    {
+      description: "Time taken to create JWT tokens",
+      unit: "s",
+    },
+  );
 
-  authenticationAttemptsCounter = meter.createCounter("authentication_attempts_total", {
-    description: "Total number of authentication attempts",
-    unit: "1",
-  });
+  authenticationAttemptsCounter = meter.createCounter(
+    "authentication_attempts_total",
+    {
+      description: "Total number of authentication attempts",
+      unit: "1",
+    },
+  );
 
-  authenticationSuccessCounter = meter.createCounter("authentication_success_total", {
-    description: "Total number of successful authentications",
-    unit: "1",
-  });
+  authenticationSuccessCounter = meter.createCounter(
+    "authentication_success_total",
+    {
+      description: "Total number of successful authentications",
+      unit: "1",
+    },
+  );
 
-  authenticationFailureCounter = meter.createCounter("authentication_failures_total", {
-    description: "Total number of failed authentications",
-    unit: "1",
-  });
+  authenticationFailureCounter = meter.createCounter(
+    "authentication_failures_total",
+    {
+      description: "Total number of failed authentications",
+      unit: "1",
+    },
+  );
 
   kongOperationsCounter = meter.createCounter("kong_operations_total", {
     description: "Total number of Kong API operations",
     unit: "1",
   });
 
-  kongResponseTimeHistogram = meter.createHistogram("kong_operation_duration_seconds", {
-    description: "Kong API operation response time",
-    unit: "s",
-  });
+  kongResponseTimeHistogram = meter.createHistogram(
+    "kong_operation_duration_seconds",
+    {
+      description: "Kong API operation response time",
+      unit: "s",
+    },
+  );
 
   kongCacheHitCounter = meter.createCounter("kong_cache_hits_total", {
     description: "Number of Kong cache hits",
@@ -172,20 +217,29 @@ export function initializeMetrics(): void {
     unit: "1",
   });
 
-  telemetryExportErrorCounter = meter.createCounter("telemetry_export_errors_total", {
-    description: "Total number of telemetry export errors",
-    unit: "1",
-  });
+  telemetryExportErrorCounter = meter.createCounter(
+    "telemetry_export_errors_total",
+    {
+      description: "Total number of telemetry export errors",
+      unit: "1",
+    },
+  );
 
-  circuitBreakerStateGauge = meter.createObservableGauge("circuit_breaker_state", {
-    description: "Circuit breaker state (0=closed, 1=open, 2=half-open)",
-    unit: "1",
-  });
+  circuitBreakerStateGauge = meter.createObservableGauge(
+    "circuit_breaker_state",
+    {
+      description: "Circuit breaker state (0=closed, 1=open, 2=half-open)",
+      unit: "1",
+    },
+  );
 
-  operationDurationHistogram = meter.createHistogram("operation_duration_seconds", {
-    description: "Duration of various operations",
-    unit: "s",
-  });
+  operationDurationHistogram = meter.createHistogram(
+    "operation_duration_seconds",
+    {
+      description: "Duration of various operations",
+      unit: "s",
+    },
+  );
 
   // Set up system metrics collection
   setupSystemMetricsCollection();
@@ -198,7 +252,7 @@ export function recordHttpRequest(
   route: string,
   statusCode?: number,
   requestSize?: number,
-  responseSize?: number
+  responseSize?: number,
 ): void {
   if (!isInitialized) {
     console.warn("⚠️ Metrics not initialized - cannot record HTTP request", {
@@ -252,12 +306,15 @@ export function recordHttpResponseTime(
   durationMs: number,
   method: string,
   route: string,
-  statusCode?: number
+  statusCode?: number,
 ): void {
   if (!isInitialized) {
-    console.warn("⚠️ Metrics not initialized - cannot record HTTP response time", {
-      initialized: isInitialized,
-    });
+    console.warn(
+      "⚠️ Metrics not initialized - cannot record HTTP response time",
+      {
+        initialized: isInitialized,
+      },
+    );
     return;
   }
 
@@ -283,7 +340,10 @@ export function recordHttpResponseTime(
 }
 
 // JWT Token Metrics
-export function recordJwtTokenIssued(username: string, creationTimeMs: number): void {
+export function recordJwtTokenIssued(
+  username: string,
+  creationTimeMs: number,
+): void {
   if (!isInitialized) return;
 
   const attributes = { username };
@@ -301,7 +361,7 @@ export function recordJwtTokenIssued(username: string, creationTimeMs: number): 
 export function recordAuthenticationAttempt(
   type: string,
   success: boolean,
-  username?: string
+  username?: string,
 ): void {
   if (!isInitialized) return;
 
@@ -328,7 +388,7 @@ export function recordKongOperation(
   operation: string,
   durationMs: number,
   success: boolean,
-  cached?: boolean
+  cached?: boolean,
 ): void {
   if (!isInitialized) return;
 
@@ -367,7 +427,10 @@ export function recordActiveConnection(increment: boolean): void {
 }
 
 // Error Tracking
-export function recordError(errorType: string, context?: Record<string, any>): void {
+export function recordError(
+  errorType: string,
+  context?: Record<string, any>,
+): void {
   if (!isInitialized) return;
 
   const attributes = {
@@ -378,7 +441,7 @@ export function recordError(errorType: string, context?: Record<string, any>): v
           acc[key] = String(context[key]);
           return acc;
         },
-        {} as Record<string, string>
+        {} as Record<string, string>,
       )),
   };
 
@@ -390,7 +453,10 @@ export function recordError(errorType: string, context?: Record<string, any>): v
 }
 
 // Exception Tracking
-export function recordException(exception: Error, context?: Record<string, any>): void {
+export function recordException(
+  exception: Error,
+  context?: Record<string, any>,
+): void {
   if (!isInitialized) return;
 
   const attributes = {
@@ -402,7 +468,7 @@ export function recordException(exception: Error, context?: Record<string, any>)
           acc[key] = String(context[key]);
           return acc;
         },
-        {} as Record<string, string>
+        {} as Record<string, string>,
       )),
   };
 
@@ -418,7 +484,7 @@ export function recordOperationDuration(
   operation: string,
   durationMs: number,
   success: boolean,
-  context?: Record<string, any>
+  context?: Record<string, any>,
 ): void {
   if (!isInitialized) return;
 
@@ -431,7 +497,7 @@ export function recordOperationDuration(
           acc[key] = String(context[key]);
           return acc;
         },
-        {} as Record<string, string>
+        {} as Record<string, string>,
       )),
   };
 
@@ -445,7 +511,11 @@ export function recordOperationDuration(
 }
 
 // Telemetry Export Tracking
-export function recordTelemetryExport(success: boolean, exportType: string, error?: string): void {
+export function recordTelemetryExport(
+  success: boolean,
+  exportType: string,
+  error?: string,
+): void {
   if (!isInitialized) return;
 
   const attributes = { export_type: exportType };
@@ -473,36 +543,46 @@ function setupSystemMetricsCollection(): void {
       const cpuUsage = process.cpuUsage();
 
       // Memory metrics
-      processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(memUsage.rss, { type: "rss" });
-        observableResult.observe(memUsage.external, { type: "external" });
-        observableResult.observe(memUsage.arrayBuffers, {
-          type: "array_buffers",
-        });
-      });
+      processMemoryUsageGauge.addCallback(
+        (observableResult: ObservableResult<Attributes>) => {
+          observableResult.observe(memUsage.rss, { type: "rss" });
+          observableResult.observe(memUsage.external, { type: "external" });
+          observableResult.observe(memUsage.arrayBuffers, {
+            type: "array_buffers",
+          });
+        },
+      );
 
-      processHeapUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(memUsage.heapUsed, { type: "used" });
-        observableResult.observe(memUsage.heapTotal, { type: "total" });
-      });
+      processHeapUsageGauge.addCallback(
+        (observableResult: ObservableResult<Attributes>) => {
+          observableResult.observe(memUsage.heapUsed, { type: "used" });
+          observableResult.observe(memUsage.heapTotal, { type: "total" });
+        },
+      );
 
       // CPU metrics (converted to percentage)
       const cpuPercent = (cpuUsage.user + cpuUsage.system) / 1000; // Convert from microseconds
-      processCpuUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(cpuPercent, { type: "combined" });
-      });
+      processCpuUsageGauge.addCallback(
+        (observableResult: ObservableResult<Attributes>) => {
+          observableResult.observe(cpuPercent, { type: "combined" });
+        },
+      );
 
       // Uptime
-      processUptimeGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(process.uptime());
-      });
+      processUptimeGauge.addCallback(
+        (observableResult: ObservableResult<Attributes>) => {
+          observableResult.observe(process.uptime());
+        },
+      );
 
       // Active handles (if available)
       if (typeof (process as any)._getActiveHandles === "function") {
         const activeHandles = (process as any)._getActiveHandles().length;
-        processActiveHandlesGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-          observableResult.observe(activeHandles);
-        });
+        processActiveHandlesGauge.addCallback(
+          (observableResult: ObservableResult<Attributes>) => {
+            observableResult.observe(activeHandles);
+          },
+        );
       }
     } catch (error) {
       console.error("❌ Failed to collect system metrics:", error);

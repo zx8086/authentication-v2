@@ -25,7 +25,6 @@ const KongConfigSchema = z.object({
 
 const TelemetryConfigSchema = z
   .object({
-    enabled: z.boolean(),
     serviceName: z.string().min(1).describe("Service identifier for telemetry"),
     serviceVersion: z.string().min(1).describe("Service version for telemetry"),
     environment: z
@@ -70,6 +69,7 @@ const AppConfigSchema = z.object({
 
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {
+    enabled: boolean;
     enableOpenTelemetry: boolean;
   };
 };
@@ -94,7 +94,6 @@ const defaultConfig: AppConfig = {
     anonymousHeader: "x-anonymous-consumer",
   },
   telemetry: {
-    enabled: false, // Disabled by default - enable via TELEMETRY_ENABLED=true
     serviceName: pkg.name || "authentication-service",
     serviceVersion: pkg.version || "1.0.0",
     environment: "development",
@@ -127,7 +126,6 @@ const envVarMapping = {
     adminToken: "KONG_ADMIN_TOKEN",
   },
   telemetry: {
-    enabled: "TELEMETRY_ENABLED",
     // Use standard OpenTelemetry environment variables as primary
     serviceName: "OTEL_SERVICE_NAME",
     serviceVersion: "OTEL_SERVICE_VERSION",
@@ -237,12 +235,6 @@ function loadConfigFromEnv(): Partial<AppConfig> {
   const baseEndpoint = parseEnvVar(Bun.env[envVarMapping.telemetry.endpoint], "string") as string;
 
   config.telemetry = {
-    enabled: parseEnvVar(
-      Bun.env[envVarMapping.telemetry.enabled],
-      "boolean",
-      defaultConfig.telemetry.enabled
-    ) as boolean,
-
     // Use standard OpenTelemetry environment variables
     serviceName: parseEnvVar(
       Bun.env[envVarMapping.telemetry.serviceName],
@@ -338,7 +330,9 @@ try {
     ...validatedConfig,
     telemetry: {
       ...validatedConfig.telemetry,
-      // OpenTelemetry is enabled when mode is 'otlp' or 'both', regardless of enabled flag
+      // Enabled is determined by telemetry mode - if not console, then enabled
+      enabled: validatedConfig.telemetry.mode !== "console",
+      // OpenTelemetry is enabled when mode is 'otlp' or 'both'
       enableOpenTelemetry: validatedConfig.telemetry.mode !== "console",
     },
   };

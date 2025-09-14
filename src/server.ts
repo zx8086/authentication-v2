@@ -309,12 +309,13 @@ async function handleHealthCheck(span: any): Promise<Response> {
       duration_ms: duration,
     });
 
-    log("HTTP request processed", {
+    log("HTTP request processed Health check completed successfully", {
       method: "GET",
       url: "/health",
       statusCode: status,
       duration,
       health_status: health.status,
+      operation: "health_check",
     });
 
     // Calculate response size
@@ -393,12 +394,13 @@ function handleTelemetryHealth(): Response {
           duration_ms: duration,
         });
 
-        log("HTTP request processed", {
+        log("HTTP request processed Telemetry health status retrieved successfully", {
           method: "GET",
           url: "/health/telemetry",
           statusCode: 200,
           duration,
           telemetry_initialized: telemetryStatus.initialized,
+          operation: "telemetry_health_check",
         });
 
         const _responseSize = JSON.stringify(telemetryStatus, null, 2).length;
@@ -512,7 +514,7 @@ function handleMetricsHealth(): Response {
         },
         actions: {
           test_metrics: "POST /debug/metrics/test",
-          force_flush: "POST /debug/metrics/flush",
+          force_export: "POST /debug/metrics/export",
           export_stats: "GET /debug/metrics/stats",
         },
       },
@@ -545,7 +547,6 @@ function handleDebugMetricsTest(): Response {
   const startTime = Bun.nanoseconds();
 
   try {
-    console.log("🧪 [DEBUG] Testing metrics recording...");
 
     // Record test metrics
     testMetricRecording();
@@ -559,19 +560,39 @@ function handleDebugMetricsTest(): Response {
       ],
       export_stats: getMetricsExportStats(),
       next_scheduled_export: "Within 10 seconds (automatic)",
-      manual_flush: "Available at POST /debug/metrics/flush",
+      manual_export: "Available at POST /debug/metrics/export",
     };
 
-    const _duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-    const _responseSize = JSON.stringify(result, null, 2).length;
-    // Skip manual metrics recording for debug endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const responseSize = JSON.stringify(result, null, 2).length;
+
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/test",
+      statusCode: 200,
+      duration,
+      debug_endpoint: "metrics_test",
+      response_size: responseSize,
+      message: "Test metrics recorded successfully",
+      operation: "test_metrics_recording",
+    });
 
     return new Response(JSON.stringify(result, null, 2), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/test",
+      statusCode: 500,
+      duration,
+      debug_endpoint: "metrics_test",
+      error: "Test metrics failed",
+      message: "Test metrics recording failed",
+      operation: "test_metrics_recording",
+    });
     return new Response(
       JSON.stringify({
         error: "Test metrics failed",
@@ -585,22 +606,21 @@ function handleDebugMetricsTest(): Response {
   }
 }
 
-async function handleDebugMetricsFlush(): Promise<Response> {
+async function handleDebugMetricsExport(): Promise<Response> {
   const startTime = Bun.nanoseconds();
 
   try {
-    console.log("🔄 [DEBUG] Manual metrics flush requested...");
 
     const statsBefore = getMetricsExportStats();
 
-    // Force flush metrics
+    // Force export metrics
     await forceMetricsFlush();
 
     const statsAfter = getMetricsExportStats();
 
     const result = {
       timestamp: new Date().toISOString(),
-      message: "Metrics flush completed successfully",
+      message: "Metrics export completed successfully",
       stats_before: statsBefore,
       stats_after: statsAfter,
       export_attempts_since_flush:
@@ -610,21 +630,40 @@ async function handleDebugMetricsFlush(): Promise<Response> {
       endpoint: getTelemetryStatus().config.metricsEndpoint,
     };
 
-    const _duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-    const _responseSize = JSON.stringify(result, null, 2).length;
-    // Skip manual metrics recording for debug endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const responseSize = JSON.stringify(result, null, 2).length;
+
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/export",
+      statusCode: 200,
+      duration,
+      debug_endpoint: "metrics_export",
+      response_size: responseSize,
+      exports_triggered: 1,
+      message: "Metrics export completed successfully",
+      operation: "manual_metrics_export",
+    });
 
     return new Response(JSON.stringify(result, null, 2), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("❌ [DEBUG] Manual metrics flush failed:", error);
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    console.error("❌ [DEBUG] Manual metrics export failed:", error);
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/export",
+      statusCode: 500,
+      duration,
+      debug_endpoint: "metrics_export",
+      error: "Manual metrics export failed",
+    });
 
     return new Response(
       JSON.stringify({
-        error: "Manual metrics flush failed",
+        error: "Manual metrics export failed",
         message: (error as Error).message,
         stack: (error as Error).stack,
       }),
@@ -646,6 +685,7 @@ function handleDebugMetricsStats(): Response {
 
     const result = {
       timestamp: new Date().toISOString(),
+      message: "Metrics statistics retrieved successfully",
       export_statistics: exportStats,
       metrics_status: metricsStatus,
       telemetry_config: {
@@ -658,20 +698,39 @@ function handleDebugMetricsStats(): Response {
         "If no exports": "Check endpoint connectivity and authentication",
         "If exports failing": "Check recentErrors in export_statistics",
         "To test": "POST /debug/metrics/test",
-        "To flush": "POST /debug/metrics/flush",
+        "To export": "POST /debug/metrics/export",
       },
     };
 
-    const _duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-    const _responseSize = JSON.stringify(result, null, 2).length;
-    // Skip manual metrics recording for debug endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const responseSize = JSON.stringify(result, null, 2).length;
+
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/metrics/stats",
+      statusCode: 200,
+      duration,
+      debug_endpoint: "metrics_stats",
+      response_size: responseSize,
+      total_instruments: result.metrics_status.totalInstruments,
+      message: "Metrics statistics retrieved successfully",
+      operation: "metrics_stats_retrieval",
+    });
 
     return new Response(JSON.stringify(result, null, 2), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/metrics/stats",
+      statusCode: 500,
+      duration,
+      debug_endpoint: "metrics_stats",
+      error: "Failed to get metrics stats",
+    });
     return new Response(
       JSON.stringify({
         error: "Failed to get metrics stats",
@@ -714,12 +773,13 @@ function handleMetrics(): Response {
 
     // No span attributes needed since we removed the extra span
 
-    log("HTTP request processed", {
+    log("HTTP request processed Performance metrics retrieved successfully", {
       method: "GET",
       url: "/metrics",
       statusCode: 200,
       duration,
       uptime: Math.floor(process.uptime()),
+      operation: "performance_metrics_retrieval",
     });
 
     const _responseSize = JSON.stringify(metrics, null, 2).length;
@@ -831,8 +891,8 @@ try {
               response = handleMetricsHealth();
             } else if (url.pathname === "/debug/metrics/test" && req.method === "POST") {
               response = handleDebugMetricsTest();
-            } else if (url.pathname === "/debug/metrics/flush" && req.method === "POST") {
-              response = await handleDebugMetricsFlush();
+            } else if (url.pathname === "/debug/metrics/export" && req.method === "POST") {
+              response = await handleDebugMetricsExport();
             } else if (url.pathname === "/debug/metrics/stats" && req.method === "GET") {
               response = handleDebugMetricsStats();
             } else if (url.pathname === "/tokens") {
@@ -964,7 +1024,7 @@ log("Server endpoints configured", {
     "GET /metrics - Performance metrics",
     "GET /tokens - Issue JWT token (requires Kong headers)",
     "POST /debug/metrics/test - Record test metrics",
-    "POST /debug/metrics/flush - Force metrics flush",
+    "POST /debug/metrics/export - Force metrics export",
     "GET /debug/metrics/stats - Export statistics",
   ],
 });
@@ -974,14 +1034,14 @@ log("Metrics debugging endpoints available", {
   event: "debug_endpoints_ready",
   endpoints: {
     test: "POST /debug/metrics/test",
-    flush: "POST /debug/metrics/flush",
+    export: "POST /debug/metrics/export",
     stats: "GET /debug/metrics/stats",
     health: "GET /health/metrics",
   },
   usage: {
     test_and_check:
       "curl -X POST http://localhost:3000/debug/metrics/test && sleep 15 && curl http://localhost:3000/debug/metrics/stats",
-    manual_flush: "curl -X POST http://localhost:3000/debug/metrics/flush",
+    manual_export: "curl -X POST http://localhost:3000/debug/metrics/export",
     view_stats: "curl http://localhost:3000/debug/metrics/stats",
   },
 });

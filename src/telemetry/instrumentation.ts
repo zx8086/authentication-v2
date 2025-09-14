@@ -1,9 +1,12 @@
 /* src/telemetry/instrumentation.ts */
 
+import { metrics } from "@opentelemetry/api";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { type ExportResult, ExportResultCode } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { HostMetrics } from "@opentelemetry/host-metrics";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import {
@@ -26,6 +29,7 @@ import { telemetryConfig } from "./config";
 import { initializeMetrics } from "./metrics";
 
 let sdk: NodeSDK | undefined;
+let hostMetrics: HostMetrics | undefined;
 let debugMetricExporter: DebugMetricExporter | undefined;
 let metricReader: PeriodicExportingMetricReader | undefined;
 let _meterProvider: MeterProvider | undefined;
@@ -106,8 +110,19 @@ export async function initializeTelemetry(): Promise<void> {
     [SEMRESATTRS_TELEMETRY_SDK_NAME]: "@opentelemetry/sdk-node",
     [SEMRESATTRS_TELEMETRY_SDK_VERSION]: "1.28.0",
     [SEMRESATTRS_TELEMETRY_SDK_LANGUAGE]: "javascript",
-    "process.runtime.name": "bun",
-    "process.runtime.version": process.versions.bun || Bun.version,
+
+    "process.runtime.name": "node",
+    "service.runtime.name": "node",
+    "telemetry.sdk.elastic": "opentelemetry",
+
+    ...(process.env.KUBERNETES_SERVICE_HOST && {
+      "k8s.pod.name": process.env.HOSTNAME,
+      "k8s.namespace.name": process.env.NAMESPACE,
+    }),
+    ...(process.env.ECS_CONTAINER_METADATA_URI_V4 && {
+      "cloud.provider": "aws",
+      "cloud.platform": "aws_ecs",
+    }),
   });
 
   const otlpTraceExporter = new OTLPTraceExporter({
@@ -139,20 +154,59 @@ export async function initializeTelemetry(): Promise<void> {
 
   const logProcessor = new BatchLogRecordProcessor(otlpLogExporter);
 
+  const instrumentations = getNodeAutoInstrumentations({
+    "@opentelemetry/instrumentation-http": {
+      enabled: true,
+      requestHook: (span: any, request: any) => {
+        span.setAttributes({
+          "http.request.body.size": request.headers["content-length"] || 0,
+          "http.user_agent": request.headers["user-agent"] || "",
+        });
+      },
+      responseHook: (span: any, response: any) => {
+        span.setAttributes({
+          "http.response.body.size": response.headers["content-length"] || 0,
+        });
+      },
+    },
+    "@opentelemetry/instrumentation-dns": {
+      enabled: true,
+    },
+    "@opentelemetry/instrumentation-net": {
+      enabled: true,
+    },
+    "@opentelemetry/instrumentation-fs": {
+      enabled: false,
+    },
+    "@opentelemetry/instrumentation-grpc": {
+      enabled: false,
+    },
+  });
+
   sdk = new NodeSDK({
     resource,
     spanProcessors: [traceProcessor],
     metricReaders: [metricReader],
     logRecordProcessors: [logProcessor],
-    instrumentations: [],
+    instrumentations: [instrumentations],
   });
 
   await sdk.start();
 
+  hostMetrics = new HostMetrics({
+    collectInterval: 30000,
+  });
+  hostMetrics.start();
+
+  initializeElasticCompatibleMetrics();
   initializeMetrics();
 }
 
 export async function shutdownTelemetry(): Promise<void> {
+  if (hostMetrics) {
+    hostMetrics = undefined;
+  }
+
   if (sdk) {
     try {
       await sdk.shutdown();
@@ -204,4 +258,64 @@ export const initializeBunFullTelemetry = initializeTelemetry;
 export const initializeSimpleTelemetry = initializeTelemetry;
 export const getBunTelemetryStatus = getTelemetryStatus;
 export const getSimpleTelemetryStatus = getTelemetryStatus;
+function initializeElasticCompatibleMetrics(): void {
+  const meter = metrics.getMeter("authentication-service", telemetryConfig.serviceVersion);
+
+  const eventLoopDelayHistogram = meter.createHistogram("nodejs.eventloop.delay", {
+    description: "Node.js event loop delay in milliseconds",
+    unit: "ms",
+  });
+
+  const memoryGauge = meter.createGauge("process.memory.usage", {
+    description: "Process memory usage",
+    unit: "By",
+  });
+
+  const cpuGauge = meter.createGauge("process.cpu.usage", {
+    description: "Process CPU usage",
+    unit: "percent",
+  });
+
+  const activeHandlesGauge = meter.createGauge("nodejs.active_handles", {
+    description: "Active handles in Node.js",
+    unit: "1",
+  });
+
+  const activeRequestsGauge = meter.createGauge("nodejs.active_requests", {
+    description: "Active requests in Node.js",
+    unit: "1",
+  });
+
+  let previousCpuUsage = process.cpuUsage();
+  let previousTime = Date.now();
+
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    memoryGauge.record(memUsage.heapUsed, { type: "heap_used" });
+    memoryGauge.record(memUsage.heapTotal, { type: "heap_total" });
+    memoryGauge.record(memUsage.rss, { type: "rss" });
+    memoryGauge.record(memUsage.external, { type: "external" });
+
+    const currentCpuUsage = process.cpuUsage(previousCpuUsage);
+    const currentTime = Date.now();
+    const timeDiff = currentTime - previousTime;
+    const cpuPercent = ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
+    cpuGauge.record(cpuPercent);
+    previousCpuUsage = process.cpuUsage();
+    previousTime = currentTime;
+
+    const activeHandles = (process as any)._getActiveHandles()?.length || 0;
+    const activeRequests = (process as any)._getActiveRequests()?.length || 0;
+    activeHandlesGauge.record(activeHandles);
+    activeRequestsGauge.record(activeRequests);
+  }, 10000);
+
+  if (performance?.eventLoopUtilization) {
+    setInterval(() => {
+      const elu = performance.eventLoopUtilization();
+      eventLoopDelayHistogram.record(elu.utilization * 100);
+    }, 10000);
+  }
+}
+
 export const shutdownSimpleTelemetry = shutdownTelemetry;
