@@ -1,12 +1,10 @@
 /* src/telemetry/metrics.ts */
 
-// Comprehensive metrics collection for production observability
 import { type Attributes, metrics, type ObservableResult } from "@opentelemetry/api";
 import { error, warn } from "../utils/logger";
 
 let isInitialized = false;
 
-// HTTP Metrics
 let httpRequestCounter: any;
 let httpResponseTimeHistogram: any;
 let httpRequestsByStatusCounter: any;
@@ -14,14 +12,12 @@ let httpActiveConnectionsGauge: any;
 let httpRequestSizeHistogram: any;
 let httpResponseSizeHistogram: any;
 
-// System Metrics
 let processMemoryUsageGauge: any;
 let processHeapUsageGauge: any;
 let processCpuUsageGauge: any;
 let processUptimeGauge: any;
 let processActiveHandlesGauge: any;
 
-// Business/Application Metrics
 let jwtTokensIssuedCounter: any;
 let jwtTokenCreationTimeHistogram: any;
 let authenticationAttemptsCounter: any;
@@ -32,7 +28,6 @@ let kongResponseTimeHistogram: any;
 let kongCacheHitCounter: any;
 let kongCacheMissCounter: any;
 
-// Error and Performance Metrics
 let errorRateCounter: any;
 let exceptionCounter: any;
 let telemetryExportCounter: any;
@@ -40,18 +35,15 @@ let telemetryExportErrorCounter: any;
 let circuitBreakerStateGauge: any;
 let operationDurationHistogram: any;
 
-// System monitoring interval
 let systemMetricsInterval: Timer | null = null;
 
 export function initializeMetrics(): void {
   if (isInitialized) return;
 
-  // Use the global metrics API - should be configured by NodeSDK
   const _meterProvider = metrics.getMeterProvider();
 
   const meter = metrics.getMeter("authentication-service", "1.0.0");
 
-  // HTTP Metrics
   httpRequestCounter = meter.createCounter("http_requests_total", {
     description: "Total number of HTTP requests",
     unit: "1",
@@ -85,7 +77,6 @@ export function initializeMetrics(): void {
     unit: "By",
   });
 
-  // System Metrics
   processMemoryUsageGauge = meter.createObservableGauge("process_memory_usage_bytes", {
     description: "Process memory usage in bytes",
     unit: "By",
@@ -111,7 +102,6 @@ export function initializeMetrics(): void {
     unit: "1",
   });
 
-  // Business/Application Metrics
   jwtTokensIssuedCounter = meter.createCounter("jwt_tokens_issued_total", {
     description: "Total number of JWT tokens issued",
     unit: "1",
@@ -157,7 +147,6 @@ export function initializeMetrics(): void {
     unit: "1",
   });
 
-  // Error and Performance Metrics
   errorRateCounter = meter.createCounter("application_errors_total", {
     description: "Total number of application errors",
     unit: "1",
@@ -188,7 +177,6 @@ export function initializeMetrics(): void {
     unit: "s",
   });
 
-  // Set up system metrics collection
   setupSystemMetricsCollection();
 
   isInitialized = true;
@@ -215,10 +203,8 @@ export function recordHttpRequest(
   };
 
   try {
-    // Record total HTTP requests
     httpRequestCounter.add(1, attributes);
 
-    // Record requests by status code
     if (statusCode) {
       const statusAttributes = {
         method: method.toUpperCase(),
@@ -229,12 +215,10 @@ export function recordHttpRequest(
       httpRequestsByStatusCounter.add(1, statusAttributes);
     }
 
-    // Record request size if provided
     if (requestSize !== undefined) {
       httpRequestSizeHistogram.record(requestSize, attributes);
     }
 
-    // Record response size if provided
     if (responseSize !== undefined) {
       httpResponseSizeHistogram.record(responseSize, attributes);
     }
@@ -285,7 +269,6 @@ export function recordHttpResponseTime(
   }
 }
 
-// JWT Token Metrics
 export function recordJwtTokenIssued(username: string, creationTimeMs: number): void {
   if (!isInitialized) return;
 
@@ -302,7 +285,6 @@ export function recordJwtTokenIssued(username: string, creationTimeMs: number): 
   }
 }
 
-// Authentication Metrics
 export function recordAuthenticationAttempt(
   type: string,
   success: boolean,
@@ -330,7 +312,6 @@ export function recordAuthenticationAttempt(
   }
 }
 
-// Kong Operation Metrics
 export function recordKongOperation(
   operation: string,
   durationMs: number,
@@ -364,7 +345,6 @@ export function recordKongOperation(
   }
 }
 
-// Active Connections
 export function recordActiveConnection(increment: boolean): void {
   if (!isInitialized) return;
 
@@ -377,7 +357,6 @@ export function recordActiveConnection(increment: boolean): void {
   }
 }
 
-// Error Tracking
 export function recordError(errorType: string, context?: Record<string, any>): void {
   if (!isInitialized) return;
 
@@ -402,7 +381,6 @@ export function recordError(errorType: string, context?: Record<string, any>): v
   }
 }
 
-// Exception Tracking
 export function recordException(exception: Error, context?: Record<string, any>): void {
   if (!isInitialized) return;
 
@@ -428,7 +406,6 @@ export function recordException(exception: Error, context?: Record<string, any>)
   }
 }
 
-// Operation Duration
 export function recordOperationDuration(
   operation: string,
   durationMs: number,
@@ -461,8 +438,11 @@ export function recordOperationDuration(
   }
 }
 
-// Telemetry Export Tracking
-export function recordTelemetryExport(success: boolean, exportType: string, error?: string): void {
+export function recordTelemetryExport(
+  success: boolean,
+  exportType: string,
+  errorType?: string
+): void {
   if (!isInitialized) return;
 
   const attributes = { export_type: exportType };
@@ -473,7 +453,7 @@ export function recordTelemetryExport(success: boolean, exportType: string, erro
     if (!success) {
       telemetryExportErrorCounter.add(1, {
         ...attributes,
-        ...(error && { error_type: error }),
+        ...(errorType && { error_type: errorType }),
       });
     }
   } catch (err) {
@@ -483,15 +463,12 @@ export function recordTelemetryExport(success: boolean, exportType: string, erro
   }
 }
 
-// System Metrics Collection
 function setupSystemMetricsCollection(): void {
-  // Collect system metrics every 10 seconds
   systemMetricsInterval = setInterval(() => {
     try {
       const memUsage = process.memoryUsage();
       const cpuUsage = process.cpuUsage();
 
-      // Memory metrics
       processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
         observableResult.observe(memUsage.rss, { type: "rss" });
         observableResult.observe(memUsage.external, { type: "external" });
@@ -505,18 +482,15 @@ function setupSystemMetricsCollection(): void {
         observableResult.observe(memUsage.heapTotal, { type: "total" });
       });
 
-      // CPU metrics (converted to percentage)
-      const cpuPercent = (cpuUsage.user + cpuUsage.system) / 1000; // Convert from microseconds
+      const cpuPercent = (cpuUsage.user + cpuUsage.system) / 1000;
       processCpuUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
         observableResult.observe(cpuPercent, { type: "combined" });
       });
 
-      // Uptime
       processUptimeGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
         observableResult.observe(process.uptime());
       });
 
-      // Active handles (if available)
       if (typeof (process as any)._getActiveHandles === "function") {
         const activeHandles = (process as any)._getActiveHandles().length;
         processActiveHandlesGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
@@ -528,32 +502,27 @@ function setupSystemMetricsCollection(): void {
         error: (err as Error).message,
       });
     }
-  }, 10000); // Every 10 seconds
+  }, 10000);
 }
 
-// Test metric recording function for debugging
 export function testMetricRecording(): void {
-  // Test HTTP metrics
   recordHttpRequest("GET", "/test", 200, 1024, 2048);
   recordHttpResponseTime(123, "GET", "/test", 200);
   recordActiveConnection(true);
   recordActiveConnection(false);
 
-  // Test business metrics
   recordJwtTokenIssued("test-user", 45);
   recordAuthenticationAttempt("kong_header", true, "test-user");
   recordAuthenticationAttempt("jwt", false);
   recordKongOperation("get_consumer_secret", 89, true, false);
   recordKongOperation("health_check", 23, true, true);
 
-  // Test error metrics
   recordError("validation_error", { field: "username", reason: "missing" });
   recordException(new Error("Test exception"), { component: "test" });
   recordOperationDuration("database_query", 156, true, {
     query: "SELECT users",
   });
 
-  // Test telemetry metrics
   recordTelemetryExport(true, "metrics");
   recordTelemetryExport(false, "traces", "connection_timeout");
 }
@@ -562,7 +531,6 @@ export function getMetricsStatus() {
   return {
     initialized: isInitialized,
     instruments: {
-      // HTTP Metrics
       httpRequestCounter: !!httpRequestCounter,
       httpResponseTimeHistogram: !!httpResponseTimeHistogram,
       httpRequestsByStatusCounter: !!httpRequestsByStatusCounter,
@@ -570,14 +538,12 @@ export function getMetricsStatus() {
       httpRequestSizeHistogram: !!httpRequestSizeHistogram,
       httpResponseSizeHistogram: !!httpResponseSizeHistogram,
 
-      // System Metrics
       processMemoryUsageGauge: !!processMemoryUsageGauge,
       processHeapUsageGauge: !!processHeapUsageGauge,
       processCpuUsageGauge: !!processCpuUsageGauge,
       processUptimeGauge: !!processUptimeGauge,
       processActiveHandlesGauge: !!processActiveHandlesGauge,
 
-      // Business Metrics
       jwtTokensIssuedCounter: !!jwtTokensIssuedCounter,
       jwtTokenCreationTimeHistogram: !!jwtTokenCreationTimeHistogram,
       authenticationAttemptsCounter: !!authenticationAttemptsCounter,
@@ -588,7 +554,6 @@ export function getMetricsStatus() {
       kongCacheHitCounter: !!kongCacheHitCounter,
       kongCacheMissCounter: !!kongCacheMissCounter,
 
-      // Error and Performance Metrics
       errorRateCounter: !!errorRateCounter,
       exceptionCounter: !!exceptionCounter,
       telemetryExportCounter: !!telemetryExportCounter,
@@ -644,7 +609,6 @@ export function getMetricsStatus() {
   };
 }
 
-// Cleanup function for graceful shutdown
 export function shutdownMetrics(): void {
   if (systemMetricsInterval) {
     clearInterval(systemMetricsInterval);
@@ -653,12 +617,3 @@ export function shutdownMetrics(): void {
 
   isInitialized = false;
 }
-
-// Note: Metrics initialization is now called explicitly after telemetry SDK starts
-// to ensure we use the correct MeterProvider
-// This comprehensive metrics collection provides full observability into:
-// - HTTP request patterns and performance
-// - System resource usage and health
-// - Business logic operations (JWT, authentication, Kong)
-// - Error rates and exception tracking
-// - Telemetry system health and performance

@@ -1,6 +1,5 @@
 /* tests/jwt.service.test.ts */
 
-// Tests for JWT service using Bun's native test runner
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { NativeBunJWT } from '../src/services/jwt.service';
 
@@ -23,10 +22,9 @@ describe('NativeBunJWT', () => {
 
       expect(tokenResponse).toHaveProperty('access_token');
       expect(tokenResponse).toHaveProperty('expires_in');
-      expect(tokenResponse.expires_in).toBe(900); // 15 minutes
+      expect(tokenResponse.expires_in).toBe(900);
       expect(typeof tokenResponse.access_token).toBe('string');
-      
-      // JWT should have 3 parts separated by dots
+
       const parts = tokenResponse.access_token.split('.');
       expect(parts).toHaveLength(3);
     });
@@ -42,7 +40,7 @@ describe('NativeBunJWT', () => {
 
       const [headerB64] = tokenResponse.access_token.split('.');
       const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-      
+
       expect(header).toEqual({
         alg: 'HS256',
         typ: 'JWT'
@@ -60,7 +58,7 @@ describe('NativeBunJWT', () => {
 
       const [, payloadB64] = tokenResponse.access_token.split('.');
       const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-      
+
       expect(payload).toHaveProperty('sub', testUsername);
       expect(payload).toHaveProperty('key', testConsumerKey);
       expect(payload).toHaveProperty('iss', testAuthority);
@@ -70,10 +68,9 @@ describe('NativeBunJWT', () => {
       expect(payload).toHaveProperty('jti');
       expect(payload).toHaveProperty('iat');
       expect(payload).toHaveProperty('exp');
-      
-      // Check expiration is approximately 15 minutes from now
+
       const now = Math.floor(Date.now() / 1000);
-      expect(payload.exp).toBeGreaterThan(now + 890); // Allow some leeway
+      expect(payload.exp).toBeGreaterThan(now + 890);
       expect(payload.exp).toBeLessThan(now + 910);
     });
 
@@ -109,14 +106,14 @@ describe('NativeBunJWT', () => {
 
       const [, payloadB64] = tokenResponse.access_token.split('.');
       const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-      
+
       expect(payload.sub).toBe(specialUsername);
       expect(payload.unique_name).toBe(`pvhcorp.com#${specialUsername}`);
     });
 
     it('should complete within performance threshold', async () => {
       const start = Bun.nanoseconds();
-      
+
       await NativeBunJWT.createToken(
         testUsername,
         testConsumerKey,
@@ -124,9 +121,9 @@ describe('NativeBunJWT', () => {
         testAuthority,
         testAudience
       );
-      
+
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      expect(duration).toBeLessThan(50); // Should complete within 50ms
+      expect(duration).toBeLessThan(50);
     });
   });
 
@@ -146,7 +143,7 @@ describe('NativeBunJWT', () => {
 
     it('should verify a valid token', async () => {
       const payload = await NativeBunJWT.verifyToken(validToken, testSecret);
-      
+
       expect(payload).not.toBeNull();
       expect(payload!.sub).toBe(testUsername);
       expect(payload!.key).toBe(testConsumerKey);
@@ -165,7 +162,7 @@ describe('NativeBunJWT', () => {
         'invalid.token.format.too.many.parts',
         '',
         'not-a-jwt-at-all',
-        'header.payload', // Missing signature
+        'header.payload',
       ];
 
       for (const token of malformedTokens) {
@@ -175,26 +172,23 @@ describe('NativeBunJWT', () => {
     });
 
     it('should reject expired token', async () => {
-      // Create a token that's already expired
       const expiredPayload = {
         sub: testUsername,
         key: testConsumerKey,
         jti: crypto.randomUUID(),
         iat: Math.floor(Date.now() / 1000) - 1000,
-        exp: Math.floor(Date.now() / 1000) - 500, // Expired 500 seconds ago
+        exp: Math.floor(Date.now() / 1000) - 500,
         iss: testAuthority,
         aud: testAudience,
         name: testUsername,
         unique_name: `pvhcorp.com#${testUsername}`
       };
 
-      // Manually create an expired token for testing
       const header = { alg: 'HS256', typ: 'JWT' };
       const headerB64 = btoa(JSON.stringify(header)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
       const payloadB64 = btoa(JSON.stringify(expiredPayload)).replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
       const message = `${headerB64}.${payloadB64}`;
 
-      // Sign it properly
       const key = await crypto.subtle.importKey(
         'raw',
         new TextEncoder().encode(testSecret),
@@ -205,7 +199,7 @@ describe('NativeBunJWT', () => {
       const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
       const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
         .replace(/[+/=]/g, (m) => ({'+':'-','/':'_','=':''}[m] || ''));
-      
+
       const expiredToken = `${message}.${signatureB64}`;
 
       const payload = await NativeBunJWT.verifyToken(expiredToken, testSecret);
@@ -214,11 +208,11 @@ describe('NativeBunJWT', () => {
 
     it('should complete verification within performance threshold', async () => {
       const start = Bun.nanoseconds();
-      
+
       await NativeBunJWT.verifyToken(validToken, testSecret);
-      
+
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      expect(duration).toBeLessThan(20); // Should complete within 20ms
+      expect(duration).toBeLessThan(20);
     });
   });
 
@@ -241,11 +235,10 @@ describe('NativeBunJWT', () => {
 
       expect(results).toHaveLength(concurrentRequests);
       expect(results.every(r => r.access_token && r.expires_in === 900)).toBe(true);
-      expect(duration).toBeLessThan(200); // Should complete within 200ms
+      expect(duration).toBeLessThan(200);
     });
 
     it('should handle concurrent token verification efficiently', async () => {
-      // Create tokens first
       const tokens = await Promise.all(
         Array.from({ length: 5 }, (_, i) =>
           NativeBunJWT.createToken(
@@ -258,7 +251,6 @@ describe('NativeBunJWT', () => {
         )
       );
 
-      // Verify them concurrently
       const start = Bun.nanoseconds();
       const results = await Promise.all(
         tokens.map(token => NativeBunJWT.verifyToken(token.access_token, testSecret))
@@ -267,7 +259,7 @@ describe('NativeBunJWT', () => {
 
       expect(results).toHaveLength(5);
       expect(results.every(r => r !== null)).toBe(true);
-      expect(duration).toBeLessThan(100); // Should complete within 100ms
+      expect(duration).toBeLessThan(100);
     });
   });
 });

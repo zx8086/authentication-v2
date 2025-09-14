@@ -1,66 +1,39 @@
-# OpenAPI Documentation Generation Implementation Guide
+# OpenAPI Documentation Generation Implementation Guide - Updated
 
-This guide documents how to replicate the automated OpenAPI documentation generation system used in this project for other codebases.
+This guide documents the enhanced OpenAPI documentation generation system with dynamic configuration, Kong integration, and production-ready patterns.
 
 ## Architecture Overview
 
-The system consists of three core components:
+The system consists of four core components:
 
 1. **OpenAPI Generator Class** (`src/openapi-generator.ts`) - Core logic for generating OpenAPI specifications
 2. **Generation Script** (`scripts/generate-openapi.ts`) - CLI script for building documentation files
-3. **Package.json Scripts** - Integration with build process and developer workflow
+3. **Dynamic Configuration** (`src/config/index.ts`) - Environment-based API information and configuration
+4. **Package.json Scripts** - Integration with build process and developer workflow
 
-## Core Components
+## Key Enhancements
 
-### 1. OpenAPI Generator Class
+### Dynamic Configuration
+- Environment variable-based API information (title, description, version, contact)
+- Runtime configuration injection via `setConfig()`
+- Environment-aware server URL generation
+- Support for development, staging, and production environments
 
-**Purpose**: Programmatically generate OpenAPI 3.0.3 specifications from route definitions.
+### Kong Integration
+- Kong-specific header patterns for consumer authentication
+- Security scheme definitions for API key authentication
+- Support for anonymous consumer detection and rejection
+- Kong Admin API health check integration
 
-**Key Features**:
-- Route registration system
-- Schema definitions for request/response objects
-- Parameter extraction (path, query)
-- Response mapping based on HTTP methods
-- Reusable component definitions
-- Operation ID generation
+### Production-Ready Features
+- OpenTelemetry telemetry status endpoints
+- Comprehensive health checks with dependency monitoring
+- Performance metrics and debugging endpoints
+- Standardized error response schemas with request IDs
 
-**Structure**:
-```typescript
-class OpenAPIGenerator {
-  private routes: RouteDefinition[] = [];
-  private apiVersion = "1.0.0";
-  private baseUrl = "http://localhost:3000";
+## Updated Implementation
 
-  registerRoute(route: RouteDefinition): void
-  generateSpec(): any
-  registerAllRoutes(): void
-}
-```
-
-### 2. Generation Script
-
-**Purpose**: CLI interface for generating documentation files in multiple formats.
-
-**Features**:
-- Command-line argument parsing
-- Multiple output formats (JSON, YAML, both)
-- Verbose mode with statistics
-- Configurable output directory
-- YAML conversion without external dependencies
-
-### 3. Package Scripts Integration
-
-**Purpose**: Integrate documentation generation into development workflow.
-
-**Integration Points**:
-- Development server startup
-- Build process (both dev and production)
-- Standalone documentation generation
-- CI/CD pipeline compatibility
-
-## Implementation Steps
-
-### Step 1: Create OpenAPI Generator Class
+### Enhanced OpenAPI Generator Class
 
 ```typescript
 // src/openapi-generator.ts
@@ -70,92 +43,234 @@ export interface RouteDefinition {
   summary: string;
   description: string;
   tags: string[];
+  requiresAuth?: boolean;
+  parameters?: any[];
+  requestBody?: any;
+  responses?: any;
 }
 
 class OpenAPIGenerator {
-  // Core implementation here
-}
+  private routes: RouteDefinition[] = [];
+  private apiVersion = "1.0.0";
+  private config: any = null;
 
-export const apiDocGenerator = new OpenAPIGenerator();
+  setConfig(config: any): void {
+    this.config = config;
+  }
+
+  private generateServers(): any[] {
+    const servers = [];
+
+    if (this.config) {
+      // Dynamic server generation based on current config
+      const currentUrl = `http://localhost:${this.config.server.port}`;
+      const envDescription = this.config.server.nodeEnv === "production"
+        ? "Production server"
+        : this.config.server.nodeEnv === "staging"
+          ? "Staging server"
+          : "Development server";
+
+      servers.push({
+        url: currentUrl,
+        description: `${envDescription} (current)`
+      });
+    }
+
+    return servers;
+  }
+
+  generateSpec(): any {
+    // Use dynamic API info from config if available
+    const apiInfo = this.config?.apiInfo || {
+      title: "Authentication Service API",
+      description: "High-performance authentication service with Kong integration",
+      version: this.apiVersion,
+      contactName: "PVH Corp",
+      contactEmail: "api-support@pvh.com"
+    };
+
+    return {
+      openapi: "3.0.3",
+      info: {
+        title: apiInfo.title,
+        description: apiInfo.description,
+        version: apiInfo.version,
+        contact: {
+          name: apiInfo.contactName,
+          email: apiInfo.contactEmail
+        }
+      },
+      servers: this.generateServers(),
+      // ... rest of spec generation
+    };
+  }
+}
 ```
 
-**Key Implementation Details**:
+### Environment Variables for Dynamic Configuration
 
-1. **Route Registration System**:
-   - Define interface for route metadata
-   - Store routes in private array
-   - Batch registration method for all endpoints
+```bash
+# API Information (all optional, will use defaults if not provided)
+API_TITLE="PVH Authentication Service API"
+API_DESCRIPTION="High-performance authentication service with Kong integration"
+API_VERSION="1.0.0"
+API_CONTACT_NAME="PVH Corp"
+API_CONTACT_EMAIL="api-support@pvh.com"
+API_LICENSE_NAME="Proprietary"
+API_LICENSE_IDENTIFIER="UNLICENSED"
+```
 
-2. **Schema Definitions**:
-   - Define data models (Product, User, etc.)
-   - Request/response schemas
-   - Error response formats
-   - Pagination metadata
-
-3. **Component Generation**:
-   - Reusable schemas
-   - Common headers (versioning, pagination, CORS)
-   - Response templates
-   - Parameter definitions
-
-4. **Operation ID Generation**:
-   - Convert paths to camelCase
-   - Map HTTP methods to action verbs
-   - Handle path parameters
-
-### Step 2: Create Generation Script
+### Kong Authentication Patterns
 
 ```typescript
-// scripts/generate-openapi.ts
-#!/usr/bin/env bun
-
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import { apiDocGenerator } from "../src/openapi-generator.js";
-
-interface GenerationOptions {
-  outputDir?: string;
-  format?: "json" | "yaml" | "both";
-  verbose?: boolean;
-}
-
-async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<void> {
-  // Implementation here
-}
-
-// CLI interface with argument parsing
-async function main(): Promise<void> {
-  // Parse arguments and call generateOpenAPISpec
-}
-
-if (import.meta.main) {
-  main().catch(console.error);
+// Kong consumer headers for /tokens endpoint
+if (route.path === "/tokens") {
+  operation.parameters = [
+    {
+      name: "x-consumer-id",
+      in: "header",
+      required: true,
+      description: "Kong consumer ID",
+      schema: { type: "string", example: "demo_user" }
+    },
+    {
+      name: "x-consumer-username",
+      in: "header",
+      required: true,
+      description: "Kong consumer username",
+      schema: { type: "string", example: "demo_user" }
+    },
+    {
+      name: "x-anonymous-consumer",
+      in: "header",
+      required: false,
+      description: "Indicates if request is from anonymous consumer",
+      schema: { type: "string", enum: ["true", "false"], example: "false" }
+    }
+  ];
 }
 ```
 
-**Key Implementation Details**:
+### Enhanced Schema Definitions
 
-1. **Command Line Interface**:
-   ```bash
-   -o, --output <dir>     # Output directory
-   -f, --format <format>  # json, yaml, or both
-   -v, --verbose         # Detailed output
-   -h, --help            # Usage information
-   ```
+```typescript
+schemas: {
+  TokenResponse: {
+    type: "object",
+    required: ["access_token", "expires_in"],
+    properties: {
+      access_token: {
+        type: "string",
+        description: "JWT access token",
+        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      expires_in: {
+        type: "integer",
+        description: "Token expiration time in seconds",
+        example: 900,
+        minimum: 1
+      }
+    }
+  },
+  HealthResponse: {
+    type: "object",
+    required: ["status", "timestamp", "version", "uptime", "dependencies"],
+    properties: {
+      status: {
+        type: "string",
+        enum: ["healthy", "degraded", "unhealthy"],
+        example: "healthy"
+      },
+      dependencies: {
+        type: "object",
+        properties: {
+          kong: {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["healthy", "unhealthy"] },
+              response_time: { type: "integer", minimum: 0 },
+              url: { type: "string", format: "uri" }
+            }
+          }
+        }
+      }
+    }
+  },
+  ErrorResponse: {
+    type: "object",
+    required: ["error", "message", "statusCode", "timestamp"],
+    properties: {
+      error: { type: "string", example: "VALIDATION_ERROR" },
+      message: { type: "string", example: "Missing required Kong consumer headers" },
+      statusCode: { type: "integer", example: 400, minimum: 400, maximum: 599 },
+      timestamp: { type: "string", format: "date-time" },
+      requestId: { type: "string", format: "uuid" }
+    }
+  }
+}
+```
 
-2. **File Generation**:
-   - Create output directory if needed
-   - Generate JSON format with proper formatting
-   - Convert to YAML using custom converter
-   - Provide generation statistics
+### Route Registration Examples
 
-3. **YAML Conversion**:
-   - Custom YAML converter to avoid dependencies
-   - Handle arrays, objects, and primitive values
-   - Proper indentation and escaping
+```typescript
+registerAllRoutes(): void {
+  // API documentation endpoint
+  this.registerRoute({
+    path: "/",
+    method: "GET",
+    summary: "OpenAPI specification",
+    description: "Get the OpenAPI 3.0.3 specification for this API",
+    tags: ["Documentation"]
+  });
 
-### Step 3: Package.json Script Configuration
+  // Authentication endpoints
+  this.registerRoute({
+    path: "/tokens",
+    method: "GET",
+    summary: "Issue JWT token",
+    description: "Generate a JWT access token for authenticated Kong consumers",
+    tags: ["Authentication"],
+    requiresAuth: false // Uses Kong consumer headers instead
+  });
+
+  // Health check endpoints
+  this.registerRoute({
+    path: "/health",
+    method: "GET",
+    summary: "System health check",
+    description: "Get comprehensive system health status including dependency checks",
+    tags: ["Health"]
+  });
+
+  this.registerRoute({
+    path: "/health/telemetry",
+    method: "GET",
+    summary: "Telemetry health status",
+    description: "Get OpenTelemetry configuration and initialization status",
+    tags: ["Health"]
+  });
+
+  // Metrics endpoints
+  this.registerRoute({
+    path: "/metrics",
+    method: "GET",
+    summary: "Performance metrics",
+    description: "Get service performance metrics and operational statistics",
+    tags: ["Metrics"]
+  });
+
+  // Debug endpoints
+  this.registerRoute({
+    path: "/debug/metrics/stats",
+    method: "GET",
+    summary: "Export statistics",
+    description: "Get detailed metrics export statistics",
+    tags: ["Debug", "Metrics"]
+  });
+}
+```
+
+### Updated Package.json Scripts
 
 ```json
 {
@@ -165,264 +280,202 @@ if (import.meta.main) {
     "generate-docs:yaml": "bun scripts/generate-openapi.ts --format yaml",
     "generate-docs:verbose": "bun scripts/generate-openapi.ts --verbose",
     "dev": "bun run generate-docs && bun src/server.ts",
-    "build": "bun run generate-docs && bun build src/server.ts --outdir=./dist",
-    "build:prod": "bun run generate-docs && bun build src/server.ts --outdir=./dist --minify"
+    "start": "bun run src/server.ts",
+    "build": "bun run generate-docs && bun build src/server.ts --target=bun --outdir=dist --minify",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check ."
   }
 }
 ```
 
-## Configuration Patterns
-
-### Route Definition Pattern
+### Enhanced Generation Script
 
 ```typescript
-// Register routes programmatically
-apiDocGenerator.registerRoute({
-  path: "/api/v1/products",
-  method: "GET",
-  summary: "Get all products",
-  description: "Retrieve all products with pagination and optional filtering",
-  tags: ["Products"]
-});
-```
+// scripts/generate-openapi.ts
+async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<GenerationStats> {
+  const startTime = Date.now();
 
-### Schema Definition Pattern
-
-```typescript
-private generateComponents(): any {
-  return {
-    schemas: {
-      Product: {
-        type: "object",
-        required: ["id", "name", "price"],
-        properties: {
-          id: { type: "integer", example: 1 },
-          name: { type: "string", example: "Product Name" },
-          price: { type: "number", example: 29.99 }
-        }
-      }
-    },
-    responses: {
-      ValidationError: {
-        description: "Validation error response",
-        content: {
-          "application/json": {
-            schema: { $ref: "#/components/schemas/ErrorResponse" }
-          }
-        }
-      }
-    }
+  // Load configuration and set it on the generator
+  const defaultConfig = {
+    server: { port: 3000, nodeEnv: "development" }
   };
-}
-```
+  apiDocGenerator.setConfig(defaultConfig);
 
-### Parameter Handling Pattern
+  // Register all routes and generate specification
+  apiDocGenerator.registerAllRoutes();
+  const openApiSpec = apiDocGenerator.generateSpec();
 
-```typescript
-// Path parameters
-if (route.path.includes("{id}")) {
-  operation.parameters = [
-    {
-      name: "id",
-      in: "path",
-      required: true,
-      schema: { type: "integer", minimum: 1 }
-    }
-  ];
-}
+  const stats: GenerationStats = {
+    duration: 0,
+    filesGenerated: [],
+    totalSize: 0,
+    routeCount: Object.keys(openApiSpec.paths).length,
+    schemaCount: Object.keys(openApiSpec.components.schemas).length
+  };
 
-// Query parameters for collection endpoints
-if (route.path === "/api/v1/products" && route.method === "GET") {
-  operation.parameters = [
-    {
-      name: "page",
-      in: "query",
-      schema: { type: "integer", default: 1 }
-    }
-  ];
-}
-```
-
-## Integration with Build Process
-
-### Development Workflow
-
-1. **Hot Reload Integration**:
-   ```json
-   "dev": "bun run generate-docs && bun src/server.ts"
-   ```
-
-2. **Build Process**:
-   ```json
-   "build": "bun run generate-docs && bun build src/server.ts --outdir=./dist"
-   ```
-
-3. **CI/CD Pipeline**:
-   ```yaml
-   - name: Generate Documentation
-     run: bun run generate-docs:verbose
-
-   - name: Upload Documentation
-     uses: actions/upload-artifact@v3
-     with:
-       name: openapi-docs
-       path: public/
-   ```
-
-### File Structure
-
-```
-project/
-├── src/
-│   ├── server.ts
-│   ├── openapi-generator.ts
-│   └── types.ts
-├── scripts/
-│   └── generate-openapi.ts
-├── public/
-│   ├── openapi.json
-│   └── openapi-generated.yaml
-└── package.json
-```
-
-## Best Practices
-
-### 1. Schema Design
-
-- **Consistent Naming**: Use PascalCase for schema names
-- **Comprehensive Examples**: Provide realistic example values
-- **Validation Rules**: Include min/max, required fields
-- **Reusable Components**: Create common schemas for pagination, errors
-
-### 2. Route Organization
-
-- **Tag Grouping**: Group related endpoints with tags
-- **Consistent Descriptions**: Use clear, actionable descriptions
-- **Operation IDs**: Generate consistent, predictable operation IDs
-- **Parameter Documentation**: Document all parameters with examples
-
-### 3. Error Handling
-
-- **Standard Error Formats**: Define consistent error response schemas
-- **HTTP Status Codes**: Map responses to appropriate status codes
-- **Validation Errors**: Provide detailed validation error formats
-
-### 4. Versioning Strategy
-
-- **URL Versioning**: Include version in path (`/api/v1/`)
-- **Version Headers**: Add `X-API-Version` header to responses
-- **Backward Compatibility**: Maintain documentation for multiple versions
-
-## Customization for Other Projects
-
-### 1. Adapt Schema Definitions
-
-Replace the product-specific schemas with your domain models:
-
-```typescript
-// Instead of Product schema
-User: {
-  type: "object",
-  required: ["id", "email", "name"],
-  properties: {
-    id: { type: "string", format: "uuid" },
-    email: { type: "string", format: "email" },
-    name: { type: "string", minLength: 1 }
+  // Generate files in specified formats
+  if (format === "json" || format === "both") {
+    const jsonContent = JSON.stringify(openApiSpec, null, 2);
+    const jsonPath = path.join(outputDir, "openapi.json");
+    await writeFile(jsonPath, jsonContent, "utf-8");
+    stats.filesGenerated.push(jsonPath);
+    stats.totalSize += Buffer.byteLength(jsonContent, "utf-8");
   }
+
+  if (format === "yaml" || format === "both") {
+    const yamlContent = `# OpenAPI 3.0.3 specification
+# Generated on: ${new Date().toISOString()}
+${convertToYaml(openApiSpec)}`;
+    const yamlPath = path.join(outputDir, "openapi-generated.yaml");
+    await writeFile(yamlPath, yamlContent, "utf-8");
+    stats.filesGenerated.push(yamlPath);
+    stats.totalSize += Buffer.byteLength(yamlContent, "utf-8");
+  }
+
+  stats.duration = Date.now() - startTime;
+  return stats;
 }
-```
-
-### 2. Modify Route Registration
-
-Update the `registerAllRoutes()` method with your API endpoints:
-
-```typescript
-registerAllRoutes(): void {
-  // Authentication endpoints
-  this.registerRoute({
-    path: "/api/v1/auth/login",
-    method: "POST",
-    summary: "User login",
-    description: "Authenticate user with credentials",
-    tags: ["Authentication"]
-  });
-
-  // User management endpoints
-  this.registerRoute({
-    path: "/api/v1/users",
-    method: "GET",
-    summary: "Get all users",
-    description: "Retrieve all users with pagination",
-    tags: ["Users"]
-  });
-}
-```
-
-### 3. Configure Runtime Framework
-
-This implementation is framework-agnostic. For different runtimes:
-
-**Node.js with Express**:
-```typescript
-// Replace Bun-specific imports
-import { writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
-```
-
-**Deno**:
-```typescript
-import { ensureDir } from "https://deno.land/std/fs/mod.ts";
 ```
 
 ## Usage Examples
 
-### Generate All Formats
+### With Environment Configuration
 
 ```bash
-# Generate both JSON and YAML
-bun run generate-docs
+# Set custom API info via environment variables
+export API_TITLE="Custom Authentication API"
+export API_DESCRIPTION="Custom description for my API"
+export API_VERSION="2.0.0"
 
-# JSON only
-bun run generate-docs:json
-
-# YAML only
-bun run generate-docs:yaml
-
-# With detailed output
+# Generate documentation with custom info
 bun run generate-docs:verbose
 ```
 
-### Custom Output Directory
-
-```bash
-bun scripts/generate-openapi.ts --output ./docs/api --format json --verbose
-```
-
-### Programmatic Usage
+### Programmatic Usage with Configuration
 
 ```typescript
 import { generateOpenAPISpec } from "./scripts/generate-openapi.ts";
+import { loadConfig } from "./src/config/index.js";
 
-await generateOpenAPISpec({
+// Load dynamic configuration
+const config = loadConfig();
+
+// Generate documentation with runtime config
+const stats = await generateOpenAPISpec({
   outputDir: "./api-docs",
   format: "both",
   verbose: true
 });
+
+console.log(`Generated ${stats.filesGenerated.length} files`);
+console.log(`Routes: ${stats.routeCount}, Schemas: ${stats.schemaCount}`);
 ```
 
-## Maintenance
+## Migration from Basic Implementation
 
-### Updating Documentation
+### 1. Add Dynamic Configuration Support
 
-1. **Add New Endpoints**: Register new routes in `registerAllRoutes()`
-2. **Update Schemas**: Modify schema definitions in `generateComponents()`
-3. **Version Updates**: Update API version in constructor
-4. **Parameter Changes**: Update parameter generation logic
+```typescript
+// Before: Static configuration
+class OpenAPIGenerator {
+  private apiVersion = "1.0.0";
+  private baseUrl = "http://localhost:3000";
+}
 
-### Validation
+// After: Dynamic configuration
+class OpenAPIGenerator {
+  private config: any = null;
 
-1. **Schema Validation**: Use tools like Swagger Editor to validate generated specs
-2. **Example Testing**: Test example values against actual API responses
-3. **Documentation Review**: Regular reviews to ensure accuracy
+  setConfig(config: any): void {
+    this.config = config;
+  }
 
-This implementation provides a scalable, maintainable approach to API documentation that integrates seamlessly with modern development workflows.
+  generateSpec(): any {
+    const apiInfo = this.config?.apiInfo || defaultApiInfo;
+    // Use dynamic configuration...
+  }
+}
+```
+
+### 2. Enhance Schema Definitions
+
+```typescript
+// Before: Basic schemas
+Product: {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    name: { type: "string" }
+  }
+}
+
+// After: Comprehensive schemas with validation
+TokenResponse: {
+  type: "object",
+  required: ["access_token", "expires_in"],
+  properties: {
+    access_token: {
+      type: "string",
+      description: "JWT access token",
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    },
+    expires_in: {
+      type: "integer",
+      description: "Token expiration time in seconds",
+      example: 900,
+      minimum: 1
+    }
+  }
+}
+```
+
+### 3. Add Authentication Patterns
+
+```typescript
+// Before: Basic parameters
+operation.parameters = [
+  { name: "id", in: "path", required: true }
+];
+
+// After: Kong authentication headers
+if (route.path === "/tokens") {
+  operation.parameters = [
+    {
+      name: "x-consumer-id",
+      in: "header",
+      required: true,
+      description: "Kong consumer ID",
+      schema: { type: "string", example: "demo_user" }
+    }
+    // ... additional Kong headers
+  ];
+}
+```
+
+## Best Practices
+
+### 1. Configuration Management
+- Use environment variables for API information
+- Provide sensible defaults for all configuration values
+- Validate configuration at startup
+- Support multiple environments (dev, staging, prod)
+
+### 2. Schema Design
+- Include comprehensive validation rules
+- Provide realistic example values
+- Use consistent naming conventions
+- Document all fields with descriptions
+
+### 3. Authentication Integration
+- Define security schemes clearly
+- Document authentication requirements
+- Provide examples for auth headers
+- Handle authentication errors appropriately
+
+### 4. Error Handling
+- Use standardized error response formats
+- Include request IDs for tracing
+- Map HTTP status codes correctly
+- Provide detailed error descriptions
+
+This enhanced implementation provides a production-ready OpenAPI documentation system with dynamic configuration, Kong integration, and comprehensive observability features.

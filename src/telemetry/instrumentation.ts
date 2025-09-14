@@ -20,11 +20,11 @@ import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_TELEMETRY_SDK_LANGUAGE,
-  SEMRESATTRS_TELEMETRY_SDK_NAME,
-  SEMRESATTRS_TELEMETRY_SDK_VERSION,
+  ATTR_TELEMETRY_SDK_LANGUAGE,
+  ATTR_TELEMETRY_SDK_NAME,
+  ATTR_TELEMETRY_SDK_VERSION,
 } from "@opentelemetry/semantic-conventions";
+import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
 import { telemetryConfig } from "./config";
 import { initializeMetrics } from "./metrics";
 
@@ -45,7 +45,7 @@ class DebugMetricExporter implements PushMetricExporter {
 
   async export(
     metrics: ResourceMetrics,
-    resultCallback: (result: ExportResult) => void
+    resultCallback: (result: ExportResult) => void,
   ): Promise<void> {
     this.exportCount++;
     this.lastExportTime = Date.now();
@@ -89,8 +89,11 @@ class DebugMetricExporter implements PushMetricExporter {
       totalExports: this.exportCount,
       successCount: this.successCount,
       failureCount: this.failureCount,
-      successRate: this.exportCount > 0 ? (this.successCount / this.exportCount) * 100 : 0,
-      lastExportTime: this.lastExportTime ? new Date(this.lastExportTime).toISOString() : null,
+      successRate:
+        this.exportCount > 0 ? (this.successCount / this.exportCount) * 100 : 0,
+      lastExportTime: this.lastExportTime
+        ? new Date(this.lastExportTime).toISOString()
+        : null,
       recentErrors: this.exportErrors.slice(-5),
     };
   }
@@ -98,7 +101,6 @@ class DebugMetricExporter implements PushMetricExporter {
 
 export async function initializeTelemetry(): Promise<void> {
   if (!telemetryConfig.enableOpenTelemetry) {
-    // Even in console mode, we still need metrics for internal monitoring
     initializeMetrics();
     return;
   }
@@ -106,14 +108,10 @@ export async function initializeTelemetry(): Promise<void> {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: telemetryConfig.serviceName,
     [ATTR_SERVICE_VERSION]: telemetryConfig.serviceVersion,
-    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: telemetryConfig.environment,
-    [SEMRESATTRS_TELEMETRY_SDK_NAME]: "@opentelemetry/sdk-node",
-    [SEMRESATTRS_TELEMETRY_SDK_VERSION]: "1.28.0",
-    [SEMRESATTRS_TELEMETRY_SDK_LANGUAGE]: "javascript",
-
-    "process.runtime.name": "node",
-    "service.runtime.name": "node",
-    "telemetry.sdk.elastic": "opentelemetry",
+    [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: telemetryConfig.environment,
+    [ATTR_TELEMETRY_SDK_NAME]: "opentelemetry/nodejs",
+    [ATTR_TELEMETRY_SDK_VERSION]: "1.26.0",
+    [ATTR_TELEMETRY_SDK_LANGUAGE]: "nodejs",
 
     ...(process.env.KUBERNETES_SERVICE_HOST && {
       "k8s.pod.name": process.env.HOSTNAME,
@@ -191,11 +189,9 @@ export async function initializeTelemetry(): Promise<void> {
     instrumentations: [instrumentations],
   });
 
-  await sdk.start();
+  sdk.start();
 
-  hostMetrics = new HostMetrics({
-    collectInterval: 30000,
-  });
+  hostMetrics = new HostMetrics({});
   hostMetrics.start();
 
   initializeElasticCompatibleMetrics();
@@ -211,7 +207,7 @@ export async function shutdownTelemetry(): Promise<void> {
     try {
       await sdk.shutdown();
     } catch (error) {
-      console.warn("⚠️  Error shutting down OpenTelemetry:", error);
+      console.warn("Error shutting down OpenTelemetry:", error);
     }
   }
 }
@@ -258,13 +254,20 @@ export const initializeBunFullTelemetry = initializeTelemetry;
 export const initializeSimpleTelemetry = initializeTelemetry;
 export const getBunTelemetryStatus = getTelemetryStatus;
 export const getSimpleTelemetryStatus = getTelemetryStatus;
-function initializeElasticCompatibleMetrics(): void {
-  const meter = metrics.getMeter("authentication-service", telemetryConfig.serviceVersion);
 
-  const eventLoopDelayHistogram = meter.createHistogram("nodejs.eventloop.delay", {
-    description: "Node.js event loop delay in milliseconds",
-    unit: "ms",
-  });
+function initializeElasticCompatibleMetrics(): void {
+  const meter = metrics.getMeter(
+    "authentication-service",
+    telemetryConfig.serviceVersion,
+  );
+
+  const eventLoopDelayHistogram = meter.createHistogram(
+    "nodejs.eventloop.delay",
+    {
+      description: "Node.js event loop delay in milliseconds",
+      unit: "ms",
+    },
+  );
 
   const memoryGauge = meter.createGauge("process.memory.usage", {
     description: "Process memory usage",
@@ -299,7 +302,8 @@ function initializeElasticCompatibleMetrics(): void {
     const currentCpuUsage = process.cpuUsage(previousCpuUsage);
     const currentTime = Date.now();
     const timeDiff = currentTime - previousTime;
-    const cpuPercent = ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
+    const cpuPercent =
+      ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
     cpuGauge.record(cpuPercent);
     previousCpuUsage = process.cpuUsage();
     previousTime = currentTime;
@@ -310,9 +314,9 @@ function initializeElasticCompatibleMetrics(): void {
     activeRequestsGauge.record(activeRequests);
   }, 10000);
 
-  if (performance?.eventLoopUtilization) {
+  if ((performance as any)?.eventLoopUtilization) {
     setInterval(() => {
-      const elu = performance.eventLoopUtilization();
+      const elu = (performance as any).eventLoopUtilization();
       eventLoopDelayHistogram.record(elu.utilization * 100);
     }, 10000);
   }

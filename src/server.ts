@@ -1,7 +1,5 @@
 /* src/server.ts */
 
-// Main authentication server using native Bun.serve with OpenTelemetry instrumentation
-
 import { SpanKind, trace } from "@opentelemetry/api";
 import { loadConfig } from "./config/index";
 import { apiDocGenerator } from "./openapi-generator";
@@ -32,7 +30,6 @@ const config = loadConfig();
 
 const kongService = new KongService(config.kong.adminUrl, config.kong.adminToken);
 
-// Initialize telemetry FIRST - always enabled
 try {
   await initializeTelemetry();
 } catch (error) {
@@ -74,7 +71,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
     if ("error" in validation) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
-      // Record authentication failure
       recordAuthenticationAttempt("kong_header", false);
       recordError("validation_error", {
         reason: validation.error,
@@ -119,7 +115,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
       "consumer.id": consumerId,
     });
 
-    // Record successful authentication attempt
     recordAuthenticationAttempt("kong_header", true, username);
 
     log("Authentication header validation successful", {
@@ -135,7 +130,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
     const kongGetDuration = (Bun.nanoseconds() - kongOperationStart) / 1_000_000;
 
     if (!consumerSecret) {
-      // Record Kong operation - get consumer secret (cache miss)
       recordKongOperation("get_consumer_secret", kongGetDuration, true, false);
 
       log("Kong consumer secret creation initiated", {
@@ -149,7 +143,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
       consumerSecret = await kongService.createConsumerSecret(consumerId);
       const createDuration = (Bun.nanoseconds() - createStart) / 1_000_000;
 
-      // Record Kong operation - create consumer secret
       recordKongOperation("create_consumer_secret", createDuration, !!consumerSecret);
 
       if (!consumerSecret) {
@@ -162,7 +155,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
           duration_ms: duration,
         });
 
-        // Record error for failed consumer secret creation
         recordError("consumer_provisioning_failed", {
           consumerId,
           operation: "create_consumer_secret",
@@ -183,7 +175,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
         );
       }
     } else {
-      // Record Kong operation - get consumer secret (cache hit)
       recordKongOperation("get_consumer_secret", kongGetDuration, true, true);
     }
 
@@ -197,7 +188,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
     );
     const jwtDuration = (Bun.nanoseconds() - jwtStart) / 1_000_000;
 
-    // Record JWT token creation
     recordJwtTokenIssued(username, jwtDuration);
 
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -216,10 +206,8 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
       success: true,
     });
 
-    // Calculate response size (approximate)
     const _responseSize = JSON.stringify(tokenResponse).length;
 
-    // Skip manual HTTP metrics recording - OpenTelemetry spans automatically generate HTTP metrics
     recordOperationDuration("token_creation", duration, true, {
       username,
       consumerId,
@@ -243,7 +231,6 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
       duration_ms: duration,
     });
 
-    // Record exception and error metrics
     recordException(err as Error, {
       operation: "token_request",
       requestId,
@@ -273,10 +260,8 @@ async function handleHealthCheck(span: any): Promise<Response> {
     const kongHealth = await kongService.healthCheck();
     const healthCheckDuration = (Bun.nanoseconds() - healthCheckStart) / 1_000_000;
 
-    // Record Kong health check operation
     recordKongOperation("health_check", healthCheckDuration, kongHealth.healthy);
 
-    // Get telemetry health status - always available
     const telemetryHealth = getTelemetryStatus();
 
     const health = {
@@ -319,13 +304,9 @@ async function handleHealthCheck(span: any): Promise<Response> {
       operation: "health_check",
     });
 
-    // Calculate response size
     const healthResponse = JSON.stringify(health, null, 2);
     const _responseSize = healthResponse.length;
 
-    // Record comprehensive metrics
-    // Skip manual metrics recording for monitoring endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
     recordOperationDuration("health_check", duration, status === 200);
 
     return new Response(JSON.stringify(health, null, 2), {
@@ -349,7 +330,6 @@ async function handleHealthCheck(span: any): Promise<Response> {
       duration,
     });
 
-    // Record error metrics
     recordException(err as Error, {
       operation: "health_check",
       component: "kong",
@@ -358,10 +338,6 @@ async function handleHealthCheck(span: any): Promise<Response> {
       error: (err as Error).message,
     });
 
-    // Record metrics for error case
-    // Skip manual metrics recording for monitoring endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
-
     throw err;
   }
 }
@@ -369,13 +345,12 @@ async function handleHealthCheck(span: any): Promise<Response> {
 function handleTelemetryHealth(): Response {
   const startTime = Bun.nanoseconds();
 
-  // Create HTTP span following the same pattern as other endpoints
   const tracer = trace.getTracer("authentication-service");
 
   return tracer.startActiveSpan(
     "GET /health/telemetry",
     {
-      kind: 1, // SpanKind.SERVER
+      kind: 1,
       attributes: {
         "http.request.method": "GET",
         "http.route": "/health/telemetry",
@@ -405,8 +380,6 @@ function handleTelemetryHealth(): Response {
         });
 
         const _responseSize = JSON.stringify(telemetryStatus, null, 2).length;
-        // Skip manual metrics recording for monitoring endpoints to avoid double counting
-        // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
 
         return new Response(JSON.stringify(telemetryStatus, null, 2), {
           status: 200,
@@ -523,8 +496,6 @@ function handleMetricsHealth(): Response {
 
     const _duration = (Bun.nanoseconds() - startTime) / 1_000_000;
     const _responseSize = JSON.stringify(metricsHealth, null, 2).length;
-    // Skip manual metrics recording for monitoring endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
 
     return new Response(JSON.stringify(metricsHealth, null, 2), {
       status: 200,
@@ -548,7 +519,6 @@ function handleDebugMetricsTest(): Response {
   const startTime = Bun.nanoseconds();
 
   try {
-    // Record test metrics
     testMetricRecording();
 
     const result = {
@@ -612,7 +582,6 @@ async function handleDebugMetricsExport(): Promise<Response> {
   try {
     const statsBefore = getMetricsExportStats();
 
-    // Force export metrics
     await forceMetricsFlush();
 
     const statsAfter = getMetricsExportStats();
@@ -650,7 +619,6 @@ async function handleDebugMetricsExport(): Promise<Response> {
     });
   } catch (error) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-    // Error already logged via structured logging below
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/metrics/export",
@@ -747,16 +715,12 @@ function handleOpenAPISpec(acceptHeader?: string): Response {
   const startTime = Bun.nanoseconds();
 
   try {
-    // Set current configuration for dynamic server generation
     apiDocGenerator.setConfig(config);
 
-    // Register all routes in the generator
     apiDocGenerator.registerAllRoutes();
 
-    // Generate the OpenAPI specification
     const openApiSpec = apiDocGenerator.generateSpec();
 
-    // Determine response format based on Accept header
     const isYamlRequested =
       acceptHeader?.includes("application/yaml") ||
       acceptHeader?.includes("text/yaml") ||
@@ -766,11 +730,9 @@ function handleOpenAPISpec(acceptHeader?: string): Response {
     let contentType: string;
 
     if (isYamlRequested) {
-      // Convert to YAML format
       responseContent = convertToYaml(openApiSpec);
       contentType = "application/yaml";
     } else {
-      // Default to JSON format
       responseContent = JSON.stringify(openApiSpec, null, 2);
       contentType = "application/json";
     }
@@ -792,7 +754,7 @@ function handleOpenAPISpec(acceptHeader?: string): Response {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+        "Cache-Control": "public, max-age=300",
         "X-API-Version": openApiSpec.info.version,
         "X-Generated-At": new Date().toISOString(),
       },
@@ -823,7 +785,6 @@ function handleOpenAPISpec(acceptHeader?: string): Response {
   }
 }
 
-// Helper function to convert JSON to YAML (simplified version for this use case)
 function convertToYaml(obj: any, indent = 0): string {
   const spaces = "  ".repeat(indent);
 
@@ -875,9 +836,6 @@ function convertToYaml(obj: any, indent = 0): string {
 function handleMetrics(): Response {
   const startTime = Bun.nanoseconds();
 
-  // No need for additional span - already covered by main request handler
-  // This prevents double HTTP metrics recording
-
   try {
     const telemetryHealth = getTelemetryStatus();
 
@@ -899,8 +857,6 @@ function handleMetrics(): Response {
 
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
-    // No span attributes needed since we removed the extra span
-
     log("HTTP request processed Performance metrics retrieved successfully", {
       method: "GET",
       url: "/metrics",
@@ -911,8 +867,6 @@ function handleMetrics(): Response {
     });
 
     const _responseSize = JSON.stringify(metrics, null, 2).length;
-    // Skip manual metrics recording for monitoring endpoints to avoid double counting
-    // (OpenTelemetry spans automatically generate HTTP metrics from span attributes)
 
     return new Response(JSON.stringify(metrics, null, 2), {
       status: 200,
@@ -955,7 +909,6 @@ log("Checking Kong connectivity...", {
 });
 
 const startupKongHealth = await kongService.healthCheck();
-// Record startup Kong health check
 recordKongOperation(
   "startup_health_check",
   startupKongHealth.responseTime,
@@ -986,7 +939,6 @@ if (!startupKongHealth.healthy) {
   });
 }
 
-// Route definitions for better maintainability
 const routes = {
   "GET /": (req: Request, _url: URL, _span: any) =>
     handleOpenAPISpec(req.headers.get("Accept") || undefined),
@@ -1009,7 +961,6 @@ const routes = {
   "GET /debug/metrics/stats": (_req: Request, _url: URL, _span: any) => handleDebugMetricsStats(),
 } as const;
 
-// Route handler function
 async function handleRoute(req: Request, url: URL, span: any): Promise<Response> {
   const routeKey = `${req.method} ${url.pathname}` as keyof typeof routes;
   const handler = routes[routeKey];
@@ -1018,7 +969,6 @@ async function handleRoute(req: Request, url: URL, span: any): Promise<Response>
     return await handler(req, url, span);
   }
 
-  // Handle 404 - Not Found
   const requestId = crypto.randomUUID();
   const startTime = Bun.nanoseconds();
   const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -1051,18 +1001,15 @@ async function handleRoute(req: Request, url: URL, span: any): Promise<Response>
 let server: any;
 
 try {
-  // Create tracer - exactly like working test
   const tracer = trace.getTracer("authentication-service", "1.0.0");
 
   server = Bun.serve({
     port: config.server.port,
     hostname: "0.0.0.0",
 
-    // Route-based approach for better maintainability and performance
     async fetch(req) {
       const url = new URL(req.url);
 
-      // Create HTTP span for every request
       return tracer.startActiveSpan(
         `${req.method} ${url.pathname}`,
         {
@@ -1078,11 +1025,9 @@ try {
         },
         async (span) => {
           try {
-            // Route handling with proper HTTP method matching
             const response = await handleRoute(req, url, span);
 
-            // Set span status
-            span.setStatus({ code: 1 }); // OK
+            span.setStatus({ code: 1 });
             span.setAttributes({
               "http.response.status_code": response.status,
             });
@@ -1090,7 +1035,7 @@ try {
             return response;
           } catch (error) {
             span.setStatus({
-              code: 2, // ERROR
+              code: 2,
               message: error instanceof Error ? error.message : "Unknown error",
             });
             span.setAttributes({
@@ -1243,10 +1188,9 @@ const gracefulShutdown = async (signal: string) => {
       pid: process.pid,
     });
     process.exit(1);
-  }, 10000); // 10 second timeout
+  }, 10000);
 
   try {
-    // Stop server first
     if (server) {
       log("Stopping HTTP server...", {
         component: "server",
@@ -1259,7 +1203,6 @@ const gracefulShutdown = async (signal: string) => {
       });
     }
 
-    // Shutdown telemetry and metrics
     log("Shutting down telemetry...", {
       component: "telemetry",
       event: "shutdown_telemetry",
@@ -1295,12 +1238,10 @@ const gracefulShutdown = async (signal: string) => {
   }
 };
 
-// Handle various termination signals
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGHUP", () => gracefulShutdown("SIGHUP"));
 
-// Handle uncaught exceptions
 process.on("uncaughtException", (uncaughtError) => {
   error("Uncaught exception - forcing shutdown", {
     component: "server",
@@ -1312,7 +1253,6 @@ process.on("uncaughtException", (uncaughtError) => {
   process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, _promise) => {
   error("Unhandled promise rejection - forcing shutdown", {
     component: "server",

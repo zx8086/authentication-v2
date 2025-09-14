@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+/* scripts/generate-openapi.ts */
+
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -19,7 +21,6 @@ interface GenerationStats {
   schemaCount: number;
 }
 
-// Custom YAML converter to avoid external dependencies
 function convertToYaml(obj: any, indent = 0): string {
   const spaces = "  ".repeat(indent);
 
@@ -28,7 +29,6 @@ function convertToYaml(obj: any, indent = 0): string {
   }
 
   if (typeof obj === "string") {
-    // Escape special YAML characters and handle multiline strings
     if (obj.includes("\n") || obj.includes('"') || obj.includes("'")) {
       return `|\n${spaces}  ${obj.split("\n").join(`\n${spaces}  `)}`;
     }
@@ -161,11 +161,8 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
   const format = options.format || "both";
   const verbose = options.verbose || false;
 
-
-  // Ensure output directory exists
   await ensureDirectoryExists(outputDir);
 
-  // Set default configuration for static generation
   const defaultConfig = {
     server: {
       port: 3000,
@@ -174,10 +171,8 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
   };
   apiDocGenerator.setConfig(defaultConfig);
 
-  // Register all routes in the generator
   apiDocGenerator.registerAllRoutes();
 
-  // Generate the OpenAPI specification
   const openApiSpec = apiDocGenerator.generateSpec();
 
   const stats: GenerationStats = {
@@ -188,7 +183,6 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
     schemaCount: Object.keys(openApiSpec.components.schemas).length
   };
 
-  // Generate JSON format
   if (format === "json" || format === "both") {
     const jsonContent = JSON.stringify(openApiSpec, null, 2);
     const jsonPath = path.join(outputDir, "openapi.json");
@@ -196,10 +190,8 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
     await writeFile(jsonPath, jsonContent, "utf-8");
     stats.filesGenerated.push(jsonPath);
     stats.totalSize += Buffer.byteLength(jsonContent, "utf-8");
-
   }
 
-  // Generate YAML format
   if (format === "yaml" || format === "both") {
     const yamlContent = `# OpenAPI 3.0.3 specification for PVH Authentication Service
 # Generated on: ${new Date().toISOString()}
@@ -211,33 +203,26 @@ ${convertToYaml(openApiSpec)}`;
     await writeFile(yamlPath, yamlContent, "utf-8");
     stats.filesGenerated.push(yamlPath);
     stats.totalSize += Buffer.byteLength(yamlContent, "utf-8");
-
   }
 
   stats.duration = Date.now() - startTime;
 
-
   return stats;
 }
 
-// CLI interface
 async function main(): Promise<void> {
   try {
     const options = parseCommandLineArgs();
     const stats = await generateOpenAPISpec(options);
 
-
     process.exit(0);
   } catch (error) {
-
     process.exit(1);
   }
 }
 
-// Export for programmatic usage
 export { generateOpenAPISpec, type GenerationOptions, type GenerationStats };
 
-// Run CLI if this script is executed directly
 if (import.meta.main) {
   main().catch(console.error);
 }
