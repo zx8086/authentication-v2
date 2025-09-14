@@ -4,6 +4,7 @@
 
 import { SpanKind, trace } from "@opentelemetry/api";
 import { loadConfig } from "./config/index";
+import { apiDocGenerator } from "./openapi-generator";
 import { NativeBunJWT } from "./services/jwt.service";
 import { KongService } from "./services/kong.service";
 import {
@@ -547,7 +548,6 @@ function handleDebugMetricsTest(): Response {
   const startTime = Bun.nanoseconds();
 
   try {
-
     // Record test metrics
     testMetricRecording();
 
@@ -610,7 +610,6 @@ async function handleDebugMetricsExport(): Promise<Response> {
   const startTime = Bun.nanoseconds();
 
   try {
-
     const statsBefore = getMetricsExportStats();
 
     // Force export metrics
@@ -651,7 +650,7 @@ async function handleDebugMetricsExport(): Promise<Response> {
     });
   } catch (error) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-    console.error("❌ [DEBUG] Manual metrics export failed:", error);
+    // Error already logged via structured logging below
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/metrics/export",
@@ -744,6 +743,135 @@ function handleDebugMetricsStats(): Response {
   }
 }
 
+function handleOpenAPISpec(acceptHeader?: string): Response {
+  const startTime = Bun.nanoseconds();
+
+  try {
+    // Set current configuration for dynamic server generation
+    apiDocGenerator.setConfig(config);
+
+    // Register all routes in the generator
+    apiDocGenerator.registerAllRoutes();
+
+    // Generate the OpenAPI specification
+    const openApiSpec = apiDocGenerator.generateSpec();
+
+    // Determine response format based on Accept header
+    const isYamlRequested =
+      acceptHeader?.includes("application/yaml") ||
+      acceptHeader?.includes("text/yaml") ||
+      acceptHeader?.includes("application/x-yaml");
+
+    let responseContent: string;
+    let contentType: string;
+
+    if (isYamlRequested) {
+      // Convert to YAML format
+      responseContent = convertToYaml(openApiSpec);
+      contentType = "application/yaml";
+    } else {
+      // Default to JSON format
+      responseContent = JSON.stringify(openApiSpec, null, 2);
+      contentType = "application/json";
+    }
+
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    log("HTTP request processed OpenAPI specification served successfully", {
+      method: "GET",
+      url: "/",
+      statusCode: 200,
+      duration,
+      format: isYamlRequested ? "yaml" : "json",
+      routes_documented: Object.keys(openApiSpec.paths).length,
+      schemas_defined: Object.keys(openApiSpec.components.schemas).length,
+      operation: "openapi_spec_generation",
+    });
+
+    return new Response(responseContent, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+        "X-API-Version": openApiSpec.info.version,
+        "X-Generated-At": new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    log("OpenAPI specification generation failed", {
+      method: "GET",
+      url: "/",
+      statusCode: 500,
+      duration,
+      error: (error as Error).message,
+      operation: "openapi_spec_generation",
+    });
+
+    return new Response(
+      JSON.stringify({
+        error: "OpenAPI Generation Error",
+        message: "Failed to generate OpenAPI specification",
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+}
+
+// Helper function to convert JSON to YAML (simplified version for this use case)
+function convertToYaml(obj: any, indent = 0): string {
+  const spaces = "  ".repeat(indent);
+
+  if (obj === null || obj === undefined) {
+    return "null";
+  }
+
+  if (typeof obj === "string") {
+    if (obj.includes("\n") || obj.includes('"') || obj.includes("'")) {
+      return `|\n${spaces}  ${obj.split("\n").join(`\n${spaces}  `)}`;
+    }
+    if (obj.includes(":") || obj.includes("[") || obj.includes("{") || /^\d/.test(obj)) {
+      return `"${obj.replace(/"/g, '\\"')}"`;
+    }
+    return obj;
+  }
+
+  if (typeof obj === "number" || typeof obj === "boolean") {
+    return obj.toString();
+  }
+
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return "[]";
+    return obj
+      .map(
+        (item) => `\n${spaces}- ${convertToYaml(item, indent + 1).replace(/\n/g, `\n${spaces}  `)}`
+      )
+      .join("");
+  }
+
+  if (typeof obj === "object") {
+    const entries = Object.entries(obj);
+    if (entries.length === 0) return "{}";
+
+    return entries
+      .map(([key, value]) => {
+        const yamlValue = convertToYaml(value, indent + 1);
+        if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+          return `\n${spaces}${key}:${yamlValue.startsWith("\n") ? yamlValue : ` ${yamlValue}`}`;
+        }
+        return `\n${spaces}${key}: ${yamlValue}`;
+      })
+      .join("");
+  }
+
+  return obj.toString();
+}
+
 function handleMetrics(): Response {
   const startTime = Bun.nanoseconds();
 
@@ -813,6 +941,14 @@ function handleMetrics(): Response {
   }
 }
 
+log("Authentication Service starting up", {
+  component: "server",
+  event: "startup_initiated",
+  version: "1.0.0",
+  environment: config.server.nodeEnv,
+  port: config.server.port,
+});
+
 log("Checking Kong connectivity...", {
   component: "kong",
   event: "connectivity_check",
@@ -850,6 +986,68 @@ if (!startupKongHealth.healthy) {
   });
 }
 
+// Route definitions for better maintainability
+const routes = {
+  "GET /": (req: Request, _url: URL, _span: any) =>
+    handleOpenAPISpec(req.headers.get("Accept") || undefined),
+
+  "GET /health": (_req: Request, _url: URL, span: any) => handleHealthCheck(span),
+
+  "GET /health/telemetry": (_req: Request, _url: URL, _span: any) => handleTelemetryHealth(),
+
+  "GET /health/metrics": (_req: Request, _url: URL, _span: any) => handleMetricsHealth(),
+
+  "GET /metrics": (_req: Request, _url: URL, _span: any) => handleMetrics(),
+
+  "GET /tokens": (req: Request, _url: URL, span: any) => handleTokenRequest(req, span),
+
+  "POST /debug/metrics/test": (_req: Request, _url: URL, _span: any) => handleDebugMetricsTest(),
+
+  "POST /debug/metrics/export": (_req: Request, _url: URL, _span: any) =>
+    handleDebugMetricsExport(),
+
+  "GET /debug/metrics/stats": (_req: Request, _url: URL, _span: any) => handleDebugMetricsStats(),
+} as const;
+
+// Route handler function
+async function handleRoute(req: Request, url: URL, span: any): Promise<Response> {
+  const routeKey = `${req.method} ${url.pathname}` as keyof typeof routes;
+  const handler = routes[routeKey];
+
+  if (handler) {
+    return await handler(req, url, span);
+  }
+
+  // Handle 404 - Not Found
+  const requestId = crypto.randomUUID();
+  const startTime = Bun.nanoseconds();
+  const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+  log("HTTP request processed", {
+    method: req.method,
+    url: url.pathname,
+    statusCode: 404,
+    duration,
+    requestId,
+  });
+
+  return new Response(
+    JSON.stringify({
+      error: "Not Found",
+      message: `Path ${url.pathname} not found`,
+      traceId: span.spanContext().traceId,
+    }),
+    {
+      status: 404,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Request-Id": requestId,
+        "X-Trace-Id": span.spanContext().traceId,
+      },
+    }
+  );
+}
+
 let server: any;
 
 try {
@@ -860,10 +1058,11 @@ try {
     port: config.server.port,
     hostname: "0.0.0.0",
 
-    fetch(req) {
+    // Route-based approach for better maintainability and performance
+    async fetch(req) {
       const url = new URL(req.url);
 
-      // Create HTTP span for every request - exactly like working test
+      // Create HTTP span for every request
       return tracer.startActiveSpan(
         `${req.method} ${url.pathname}`,
         {
@@ -878,62 +1077,9 @@ try {
           },
         },
         async (span) => {
-          let response: Response;
-
           try {
-            if (url.pathname === "/health") {
-              response = await handleHealthCheck(span);
-            } else if (url.pathname === "/health/telemetry") {
-              response = await handleTelemetryHealth();
-            } else if (url.pathname === "/metrics") {
-              response = await handleMetrics();
-            } else if (url.pathname === "/health/metrics") {
-              response = handleMetricsHealth();
-            } else if (url.pathname === "/debug/metrics/test" && req.method === "POST") {
-              response = handleDebugMetricsTest();
-            } else if (url.pathname === "/debug/metrics/export" && req.method === "POST") {
-              response = await handleDebugMetricsExport();
-            } else if (url.pathname === "/debug/metrics/stats" && req.method === "GET") {
-              response = handleDebugMetricsStats();
-            } else if (url.pathname === "/tokens") {
-              response = await handleTokenRequest(req, span);
-            } else {
-              const requestId = crypto.randomUUID();
-              const startTime = Bun.nanoseconds();
-              const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-
-              log("HTTP request processed", {
-                method: req.method,
-                url: url.pathname,
-                statusCode: 404,
-                duration,
-                requestId,
-              });
-
-              const _notFoundResponse = JSON.stringify({
-                error: "Not Found",
-                message: `Path ${url.pathname} not found`,
-                traceId: span.spanContext().traceId,
-              });
-
-              // Skip manual HTTP metrics recording - OpenTelemetry spans automatically generate HTTP metrics
-
-              response = new Response(
-                JSON.stringify({
-                  error: "Not Found",
-                  message: `Path ${url.pathname} not found`,
-                  traceId: span.spanContext().traceId,
-                }),
-                {
-                  status: 404,
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-Request-Id": requestId,
-                    "X-Trace-Id": span.spanContext().traceId,
-                  },
-                }
-              );
-            }
+            // Route handling with proper HTTP method matching
+            const response = await handleRoute(req, url, span);
 
             // Set span status
             span.setStatus({ code: 1 }); // OK
@@ -1018,6 +1164,7 @@ log("Server endpoints configured", {
   component: "server",
   event: "endpoints_configured",
   endpoints: [
+    "GET / - OpenAPI specification (JSON/YAML based on Accept header)",
     "GET /health - Health check",
     "GET /health/telemetry - Telemetry health status",
     "GET /health/metrics - Metrics health and debugging",

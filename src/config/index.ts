@@ -23,6 +23,16 @@ const KongConfigSchema = z.object({
   anonymousHeader: z.string().min(1),
 });
 
+const ApiInfoConfigSchema = z.object({
+  title: z.string().min(1).describe("API title"),
+  description: z.string().min(1).describe("API description"),
+  version: z.string().min(1).describe("API version"),
+  contactName: z.string().min(1).describe("Contact name"),
+  contactEmail: z.string().email().describe("Contact email"),
+  licenseName: z.string().min(1).describe("License name"),
+  licenseIdentifier: z.string().min(1).describe("License identifier"),
+});
+
 const TelemetryConfigSchema = z
   .object({
     serviceName: z.string().min(1).describe("Service identifier for telemetry"),
@@ -65,6 +75,7 @@ const AppConfigSchema = z.object({
   jwt: JwtConfigSchema,
   kong: KongConfigSchema,
   telemetry: TelemetryConfigSchema,
+  apiInfo: ApiInfoConfigSchema,
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
@@ -107,6 +118,16 @@ const defaultConfig: AppConfig = {
     // No sampling config - using 100% sampling, letting collector handle it
     enableOpenTelemetry: false, // Computed property - will be overridden
   } as any,
+  apiInfo: {
+    title: "PVH Authentication Service API",
+    description:
+      "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
+    version: pkg.version || "1.0.0",
+    contactName: "PVH Corp",
+    contactEmail: "api-support@pvh.com",
+    licenseName: "Proprietary",
+    licenseIdentifier: "UNLICENSED",
+  },
 };
 
 // Environment variable mapping with OpenTelemetry standard support
@@ -139,6 +160,15 @@ const envVarMapping = {
     batchSize: "OTEL_BSP_MAX_EXPORT_BATCH_SIZE",
     maxQueueSize: "OTEL_BSP_MAX_QUEUE_SIZE",
     // No sampling env vars - using 100% sampling
+  },
+  apiInfo: {
+    title: "API_TITLE",
+    description: "API_DESCRIPTION",
+    version: "API_VERSION",
+    contactName: "API_CONTACT_NAME",
+    contactEmail: "API_CONTACT_EMAIL",
+    licenseName: "API_LICENSE_NAME",
+    licenseIdentifier: "API_LICENSE_IDENTIFIER",
   },
 } as const;
 
@@ -307,6 +337,45 @@ function loadConfigFromEnv(): Partial<AppConfig> {
     enableOpenTelemetry: false, // Will be computed later based on mode
   } as any;
 
+  // Load API Info config with fallbacks
+  config.apiInfo = {
+    title: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.title],
+      "string",
+      defaultConfig.apiInfo.title
+    ) as string,
+    description: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.description],
+      "string",
+      defaultConfig.apiInfo.description
+    ) as string,
+    version: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.version],
+      "string",
+      defaultConfig.apiInfo.version
+    ) as string,
+    contactName: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.contactName],
+      "string",
+      defaultConfig.apiInfo.contactName
+    ) as string,
+    contactEmail: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.contactEmail],
+      "email",
+      defaultConfig.apiInfo.contactEmail
+    ) as string,
+    licenseName: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.licenseName],
+      "string",
+      defaultConfig.apiInfo.licenseName
+    ) as string,
+    licenseIdentifier: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.licenseIdentifier],
+      "string",
+      defaultConfig.apiInfo.licenseIdentifier
+    ) as string,
+  };
+
   return config;
 }
 
@@ -320,6 +389,7 @@ try {
     jwt: { ...defaultConfig.jwt, ...envConfig.jwt },
     kong: { ...defaultConfig.kong, ...envConfig.kong },
     telemetry: { ...defaultConfig.telemetry, ...envConfig.telemetry },
+    apiInfo: { ...defaultConfig.apiInfo, ...envConfig.apiInfo },
   };
 
   // Validate merged configuration against schemas
@@ -468,6 +538,7 @@ export const serverConfig = config.server;
 export const jwtConfig = config.jwt;
 export const kongConfig = config.kong;
 export const telemetryConfig = config.telemetry;
+export const apiInfoConfig = config.apiInfo;
 
 // Configuration metadata for tooling
 export const configMetadata = {
