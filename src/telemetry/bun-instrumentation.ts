@@ -1,97 +1,129 @@
 /* src/telemetry/bun-instrumentation.ts */
 
 // Simple telemetry instrumentation following the OpenTelemetry guide EXACTLY
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { BatchLogRecordProcessor, SimpleLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { ConsoleTraceExporter } from './exporters/ConsoleTraceExporter';
-import { ConsoleMetricExporter } from './exporters/ConsoleMetricExporter';
-import { ConsoleLogExporter } from './exporters/ConsoleLogExporter';
-import { LoggerProvider } from '@opentelemetry/sdk-logs';
-import { resourceFromAttributes } from '@opentelemetry/resources';
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import {
+  BatchSpanProcessor,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import {
+  BatchLogRecordProcessor,
+  SimpleLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { ConsoleTraceExporter } from "./exporters/ConsoleTraceExporter";
+import { ConsoleMetricExporter } from "./exporters/ConsoleMetricExporter";
+import { ConsoleLogExporter } from "./exporters/ConsoleLogExporter";
+import { LoggerProvider } from "@opentelemetry/sdk-logs";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
   SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-} from '@opentelemetry/semantic-conventions';
-import { telemetryConfig, type TelemetryConfig } from './config';
-import { initializeMetrics } from './simple-metrics';
+} from "@opentelemetry/semantic-conventions";
+import { telemetryConfig, type TelemetryConfig } from "./config";
+import { initializeMetrics } from "./metrics";
 
 let sdk: NodeSDK | undefined;
 let loggerProvider: LoggerProvider | undefined;
 
 export async function initializeTelemetry(): Promise<void> {
-  if (!telemetryConfig.ENABLE_OPENTELEMETRY) {
+  if (!telemetryConfig.enableOpenTelemetry) {
     return;
   }
 
   // Create resource
   const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: telemetryConfig.SERVICE_NAME,
-    [ATTR_SERVICE_VERSION]: telemetryConfig.SERVICE_VERSION,
-    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: telemetryConfig.DEPLOYMENT_ENVIRONMENT,
+    [ATTR_SERVICE_NAME]: telemetryConfig.serviceName,
+    [ATTR_SERVICE_VERSION]: telemetryConfig.serviceVersion,
+    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
+      telemetryConfig.deploymentEnvironment,
   });
 
   // ============= LOGGING SETUP - Following the guide exactly =============
   const logProcessors = [];
-  
-  if (telemetryConfig.TELEMETRY_MODE === 'console' || telemetryConfig.TELEMETRY_MODE === 'both') {
+
+  if (
+    telemetryConfig.telemetryMode === "console" ||
+    telemetryConfig.telemetryMode === "both"
+  ) {
     const consoleLogExporter = new ConsoleLogExporter();
     logProcessors.push(new SimpleLogRecordProcessor(consoleLogExporter));
   }
 
-  if (telemetryConfig.TELEMETRY_MODE === 'otlp' || telemetryConfig.TELEMETRY_MODE === 'both') {
+  if (
+    telemetryConfig.telemetryMode === "otlp" ||
+    telemetryConfig.telemetryMode === "both"
+  ) {
     // Create custom Bun-optimized OTLP log exporter to work around SDK issues
     const customOTLPExporter = {
       async export(logs, resultCallback) {
-        console.debug(`[CUSTOM-OTLP] Exporting ${logs.length} logs to ${telemetryConfig.LOGS_ENDPOINT}`);
-        
+        console.debug(
+          `[CUSTOM-OTLP] Exporting ${logs.length} logs to ${telemetryConfig.logsEndpoint}`,
+        );
+
         try {
           // Convert logs to OTLP format
           const otlpPayload = {
-            resourceLogs: [{
-              resource: {
-                attributes: Object.entries(logs[0]?.resource?.attributes || {}).map(([key, value]) => ({
-                  key,
-                  value: { stringValue: String(value) }
-                }))
-              },
-              scopeLogs: [{
-                scope: { name: 'pvh-authentication-service', version: '1.0.0' },
-                logRecords: logs.map(log => ({
-                  timeUnixNano: String(log.hrTime[0] * 1_000_000_000 + log.hrTime[1]),
-                  severityNumber: log.severityNumber,
-                  severityText: log.severityText,
-                  body: { stringValue: String(log.body) },
-                  attributes: Object.entries(log.attributes || {}).map(([key, value]) => ({
+            resourceLogs: [
+              {
+                resource: {
+                  attributes: Object.entries(
+                    logs[0]?.resource?.attributes || {},
+                  ).map(([key, value]) => ({
                     key,
-                    value: { stringValue: String(value) }
-                  }))
-                }))
-              }]
-            }]
+                    value: { stringValue: String(value) },
+                  })),
+                },
+                scopeLogs: [
+                  {
+                    scope: { name: "authentication-service", version: "1.0.0" },
+                    logRecords: logs.map((log) => ({
+                      timeUnixNano: String(
+                        log.hrTime[0] * 1_000_000_000 + log.hrTime[1],
+                      ),
+                      severityNumber: log.severityNumber,
+                      severityText: log.severityText,
+                      body: { stringValue: String(log.body) },
+                      attributes: Object.entries(log.attributes || {}).map(
+                        ([key, value]) => ({
+                          key,
+                          value: { stringValue: String(value) },
+                        }),
+                      ),
+                    })),
+                  },
+                ],
+              },
+            ],
           };
-          
-          const response = await fetch(telemetryConfig.LOGS_ENDPOINT, {
-            method: 'POST',
+
+          const response = await fetch(telemetryConfig.logsEndpoint, {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify(otlpPayload),
           });
-          
+
           if (response.ok) {
-            console.debug(`[CUSTOM-OTLP] ✅ Successfully exported ${logs.length} logs`);
+            console.debug(
+              `[CUSTOM-OTLP] ✅ Successfully exported ${logs.length} logs`,
+            );
             resultCallback({ code: 0 });
           } else {
             const errorText = await response.text();
-            console.error(`[CUSTOM-OTLP] ❌ HTTP ${response.status}: ${errorText}`);
-            resultCallback({ code: 1, error: new Error(`HTTP ${response.status}: ${errorText}`) });
+            console.error(
+              `[CUSTOM-OTLP] ❌ HTTP ${response.status}: ${errorText}`,
+            );
+            resultCallback({
+              code: 1,
+              error: new Error(`HTTP ${response.status}: ${errorText}`),
+            });
           }
         } catch (error) {
           console.error(`[CUSTOM-OTLP] ❌ Export error:`, error);
@@ -99,9 +131,9 @@ export async function initializeTelemetry(): Promise<void> {
         }
       },
       async shutdown() {},
-      async forceFlush() {}
+      async forceFlush() {},
     };
-    
+
     // Use SimpleLogRecordProcessor with custom exporter
     logProcessors.push(new SimpleLogRecordProcessor(customOTLPExporter));
   }
@@ -110,7 +142,7 @@ export async function initializeTelemetry(): Promise<void> {
   if (logProcessors.length > 0) {
     loggerProvider = new LoggerProvider({
       resource,
-      logRecordProcessors: logProcessors
+      logRecordProcessors: logProcessors,
     });
   }
 
@@ -119,16 +151,21 @@ export async function initializeTelemetry(): Promise<void> {
   let metricReader;
 
   // Create exporters based on TELEMETRY_MODE
-  if (telemetryConfig.TELEMETRY_MODE === 'console' || telemetryConfig.TELEMETRY_MODE === 'both') {
+  if (
+    telemetryConfig.telemetryMode === "console" ||
+    telemetryConfig.telemetryMode === "both"
+  ) {
     // Console exporters
     const consoleTraceExporter = new ConsoleTraceExporter();
     const consoleMetricExporter = new ConsoleMetricExporter();
-    
-    processors.push(new BatchSpanProcessor(consoleTraceExporter, {
-      maxExportBatchSize: 10,
-      scheduledDelayMillis: 5000,
-    }));
-    
+
+    processors.push(
+      new BatchSpanProcessor(consoleTraceExporter, {
+        maxExportBatchSize: 10,
+        scheduledDelayMillis: 5000,
+      }),
+    );
+
     if (!metricReader) {
       metricReader = new PeriodicExportingMetricReader({
         exporter: consoleMetricExporter,
@@ -137,24 +174,29 @@ export async function initializeTelemetry(): Promise<void> {
     }
   }
 
-  if (telemetryConfig.TELEMETRY_MODE === 'otlp' || telemetryConfig.TELEMETRY_MODE === 'both') {
+  if (
+    telemetryConfig.telemetryMode === "otlp" ||
+    telemetryConfig.telemetryMode === "both"
+  ) {
     // Use standard OTLP exporters - no custom complexity
     const otlpTraceExporter = new OTLPTraceExporter({
-      url: telemetryConfig.TRACES_ENDPOINT,
-      timeoutMillis: telemetryConfig.EXPORT_TIMEOUT_MS,
+      url: telemetryConfig.tracesEndpoint,
+      timeoutMillis: telemetryConfig.exportTimeoutMs,
     });
-    
+
     const otlpMetricExporter = new OTLPMetricExporter({
-      url: telemetryConfig.METRICS_ENDPOINT,
-      timeoutMillis: telemetryConfig.EXPORT_TIMEOUT_MS,
+      url: telemetryConfig.metricsEndpoint,
+      timeoutMillis: telemetryConfig.exportTimeoutMs,
     });
-    
-    processors.push(new BatchSpanProcessor(otlpTraceExporter, {
-      maxExportBatchSize: 10,
-      scheduledDelayMillis: 5000,
-    }));
-    
-    if (!metricReader || telemetryConfig.TELEMETRY_MODE === 'otlp') {
+
+    processors.push(
+      new BatchSpanProcessor(otlpTraceExporter, {
+        maxExportBatchSize: 10,
+        scheduledDelayMillis: 5000,
+      }),
+    );
+
+    if (!metricReader || telemetryConfig.telemetryMode === "otlp") {
       metricReader = new PeriodicExportingMetricReader({
         exporter: otlpMetricExporter,
         exportIntervalMillis: 5000,
@@ -171,10 +213,10 @@ export async function initializeTelemetry(): Promise<void> {
       // Note: Bun.serve is not auto-instrumented by Node.js instrumentations
       // HTTP spans are manually created in server.ts for proper Bun support
       getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-http': {
+        "@opentelemetry/instrumentation-http": {
           enabled: false, // Disable since we're using Bun.serve, not Node.js http
         },
-        '@opentelemetry/instrumentation-https': {
+        "@opentelemetry/instrumentation-https": {
           enabled: false, // Disable since we're using Bun.serve
         },
       }),
@@ -182,20 +224,20 @@ export async function initializeTelemetry(): Promise<void> {
   });
 
   await sdk.start();
-  
+
   // Initialize custom metrics
   initializeMetrics();
-  
+
   // Initialize the logger to use our direct LoggerProvider - NOT the SDK
   // We'll export the loggerProvider so it can be used by the logger when it imports this module
   global.telemetryLoggerProvider = loggerProvider;
-  
+
   // Signal that the logger should reinitialize now that the provider is ready
-  const loggerReadyEvent = new CustomEvent('telemetryLoggerReady');
+  const loggerReadyEvent = new CustomEvent("telemetryLoggerReady");
   globalThis.dispatchEvent(loggerReadyEvent);
 
   // Setup graceful shutdown
-  process.on('SIGTERM', async () => {
+  process.on("SIGTERM", async () => {
     await shutdownTelemetry();
   });
 }
@@ -206,7 +248,7 @@ export async function shutdownTelemetry(): Promise<void> {
     try {
       await loggerProvider.shutdown();
     } catch (error) {
-      console.warn('Error shutting down LoggerProvider:', error);
+      console.warn("Error shutting down LoggerProvider:", error);
     }
   }
 
@@ -216,7 +258,7 @@ export async function shutdownTelemetry(): Promise<void> {
       await sdk.shutdown();
     } catch (error) {
       // Ignore forceFlush errors in Bun runtime - exporters don't implement it properly
-      if (error instanceof Error && error.message.includes('forceFlush')) {
+      if (error instanceof Error && error.message.includes("forceFlush")) {
         return;
       }
       throw error;
@@ -227,7 +269,7 @@ export async function shutdownTelemetry(): Promise<void> {
 export function getTelemetryStatus() {
   return {
     initialized: !!sdk && !!loggerProvider,
-    config: telemetryConfig
+    config: telemetryConfig,
   };
 }
 

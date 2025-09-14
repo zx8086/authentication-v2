@@ -1,46 +1,36 @@
 /* src/utils/logger.ts */
 
-// Simple structured JSON logger
+// Winston-based structured logger with ECS format and trace correlation
+import { winstonTelemetryLogger } from '../telemetry/winston-logger';
+
 export function log(message: string, context: Record<string, any> = {}) {
-  const structuredOutput = {
-    "@timestamp": new Date().toISOString(),
-    "log.level": "INFO",
-    message,
+  winstonTelemetryLogger.info(message, {
     service: {
       name: "authentication-service",
       environment: process.env.NODE_ENV || "development",
     },
     ...context,
-  };
-  console.log(JSON.stringify(structuredOutput));
+  });
 }
 
 export function warn(message: string, context: Record<string, any> = {}) {
-  const structuredOutput = {
-    "@timestamp": new Date().toISOString(),
-    "log.level": "WARN",
-    message,
+  winstonTelemetryLogger.warn(message, {
     service: {
       name: "authentication-service",
       environment: process.env.NODE_ENV || "development",
     },
     ...context,
-  };
-  console.warn(JSON.stringify(structuredOutput));
+  });
 }
 
 export function error(message: string, context: Record<string, any> = {}) {
-  const structuredOutput = {
-    "@timestamp": new Date().toISOString(),
-    "log.level": "ERROR",
-    message,
+  winstonTelemetryLogger.error(message, {
     service: {
       name: "authentication-service",
       environment: process.env.NODE_ENV || "development",
     },
     ...context,
-  };
-  console.error(JSON.stringify(structuredOutput));
+  });
 }
 
 export const logger = { log, warn, error };

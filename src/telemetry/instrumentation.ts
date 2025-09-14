@@ -19,7 +19,7 @@ import {
   SEMRESATTRS_TELEMETRY_SDK_LANGUAGE,
 } from '@opentelemetry/semantic-conventions';
 import { telemetryConfig } from './config';
-import { initializeMetrics } from './simple-metrics';
+import { initializeMetrics } from './metrics';
 
 let sdk: NodeSDK | undefined;
 let debugMetricExporter: DebugMetricExporter | undefined;
@@ -110,16 +110,16 @@ class DebugMetricExporter implements MetricExporter {
 }
 
 export async function initializeTelemetry(): Promise<void> {
-  if (!telemetryConfig.ENABLE_OPENTELEMETRY) {
+  if (!telemetryConfig.enableOpenTelemetry) {
     return;
   }
 
 
   // Create resource - exactly like working test
   const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: telemetryConfig.SERVICE_NAME,
-    [ATTR_SERVICE_VERSION]: telemetryConfig.SERVICE_VERSION,
-    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: telemetryConfig.DEPLOYMENT_ENVIRONMENT,
+    [ATTR_SERVICE_NAME]: telemetryConfig.serviceName,
+    [ATTR_SERVICE_VERSION]: telemetryConfig.serviceVersion,
+    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: telemetryConfig.deploymentEnvironment,
     [SEMRESATTRS_TELEMETRY_SDK_NAME]: '@opentelemetry/sdk-node',
     [SEMRESATTRS_TELEMETRY_SDK_VERSION]: '1.28.0',
     [SEMRESATTRS_TELEMETRY_SDK_LANGUAGE]: 'javascript',
@@ -129,14 +129,14 @@ export async function initializeTelemetry(): Promise<void> {
 
   // Create exporters - exactly like working test
   const otlpTraceExporter = new OTLPTraceExporter({
-    url: telemetryConfig.TRACES_ENDPOINT,
-    timeoutMillis: telemetryConfig.EXPORT_TIMEOUT_MS,
+    url: telemetryConfig.tracesEndpoint,
+    timeoutMillis: telemetryConfig.exportTimeoutMs,
   });
 
   // Create base OTLP metric exporter
   const baseOtlpMetricExporter = new OTLPMetricExporter({
-    url: telemetryConfig.METRICS_ENDPOINT,
-    timeoutMillis: telemetryConfig.EXPORT_TIMEOUT_MS,
+    url: telemetryConfig.metricsEndpoint,
+    timeoutMillis: telemetryConfig.exportTimeoutMs,
   });
   
   // Wrap with debug exporter for visibility
@@ -144,8 +144,8 @@ export async function initializeTelemetry(): Promise<void> {
   
 
   const otlpLogExporter = new OTLPLogExporter({
-    url: telemetryConfig.LOGS_ENDPOINT,
-    timeoutMillis: telemetryConfig.EXPORT_TIMEOUT_MS,
+    url: telemetryConfig.logsEndpoint,
+    timeoutMillis: telemetryConfig.exportTimeoutMs,
   });
 
   // Create processors - exactly like working test

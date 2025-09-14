@@ -12,7 +12,9 @@
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "typecheck": "tsc --noEmit",
-    "health-check": "curl -f http://localhost:3000/health || exit 1"
+    "health-check": "curl -f http://localhost:3000/health || exit 1",
+    "kill-server": "lsof -ti :3000 | xargs kill -9 2>/dev/null || echo 'No processes found on port 3000'",
+    "dev:clean": "bun run kill-server && bun run dev"
   },
   "keywords": [
     "authentication",
@@ -43,6 +45,7 @@
     }
   },
   "dependencies": {
+    "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.0.0",
     "@opentelemetry/api-logs": "^0.205.0",
     "@opentelemetry/auto-instrumentations-node": "^0.64.1",
@@ -53,12 +56,16 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
     "@opentelemetry/instrumentation-fetch": "^0.205.0",
     "@opentelemetry/instrumentation-http": "^0.205.0",
+    "@opentelemetry/instrumentation-winston": "^0.50.0",
     "@opentelemetry/resources": "^2.1.0",
     "@opentelemetry/sdk-logs": "^0.205.0",
     "@opentelemetry/sdk-metrics": "^2.1.0",
     "@opentelemetry/sdk-node": "^0.205.0",
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.0.0",
+    "@opentelemetry/winston-transport": "^0.16.0",
+    "winston": "^3.17.0",
+    "winston-transport": "^4.9.0",
     "zod": "^4.1.8"
   }
 }

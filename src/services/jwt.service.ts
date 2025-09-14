@@ -1,7 +1,7 @@
 /* src/services/jwt.service.ts */
 
 // JWT Service using Bun's native crypto.subtle API with OpenTelemetry tracing
-import { trace } from '@opentelemetry/api';
+import { trace } from "@opentelemetry/api";
 export interface TokenResponse {
   access_token: string;
   expires_in: number;
@@ -28,31 +28,31 @@ export class NativeBunJWT {
     consumerKey: string,
     consumerSecret: string,
     authority: string,
-    audience: string
+    audience: string,
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
     // Create telemetry span
-    const tracer = trace.getTracer('pvh-authentication-service');
-    const span = tracer.startSpan('jwt_create', {
+    const tracer = trace.getTracer("authentication-service");
+    const span = tracer.startSpan("jwt_create", {
       attributes: {
-        'jwt.username': username,
-        'jwt.operation': 'create'
-      }
+        "jwt.username": username,
+        "jwt.operation": "create",
+      },
     });
-    
+
     try {
       const key = await crypto.subtle.importKey(
-        'raw',
+        "raw",
         this.encoder.encode(consumerSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
+        { name: "HMAC", hash: "SHA-256" },
         false,
-        ['sign']
+        ["sign"],
       );
 
       const header = {
-        alg: 'HS256',
-        typ: 'JWT'
+        alg: "HS256",
+        typ: "JWT",
       };
 
       const now = Math.floor(Date.now() / 1000);
@@ -67,7 +67,7 @@ export class NativeBunJWT {
         iss: authority,
         aud: audience,
         name: username,
-        unique_name: `pvhcorp.com#${username}`
+        unique_name: `pvhcorp.com#${username}`,
       };
 
       const headerB64 = this.base64urlEncode(JSON.stringify(header));
@@ -75,42 +75,40 @@ export class NativeBunJWT {
       const message = `${headerB64}.${payloadB64}`;
 
       const signature = await crypto.subtle.sign(
-        'HMAC',
+        "HMAC",
         key,
-        this.encoder.encode(message)
+        this.encoder.encode(message),
       );
 
       const signatureB64 = this.base64urlEncode(
-        String.fromCharCode(...new Uint8Array(signature))
+        String.fromCharCode(...new Uint8Array(signature)),
       );
 
       const token = `${message}.${signatureB64}`;
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       span.setAttributes({
-        'jwt.token_id': payload.jti,
-        'jwt.authority': authority,
-        'jwt.audience': audience,
-        'jwt.duration_ms': duration,
-        'jwt.expires_in': 900
+        "jwt.token_id": payload.jti,
+        "jwt.authority": authority,
+        "jwt.audience": audience,
+        "jwt.duration_ms": duration,
+        "jwt.expires_in": 900,
       });
-
 
       return {
         access_token: token,
-        expires_in: 900
+        expires_in: 900,
       };
     } catch (error) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-      
+
       span.setAttributes({
-        'error.type': 'jwt_creation_error',
-        'error.message': (error as Error).message,
-        'jwt.duration_ms': duration
+        "error.type": "jwt_creation_error",
+        "error.message": (error as Error).message,
+        "jwt.duration_ms": duration,
       });
-      
-      
-      throw new Error('Failed to create JWT token');
+
+      throw new Error("Failed to create JWT token");
     } finally {
       span.end();
     }
@@ -118,49 +116,49 @@ export class NativeBunJWT {
 
   static async verifyToken(
     token: string,
-    consumerSecret: string
+    consumerSecret: string,
   ): Promise<JWTPayload | null> {
     const startTime = Bun.nanoseconds();
-    
+
     // Create telemetry span
-    const tracer = trace.getTracer('pvh-authentication-service');
-    const span = tracer.startSpan('jwt_verify', {
+    const tracer = trace.getTracer("authentication-service");
+    const span = tracer.startSpan("jwt_verify", {
       attributes: {
-        'jwt.operation': 'verify'
-      }
+        "jwt.operation": "verify",
+      },
     });
-    
+
     try {
-      const parts = token.split('.');
+      const parts = token.split(".");
       if (parts.length !== 3) {
-        throw new Error('Invalid token format');
+        throw new Error("Invalid token format");
       }
 
       const [headerB64, payloadB64, signatureB64] = parts;
       const message = `${headerB64}.${payloadB64}`;
 
       const key = await crypto.subtle.importKey(
-        'raw',
+        "raw",
         this.encoder.encode(consumerSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
+        { name: "HMAC", hash: "SHA-256" },
         false,
-        ['verify']
+        ["verify"],
       );
 
       const signature = Uint8Array.from(
         atob(this.base64urlDecode(signatureB64)),
-        c => c.charCodeAt(0)
+        (c) => c.charCodeAt(0),
       );
 
       const isValid = await crypto.subtle.verify(
-        'HMAC',
+        "HMAC",
         key,
         signature,
-        this.encoder.encode(message)
+        this.encoder.encode(message),
       );
 
       if (!isValid) {
-        throw new Error('Invalid token signature');
+        throw new Error("Invalid token signature");
       }
 
       const payloadJson = this.base64urlDecode(payloadB64);
@@ -168,32 +166,30 @@ export class NativeBunJWT {
 
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
-        throw new Error('Token expired');
+        throw new Error("Token expired");
       }
 
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-      
+
       span.setAttributes({
-        'jwt.username': payload.sub,
-        'jwt.token_id': payload.jti,
-        'jwt.issuer': payload.iss,
-        'jwt.audience': payload.aud,
-        'jwt.expires_at': payload.exp,
-        'jwt.duration_ms': duration
+        "jwt.username": payload.sub,
+        "jwt.token_id": payload.jti,
+        "jwt.issuer": payload.iss,
+        "jwt.audience": payload.aud,
+        "jwt.expires_at": payload.exp,
+        "jwt.duration_ms": duration,
       });
-      
-      
+
       return payload;
     } catch (error) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-      
+
       span.setAttributes({
-        'error.type': 'jwt_verification_error',
-        'error.message': (error as Error).message,
-        'jwt.duration_ms': duration
+        "error.type": "jwt_verification_error",
+        "error.message": (error as Error).message,
+        "jwt.duration_ms": duration,
       });
-      
-      
+
       return null;
     } finally {
       span.end();
@@ -201,14 +197,11 @@ export class NativeBunJWT {
   }
 
   private static base64urlEncode(data: string): string {
-    return btoa(data)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    return btoa(data).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 
   private static base64urlDecode(data: string): string {
-    const padded = data + '=='.slice(0, (4 - data.length % 4) % 4);
-    return atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+    const padded = data + "==".slice(0, (4 - (data.length % 4)) % 4);
+    return atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
   }
 }

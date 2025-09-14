@@ -1,6 +1,7 @@
 /* src/config/index.ts */
 
 import { z } from "zod";
+import pkg from "../../package.json" with { type: "json" };
 
 const ServerConfigSchema = z.object({
   port: z.number().min(1).max(65535),
@@ -22,31 +23,50 @@ const KongConfigSchema = z.object({
   anonymousHeader: z.string().min(1),
 });
 
-const TelemetryConfigSchema = z
-  .object({
-    enabled: z.boolean().default(true),
-    serviceName: z.string().default("authentication-service"),
-    serviceVersion: z.string().default("1.0.0"),
-    environment: z.string().default("development"),
-    endpoint: z.url().optional(),
-    logsEndpoint: z.url().optional(),
-    tracesEndpoint: z.url().optional(),
-    metricsEndpoint: z.url().optional(),
-    mode: z.enum(['console', 'otlp', 'both']).default('both'),
-    consoleLogging: z.boolean().default(true),
-    sampling: z
-      .object({
-        traces: z.number().min(0).max(1).default(0.15),
-        logs: z.number().min(0).max(1).default(0.15),
-        metrics: z.number().min(0).max(1).default(0.15),
-        errors: z.number().min(0).max(1).default(1.0),
-      })
-      .default({ traces: 0.15, logs: 0.15, metrics: 0.15, errors: 1.0 }),
-    batchSize: z.number().default(10000),
-    exportTimeout: z.number().default(30000),
-    maxQueueSize: z.number().default(50000),
-  })
-  .optional();
+// Enhanced Zod v4 schema with strict production validation
+const TelemetryConfigSchema = z.object({
+  enabled: z.boolean(),
+  serviceName: z.string().min(1).describe("Service identifier for telemetry"),
+  serviceVersion: z.string().min(1).describe("Service version for telemetry"),
+  environment: z.enum(["development", "staging", "production"]).describe("Deployment environment"),
+  mode: z.enum(["console", "otlp", "both"]),
+
+  // Enhanced URL validation with Zod v4
+  endpoint: z.url().optional(),
+  logsEndpoint: z.url().describe("OpenTelemetry logs endpoint"),
+  tracesEndpoint: z.url().describe("OpenTelemetry traces endpoint"),
+  metricsEndpoint: z.url().describe("OpenTelemetry metrics endpoint"),
+
+  // Enhanced numeric validation with Zod v4 precise types
+  exportTimeout: z.int32().min(1000).max(60000),
+  batchSize: z.int32().min(1).max(5000),
+  maxQueueSize: z.int32().min(1).max(50000),
+
+  sampling: z.object({
+    traces: z.number().min(0).max(1),
+    logs: z.number().min(0).max(1),
+    metrics: z.number().min(0).max(1),
+    errors: z.number().min(0).max(1),
+  }),
+}).superRefine((data, ctx) => {
+  // Production environment validation
+  if (data.environment === 'production') {
+    if (data.serviceName.includes('localhost') || data.serviceName.includes('test')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Production service name cannot contain localhost or test references',
+        path: ['serviceName']
+      });
+    }
+    if (data.serviceVersion === 'dev' || data.serviceVersion === 'latest') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Production requires specific version, not dev or latest',
+        path: ['serviceVersion']
+      });
+    }
+  }
+});
 
 const AppConfigSchema = z.object({
   server: ServerConfigSchema,
@@ -57,6 +77,7 @@ const AppConfigSchema = z.object({
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
+// Production-ready default configuration
 const defaultConfig: AppConfig = {
   server: {
     port: 3000,
@@ -75,8 +96,28 @@ const defaultConfig: AppConfig = {
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",
   },
+  telemetry: {
+    enabled: true,
+    serviceName: "pvh-authentication-service",
+    serviceVersion: "1.0.0",
+    environment: "development",
+    mode: "both",
+    logsEndpoint: "http://localhost:4318/v1/logs",
+    tracesEndpoint: "http://localhost:4318/v1/traces",
+    metricsEndpoint: "http://localhost:4318/v1/metrics",
+    exportTimeout: 30000,
+    batchSize: 2048,
+    maxQueueSize: 10000,
+    sampling: {
+      traces: 0.15,
+      logs: 0.15,
+      metrics: 0.15,
+      errors: 1.0,
+    },
+  },
 };
 
+// Environment variable mapping with OpenTelemetry standard support
 const envVarMapping = {
   server: {
     port: "PORT",
@@ -93,172 +134,160 @@ const envVarMapping = {
     adminToken: "KONG_ADMIN_TOKEN",
   },
   telemetry: {
-    serviceName: "SERVICE_NAME",
-    serviceVersion: "SERVICE_VERSION",
+    enabled: "TELEMETRY_ENABLED",
+    serviceName: "SERVICE_NAME", // Falls back to OTEL_SERVICE_NAME
+    serviceVersion: "SERVICE_VERSION", // Falls back to OTEL_SERVICE_VERSION
     environment: "DEPLOYMENT_ENVIRONMENT",
-    endpoint: "OTLP_ENDPOINT",
-    logsEndpoint: "LOGS_ENDPOINT",
-    tracesEndpoint: "TRACES_ENDPOINT",
-    metricsEndpoint: "METRICS_ENDPOINT",
     mode: "TELEMETRY_MODE",
-    consoleLogging: "CONSOLE_LOGGING",
-    traceSamplingRate: "TRACE_SAMPLING_RATE",
-    logSamplingRate: "LOG_SAMPLING_RATE",
-    metricSamplingRate: "METRIC_SAMPLING_RATE",
-    errorSamplingRate: "ERROR_SAMPLING_RATE",
-    batchSize: "BATCH_SIZE",
-    exportTimeout: "EXPORT_TIMEOUT_MS",
-    maxQueueSize: "MAX_QUEUE_SIZE",
+    endpoint: "OTEL_EXPORTER_OTLP_ENDPOINT",
+    logsEndpoint: "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+    tracesEndpoint: "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    metricsEndpoint: "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+    exportTimeout: "OTEL_EXPORTER_OTLP_TIMEOUT",
+    batchSize: "OTEL_BSP_MAX_EXPORT_BATCH_SIZE",
+    maxQueueSize: "OTEL_BSP_MAX_QUEUE_SIZE",
+    "sampling.traces": "OTEL_TRACES_SAMPLER_ARG",
+    "sampling.logs": "OTEL_LOGS_SAMPLER_ARG",
+    "sampling.metrics": "OTEL_METRICS_SAMPLER_ARG",
+    "sampling.errors": "OTEL_ERRORS_SAMPLER_ARG",
   },
 } as const;
 
+// Enhanced environment variable parsing with Zod v4 validation
 function parseEnvVar(
   value: string | undefined,
-  type: "string" | "number" | "boolean",
+  type: "string" | "number" | "boolean" | "url" | "email",
+  fallback?: unknown,
 ): unknown {
-  if (value === undefined) return undefined;
-  if (type === "number") return Number(value);
-  if (type === "boolean") return value.toLowerCase() === "true";
-  return value;
+  if (value === undefined) return fallback;
+
+  try {
+    switch (type) {
+      case "number": {
+        const num = Number(value);
+        if (isNaN(num)) throw new Error(`Invalid number: ${value}`);
+        return num;
+      }
+      case "boolean":
+        return z.stringbool().parse(value);
+      case "url":
+        return z.url().parse(value);
+      case "email":
+        return z.email().parse(value);
+      default:
+        return value;
+    }
+  } catch (error) {
+    console.warn(`Failed to parse environment variable "${value}" as ${type}:`, error);
+    return fallback;
+  }
 }
 
+// Manual configuration loading with proper default setup and environment overrides
 function loadConfigFromEnv(): Partial<AppConfig> {
   const config: Partial<AppConfig> = {};
 
-  // Load server config
+  // Load server config with fallbacks
   config.server = {
-    port:
-      (parseEnvVar(Bun.env[envVarMapping.server.port], "number") as number) ||
-      defaultConfig.server.port,
-    nodeEnv:
-      (parseEnvVar(
-        Bun.env[envVarMapping.server.nodeEnv],
-        "string",
-      ) as string) || defaultConfig.server.nodeEnv,
+    port: parseEnvVar(Bun.env[envVarMapping.server.port], "number", defaultConfig.server.port) as number,
+    nodeEnv: parseEnvVar(Bun.env[envVarMapping.server.nodeEnv], "string", defaultConfig.server.nodeEnv) as string,
   };
 
-  // Load JWT config
+  // Load JWT config with fallbacks
   config.jwt = {
-    authority:
-      (parseEnvVar(Bun.env[envVarMapping.jwt.authority], "string") as string) ||
-      defaultConfig.jwt.authority,
-    audience:
-      (parseEnvVar(Bun.env[envVarMapping.jwt.audience], "string") as string) ||
-      defaultConfig.jwt.audience,
-    keyClaimName:
-      (parseEnvVar(
-        Bun.env[envVarMapping.jwt.keyClaimName],
-        "string",
-      ) as string) || defaultConfig.jwt.keyClaimName,
-    expirationMinutes:
-      (parseEnvVar(
-        Bun.env[envVarMapping.jwt.expirationMinutes],
-        "number",
-      ) as number) || defaultConfig.jwt.expirationMinutes,
+    authority: parseEnvVar(Bun.env[envVarMapping.jwt.authority], "string", defaultConfig.jwt.authority) as string,
+    audience: parseEnvVar(Bun.env[envVarMapping.jwt.audience], "string", defaultConfig.jwt.audience) as string,
+    keyClaimName: parseEnvVar(Bun.env[envVarMapping.jwt.keyClaimName], "string", defaultConfig.jwt.keyClaimName) as string,
+    expirationMinutes: parseEnvVar(Bun.env[envVarMapping.jwt.expirationMinutes], "number", defaultConfig.jwt.expirationMinutes) as number,
   };
 
-  // Load Kong config
+  // Load Kong config with fallbacks
   config.kong = {
-    adminUrl:
-      (parseEnvVar(Bun.env[envVarMapping.kong.adminUrl], "string") as string) ||
-      defaultConfig.kong.adminUrl,
-    adminToken:
-      (parseEnvVar(
-        Bun.env[envVarMapping.kong.adminToken],
-        "string",
-      ) as string) || defaultConfig.kong.adminToken,
+    adminUrl: parseEnvVar(Bun.env[envVarMapping.kong.adminUrl], "string", defaultConfig.kong.adminUrl) as string,
+    adminToken: parseEnvVar(Bun.env[envVarMapping.kong.adminToken], "string", defaultConfig.kong.adminToken) as string,
     consumerIdHeader: defaultConfig.kong.consumerIdHeader,
     consumerUsernameHeader: defaultConfig.kong.consumerUsernameHeader,
     anonymousHeader: defaultConfig.kong.anonymousHeader,
   };
 
-  // Load Telemetry config
-  const telemetryEndpoint = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.endpoint],
-    "string",
-  ) as string;
-  const logsEndpoint = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.logsEndpoint],
-    "string",
-  ) as string;
-  const tracesEndpoint = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.tracesEndpoint],
-    "string",
-  ) as string;
-  const metricsEndpoint = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.metricsEndpoint],
-    "string",
-  ) as string;
-  const serviceName = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.serviceName],
-    "string",
-  ) as string;
-  const serviceVersion = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.serviceVersion],
-    "string",
-  ) as string;
-  const environment = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.environment],
-    "string",
-  ) as string;
-  const mode = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.mode],
-    "string",
-  ) as 'console' | 'otlp' | 'both';
-  const consoleLogging = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.consoleLogging],
-    "boolean",
-  ) as boolean;
-  const traceSamplingRate = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.traceSamplingRate],
-    "number",
-  ) as number;
-  const logSamplingRate = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.logSamplingRate],
-    "number",
-  ) as number;
-  const metricSamplingRate = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.metricSamplingRate],
-    "number",
-  ) as number;
-  const errorSamplingRate = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.errorSamplingRate],
-    "number",
-  ) as number;
-  const batchSize = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.batchSize],
-    "number",
-  ) as number;
-  const exportTimeout = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.exportTimeout],
-    "number",
-  ) as number;
-  const maxQueueSize = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.maxQueueSize],
-    "number",
-  ) as number;
+  // Load Telemetry config with proper fallback chain and OpenTelemetry standard support
+  const baseEndpoint = parseEnvVar(Bun.env[envVarMapping.telemetry.endpoint], "string") as string;
 
-  // Always create telemetry config - KISS principle
   config.telemetry = {
-    enabled: true,
-    serviceName: serviceName || "authentication-service",
-    serviceVersion: serviceVersion || "1.0.0",
-    environment: environment || config.server.nodeEnv,
-    endpoint: telemetryEndpoint,
-    logsEndpoint: logsEndpoint,
-    tracesEndpoint: tracesEndpoint,
-    metricsEndpoint: metricsEndpoint,
-    mode: mode || 'both',
-    consoleLogging: consoleLogging ?? true,
+    enabled: parseEnvVar(Bun.env[envVarMapping.telemetry.enabled], "boolean", defaultConfig.telemetry.enabled) as boolean,
+
+    // Service identification with OpenTelemetry standard fallbacks
+    serviceName: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.serviceName] || Bun.env.OTEL_SERVICE_NAME,
+      "string",
+      defaultConfig.telemetry.serviceName
+    ) as string,
+
+    serviceVersion: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.serviceVersion] || Bun.env.OTEL_SERVICE_VERSION,
+      "string",
+      defaultConfig.telemetry.serviceVersion
+    ) as string,
+
+    environment: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.environment],
+      "string",
+      config.server?.nodeEnv || defaultConfig.telemetry.environment
+    ) as "development" | "staging" | "production",
+
+    mode: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.mode],
+      "string",
+      defaultConfig.telemetry.mode
+    ) as "console" | "otlp" | "both",
+
+    // Enhanced OTEL endpoint handling with standard variable support
+    logsEndpoint: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.logsEndpoint] ||
+      (baseEndpoint ? `${baseEndpoint}/v1/logs` : undefined),
+      "url",
+      defaultConfig.telemetry.logsEndpoint
+    ) as string,
+
+    tracesEndpoint: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.tracesEndpoint] ||
+      (baseEndpoint ? `${baseEndpoint}/v1/traces` : undefined),
+      "url",
+      defaultConfig.telemetry.tracesEndpoint
+    ) as string,
+
+    metricsEndpoint: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.metricsEndpoint] ||
+      (baseEndpoint ? `${baseEndpoint}/v1/metrics` : undefined),
+      "url",
+      defaultConfig.telemetry.metricsEndpoint
+    ) as string,
+
+    // Enhanced parsing with Zod v4 numeric types and OpenTelemetry standards
+    exportTimeout: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.exportTimeout] || Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT,
+      "number",
+      defaultConfig.telemetry.exportTimeout
+    ) as number,
+
+    batchSize: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.batchSize] || Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE,
+      "number",
+      defaultConfig.telemetry.batchSize
+    ) as number,
+
+    maxQueueSize: parseEnvVar(
+      Bun.env[envVarMapping.telemetry.maxQueueSize] || Bun.env.OTEL_BSP_MAX_QUEUE_SIZE,
+      "number",
+      defaultConfig.telemetry.maxQueueSize
+    ) as number,
+
     sampling: {
-      traces: traceSamplingRate ?? 0.15,
-      logs: logSamplingRate ?? 0.15,
-      metrics: metricSamplingRate ?? 0.15,
-      errors: errorSamplingRate ?? 1.0,
+      traces: parseEnvVar(Bun.env[envVarMapping.telemetry["sampling.traces"]], "number", defaultConfig.telemetry.sampling.traces) as number,
+      logs: parseEnvVar(Bun.env[envVarMapping.telemetry["sampling.logs"]], "number", defaultConfig.telemetry.sampling.logs) as number,
+      metrics: parseEnvVar(Bun.env[envVarMapping.telemetry["sampling.metrics"]], "number", defaultConfig.telemetry.sampling.metrics) as number,
+      errors: parseEnvVar(Bun.env[envVarMapping.telemetry["sampling.errors"]], "number", defaultConfig.telemetry.sampling.errors) as number,
     },
-    batchSize: batchSize ?? 10000,
-    exportTimeout: exportTimeout ?? 30000,
-    maxQueueSize: maxQueueSize ?? 50000,
   };
 
   return config;
@@ -267,13 +296,13 @@ function loadConfigFromEnv(): Partial<AppConfig> {
 let config: AppConfig;
 
 try {
-  // Merge default config with environment variables
+  // Merge default config with environment variables (proper precedence: defaults < environment)
   const envConfig = loadConfigFromEnv();
   const mergedConfig = {
     server: { ...defaultConfig.server, ...envConfig.server },
     jwt: { ...defaultConfig.jwt, ...envConfig.jwt },
     kong: { ...defaultConfig.kong, ...envConfig.kong },
-    telemetry: envConfig.telemetry,
+    telemetry: { ...defaultConfig.telemetry, ...envConfig.telemetry },
   };
 
   // Validate merged configuration against schemas
@@ -314,3 +343,98 @@ try {
 export function loadConfig(): AppConfig {
   return config;
 }
+
+// Configuration health monitoring
+export function validateConfigurationHealth(): {
+  status: 'healthy' | 'degraded' | 'critical';
+  issues: { path: string; message: string; severity: 'critical' | 'warning' | 'info' }[];
+  recommendations: string[];
+} {
+  const health = {
+    status: 'healthy' as 'healthy' | 'degraded' | 'critical',
+    issues: [] as { path: string; message: string; severity: 'critical' | 'warning' | 'info' }[],
+    recommendations: [] as string[]
+  };
+
+  // Critical security checks for production
+  if (config.telemetry.environment === 'production') {
+    if (config.telemetry.serviceName.includes('localhost') || config.telemetry.serviceName.includes('test')) {
+      health.issues.push({
+        path: 'telemetry.serviceName',
+        message: 'Service name contains localhost or test in production',
+        severity: 'critical'
+      });
+      health.status = 'critical';
+    }
+
+    if (config.telemetry.serviceVersion === 'dev' || config.telemetry.serviceVersion === 'latest') {
+      health.issues.push({
+        path: 'telemetry.serviceVersion',
+        message: 'Production requires specific version, not dev or latest',
+        severity: 'critical'
+      });
+      health.status = 'critical';
+    }
+
+    if (config.telemetry.tracesEndpoint.includes('localhost') ||
+        config.telemetry.logsEndpoint.includes('localhost') ||
+        config.telemetry.metricsEndpoint.includes('localhost')) {
+      health.issues.push({
+        path: 'telemetry.endpoints',
+        message: 'Telemetry endpoints point to localhost in production',
+        severity: 'warning'
+      });
+      if (health.status === 'healthy') health.status = 'degraded';
+    }
+  }
+
+  // Required environment variables check
+  const requiredVars = [
+    { path: 'jwt.authority', value: config.jwt.authority },
+    { path: 'jwt.audience', value: config.jwt.audience },
+    { path: 'kong.adminUrl', value: config.kong.adminUrl },
+    { path: 'kong.adminToken', value: config.kong.adminToken },
+  ];
+
+  const missingRequired = requiredVars.filter(({ value }) => !value || value.trim() === '');
+  if (missingRequired.length > 0) {
+    missingRequired.forEach(({ path }) => {
+      health.issues.push({
+        path,
+        message: 'Required configuration value is missing or empty',
+        severity: 'critical'
+      });
+    });
+    health.status = 'critical';
+  }
+
+  // Performance and operational recommendations
+  if (config.telemetry.batchSize > 3000) {
+    health.recommendations.push('Consider reducing telemetry batch size for better memory usage');
+  }
+
+  if (config.telemetry.exportTimeout > 45000) {
+    health.recommendations.push('Export timeout is very high, consider reducing for better responsiveness');
+  }
+
+  if (config.telemetry.sampling.traces < 0.1 && config.telemetry.environment === 'production') {
+    health.recommendations.push('Trace sampling rate is very low, consider increasing for better observability');
+  }
+
+  return health;
+}
+
+// Export individual config sections for focused access
+export const serverConfig = config.server;
+export const jwtConfig = config.jwt;
+export const kongConfig = config.kong;
+export const telemetryConfig = config.telemetry;
+
+// Configuration metadata for tooling
+export const configMetadata = {
+  version: '2.0.0',
+  loadedAt: new Date().toISOString(),
+  environment: config.telemetry.environment,
+  serviceName: config.telemetry.serviceName,
+  serviceVersion: config.telemetry.serviceVersion,
+};

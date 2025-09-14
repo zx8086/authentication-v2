@@ -1,8 +1,8 @@
 /* src/telemetry/tracer.ts */
 
 // OpenTelemetry tracer implementation for authentication service
-import { trace, context, SpanStatusCode, SpanKind } from '@opentelemetry/api';
-import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
+import { trace, context, SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
 
 export interface SpanContext {
   operationName: string;
@@ -12,18 +12,17 @@ export interface SpanContext {
 }
 
 class BunTelemetryTracer {
-  private tracer = trace.getTracer('pvh-authentication-service', '1.0.0');
+  private tracer = trace.getTracer("authentication-service", "1.0.0");
   private config: any;
 
   public initialize(config?: any): void {
     this.config = config || (globalThis as any).__appConfig?.telemetry;
   }
 
-
   // Create span with automatic telemetry mode and error handling
   public createSpan<T>(
     spanContext: SpanContext,
-    operation: () => T | Promise<T>
+    operation: () => T | Promise<T>,
   ): T | Promise<T> {
     // Full telemetry - no sampling
 
@@ -32,12 +31,14 @@ class BunTelemetryTracer {
       attributes: spanContext.attributes || {},
     });
 
-    const runWithSpan = <TResult>(fn: () => TResult | Promise<TResult>): TResult | Promise<TResult> => {
+    const runWithSpan = <TResult>(
+      fn: () => TResult | Promise<TResult>,
+    ): TResult | Promise<TResult> => {
       return context.with(trace.setSpan(context.active(), span), () => {
         let result: TResult | Promise<TResult>;
         try {
           result = fn();
-          
+
           // Handle Promise results
           if (result instanceof Promise) {
             return result
@@ -49,7 +50,7 @@ class BunTelemetryTracer {
                 span.recordException(error);
                 span.setStatus({
                   code: SpanStatusCode.ERROR,
-                  message: error.message || 'Unknown error',
+                  message: error.message || "Unknown error",
                 });
                 throw error;
               })
@@ -57,7 +58,7 @@ class BunTelemetryTracer {
                 span.end();
               });
           }
-          
+
           // Handle synchronous results
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
@@ -66,7 +67,7 @@ class BunTelemetryTracer {
           span.recordException(error as Error);
           span.setStatus({
             code: SpanStatusCode.ERROR,
-            message: (error as Error).message || 'Unknown error',
+            message: (error as Error).message || "Unknown error",
           });
           span.end();
           throw error;
@@ -82,7 +83,7 @@ class BunTelemetryTracer {
     method: string,
     url: string,
     statusCode: number,
-    operation: () => T | Promise<T>
+    operation: () => T | Promise<T>,
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -92,10 +93,10 @@ class BunTelemetryTracer {
           [SemanticAttributes.HTTP_METHOD]: method,
           [SemanticAttributes.HTTP_URL]: url,
           [SemanticAttributes.HTTP_STATUS_CODE]: statusCode,
-          'http.server.type': 'bun_serve',
+          "http.server.type": "bun_serve",
         },
       },
-      operation
+      operation,
     );
   }
 
@@ -103,8 +104,8 @@ class BunTelemetryTracer {
   public createKongSpan<T>(
     operation: string,
     url: string,
-    method: string = 'GET',
-    spanOperation: () => T | Promise<T>
+    method: string = "GET",
+    spanOperation: () => T | Promise<T>,
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -113,12 +114,12 @@ class BunTelemetryTracer {
         attributes: {
           [SemanticAttributes.HTTP_METHOD]: method,
           [SemanticAttributes.HTTP_URL]: url,
-          'kong.operation': operation,
-          'kong.api.type': 'admin_api',
-          'http.client.type': 'kong_gateway',
+          "kong.operation": operation,
+          "kong.api.type": "admin_api",
+          "http.client.type": "kong_gateway",
         },
       },
-      spanOperation
+      spanOperation,
     );
   }
 
@@ -126,25 +127,27 @@ class BunTelemetryTracer {
   public createJWTSpan<T>(
     operation: string,
     spanOperation: () => T | Promise<T>,
-    username?: string
+    username?: string,
   ): T | Promise<T> {
     return this.createSpan(
       {
         operationName: `JWT ${operation}`,
         kind: SpanKind.INTERNAL,
         attributes: {
-          'jwt.operation': operation,
-          'jwt.username': username || 'unknown',
-          'crypto.algorithm': 'HS256',
-          'crypto.key_type': 'hmac',
+          "jwt.operation": operation,
+          "jwt.username": username || "unknown",
+          "crypto.algorithm": "HS256",
+          "crypto.key_type": "hmac",
         },
       },
-      spanOperation
+      spanOperation,
     );
   }
 
   // Add attributes to current active span
-  public addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
+  public addSpanAttributes(
+    attributes: Record<string, string | number | boolean>,
+  ): void {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
       activeSpan.setAttributes(attributes);
@@ -188,7 +191,7 @@ export const telemetryTracer = new BunTelemetryTracer();
 // Convenience function for creating spans
 export function createSpan<T>(
   spanContext: SpanContext,
-  operation: () => T | Promise<T>
+  operation: () => T | Promise<T>,
 ): T | Promise<T> {
   return telemetryTracer.createSpan(spanContext, operation);
 }
