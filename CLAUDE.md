@@ -95,3 +95,4 @@ This service is a complete migration from .NET Core 3.1, maintaining identical A
 - <100ms cold start times
 
 See `MIGRATION.md` for detailed migration procedures and performance comparisons.
+- DO not use emojis and do not add comments for every single code change we make. We should have minimal comments throughout the code base

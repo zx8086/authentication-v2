@@ -1,96 +1,124 @@
 /* src/telemetry/winston-logger.ts */
 
-// Winston-based telemetry logger with ECS format and TELEMETRY_MODE support
-import winston from "winston";
 import ecsFormat from "@elastic/ecs-winston-format";
-import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
 import { trace } from "@opentelemetry/api";
+import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
+import winston from "winston";
 import { telemetryConfig } from "./config";
 
-// Telemetry logger class with specialized methods
 export class WinstonTelemetryLogger {
-  private logger: winston.Logger;
+  private logger: winston.Logger | null = null;
 
-  constructor() {
+  private initializeLogger(): winston.Logger {
+    if (this.logger) {
+      return this.logger;
+    }
+
+    let config: any;
+    try {
+      config = telemetryConfig;
+    } catch (error) {
+      console.warn("Could not load telemetry config, using fallback values:", error);
+      config = {
+        serviceName: "authentication-service",
+        serviceVersion: "1.0.0",
+        environment: "development",
+        mode: "console",
+      };
+    }
+
     this.logger = winston.createLogger({
       level: process.env.LOG_LEVEL || "info",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
         ecsFormat({
-          convertErr: true,        // Convert err field to ECS error fields
-          convertReqRes: true,     // Convert req/res to ECS HTTP fields
-          apmIntegration: true,    // Enable APM integration for trace correlation
-          serviceName: telemetryConfig.serviceName,
-          serviceVersion: telemetryConfig.serviceVersion,
-          serviceEnvironment: telemetryConfig.deploymentEnvironment,
-        }),
+          convertErr: true, // Convert err field to ECS error fields
+          convertReqRes: true, // Convert req/res to ECS HTTP fields
+          apmIntegration: true, // Enable APM integration for trace correlation
+          serviceName: config.serviceName,
+          serviceVersion: config.serviceVersion,
+          serviceEnvironment: config.environment,
+        })
       ),
       transports: this.configureTransports(),
     });
+
+    return this.logger;
   }
 
   private configureTransports(): winston.transport[] {
     const transports = [];
-    const mode = telemetryConfig.telemetryMode;
+    let mode = "console"; // Default fallback
+    try {
+      mode = telemetryConfig.mode || "console";
+    } catch (_error) {
+      console.warn("Could not access telemetry config mode, defaulting to console");
+    }
 
-    // Console transport for 'console' or 'both' mode
     if (mode === "console" || mode === "both") {
       transports.push(
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.colorize({ all: true }),
-            winston.format.simple(),
+            winston.format.simple()
           ),
-        }),
+        })
       );
     }
 
-    // OpenTelemetry transport for 'otlp' or 'both' mode
     if (mode === "otlp" || mode === "both") {
       transports.push(new OpenTelemetryTransportV3());
+    }
+
+    if (transports.length === 0) {
+      transports.push(
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.colorize({ all: true }),
+            winston.format.simple()
+          ),
+        })
+      );
     }
 
     return transports;
   }
 
-  // Helper to get current OpenTelemetry trace context
   private getTraceContext(): Record<string, any> {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
       const spanContext = activeSpan.spanContext();
       return {
-        'trace.id': spanContext.traceId,
-        'span.id': spanContext.spanId,
+        "trace.id": spanContext.traceId,
+        "span.id": spanContext.spanId,
       };
     }
     return {};
   }
 
-  // Core logging methods - add trace correlation manually to ensure it works
   public info(message: string, context?: Record<string, any>): void {
-    this.logger.info(message, { ...context, ...this.getTraceContext() });
+    this.initializeLogger().info(message, { ...context, ...this.getTraceContext() });
   }
 
   public warn(message: string, context?: Record<string, any>): void {
-    this.logger.warn(message, { ...context, ...this.getTraceContext() });
+    this.initializeLogger().warn(message, { ...context, ...this.getTraceContext() });
   }
 
   public error(message: string, context?: Record<string, any>): void {
-    this.logger.error(message, { ...context, ...this.getTraceContext() });
+    this.initializeLogger().error(message, { ...context, ...this.getTraceContext() });
   }
 
   public debug(message: string, context?: Record<string, any>): void {
-    this.logger.debug(message, { ...context, ...this.getTraceContext() });
+    this.initializeLogger().debug(message, { ...context, ...this.getTraceContext() });
   }
 
-  // Specialized logging methods - simplified for ECS compatibility
   public logHttpRequest(
     method: string,
     path: string,
     statusCode: number,
-    duration: number,
-    context?: Record<string, any>,
+    _duration: number,
+    context?: Record<string, any>
   ): void {
     this.info(`HTTP ${method} ${path} - ${statusCode}`, context);
   }
@@ -98,25 +126,23 @@ export class WinstonTelemetryLogger {
   public logAuthenticationEvent(
     event: string,
     success: boolean,
-    context?: Record<string, any>,
+    context?: Record<string, any>
   ): void {
-    this.info(`Authentication: ${event} ${success ? 'success' : 'failed'}`, context);
+    this.info(`Authentication: ${event} ${success ? "success" : "failed"}`, context);
   }
 
   public logKongOperation(
     operation: string,
     responseTime: number,
     success: boolean,
-    context?: Record<string, any>,
+    context?: Record<string, any>
   ): void {
-    this.info(`Kong: ${operation} (${responseTime}ms) ${success ? 'success' : 'failed'}`, context);
+    this.info(`Kong: ${operation} (${responseTime}ms) ${success ? "success" : "failed"}`, context);
   }
 
-
-  // Utility method to flush logs (for graceful shutdown)
   public async flush(): Promise<void> {
     return new Promise((resolve) => {
-      const transports = this.logger.transports;
+      const transports = this.initializeLogger().transports;
       let completed = 0;
       const total = transports.length;
 
@@ -136,17 +162,19 @@ export class WinstonTelemetryLogger {
     });
   }
 
-  // Method to reinitialize (for testing different modes)
   public reinitialize(): void {
-    this.logger.clear();
-    this.logger.add(...this.configureTransports());
+    this.logger = null; // Reset to force reinitialization
+    const logger = this.initializeLogger();
+    logger.clear();
+    const transports = this.configureTransports();
+    for (const transport of transports) {
+      logger.add(transport);
+    }
   }
 }
 
-// Export singleton instance
 export const winstonTelemetryLogger = new WinstonTelemetryLogger();
 
-// Also export individual methods for convenience
 export const {
   info,
   warn,

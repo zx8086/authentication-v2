@@ -1,7 +1,7 @@
 /* src/telemetry/health.ts */
 
 // Telemetry health monitoring and circuit breaker implementation
-import { type BunTelemetryConfig } from './config';
+import { type TelemetryConfig } from './config';
 
 export interface TelemetryHealthStatus {
   status: 'healthy' | 'degraded' | 'critical';
@@ -42,9 +42,9 @@ class CircuitBreaker {
   private failureCount = 0;
   private successCount = 0;
   private lastFailureTime = 0;
-  private config: BunTelemetryConfig['circuitBreaker'];
+  private config: TelemetryConfig['circuitBreaker'];
 
-  constructor(config: BunTelemetryConfig['circuitBreaker']) {
+  constructor(config: TelemetryConfig['circuitBreaker']) {
     this.config = config!;
   }
 
@@ -98,10 +98,10 @@ class CircuitBreaker {
 }
 
 class MemoryPressureManager {
-  private config: BunTelemetryConfig['memory'];
+  private config: TelemetryConfig['memory'];
   private currentPressureLevel: 'normal' | 'warning' | 'high' | 'critical' | 'panic' = 'normal';
 
-  constructor(config: BunTelemetryConfig['memory']) {
+  constructor(config: TelemetryConfig['memory']) {
     this.config = config!;
     
     // Monitor memory pressure every 30 seconds
@@ -189,7 +189,7 @@ class MemoryPressureManager {
 class BunTelemetryHealthMonitor {
   private circuitBreaker?: CircuitBreaker;
   private memoryManager?: MemoryPressureManager;
-  private config?: BunTelemetryConfig;
+  private config?: TelemetryConfig;
   private statistics = {
     totalSent: 0,
     successfulBatches: 0,
@@ -197,7 +197,7 @@ class BunTelemetryHealthMonitor {
     queueSize: 0,
   };
 
-  public initialize(config: BunTelemetryConfig): void {
+  public initialize(config: TelemetryConfig): void {
     this.config = config;
     this.circuitBreaker = new CircuitBreaker(config.circuitBreaker!);
     this.memoryManager = new MemoryPressureManager(config.memory!);

@@ -1,8 +1,7 @@
 /* src/telemetry/tracer.ts */
-
-// OpenTelemetry tracer implementation for authentication service
-import { trace, context, SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
+import { telemetryConfig } from "./config";
 
 export interface SpanContext {
   operationName: string;
@@ -12,34 +11,26 @@ export interface SpanContext {
 }
 
 class BunTelemetryTracer {
-  private tracer = trace.getTracer("authentication-service", "1.0.0");
-  private config: any;
+  private tracer = trace.getTracer(telemetryConfig.serviceName, telemetryConfig.serviceVersion);
 
-  public initialize(config?: any): void {
-    this.config = config || (globalThis as any).__appConfig?.telemetry;
+  public initialize(_config?: any): void {
+    // No initialization needed - keeping for interface compatibility
   }
 
-  // Create span with automatic telemetry mode and error handling
-  public createSpan<T>(
-    spanContext: SpanContext,
-    operation: () => T | Promise<T>,
-  ): T | Promise<T> {
-    // Full telemetry - no sampling
-
+  public createSpan<T>(spanContext: SpanContext, operation: () => T | Promise<T>): T | Promise<T> {
     const span = this.tracer.startSpan(spanContext.operationName, {
       kind: spanContext.kind || SpanKind.INTERNAL,
       attributes: spanContext.attributes || {},
     });
 
     const runWithSpan = <TResult>(
-      fn: () => TResult | Promise<TResult>,
+      fn: () => TResult | Promise<TResult>
     ): TResult | Promise<TResult> => {
       return context.with(trace.setSpan(context.active(), span), () => {
         let result: TResult | Promise<TResult>;
         try {
           result = fn();
 
-          // Handle Promise results
           if (result instanceof Promise) {
             return result
               .then((res) => {
@@ -59,7 +50,6 @@ class BunTelemetryTracer {
               });
           }
 
-          // Handle synchronous results
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
           return result;
@@ -78,12 +68,11 @@ class BunTelemetryTracer {
     return runWithSpan(operation);
   }
 
-  // Specialized span creation for HTTP requests
   public createHttpSpan<T>(
     method: string,
     url: string,
     statusCode: number,
-    operation: () => T | Promise<T>,
+    operation: () => T | Promise<T>
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -96,16 +85,15 @@ class BunTelemetryTracer {
           "http.server.type": "bun_serve",
         },
       },
-      operation,
+      operation
     );
   }
 
-  // Specialized span creation for Kong API calls
   public createKongSpan<T>(
     operation: string,
     url: string,
     method: string = "GET",
-    spanOperation: () => T | Promise<T>,
+    spanOperation: () => T | Promise<T>
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -119,15 +107,14 @@ class BunTelemetryTracer {
           "http.client.type": "kong_gateway",
         },
       },
-      spanOperation,
+      spanOperation
     );
   }
 
-  // Specialized span creation for JWT operations
   public createJWTSpan<T>(
     operation: string,
     spanOperation: () => T | Promise<T>,
-    username?: string,
+    username?: string
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -140,21 +127,17 @@ class BunTelemetryTracer {
           "crypto.key_type": "hmac",
         },
       },
-      spanOperation,
+      spanOperation
     );
   }
 
-  // Add attributes to current active span
-  public addSpanAttributes(
-    attributes: Record<string, string | number | boolean>,
-  ): void {
+  public addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
       activeSpan.setAttributes(attributes);
     }
   }
 
-  // Record exception in current active span
   public recordException(error: Error): void {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
@@ -166,7 +149,6 @@ class BunTelemetryTracer {
     }
   }
 
-  // Get current trace ID for logging correlation
   public getCurrentTraceId(): string | undefined {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
@@ -175,7 +157,6 @@ class BunTelemetryTracer {
     return undefined;
   }
 
-  // Get current span ID for logging correlation
   public getCurrentSpanId(): string | undefined {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
@@ -185,13 +166,11 @@ class BunTelemetryTracer {
   }
 }
 
-// Global tracer instance
 export const telemetryTracer = new BunTelemetryTracer();
 
-// Convenience function for creating spans
 export function createSpan<T>(
   spanContext: SpanContext,
-  operation: () => T | Promise<T>,
+  operation: () => T | Promise<T>
 ): T | Promise<T> {
   return telemetryTracer.createSpan(spanContext, operation);
 }

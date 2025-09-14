@@ -1,8 +1,8 @@
 {
-  "name": "pvh-authentication-bun",
+  "name": "authentication-service",
   "version": "1.0.0",
   "type": "module",
-  "description": "PVH Authentication Service - Migrated to Bun Runtime",
+  "description": "PVH Authentication Service",
   "main": "dist/server.js",
   "scripts": {
     "dev": "bun src/server.ts",
@@ -12,6 +12,14 @@
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
+    "check:unsafe": "biome check --write --unsafe .",
+    "ci": "biome ci .",
     "health-check": "curl -f http://localhost:3000/health || exit 1",
     "kill-server": "lsof -ti :3000 | xargs kill -9 2>/dev/null || echo 'No processes found on port 3000'",
     "dev:clean": "bun run kill-server && bun run dev"
@@ -27,6 +35,7 @@
   "author": "PVH Corp",
   "license": "UNLICENSED",
   "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
     "@types/bun": "latest",
     "typescript": "^5.3.3"
   },

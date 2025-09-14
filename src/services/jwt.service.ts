@@ -1,6 +1,7 @@
 /* src/services/jwt.service.ts */
 
 // JWT Service using Bun's native crypto.subtle API with OpenTelemetry tracing
+
 import { trace } from "@opentelemetry/api";
 export interface TokenResponse {
   access_token: string;
@@ -21,14 +22,13 @@ export interface JWTPayload {
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
-  private static readonly decoder = new TextDecoder();
 
   static async createToken(
     username: string,
     consumerKey: string,
     consumerSecret: string,
     authority: string,
-    audience: string,
+    audience: string
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
@@ -44,10 +44,10 @@ export class NativeBunJWT {
     try {
       const key = await crypto.subtle.importKey(
         "raw",
-        this.encoder.encode(consumerSecret),
+        NativeBunJWT.encoder.encode(consumerSecret),
         { name: "HMAC", hash: "SHA-256" },
         false,
-        ["sign"],
+        ["sign"]
       );
 
       const header = {
@@ -70,18 +70,14 @@ export class NativeBunJWT {
         unique_name: `pvhcorp.com#${username}`,
       };
 
-      const headerB64 = this.base64urlEncode(JSON.stringify(header));
-      const payloadB64 = this.base64urlEncode(JSON.stringify(payload));
+      const headerB64 = NativeBunJWT.base64urlEncode(JSON.stringify(header));
+      const payloadB64 = NativeBunJWT.base64urlEncode(JSON.stringify(payload));
       const message = `${headerB64}.${payloadB64}`;
 
-      const signature = await crypto.subtle.sign(
-        "HMAC",
-        key,
-        this.encoder.encode(message),
-      );
+      const signature = await crypto.subtle.sign("HMAC", key, NativeBunJWT.encoder.encode(message));
 
-      const signatureB64 = this.base64urlEncode(
-        String.fromCharCode(...new Uint8Array(signature)),
+      const signatureB64 = NativeBunJWT.base64urlEncode(
+        String.fromCharCode(...new Uint8Array(signature))
       );
 
       const token = `${message}.${signatureB64}`;
@@ -114,10 +110,7 @@ export class NativeBunJWT {
     }
   }
 
-  static async verifyToken(
-    token: string,
-    consumerSecret: string,
-  ): Promise<JWTPayload | null> {
+  static async verifyToken(token: string, consumerSecret: string): Promise<JWTPayload | null> {
     const startTime = Bun.nanoseconds();
 
     // Create telemetry span
@@ -139,29 +132,28 @@ export class NativeBunJWT {
 
       const key = await crypto.subtle.importKey(
         "raw",
-        this.encoder.encode(consumerSecret),
+        NativeBunJWT.encoder.encode(consumerSecret),
         { name: "HMAC", hash: "SHA-256" },
         false,
-        ["verify"],
+        ["verify"]
       );
 
-      const signature = Uint8Array.from(
-        atob(this.base64urlDecode(signatureB64)),
-        (c) => c.charCodeAt(0),
+      const signature = Uint8Array.from(atob(NativeBunJWT.base64urlDecode(signatureB64)), (c) =>
+        c.charCodeAt(0)
       );
 
       const isValid = await crypto.subtle.verify(
         "HMAC",
         key,
         signature,
-        this.encoder.encode(message),
+        NativeBunJWT.encoder.encode(message)
       );
 
       if (!isValid) {
         throw new Error("Invalid token signature");
       }
 
-      const payloadJson = this.base64urlDecode(payloadB64);
+      const payloadJson = NativeBunJWT.base64urlDecode(payloadB64);
       const payload = JSON.parse(payloadJson) as JWTPayload;
 
       const now = Math.floor(Date.now() / 1000);

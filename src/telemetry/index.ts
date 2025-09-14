@@ -1,21 +1,26 @@
 /* src/telemetry/index.ts */
 
-// Central telemetry exports for the authentication service
-export { BunTelemetrySDK } from './bun-instrumentation';
-export { telemetryLogger, LogLevel, type StructuredLogData, type LogContext } from './logger';
-export { telemetryTracer, createSpan, type SpanContext } from './tracer';
-export { telemetryMetrics, type MetricLabels } from './metrics';
-export { telemetryHealthMonitor, type TelemetryHealthStatus } from './health';
+export type { TelemetryConfig } from "./config";
+export { telemetryConfig } from "./config";
+// MetricLabels type export removed - not defined in metrics.ts
 export {
-  initializeTelemetry,
-  initializeBunFullTelemetry,
-  initializeSimpleTelemetry,
-  getBunTelemetryStatus,
-  getSimpleTelemetryStatus,
+  forceMetricsFlush,
+  getMetricsExportStats,
   getTelemetryStatus,
+  initializeTelemetry,
   shutdownTelemetry,
-  shutdownSimpleTelemetry
-} from './bun-instrumentation';
-export type { TelemetryConfig } from './config';
-export { telemetryConfig } from './config';
-export { SimpleSmartSampler, type SimpleSmartSamplingConfig } from './SimpleSmartSampler';
+  triggerImmediateMetricsExport,
+} from "./instrumentation";
+// Central telemetry exports for the authentication service
+export { createSpan, type SpanContext, telemetryTracer } from "./tracer";
+export {
+  debug,
+  error,
+  info,
+  logAuthenticationEvent,
+  logHttpRequest,
+  logKongOperation,
+  warn,
+  winstonTelemetryLogger,
+} from "./winston-logger";
+// SimpleSmartSampler removed - using 100% sampling, letting collector handle sampling
