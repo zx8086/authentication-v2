@@ -82,3 +82,36 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
         continue-on-error: true
+
+      - name: Run Snyk container vulnerability scanner
+        if: github.event_name != 'pull_request'
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          args: --severity-threshold=medium --sarif-file-output=snyk-results.sarif
+        continue-on-error: true
+
+      - name: Upload Snyk scan results to GitHub Security tab
+        if: github.event_name != 'pull_request' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "snyk-results.sarif"
+        continue-on-error: true
+
+      - name: Run Snyk code analysis
+        if: github.event_name != 'pull_request'
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --sarif-file-output=snyk-code-results.sarif
+        continue-on-error: true
+
+      - name: Upload Snyk code analysis results to GitHub Security tab
+        if: github.event_name != 'pull_request' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "snyk-code-results.sarif"
+        continue-on-error: true
