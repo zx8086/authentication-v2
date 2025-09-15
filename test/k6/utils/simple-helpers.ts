@@ -4,7 +4,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getConfig } from './config';
+import { getConfig } from './config.ts';
 
 const config = getConfig();
 const baseUrl = config.baseUrl;

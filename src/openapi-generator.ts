@@ -78,7 +78,7 @@ class OpenAPIGenerator {
         {
           url: "https://auth.pvh.com",
           description: "Production server",
-        }
+        },
       );
     }
 
@@ -88,7 +88,7 @@ class OpenAPIGenerator {
   generateSpec(): any {
     // Use dynamic API info from config if available, otherwise use defaults
     const apiInfo = this.config?.apiInfo || {
-      title: "PVH Authentication Service API",
+      title: "Authentication Service API",
       description:
         "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
       version: this.apiVersion,
@@ -359,7 +359,14 @@ class OpenAPIGenerator {
 
         HealthResponse: {
           type: "object",
-          required: ["status", "timestamp", "version", "uptime", "environment", "dependencies"],
+          required: [
+            "status",
+            "timestamp",
+            "version",
+            "uptime",
+            "environment",
+            "dependencies",
+          ],
           properties: {
             status: {
               type: "string",
@@ -585,7 +592,8 @@ class OpenAPIGenerator {
                     },
                     p95: {
                       type: "number",
-                      description: "95th percentile response time in milliseconds",
+                      description:
+                        "95th percentile response time in milliseconds",
                       example: 45.2,
                       minimum: 0,
                     },
@@ -599,7 +607,12 @@ class OpenAPIGenerator {
 
         MetricsStats: {
           type: "object",
-          required: ["timestamp", "message", "export_statistics", "metrics_status"],
+          required: [
+            "timestamp",
+            "message",
+            "export_statistics",
+            "metrics_status",
+          ],
           properties: {
             timestamp: {
               type: "string",

@@ -32,7 +32,12 @@ function convertToYaml(obj: any, indent = 0): string {
     if (obj.includes("\n") || obj.includes('"') || obj.includes("'")) {
       return `|\n${spaces}  ${obj.split("\n").join(`\n${spaces}  `)}`;
     }
-    if (obj.includes(":") || obj.includes("[") || obj.includes("{") || /^\d/.test(obj)) {
+    if (
+      obj.includes(":") ||
+      obj.includes("[") ||
+      obj.includes("{") ||
+      /^\d/.test(obj)
+    ) {
       return `"${obj.replace(/"/g, '\\"')}"`;
     }
     return obj;
@@ -44,7 +49,12 @@ function convertToYaml(obj: any, indent = 0): string {
 
   if (Array.isArray(obj)) {
     if (obj.length === 0) return "[]";
-    return obj.map(item => `\n${spaces}- ${convertToYaml(item, indent + 1).replace(/\n/g, `\n${spaces}  `)}`).join("");
+    return obj
+      .map(
+        (item) =>
+          `\n${spaces}- ${convertToYaml(item, indent + 1).replace(/\n/g, `\n${spaces}  `)}`,
+      )
+      .join("");
   }
 
   if (typeof obj === "object") {
@@ -54,7 +64,11 @@ function convertToYaml(obj: any, indent = 0): string {
     return entries
       .map(([key, value]) => {
         const yamlValue = convertToYaml(value, indent + 1);
-        if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+        if (
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          value !== null
+        ) {
           return `\n${spaces}${key}:${yamlValue.startsWith("\n") ? yamlValue : ` ${yamlValue}`}`;
         }
         return `\n${spaces}${key}: ${yamlValue}`;
@@ -78,7 +92,7 @@ function parseCommandLineArgs(): GenerationOptions {
   const options: GenerationOptions = {
     outputDir: "public",
     format: "both",
-    verbose: false
+    verbose: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -121,7 +135,7 @@ function parseCommandLineArgs(): GenerationOptions {
       case "-h":
       case "--help":
         console.log(`
-OpenAPI Specification Generator for PVH Authentication Service
+OpenAPI Specification Generator for Authentication Service
 
 Usage: bun scripts/generate-openapi.ts [OPTIONS]
 
@@ -155,7 +169,9 @@ async function ensureDirectoryExists(dirPath: string): Promise<void> {
   }
 }
 
-async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<GenerationStats> {
+async function generateOpenAPISpec(
+  options: GenerationOptions = {},
+): Promise<GenerationStats> {
   const startTime = Date.now();
   const outputDir = options.outputDir || "public";
   const format = options.format || "both";
@@ -166,8 +182,8 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
   const defaultConfig = {
     server: {
       port: 3000,
-      nodeEnv: "development"
-    }
+      nodeEnv: "development",
+    },
   };
   apiDocGenerator.setConfig(defaultConfig);
 
@@ -180,7 +196,7 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
     filesGenerated: [],
     totalSize: 0,
     routeCount: Object.keys(openApiSpec.paths).length,
-    schemaCount: Object.keys(openApiSpec.components.schemas).length
+    schemaCount: Object.keys(openApiSpec.components.schemas).length,
   };
 
   if (format === "json" || format === "both") {
@@ -193,7 +209,7 @@ async function generateOpenAPISpec(options: GenerationOptions = {}): Promise<Gen
   }
 
   if (format === "yaml" || format === "both") {
-    const yamlContent = `# OpenAPI 3.0.3 specification for PVH Authentication Service
+    const yamlContent = `# OpenAPI 3.0.3 specification for Authentication Service
 # Generated on: ${new Date().toISOString()}
 # This file is auto-generated. Do not edit manually.
 ${convertToYaml(openApiSpec)}`;
@@ -215,8 +231,23 @@ async function main(): Promise<void> {
     const options = parseCommandLineArgs();
     const stats = await generateOpenAPISpec(options);
 
+    if (options.verbose) {
+      console.log('\n🎉 OpenAPI Generation Complete!');
+      console.log(`📊 Generation Statistics:`);
+      console.log(`   ⏱️  Duration: ${stats.duration}ms`);
+      console.log(`   📁 Files: ${stats.filesGenerated.length} generated`);
+      stats.filesGenerated.forEach(file => console.log(`      ✅ ${file}`));
+      console.log(`   📦 Total size: ${formatBytes(stats.totalSize)}`);
+      console.log(`   🛣️  Routes: ${stats.routeCount} endpoints`);
+      console.log(`   📋 Schemas: ${stats.schemaCount} components`);
+    } else {
+      console.log(`✅ Generated ${stats.filesGenerated.length} OpenAPI file(s) in ${stats.duration}ms`);
+      stats.filesGenerated.forEach(file => console.log(`   📄 ${file}`));
+    }
+
     process.exit(0);
   } catch (error) {
+    console.error('❌ OpenAPI generation failed:', error);
     process.exit(1);
   }
 }

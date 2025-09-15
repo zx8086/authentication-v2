@@ -196,6 +196,9 @@ export K6_METRICS_P99_THRESHOLD=50    # Metrics endpoint P99
 # Error rate thresholds (decimal format)
 export K6_ERROR_RATE_THRESHOLD=0.01   # Normal error rate (1%)
 export K6_STRESS_ERROR_RATE_THRESHOLD=0.05  # Stress error rate (5%)
+
+# Test behavior configuration
+export K6_THRESHOLDS_NON_BLOCKING=false  # Set to 'true' to make threshold violations non-blocking
 ```
 
 **Test Consumer Configuration**:
@@ -246,6 +249,37 @@ export K6_SMOKE_VUS=2                 # Reduced VUs for CI
 export K6_SMOKE_DURATION=1m           # Shorter duration for CI
 export K6_HEALTH_P95_THRESHOLD=200    # Relaxed for CI resources
 ```
+
+#### Non-Blocking Threshold Examples
+
+**Development/Testing with Non-Blocking Thresholds**:
+```bash
+# Run tests without stopping on threshold violations (useful for exploration and debugging)
+export K6_THRESHOLDS_NON_BLOCKING=true
+
+# Quick smoke test that continues even with failures
+K6_THRESHOLDS_NON_BLOCKING=true k6 run test/k6/smoke/health-smoke.ts
+
+# Token test with high failure rates but still collect metrics
+K6_THRESHOLDS_NON_BLOCKING=true K6_SMOKE_VUS=2 K6_SMOKE_DURATION=30s k6 run test/k6/smoke/tokens-smoke.ts
+
+# Load test with relaxed behavior for development environments
+K6_THRESHOLDS_NON_BLOCKING=true \
+K6_LOAD_TARGET_VUS=50 \
+K6_LOAD_STEADY_DURATION=10m \
+k6 run test/k6/load/auth-load.ts
+
+# Using bun scripts with non-blocking mode
+K6_THRESHOLDS_NON_BLOCKING=true bun run k6:smoke:health
+K6_THRESHOLDS_NON_BLOCKING=true bun run k6:load
+K6_THRESHOLDS_NON_BLOCKING=true bun run k6:stress
+```
+
+**When to Use Non-Blocking Mode**:
+- **Development**: Explore system behavior without test interruption
+- **Debugging**: Collect full metrics even when thresholds are violated
+- **CI/CD**: Allow builds to continue while still collecting performance data
+- **Baseline Testing**: Establish performance baselines for new environments
 
 ### Kong Integration Requirements
 
@@ -353,6 +387,42 @@ bun --version
 - `bunfig.toml` - Bun test configuration
 - `playwright.config.ts` - Playwright configuration
 - `test/k6/utils/config.ts` - K6 test configuration and thresholds
+
+## Documentation Generation
+
+### OpenAPI Specification Generation
+Generate comprehensive API documentation with detailed feedback:
+
+```bash
+# Generate both JSON and YAML formats (default)
+bun run generate-docs
+
+# Generate only JSON format
+bun run generate-docs:json
+
+# Generate only YAML format
+bun run generate-docs:yaml
+
+# Generate with detailed statistics
+bun run generate-docs:verbose
+```
+
+**Example output with verbose mode**:
+```
+🎉 OpenAPI Generation Complete!
+📊 Generation Statistics:
+   ⏱️  Duration: 3ms
+   📁 Files: 2 generated
+      ✅ public/openapi.json
+      ✅ public/openapi-generated.yaml
+   📦 Total size: 49.3 KB
+   🛣️  Routes: 9 endpoints
+   📋 Schemas: 8 components
+```
+
+Generated files are available at:
+- `public/openapi.json` - Machine-readable JSON format
+- `public/openapi-generated.yaml` - Human-readable YAML format with generation metadata
 
 ## Migration Validation
 

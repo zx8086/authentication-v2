@@ -2,7 +2,7 @@
   "name": "authentication-service",
   "version": "1.0.0",
   "type": "module",
-  "description": "PVH Authentication Service",
+  "description": "Authentication Service",
   "main": "dist/server.js",
   "scripts": {
     "dev": "bun run generate-docs && bun src/server.ts",

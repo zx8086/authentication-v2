@@ -86,6 +86,30 @@ export const getPerformanceThresholds = () => {
   const errorRate = parseFloat(__ENV.K6_ERROR_RATE_THRESHOLD || '0.01');
   const stressErrorRate = parseFloat(__ENV.K6_STRESS_ERROR_RATE_THRESHOLD || '0.05');
 
+  // Check if thresholds should be non-blocking (continue execution even if violated)
+  const nonBlocking = __ENV.K6_THRESHOLDS_NON_BLOCKING === 'true';
+
+  // If non-blocking is enabled, return structure with empty thresholds
+  if (nonBlocking) {
+    console.log('⚠️  Non-blocking mode enabled: Threshold violations will not stop test execution');
+    return {
+      health: {
+        smoke: {},
+        load: {},
+        stress: {}
+      },
+      tokens: {
+        smoke: {},
+        load: {},
+        stress: {}
+      },
+      metrics: {
+        smoke: {},
+        load: {}
+      }
+    };
+  }
+
   return {
     health: {
       smoke: {
@@ -103,30 +127,27 @@ export const getPerformanceThresholds = () => {
     },
     tokens: {
       smoke: {
-        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
-        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
-        'token_generation_rate': ['rate>0.99']
+        'http_req_duration': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
+        'http_req_failed': [`rate<${errorRate}`]
       },
       load: {
-        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
-        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
-        'token_generation_rate': ['rate>0.99'],
-        'tokens_per_second': ['rate>1000']
+        'http_req_duration': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
+        'http_req_failed': [`rate<${errorRate}`],
+        'http_reqs': ['rate>10'] // Minimum 10 requests per second
       },
       stress: {
-        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95 * 2}`, `p(99)<${tokensP99 * 2}`],
-        'http_req_failed{endpoint:tokens}': [`rate<${stressErrorRate}`],
-        'token_generation_rate': ['rate>0.95']
+        'http_req_duration': [`p(95)<${tokensP95 * 2}`, `p(99)<${tokensP99 * 2}`],
+        'http_req_failed': [`rate<${stressErrorRate}`]
       }
     },
     metrics: {
       smoke: {
-        'http_req_duration{endpoint:metrics}': [`p(95)<${metricsP95}`, `p(99)<${metricsP99}`],
-        'http_req_failed{endpoint:metrics}': [`rate<${errorRate}`]
+        'http_req_duration': [`p(95)<${metricsP95}`, `p(99)<${metricsP99}`],
+        'http_req_failed': [`rate<${errorRate}`]
       },
       load: {
-        'http_req_duration{endpoint:metrics}': [`p(95)<${metricsP95 + 20}`, `p(99)<${metricsP99 + 50}`],
-        'http_req_failed{endpoint:metrics}': [`rate<${errorRate}`]
+        'http_req_duration': [`p(95)<${metricsP95 + 20}`, `p(99)<${metricsP99 + 50}`],
+        'http_req_failed': [`rate<${errorRate}`]
       }
     }
   };

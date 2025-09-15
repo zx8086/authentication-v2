@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "PVH Authentication Service API",
+    "title": "Authentication Service API",
     "description": "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
     "version": "1.0.0",
     "contact": {
