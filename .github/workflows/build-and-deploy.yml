@@ -28,6 +28,7 @@ jobs:
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
       image-tags: ${{ steps.meta.outputs.tags }}
+      primary-tag: ${{ steps.extract-tag.outputs.primary-tag }}
 
     steps:
       - name: Checkout repository
@@ -55,6 +56,15 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract primary tag for scanning
+        id: extract-tag
+        run: |
+          # Extract the first tag from the metadata output
+          TAGS='${{ steps.meta.outputs.tags }}'
+          PRIMARY_TAG=$(echo "$TAGS" | head -n1 | tr -d '\n\r')
+          echo "Primary tag for scanning: $PRIMARY_TAG"
+          echo "primary-tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         id: build
@@ -140,19 +150,35 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Get latest image tag for scanning
-        id: get-image
+      - name: Verify image availability and extract tag for scanning
+        id: verify-image
         run: |
-          # Extract the first tag from the build output for scanning
-          FIRST_TAG=$(echo '${{ needs.build-and-push.outputs.image-tags }}' | head -n1)
-          echo "image-ref=${FIRST_TAG}" >> $GITHUB_OUTPUT
+          # Use the primary tag from the build job
+          PRIMARY_TAG='${{ needs.build-and-push.outputs.primary-tag }}'
+
+          if [ -z "$PRIMARY_TAG" ]; then
+            echo "ERROR: Primary tag is empty"
+            exit 1
+          fi
+
+          echo "Using image tag for scanning: $PRIMARY_TAG"
+
+          # Verify the image exists and is accessible
+          echo "Verifying image accessibility..."
+          if docker manifest inspect "$PRIMARY_TAG" > /dev/null 2>&1; then
+            echo "✅ Image $PRIMARY_TAG is accessible"
+          else
+            echo "⚠️  Image manifest not immediately available, proceeding with scan anyway"
+          fi
+
+          echo "image-ref=$PRIMARY_TAG" >> $GITHUB_OUTPUT
 
       - name: Run Snyk container vulnerability scanner
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: ${{ steps.get-image.outputs.image-ref }}
+          image: ${{ steps.verify-image.outputs.image-ref }}
           args: --severity-threshold=medium --sarif-file-output=snyk-container-results.sarif
         continue-on-error: true
 
@@ -187,6 +213,9 @@ jobs:
           else
             echo "| Trivy Scan | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scanned Image:** \`${{ steps.verify-image.outputs.image-ref }}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Archive security scan results
         if: always()
