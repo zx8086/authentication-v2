@@ -25,6 +25,10 @@ jobs:
       packages: write
       security-events: write
 
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,6 +57,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -71,37 +76,49 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: "sarif"
           output: "trivy-results.sarif"
         continue-on-error: true
 
       - name: Upload Trivy scan results to GitHub Security tab
-        if: github.event_name != 'pull_request' && always()
+        if: github.event_name != 'pull_request' && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.sarif"
         continue-on-error: true
 
-      - name: Run Snyk container vulnerability scanner
-        if: github.event_name != 'pull_request'
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          args: --severity-threshold=medium --sarif-file-output=snyk-results.sarif
-        continue-on-error: true
+  security-scan:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write
 
-      - name: Upload Snyk scan results to GitHub Security tab
-        if: github.event_name != 'pull_request' && always()
-        uses: github/codeql-action/upload-sarif@v3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          sarif_file: "snyk-results.sarif"
-        continue-on-error: true
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Run Snyk code analysis
-        if: github.event_name != 'pull_request'
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -110,8 +127,72 @@ jobs:
         continue-on-error: true
 
       - name: Upload Snyk code analysis results to GitHub Security tab
-        if: github.event_name != 'pull_request' && always()
+        if: hashFiles('snyk-code-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "snyk-code-results.sarif"
         continue-on-error: true
+
+      - name: Log in to Docker Hub for container scan
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get latest image tag for scanning
+        id: get-image
+        run: |
+          # Extract the first tag from the build output for scanning
+          FIRST_TAG=$(echo '${{ needs.build-and-push.outputs.image-tags }}' | head -n1)
+          echo "image-ref=${FIRST_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Run Snyk container vulnerability scanner
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ steps.get-image.outputs.image-ref }}
+          args: --severity-threshold=medium --sarif-file-output=snyk-container-results.sarif
+        continue-on-error: true
+
+      - name: Upload Snyk container scan results to GitHub Security tab
+        if: hashFiles('snyk-container-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "snyk-container-results.sarif"
+        continue-on-error: true
+
+      - name: Generate security summary
+        if: always()
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status | SARIF File |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|------------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f "snyk-code-results.sarif" ]; then
+            echo "| Code Analysis | ✅ Completed | snyk-code-results.sarif |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Code Analysis | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "snyk-container-results.sarif" ]; then
+            echo "| Container Scan | ✅ Completed | snyk-container-results.sarif |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Container Scan | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "trivy-results.sarif" ]; then
+            echo "| Trivy Scan | ✅ Completed | trivy-results.sarif |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Trivy Scan | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Archive security scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            *.sarif
+          retention-days: 30
