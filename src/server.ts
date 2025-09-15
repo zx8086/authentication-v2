@@ -38,6 +38,38 @@ try {
   console.error("Failed to initialize telemetry:", (error as Error).message);
 }
 
+async function checkOtlpEndpointHealth(url: string): Promise<{
+  healthy: boolean;
+  responseTime: number;
+  error?: string;
+}> {
+  if (!url) {
+    return { healthy: false, responseTime: 0, error: "URL not configured" };
+  }
+
+  const startTime = Bun.nanoseconds();
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(5000),
+    });
+    const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    return {
+      healthy: response.status < 500,
+      responseTime: Math.round(responseTime),
+      error: response.status >= 500 ? `HTTP ${response.status}` : undefined,
+    };
+  } catch (error) {
+    const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+    return {
+      healthy: false,
+      responseTime: Math.round(responseTime),
+      error: error instanceof Error ? error.message : "Connection failed",
+    };
+  }
+}
+
 function validateKongHeaders(
   req: Request
 ): { consumerId: string; username: string } | { error: string } {
@@ -266,8 +298,19 @@ async function handleHealthCheck(span: any): Promise<Response> {
 
     const telemetryHealth = getTelemetryStatus();
 
+    // Check OTLP endpoint connectivity in parallel
+    const [tracesHealth, metricsHealth, logsHealth] = await Promise.all([
+      checkOtlpEndpointHealth(telemetryHealth.config.tracesEndpoint),
+      checkOtlpEndpointHealth(telemetryHealth.config.metricsEndpoint),
+      checkOtlpEndpointHealth(telemetryHealth.config.logsEndpoint),
+    ]);
+
+    const otlpHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
+    const overallHealthy =
+      kongHealth.healthy && (telemetryHealth.config.mode === "console" || otlpHealthy);
+
     const health = {
-      status: kongHealth.healthy ? "healthy" : "degraded",
+      status: overallHealthy ? "healthy" : "degraded",
       timestamp: new Date().toISOString(),
       version: "1.0.0",
       uptime: Math.floor(process.uptime()),
@@ -279,8 +322,39 @@ async function handleHealthCheck(span: any): Promise<Response> {
           url: config.kong.adminUrl,
           error: kongHealth.error,
         },
+        opentelemetry: {
+          traces_endpoint: {
+            status: !telemetryHealth.config.tracesEndpoint
+              ? "not_configured"
+              : tracesHealth.healthy
+                ? "healthy"
+                : "unhealthy",
+            url: telemetryHealth.config.tracesEndpoint,
+            response_time: tracesHealth.responseTime || undefined,
+            error: tracesHealth.error,
+          },
+          metrics_endpoint: {
+            status: !telemetryHealth.config.metricsEndpoint
+              ? "not_configured"
+              : metricsHealth.healthy
+                ? "healthy"
+                : "unhealthy",
+            url: telemetryHealth.config.metricsEndpoint,
+            response_time: metricsHealth.responseTime || undefined,
+            error: metricsHealth.error,
+          },
+          logs_endpoint: {
+            status: !telemetryHealth.config.logsEndpoint
+              ? "not_configured"
+              : logsHealth.healthy
+                ? "healthy"
+                : "unhealthy",
+            url: telemetryHealth.config.logsEndpoint,
+            response_time: logsHealth.responseTime || undefined,
+            error: logsHealth.error,
+          },
+        },
       },
-      cache: kongService.getCacheStats(),
       telemetry: {
         initialized: telemetryHealth.initialized,
         mode: telemetryHealth.config.mode,

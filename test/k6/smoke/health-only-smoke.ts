@@ -1,0 +1,40 @@
+/* test/k6/smoke/health-only-smoke.ts */
+
+// K6 smoke test for health endpoint only - tests /health endpoint with OTLP connectivity checks
+
+import http from "k6/http";
+import { check, sleep } from "k6";
+import {
+  getConfig,
+  getPerformanceThresholds,
+  getScenarioConfig,
+} from "../utils/config.ts";
+
+const config = getConfig();
+const thresholds = getPerformanceThresholds();
+const scenarios = getScenarioConfig();
+
+export const options = {
+  scenarios: {
+    health_only_smoke: scenarios.smoke,
+  },
+  thresholds: thresholds.health.smoke,
+};
+
+export default function () {
+  const baseUrl = config.baseUrl;
+
+  // Test health endpoint only
+  const healthResponse = http.get(`${baseUrl}/health`);
+  check(healthResponse, {
+    "health status is 200": (r) => r.status === 200,
+    "health has status field": (r) => r.body.includes('"status"'),
+    "health has dependencies": (r) => r.body.includes('"dependencies"'),
+    "health has kong dependency": (r) => r.body.includes('"kong"'),
+    "health has opentelemetry dependency": (r) =>
+      r.body.includes('"opentelemetry"'),
+    "health has telemetry info": (r) => r.body.includes('"telemetry"'),
+  });
+
+  sleep(1);
+}

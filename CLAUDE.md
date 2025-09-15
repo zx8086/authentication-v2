@@ -91,7 +91,6 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 ### Service Layer Structure
 - **JWT Service** (`src/services/jwt.service.ts`): Native crypto.subtle JWT generation with HMAC-SHA256
 - **Kong Service** (`src/services/kong.service.ts`): Kong Admin API integration with caching and health checks
-- **Performance Utils** (`src/utils/performance.ts`): Rate limiting and performance monitoring
 
 ### Telemetry & Observability Layer
 - **Instrumentation** (`src/telemetry/instrumentation.ts`): OpenTelemetry SDK configuration with vendor-neutral OTLP export
@@ -116,7 +115,7 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 
 ### Key Design Patterns
 - **Error Handling**: Comprehensive error handling with request IDs for tracing
-- **Rate Limiting**: Per-consumer rate limiting with sliding window algorithm
+- **Rate Limiting**: Built-in rate limiting and performance monitoring
 - **Caching**: Kong consumer secret caching to reduce Admin API calls
 - **Performance Monitoring**: Built-in metrics collection and reporting
 - **CORS Support**: Configurable CORS with origin validation
@@ -179,8 +178,8 @@ Copy `.env.example` to `.env` and configure:
 - `K6_SPIKE_DURATION` - Spike test duration (default: 3m)
 
 **Performance Thresholds:**
-- `K6_HEALTH_P95_THRESHOLD` - Health endpoint p95 threshold in ms (default: 50)
-- `K6_HEALTH_P99_THRESHOLD` - Health endpoint p99 threshold in ms (default: 100)
+- `K6_HEALTH_P95_THRESHOLD` - Health endpoint p95 threshold in ms (default: 400)
+- `K6_HEALTH_P99_THRESHOLD` - Health endpoint p99 threshold in ms (default: 500)
 - `K6_TOKENS_P95_THRESHOLD` - Tokens endpoint p95 threshold in ms (default: 50)
 - `K6_TOKENS_P99_THRESHOLD` - Tokens endpoint p99 threshold in ms (default: 100)
 - `K6_METRICS_P95_THRESHOLD` - Metrics endpoint p95 threshold in ms (default: 30)
@@ -207,8 +206,6 @@ This service is a complete migration from .NET Core 3.1, maintaining identical A
 - 60% reduction in memory usage
 - 5x smaller container images
 - <100ms cold start times
-
-See `MIGRATION.md` for detailed migration procedures and performance comparisons.
 
 ## OpenTelemetry Observability
 

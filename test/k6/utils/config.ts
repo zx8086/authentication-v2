@@ -77,8 +77,8 @@ export const getHeaders = (consumer: ConsumerConfig, additionalHeaders: Record<s
 };
 
 export const getPerformanceThresholds = () => {
-  const healthP95 = parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || '50', 10);
-  const healthP99 = parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || '100', 10);
+  const healthP95 = parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || '400', 10);
+  const healthP99 = parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || '500', 10);
   const tokensP95 = parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || '50', 10);
   const tokensP99 = parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || '100', 10);
   const metricsP95 = parseInt(__ENV.K6_METRICS_P95_THRESHOLD || '30', 10);
