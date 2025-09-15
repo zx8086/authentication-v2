@@ -14,6 +14,11 @@ build/
 # Test coverage
 coverage/
 
+# Test results
+test/results/
+test-results/
+playwright-report/
+
 # IDE files
 .vscode/
 .idea/

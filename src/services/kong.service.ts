@@ -1,5 +1,10 @@
 /* src/services/kong.service.ts */
-import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
+
+import {
+  recordError,
+  recordException,
+  recordKongOperation,
+} from "../telemetry/metrics";
 export interface ConsumerSecret {
   id: string;
   key: string;
@@ -40,10 +45,12 @@ export class KongService {
     const url = new URL(adminUrl);
 
     if (url.hostname.includes("konghq.com")) {
-      const pathMatch = url.pathname.match(/\/v2\/control-planes\/([a-f0-9-]+)/);
+      const pathMatch = url.pathname.match(
+        /\/v2\/control-planes\/([a-f0-9-]+)/,
+      );
       if (!pathMatch) {
         throw new Error(
-          "Invalid Kong Konnect URL format. Expected: https://region.api.konghq.com/v2/control-planes/{id}"
+          "Invalid Kong Konnect URL format. Expected: https://region.api.konghq.com/v2/control-planes/{id}",
         );
       }
 
@@ -89,7 +96,9 @@ export class KongService {
         }
 
         const _errorText = await response.text();
-        throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Kong API error: ${response.status} ${response.statusText}`,
+        );
       }
 
       const data = (await response.json()) as ConsumerResponse;
@@ -118,7 +127,9 @@ export class KongService {
     }
   }
 
-  async createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
+  async createConsumerSecret(
+    consumerId: string,
+  ): Promise<ConsumerSecret | null> {
     try {
       const consumerUuid = await this.ensureConsumerExists(consumerId);
 
@@ -143,7 +154,9 @@ export class KongService {
 
       if (!response.ok) {
         const _errorText = await response.text();
-        throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Kong API error: ${response.status} ${response.statusText}`,
+        );
       }
 
       const createdSecret = (await response.json()) as ConsumerSecret;
@@ -176,7 +189,9 @@ export class KongService {
     }
 
     if (checkResponse.status !== 404) {
-      throw new Error(`Unexpected error checking realm: ${checkResponse.status}`);
+      throw new Error(
+        `Unexpected error checking realm: ${checkResponse.status}`,
+      );
     }
 
     const createUrl = `${this.consumerAdminUrl}/realms`;
@@ -200,11 +215,16 @@ export class KongService {
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
 
-      if (createResponse.status === 400 && errorText.includes("realm name must be unique")) {
+      if (
+        createResponse.status === 400 &&
+        errorText.includes("realm name must be unique")
+      ) {
         return;
       }
 
-      throw new Error(`Failed to create realm: ${createResponse.status} ${errorText}`);
+      throw new Error(
+        `Failed to create realm: ${createResponse.status} ${errorText}`,
+      );
     }
   }
 
@@ -226,7 +246,9 @@ export class KongService {
     }
 
     if (checkResponse.status !== 404) {
-      throw new Error(`Unexpected error checking consumer: ${checkResponse.status}`);
+      throw new Error(
+        `Unexpected error checking consumer: ${checkResponse.status}`,
+      );
     }
 
     const createUrl = `${this.gatewayAdminUrl}/core-entities/consumers`;
@@ -250,7 +272,9 @@ export class KongService {
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      throw new Error(`Failed to create consumer: ${createResponse.status} ${errorText}`);
+      throw new Error(
+        `Failed to create consumer: ${createResponse.status} ${errorText}`,
+      );
     }
 
     const createdConsumer = (await createResponse.json()) as Consumer;
@@ -260,7 +284,9 @@ export class KongService {
   private generateSecureSecret(): string {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+      "",
+    );
   }
 
   clearCache(consumerId?: string): void {
@@ -291,7 +317,10 @@ export class KongService {
       size: totalEntries,
       entries: entries,
       activeEntries,
-      hitRate: totalEntries > 0 ? `${((activeEntries / totalEntries) * 100).toFixed(2)}%` : "0%",
+      hitRate:
+        totalEntries > 0
+          ? `${((activeEntries / totalEntries) * 100).toFixed(2)}%`
+          : "0%",
     };
   }
 

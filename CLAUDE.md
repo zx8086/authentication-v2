@@ -34,12 +34,41 @@ bun run check
 bun run health-check
 ```
 
-### Testing Individual Components
+## Testing Strategy
+
+### Three-Tier Testing Approach
+
+#### Bun Tests - Unit & Integration Testing
 ```bash
-# Run specific test file
-bun test tests/jwt.service.test.ts
-bun test tests/kong.service.test.ts
-bun test tests/server.test.ts
+# Run all Bun tests
+bun test
+
+# Run specific test files
+bun test test/bun/jwt.service.test.ts
+bun test test/bun/kong.service.test.ts
+bun test test/bun/server.test.ts
+```
+
+#### Playwright Tests - E2E Scenarios
+```bash
+# Run all E2E tests
+bun run playwright:test
+
+# Interactive testing UI
+bun run playwright:ui
+```
+
+#### K6 Tests - Performance Testing
+```bash
+# Individual test categories
+bun run k6:smoke:health        # Health endpoint validation
+bun run k6:smoke:tokens        # JWT token generation validation
+bun run k6:load                # Production load simulation
+bun run k6:stress              # System breaking point
+bun run k6:spike               # Traffic burst testing
+
+# Test information
+bun run k6:info                # Display all available tests
 ```
 
 ## Architecture Overview

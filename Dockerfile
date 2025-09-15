@@ -33,6 +33,11 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 bunuser
 USER bunuser
 
+# Set default environment variables (override these in production)
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV TELEMETRY_MODE=console
+
 # Expose the port
 EXPOSE 3000
 

@@ -2,7 +2,6 @@
 
 export type { TelemetryConfig } from "./config";
 export { telemetryConfig } from "./config";
-// MetricLabels type export removed - not defined in metrics.ts
 export {
   forceMetricsFlush,
   getMetricsExportStats,
@@ -11,7 +10,6 @@ export {
   shutdownTelemetry,
   triggerImmediateMetricsExport,
 } from "./instrumentation";
-// Central telemetry exports for the authentication service
 export { createSpan, type SpanContext, telemetryTracer } from "./tracer";
 export {
   debug,
@@ -23,4 +21,3 @@ export {
   warn,
   winstonTelemetryLogger,
 } from "./winston-logger";
-// SimpleSmartSampler removed - using 100% sampling, letting collector handle sampling

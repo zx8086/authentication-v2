@@ -27,7 +27,16 @@
     "health-check": "curl -f http://localhost:3000/health || exit 1",
     "kill-server": "lsof -ti :3000 | xargs kill -9 2>/dev/null || echo 'No processes found on port 3000'",
     "dev:clean": "bun run kill-server && bun run dev",
-    "docker:build": "docker build -t simple-api-service ."
+    "docker:build": "docker build -t simple-api-service .",
+    "playwright:test": "playwright test",
+    "playwright:ui": "playwright test --ui",
+    "test:clean": "rm -rf test/results/k6/* test/results/playwright/* test/results/bun/* test-results/ playwright-report/",
+    "k6:smoke:health": "mkdir -p test/results/k6 && k6 run --out json=test/results/k6/smoke-health-results.json test/k6/smoke/health-smoke.ts",
+    "k6:smoke:tokens": "mkdir -p test/results/k6 && k6 run --out json=test/results/k6/smoke-tokens-results.json test/k6/smoke/tokens-smoke.ts",
+    "k6:load": "mkdir -p test/results/k6 && k6 run --out json=test/results/k6/load-auth-results.json test/k6/load/auth-load.ts",
+    "k6:stress": "mkdir -p test/results/k6 && k6 run --out json=test/results/k6/stress-system-results.json test/k6/stress/system-stress.ts",
+    "k6:spike": "mkdir -p test/results/k6 && k6 run --out json=test/results/k6/spike-test-results.json test/k6/spike/spike-test.ts",
+    "k6:info": "bun run test/k6/run-all-tests.ts"
   },
   "keywords": [
     "authentication",
@@ -41,7 +50,8 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
-    "@types/bun": "latest",
+    "@playwright/test": "^1.48.0",
+    "@types/bun": "1.2.22",
     "typescript": "^5.3.3"
   },
   "engines": {
@@ -79,6 +89,8 @@
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.0.0",
     "@opentelemetry/winston-transport": "^0.16.0",
+    "@types/k6": "^1.2.0",
+    "k6": "^0.0.0",
     "winston": "^3.17.0",
     "winston-transport": "^4.9.0",
     "zod": "^4.1.8"
