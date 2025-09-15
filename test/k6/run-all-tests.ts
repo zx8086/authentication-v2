@@ -48,7 +48,7 @@ export const testSuites: TestSuite[] = [
   {
     name: 'Spike Test',
     description: 'Sudden traffic burst simulation to test system resilience',
-    scriptPath: 'test/k6/scenarios/spike-test.ts',
+    scriptPath: 'test/k6/spike/spike-test.ts',
     estimatedDuration: '8 minutes',
     category: 'scenarios',
     requirements: ['Service running', 'Kong available', 'Monitoring enabled']

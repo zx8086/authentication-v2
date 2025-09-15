@@ -2,6 +2,8 @@
 
 /* scripts/generate-openapi.ts */
 
+// Script to generate OpenAPI specification file from route definitions
+
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";

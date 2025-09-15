@@ -1,5 +1,7 @@
 /* src/openapi-generator.ts */
 
+// OpenAPI specification generator for authentication service endpoints
+
 export interface RouteDefinition {
   path: string;
   method: string;
@@ -78,7 +80,7 @@ class OpenAPIGenerator {
         {
           url: "https://auth.pvh.com",
           description: "Production server",
-        },
+        }
       );
     }
 
@@ -359,14 +361,7 @@ class OpenAPIGenerator {
 
         HealthResponse: {
           type: "object",
-          required: [
-            "status",
-            "timestamp",
-            "version",
-            "uptime",
-            "environment",
-            "dependencies",
-          ],
+          required: ["status", "timestamp", "version", "uptime", "environment", "dependencies"],
           properties: {
             status: {
               type: "string",
@@ -592,8 +587,7 @@ class OpenAPIGenerator {
                     },
                     p95: {
                       type: "number",
-                      description:
-                        "95th percentile response time in milliseconds",
+                      description: "95th percentile response time in milliseconds",
                       example: 45.2,
                       minimum: 0,
                     },
@@ -607,12 +601,7 @@ class OpenAPIGenerator {
 
         MetricsStats: {
           type: "object",
-          required: [
-            "timestamp",
-            "message",
-            "export_statistics",
-            "metrics_status",
-          ],
+          required: ["timestamp", "message", "export_statistics", "metrics_status"],
           properties: {
             timestamp: {
               type: "string",

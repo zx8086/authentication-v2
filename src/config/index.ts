@@ -1,5 +1,7 @@
 /* src/config/index.ts */
 
+// Application configuration management with Zod validation
+
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
 

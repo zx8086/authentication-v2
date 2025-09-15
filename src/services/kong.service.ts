@@ -1,5 +1,7 @@
 /* src/services/kong.service.ts */
 
+// Kong Admin API service for managing JWT credentials and consumer validation
+
 import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
 export interface ConsumerSecret {
   id: string;

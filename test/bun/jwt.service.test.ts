@@ -1,5 +1,7 @@
 /* test/bun/jwt.service.test.ts */
 
+// Unit tests for native Bun JWT service implementation
+
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { NativeBunJWT } from '../../src/services/jwt.service';
 

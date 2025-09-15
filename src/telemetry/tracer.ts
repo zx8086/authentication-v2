@@ -1,5 +1,7 @@
 /* src/telemetry/tracer.ts */
 
+// OpenTelemetry tracing utilities for distributed request tracking
+
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
 import { telemetryConfig } from "./config";

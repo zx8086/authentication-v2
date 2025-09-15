@@ -1,5 +1,7 @@
 /* src/telemetry/index.ts */
 
+// Telemetry module exports for OpenTelemetry instrumentation and metrics
+
 export type { TelemetryConfig } from "./config";
 export { telemetryConfig } from "./config";
 export {

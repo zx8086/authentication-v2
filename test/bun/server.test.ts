@@ -1,5 +1,7 @@
 /* test/bun/server.test.ts */
 
+// Server endpoint tests
+
 import {
   describe,
   it,

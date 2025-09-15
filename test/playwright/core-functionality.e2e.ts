@@ -1,5 +1,7 @@
 /* test/playwright/core-functionality.e2e.ts */
 
+// E2E tests for authentication service core functionality
+
 import { test, expect } from '@playwright/test';
 
 test.describe('Authentication Service Core Functionality', () => {

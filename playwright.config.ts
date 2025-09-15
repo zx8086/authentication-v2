@@ -1,5 +1,7 @@
 /* playwright.config.ts */
 
+// Playwright E2E testing configuration for authentication service
+
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({

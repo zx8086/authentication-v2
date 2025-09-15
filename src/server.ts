@@ -1,5 +1,7 @@
 /* src/server.ts */
 
+// Main authentication service server using Bun runtime with OpenTelemetry instrumentation
+
 import { SpanKind, trace } from "@opentelemetry/api";
 import { loadConfig } from "./config/index";
 import { apiDocGenerator } from "./openapi-generator";

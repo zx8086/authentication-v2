@@ -1,5 +1,7 @@
 /* src/telemetry/winston-logger.ts */
 
+// Winston logger with ECS format and OpenTelemetry correlation for structured logging
+
 import ecsFormat from "@elastic/ecs-winston-format";
 import { trace } from "@opentelemetry/api";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
