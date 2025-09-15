@@ -140,18 +140,90 @@ bun run k6:info                # Display all available tests and strategies
 
 ### Environment Configuration
 
-**Local Development**:
+All testing parameters can be configured via environment variables for maximum flexibility across different environments and testing scenarios.
+
+#### Playwright E2E Testing
 ```bash
-export TARGET_HOST=192.168.178.10
-export TARGET_PORT=3000
-export TARGET_PROTOCOL=http
+# Target service URL for E2E tests
+export API_BASE_URL=http://localhost:3000
 ```
 
-**Docker Environment**:
+#### K6 Performance Testing Configuration
+
+**Target Configuration**:
+```bash
+export TARGET_HOST=localhost           # Target service host
+export TARGET_PORT=3000               # Target service port
+export TARGET_PROTOCOL=http           # http or https
+export K6_TIMEOUT=30s                 # Request timeout
+```
+
+**Test Execution Parameters**:
+```bash
+# Smoke test configuration
+export K6_SMOKE_VUS=3                 # Virtual users for smoke tests
+export K6_SMOKE_DURATION=3m           # Smoke test duration
+
+# Load test configuration
+export K6_LOAD_INITIAL_VUS=10         # Load test starting VUs
+export K6_LOAD_TARGET_VUS=20          # Load test target VUs
+export K6_LOAD_RAMP_UP_DURATION=2m    # Time to ramp up
+export K6_LOAD_STEADY_DURATION=5m     # Sustained load duration
+export K6_LOAD_RAMP_DOWN_DURATION=2m  # Time to ramp down
+
+# Stress test configuration
+export K6_STRESS_INITIAL_VUS=50       # Stress test starting VUs
+export K6_STRESS_TARGET_VUS=100       # Stress test target VUs
+export K6_STRESS_PEAK_VUS=200         # Stress test peak VUs
+export K6_STRESS_DURATION=5m          # Stress test duration
+
+# Spike test configuration
+export K6_SPIKE_BASELINE_VUS=10       # Spike baseline VUs
+export K6_SPIKE_TARGET_VUS=100        # Spike peak VUs
+export K6_SPIKE_DURATION=3m           # Spike duration
+```
+
+**Performance Thresholds**:
+```bash
+# Response time thresholds (milliseconds)
+export K6_HEALTH_P95_THRESHOLD=50     # Health endpoint P95
+export K6_HEALTH_P99_THRESHOLD=100    # Health endpoint P99
+export K6_TOKENS_P95_THRESHOLD=50     # Tokens endpoint P95
+export K6_TOKENS_P99_THRESHOLD=100    # Tokens endpoint P99
+export K6_METRICS_P95_THRESHOLD=30    # Metrics endpoint P95
+export K6_METRICS_P99_THRESHOLD=50    # Metrics endpoint P99
+
+# Error rate thresholds (decimal format)
+export K6_ERROR_RATE_THRESHOLD=0.01   # Normal error rate (1%)
+export K6_STRESS_ERROR_RATE_THRESHOLD=0.05  # Stress error rate (5%)
+```
+
+**Test Consumer Configuration**:
+```bash
+# Multiple consumers for load testing
+export TEST_CONSUMER_ID_1=test-consumer-001
+export TEST_CONSUMER_USERNAME_1=loadtest-user-001
+export TEST_CONSUMER_ID_2=test-consumer-002
+export TEST_CONSUMER_USERNAME_2=loadtest-user-002
+# ... up to TEST_CONSUMER_ID_5 and TEST_CONSUMER_USERNAME_5
+```
+
+#### Environment Examples
+
+**Local Development**:
 ```bash
 export TARGET_HOST=localhost
 export TARGET_PORT=3000
 export TARGET_PROTOCOL=http
+export API_BASE_URL=http://localhost:3000
+```
+
+**Docker Environment**:
+```bash
+export TARGET_HOST=authentication-service
+export TARGET_PORT=3000
+export TARGET_PROTOCOL=http
+export API_BASE_URL=http://authentication-service:3000
 ```
 
 **Staging Environment**:
@@ -159,7 +231,20 @@ export TARGET_PROTOCOL=http
 export TARGET_HOST=staging-auth.pvhcorp.com
 export TARGET_PORT=443
 export TARGET_PROTOCOL=https
-export TIMEOUT=60s
+export K6_TIMEOUT=60s
+export API_BASE_URL=https://staging-auth.pvhcorp.com
+export K6_HEALTH_P95_THRESHOLD=100    # Relaxed thresholds for staging
+export K6_ERROR_RATE_THRESHOLD=0.02   # Higher tolerance for staging
+```
+
+**CI/CD Environment**:
+```bash
+export TARGET_HOST=localhost
+export TARGET_PORT=3000
+export TARGET_PROTOCOL=http
+export K6_SMOKE_VUS=2                 # Reduced VUs for CI
+export K6_SMOKE_DURATION=1m           # Shorter duration for CI
+export K6_HEALTH_P95_THRESHOLD=200    # Relaxed for CI resources
 ```
 
 ### Kong Integration Requirements
@@ -284,10 +369,10 @@ This test suite validates the .NET Core to Bun migration performance claims:
 **Connection Issues**:
 ```bash
 # Verify service is running
-curl http://192.168.178.10:3000/health
+curl http://localhost:3000/health
 
 # Check network connectivity
-ping 192.168.178.10
+ping localhost
 ```
 
 **High Error Rates**:
@@ -296,7 +381,7 @@ ping 192.168.178.10
 docker logs <container-name>
 
 # Verify Kong integration
-curl -H "X-Consumer-Id: test" http://192.168.178.10:3000/tokens
+curl -H "X-Consumer-Id: test" http://localhost:3000/tokens
 ```
 
 **Performance Issues**:

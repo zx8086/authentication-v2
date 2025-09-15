@@ -16,7 +16,7 @@ export const options = {
 };
 
 export default function() {
-  const baseUrl = 'http://192.168.178.10:3000';
+  const baseUrl = 'http://localhost:3000';
 
   // Test health endpoint
   const healthResponse = http.get(`${baseUrl}/health`);

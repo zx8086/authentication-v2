@@ -4,8 +4,10 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { getConfig } from './config';
 
-const baseUrl = 'http://192.168.178.10:3000';
+const config = getConfig();
+const baseUrl = config.baseUrl;
 
 export const executeHealthCheck = () => {
   const response = http.get(`${baseUrl}/health`);

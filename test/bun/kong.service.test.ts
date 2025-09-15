@@ -1,8 +1,8 @@
-/* tests/kong.service.test.ts */
+/* test/bun/kong.service.test.ts */
 
 // Tests for Kong service integration
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
-import { KongService } from '../src/services/kong.service';
+import { KongService } from '../../src/services/kong.service';
 
 // Mock fetch for testing
 const originalFetch = global.fetch;
@@ -36,7 +36,7 @@ describe('KongService', () => {
         id: 'secret-id-123',
         key: 'consumer-key-123',
         secret: 'consumer-secret-456',
-        consumer: { id: testConsumerId }
+        consumer: { id: 'consumer-uuid-123' }
       };
 
       const mockResponse = {
@@ -44,26 +44,44 @@ describe('KongService', () => {
         total: 1
       };
 
-      // Mock successful fetch
-      global.fetch = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-      })) as any;
+      // Mock the actual API calls made by KongService
+      global.fetch = mock(async (url, options) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer check/creation
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock JWT credentials fetch
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockResponse,
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
 
       const result = await kongService.getConsumerSecret(testConsumerId);
 
       expect(result).toEqual(mockSecret);
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${mockAdminUrl}/consumers/${testConsumerId}/jwt`,
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'Kong-Admin-Token': mockAdminToken,
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
+      expect(global.fetch).toHaveBeenCalledTimes(3); // realm check, consumer check, JWT fetch
 
       // Restore original fetch
       global.fetch = originalFetch;
@@ -138,7 +156,7 @@ describe('KongService', () => {
         id: 'secret-id-123',
         key: 'consumer-key-123',
         secret: 'consumer-secret-456',
-        consumer: { id: testConsumerId }
+        consumer: { id: 'consumer-uuid-123' }
       };
 
       const mockResponse = {
@@ -146,25 +164,52 @@ describe('KongService', () => {
         total: 1
       };
 
-      // Mock successful fetch - should only be called once
-      const fetchMock = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-      }));
+      // Mock successful fetch - should be called 3 times for first request only
+      const fetchMock = mock(async (url, options) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer check
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock JWT credentials fetch
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockResponse,
+          };
+        }
+
+        return { ok: false, status: 404 };
+      });
       global.fetch = fetchMock as any;
 
-      // First request - should call fetch
+      // First request - should call fetch 3 times
       const result1 = await kongService.getConsumerSecret(testConsumerId);
       expect(result1).toEqual(mockSecret);
 
-      // Second request - should use cache
+      // Second request - should use cache (no additional fetch calls)
       const result2 = await kongService.getConsumerSecret(testConsumerId);
       expect(result2).toEqual(mockSecret);
 
-      // Fetch should only be called once
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      
+      // Fetch should only be called 3 times total (for first request only)
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+
       global.fetch = originalFetch;
     });
   });
@@ -175,38 +220,49 @@ describe('KongService', () => {
         id: 'new-secret-id-123',
         key: 'new-consumer-key-123',
         secret: 'new-consumer-secret-456',
-        consumer: { id: testConsumerId }
+        consumer: { id: 'consumer-uuid-123' }
       };
 
-      // Mock successful creation
+      // Mock successful creation with proper API flow
       global.fetch = mock(async (url, options) => {
-        // Verify the request body contains key and secret
-        const body = JSON.parse(options.body);
-        expect(body).toHaveProperty('key');
-        expect(body).toHaveProperty('secret');
-        expect(typeof body.key).toBe('string');
-        expect(typeof body.secret).toBe('string');
+        const urlStr = url.toString();
 
-        return {
-          ok: true,
-          status: 201,
-          json: async () => mockCreatedSecret,
-        };
+        // Mock consumer check (consumer exists)
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock JWT credentials creation
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt') && options?.method === 'POST') {
+          // Verify the request body contains key and secret
+          const body = JSON.parse(options.body);
+          expect(body).toHaveProperty('key');
+          expect(body).toHaveProperty('secret');
+          expect(typeof body.key).toBe('string');
+          expect(typeof body.secret).toBe('string');
+
+          return {
+            ok: true,
+            status: 201,
+            json: async () => mockCreatedSecret,
+          };
+        }
+
+        return { ok: false, status: 404 };
       }) as any;
 
       const result = await kongService.createConsumerSecret(testConsumerId);
 
       expect(result).toEqual(mockCreatedSecret);
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${mockAdminUrl}/consumers/${testConsumerId}/jwt`,
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Kong-Admin-Token': mockAdminToken,
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
+      expect(global.fetch).toHaveBeenCalledTimes(2); // consumer check, JWT creation
 
       global.fetch = originalFetch;
     });
@@ -329,31 +385,82 @@ describe('KongService', () => {
         id: 'secret-id-123',
         key: 'consumer-key-123',
         secret: 'consumer-secret-456',
-        consumer: { id: testConsumerId }
+        consumer: { id: 'consumer-uuid-123' }
       };
 
-      // Mock and cache a secret
-      global.fetch = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [mockSecret], total: 1 }),
-      })) as any;
+      // Mock initial caching with proper API flow
+      global.fetch = mock(async (url, options) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer check
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock JWT credentials fetch
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [mockSecret], total: 1 }),
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
 
       await kongService.getConsumerSecret(testConsumerId);
-      
+
       // Clear cache for this consumer
       kongService.clearCache(testConsumerId);
 
-      // Next request should call fetch again
-      const fetchMock = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [mockSecret], total: 1 }),
-      }));
+      // Next request should call fetch again (3 calls: realm, consumer, JWT)
+      const fetchMock = mock(async (url, options) => {
+        const urlStr = url.toString();
+
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [mockSecret], total: 1 }),
+          };
+        }
+
+        return { ok: false, status: 404 };
+      });
       global.fetch = fetchMock as any;
 
       await kongService.getConsumerSecret(testConsumerId);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
 
       global.fetch = originalFetch;
     });
@@ -369,10 +476,12 @@ describe('KongService', () => {
 
   describe('error handling and resilience', () => {
     it('should handle timeout gracefully', async () => {
-      // Mock a slow response that should timeout
-      global.fetch = mock(async () => {
-        await new Promise(resolve => setTimeout(resolve, 6000)); // 6 seconds
-        return { ok: true, status: 200 };
+      // Mock AbortSignal timeout behavior
+      global.fetch = mock(async (url, options) => {
+        // Simulate timeout by throwing AbortError
+        const error = new Error('This operation was aborted');
+        error.name = 'AbortError';
+        throw error;
       }) as any;
 
       const result = await kongService.getConsumerSecret(testConsumerId);

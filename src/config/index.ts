@@ -53,14 +53,10 @@ const TelemetryConfigSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.environment === "production") {
-      if (
-        data.serviceName.includes("localhost") ||
-        data.serviceName.includes("test")
-      ) {
+      if (data.serviceName.includes("localhost") || data.serviceName.includes("test")) {
         ctx.addIssue({
           code: "custom",
-          message:
-            "Production service name cannot contain localhost or test references",
+          message: "Production service name cannot contain localhost or test references",
           path: ["serviceName"],
         });
       }
@@ -174,7 +170,7 @@ const envVarMapping = {
 function parseEnvVar(
   value: string | undefined,
   type: "string" | "number" | "boolean" | "url" | "email",
-  fallback?: unknown,
+  fallback?: unknown
 ): unknown {
   if (value === undefined) return fallback;
 
@@ -195,10 +191,7 @@ function parseEnvVar(
         return value;
     }
   } catch (error) {
-    console.warn(
-      `Failed to parse environment variable "${value}" as ${type}:`,
-      error,
-    );
+    console.warn(`Failed to parse environment variable "${value}" as ${type}:`, error);
     return fallback;
   }
 }
@@ -210,12 +203,12 @@ function loadConfigFromEnv(): Partial<AppConfig> {
     port: parseEnvVar(
       Bun.env[envVarMapping.server.port],
       "number",
-      defaultConfig.server.port,
+      defaultConfig.server.port
     ) as number,
     nodeEnv: parseEnvVar(
       Bun.env[envVarMapping.server.nodeEnv],
       "string",
-      defaultConfig.server.nodeEnv,
+      defaultConfig.server.nodeEnv
     ) as string,
   };
 
@@ -223,22 +216,22 @@ function loadConfigFromEnv(): Partial<AppConfig> {
     authority: parseEnvVar(
       Bun.env[envVarMapping.jwt.authority],
       "string",
-      defaultConfig.jwt.authority,
+      defaultConfig.jwt.authority
     ) as string,
     audience: parseEnvVar(
       Bun.env[envVarMapping.jwt.audience],
       "string",
-      defaultConfig.jwt.audience,
+      defaultConfig.jwt.audience
     ) as string,
     keyClaimName: parseEnvVar(
       Bun.env[envVarMapping.jwt.keyClaimName],
       "string",
-      defaultConfig.jwt.keyClaimName,
+      defaultConfig.jwt.keyClaimName
     ) as string,
     expirationMinutes: parseEnvVar(
       Bun.env[envVarMapping.jwt.expirationMinutes],
       "number",
-      defaultConfig.jwt.expirationMinutes,
+      defaultConfig.jwt.expirationMinutes
     ) as number,
   };
 
@@ -246,85 +239,82 @@ function loadConfigFromEnv(): Partial<AppConfig> {
     adminUrl: parseEnvVar(
       Bun.env[envVarMapping.kong.adminUrl],
       "string",
-      defaultConfig.kong.adminUrl,
+      defaultConfig.kong.adminUrl
     ) as string,
     adminToken: parseEnvVar(
       Bun.env[envVarMapping.kong.adminToken],
       "string",
-      defaultConfig.kong.adminToken,
+      defaultConfig.kong.adminToken
     ) as string,
     consumerIdHeader: defaultConfig.kong.consumerIdHeader,
     consumerUsernameHeader: defaultConfig.kong.consumerUsernameHeader,
     anonymousHeader: defaultConfig.kong.anonymousHeader,
   };
 
-  const baseEndpoint = parseEnvVar(
-    Bun.env[envVarMapping.telemetry.endpoint],
-    "string",
-  ) as string;
+  const baseEndpoint = parseEnvVar(Bun.env[envVarMapping.telemetry.endpoint], "string") as string;
 
   config.telemetry = {
     serviceName: parseEnvVar(
       Bun.env[envVarMapping.telemetry.serviceName],
       "string",
-      defaultConfig.telemetry.serviceName,
+      defaultConfig.telemetry.serviceName
     ) as string,
 
     serviceVersion: parseEnvVar(
       Bun.env[envVarMapping.telemetry.serviceVersion],
       "string",
-      defaultConfig.telemetry.serviceVersion,
+      defaultConfig.telemetry.serviceVersion
     ) as string,
 
     environment: parseEnvVar(
       Bun.env[envVarMapping.telemetry.environment],
       "string",
-      config.server?.nodeEnv || defaultConfig.telemetry.environment,
+      config.server?.nodeEnv || defaultConfig.telemetry.environment
     ) as "development" | "staging" | "production",
 
     mode: parseEnvVar(
       Bun.env[envVarMapping.telemetry.mode],
       "string",
-      defaultConfig.telemetry.mode,
+      defaultConfig.telemetry.mode
     ) as "console" | "otlp" | "both",
 
     logsEndpoint: parseEnvVar(
       Bun.env[envVarMapping.telemetry.logsEndpoint] ||
         (baseEndpoint ? `${baseEndpoint}/v1/logs` : undefined),
       "string",
-      undefined,
+      undefined
     ) as string | undefined,
 
     tracesEndpoint: parseEnvVar(
       Bun.env[envVarMapping.telemetry.tracesEndpoint] ||
         (baseEndpoint ? `${baseEndpoint}/v1/traces` : undefined),
       "string",
-      undefined,
+      undefined
     ) as string | undefined,
 
     metricsEndpoint: parseEnvVar(
       Bun.env[envVarMapping.telemetry.metricsEndpoint] ||
         (baseEndpoint ? `${baseEndpoint}/v1/metrics` : undefined),
       "string",
-      undefined,
+      undefined
     ) as string | undefined,
 
     exportTimeout: parseEnvVar(
       Bun.env[envVarMapping.telemetry.exportTimeout],
       "number",
-      defaultConfig.telemetry.exportTimeout,
+      defaultConfig.telemetry.exportTimeout
     ) as number,
 
     batchSize: parseEnvVar(
       Bun.env[envVarMapping.telemetry.batchSize],
       "number",
-      defaultConfig.telemetry.batchSize,
+      defaultConfig.telemetry.batchSize
     ) as number,
 
     maxQueueSize: parseEnvVar(
       Bun.env[envVarMapping.telemetry.maxQueueSize],
       "number",
-      defaultConfig.telemetry.maxQueueSize,
+      defaultConfig.telemetry.maxQueueSize
     ) as number,
 
     enableOpenTelemetry: false,
@@ -334,37 +324,37 @@ function loadConfigFromEnv(): Partial<AppConfig> {
     title: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.title],
       "string",
-      defaultConfig.apiInfo.title,
+      defaultConfig.apiInfo.title
     ) as string,
     description: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.description],
       "string",
-      defaultConfig.apiInfo.description,
+      defaultConfig.apiInfo.description
     ) as string,
     version: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.version],
       "string",
-      defaultConfig.apiInfo.version,
+      defaultConfig.apiInfo.version
     ) as string,
     contactName: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.contactName],
       "string",
-      defaultConfig.apiInfo.contactName,
+      defaultConfig.apiInfo.contactName
     ) as string,
     contactEmail: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.contactEmail],
       "email",
-      defaultConfig.apiInfo.contactEmail,
+      defaultConfig.apiInfo.contactEmail
     ) as string,
     licenseName: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.licenseName],
       "string",
-      defaultConfig.apiInfo.licenseName,
+      defaultConfig.apiInfo.licenseName
     ) as string,
     licenseIdentifier: parseEnvVar(
       Bun.env[envVarMapping.apiInfo.licenseIdentifier],
       "string",
-      defaultConfig.apiInfo.licenseIdentifier,
+      defaultConfig.apiInfo.licenseIdentifier
     ) as string,
   };
 
@@ -401,9 +391,7 @@ try {
     { key: "KONG_ADMIN_TOKEN", value: config.kong.adminToken },
   ];
 
-  const missingVars = requiredVars.filter(
-    ({ value }) => !value || value.trim() === "",
-  );
+  const missingVars = requiredVars.filter(({ value }) => !value || value.trim() === "");
 
   if (missingVars.length > 0) {
     const missing = missingVars.map(({ key }) => key).join(", ");
@@ -460,10 +448,7 @@ export function validateConfigurationHealth(): {
       health.status = "critical";
     }
 
-    if (
-      config.telemetry.serviceVersion === "dev" ||
-      config.telemetry.serviceVersion === "latest"
-    ) {
+    if (config.telemetry.serviceVersion === "dev" || config.telemetry.serviceVersion === "latest") {
       health.issues.push({
         path: "telemetry.serviceVersion",
         message: "Production requires specific version, not dev or latest",
@@ -493,9 +478,7 @@ export function validateConfigurationHealth(): {
     { path: "kong.adminToken", value: config.kong.adminToken },
   ];
 
-  const missingRequired = requiredVars.filter(
-    ({ value }) => !value || value.trim() === "",
-  );
+  const missingRequired = requiredVars.filter(({ value }) => !value || value.trim() === "");
   if (missingRequired.length > 0) {
     missingRequired.forEach(({ path }) => {
       health.issues.push({
@@ -508,14 +491,12 @@ export function validateConfigurationHealth(): {
   }
 
   if (config.telemetry.batchSize > 3000) {
-    health.recommendations.push(
-      "Consider reducing telemetry batch size for better memory usage",
-    );
+    health.recommendations.push("Consider reducing telemetry batch size for better memory usage");
   }
 
   if (config.telemetry.exportTimeout > 45000) {
     health.recommendations.push(
-      "Export timeout is very high, consider reducing for better responsiveness",
+      "Export timeout is very high, consider reducing for better responsiveness"
     );
   }
 

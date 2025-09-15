@@ -12,26 +12,20 @@ export interface SpanContext {
 }
 
 class BunTelemetryTracer {
-  private tracer = trace.getTracer(
-    telemetryConfig.serviceName,
-    telemetryConfig.serviceVersion,
-  );
+  private tracer = trace.getTracer(telemetryConfig.serviceName, telemetryConfig.serviceVersion);
 
   public initialize(_config?: any): void {
     // No initialization needed - keeping for interface compatibility
   }
 
-  public createSpan<T>(
-    spanContext: SpanContext,
-    operation: () => T | Promise<T>,
-  ): T | Promise<T> {
+  public createSpan<T>(spanContext: SpanContext, operation: () => T | Promise<T>): T | Promise<T> {
     const span = this.tracer.startSpan(spanContext.operationName, {
       kind: spanContext.kind || SpanKind.INTERNAL,
       attributes: spanContext.attributes || {},
     });
 
     const runWithSpan = <TResult>(
-      fn: () => TResult | Promise<TResult>,
+      fn: () => TResult | Promise<TResult>
     ): TResult | Promise<TResult> => {
       return context.with(trace.setSpan(context.active(), span), () => {
         let result: TResult | Promise<TResult>;
@@ -79,7 +73,7 @@ class BunTelemetryTracer {
     method: string,
     url: string,
     statusCode: number,
-    operation: () => T | Promise<T>,
+    operation: () => T | Promise<T>
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -92,7 +86,7 @@ class BunTelemetryTracer {
           "http.server.type": "bun_serve",
         },
       },
-      operation,
+      operation
     );
   }
 
@@ -100,7 +94,7 @@ class BunTelemetryTracer {
     operation: string,
     url: string,
     method: string = "GET",
-    spanOperation: () => T | Promise<T>,
+    spanOperation: () => T | Promise<T>
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -114,14 +108,14 @@ class BunTelemetryTracer {
           "http.client.type": "kong_gateway",
         },
       },
-      spanOperation,
+      spanOperation
     );
   }
 
   public createJWTSpan<T>(
     operation: string,
     spanOperation: () => T | Promise<T>,
-    username?: string,
+    username?: string
   ): T | Promise<T> {
     return this.createSpan(
       {
@@ -134,13 +128,11 @@ class BunTelemetryTracer {
           "crypto.key_type": "hmac",
         },
       },
-      spanOperation,
+      spanOperation
     );
   }
 
-  public addSpanAttributes(
-    attributes: Record<string, string | number | boolean>,
-  ): void {
+  public addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
       activeSpan.setAttributes(attributes);
@@ -179,7 +171,7 @@ export const telemetryTracer = new BunTelemetryTracer();
 
 export function createSpan<T>(
   spanContext: SpanContext,
-  operation: () => T | Promise<T>,
+  operation: () => T | Promise<T>
 ): T | Promise<T> {
   return telemetryTracer.createSpan(spanContext, operation);
 }

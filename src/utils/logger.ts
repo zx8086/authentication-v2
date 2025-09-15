@@ -8,10 +8,7 @@ function getWinstonLogger() {
       const { winstonTelemetryLogger } = require("../telemetry/winston-logger");
       winstonLogger = winstonTelemetryLogger;
     } catch (error) {
-      console.warn(
-        "Could not load winston logger, falling back to console:",
-        error,
-      );
+      console.warn("Could not load winston logger, falling back to console:", error);
       winstonLogger = {
         info: (msg: string, ctx: any) =>
           console.log(
@@ -24,7 +21,7 @@ function getWinstonLogger() {
                 environment: process.env.NODE_ENV || "development",
               },
               ...ctx,
-            }),
+            })
           ),
         warn: (msg: string, ctx: any) =>
           console.warn(
@@ -37,7 +34,7 @@ function getWinstonLogger() {
                 environment: process.env.NODE_ENV || "development",
               },
               ...ctx,
-            }),
+            })
           ),
         error: (msg: string, ctx: any) =>
           console.error(
@@ -50,7 +47,7 @@ function getWinstonLogger() {
                 environment: process.env.NODE_ENV || "development",
               },
               ...ctx,
-            }),
+            })
           ),
       };
     }

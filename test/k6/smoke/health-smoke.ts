@@ -2,23 +2,21 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { getConfig, getPerformanceThresholds, getScenarioConfig } from '../utils/config.ts';
+
+const config = getConfig();
+const thresholds = getPerformanceThresholds();
+const scenarios = getScenarioConfig();
 
 export const options = {
   scenarios: {
-    health_smoke: {
-      executor: 'constant-vus',
-      vus: 3,
-      duration: '30s'
-    }
+    health_smoke: scenarios.smoke
   },
-  thresholds: {
-    'http_req_duration': ['p(95)<100', 'p(99)<500'],
-    'http_req_failed': ['rate<0.05']
-  }
+  thresholds: thresholds.health.smoke
 };
 
 export default function() {
-  const baseUrl = 'http://192.168.178.10:3000';
+  const baseUrl = config.baseUrl;
 
   // Test health endpoint
   const healthResponse = http.get(`${baseUrl}/health`);

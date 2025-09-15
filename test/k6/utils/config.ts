@@ -18,7 +18,7 @@ export interface ConsumerConfig {
 }
 
 export const getConfig = (): K6Config => {
-  const host = __ENV.TARGET_HOST || '192.168.178.10';
+  const host = __ENV.TARGET_HOST || 'localhost';
   const port = parseInt(__ENV.TARGET_PORT || '3000', 10);
   const protocol = __ENV.TARGET_PROTOCOL || 'http';
 
@@ -26,7 +26,7 @@ export const getConfig = (): K6Config => {
     host,
     port,
     baseUrl: `${protocol}://${host}:${port}`,
-    timeout: __ENV.TIMEOUT || '30s',
+    timeout: __ENV.K6_TIMEOUT || __ENV.TIMEOUT || '30s',
     userAgent: 'K6-AuthService-LoadTest/1.0',
     protocol
   };
@@ -34,11 +34,31 @@ export const getConfig = (): K6Config => {
 
 export const getTestConsumer = (index: number = 0): ConsumerConfig => {
   const consumers = [
-    { id: 'test-consumer-001', username: 'loadtest-user-001', isAnonymous: false },
-    { id: 'test-consumer-002', username: 'loadtest-user-002', isAnonymous: false },
-    { id: 'test-consumer-003', username: 'loadtest-user-003', isAnonymous: false },
-    { id: 'test-consumer-004', username: 'loadtest-user-004', isAnonymous: false },
-    { id: 'test-consumer-005', username: 'loadtest-user-005', isAnonymous: false }
+    {
+      id: __ENV.TEST_CONSUMER_ID_1 || 'test-consumer-001',
+      username: __ENV.TEST_CONSUMER_USERNAME_1 || 'loadtest-user-001',
+      isAnonymous: false
+    },
+    {
+      id: __ENV.TEST_CONSUMER_ID_2 || 'test-consumer-002',
+      username: __ENV.TEST_CONSUMER_USERNAME_2 || 'loadtest-user-002',
+      isAnonymous: false
+    },
+    {
+      id: __ENV.TEST_CONSUMER_ID_3 || 'test-consumer-003',
+      username: __ENV.TEST_CONSUMER_USERNAME_3 || 'loadtest-user-003',
+      isAnonymous: false
+    },
+    {
+      id: __ENV.TEST_CONSUMER_ID_4 || 'test-consumer-004',
+      username: __ENV.TEST_CONSUMER_USERNAME_4 || 'loadtest-user-004',
+      isAnonymous: false
+    },
+    {
+      id: __ENV.TEST_CONSUMER_ID_5 || 'test-consumer-005',
+      username: __ENV.TEST_CONSUMER_USERNAME_5 || 'loadtest-user-005',
+      isAnonymous: false
+    }
   ];
 
   return consumers[index % consumers.length];
@@ -56,82 +76,129 @@ export const getHeaders = (consumer: ConsumerConfig, additionalHeaders: Record<s
   };
 };
 
-export const performanceThresholds = {
-  health: {
-    smoke: {
-      'http_req_duration': ['p(95)<50', 'p(99)<100'],
-      'http_req_failed': ['rate<0.01']
+export const getPerformanceThresholds = () => {
+  const healthP95 = parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || '50', 10);
+  const healthP99 = parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || '100', 10);
+  const tokensP95 = parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || '50', 10);
+  const tokensP99 = parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || '100', 10);
+  const metricsP95 = parseInt(__ENV.K6_METRICS_P95_THRESHOLD || '30', 10);
+  const metricsP99 = parseInt(__ENV.K6_METRICS_P99_THRESHOLD || '50', 10);
+  const errorRate = parseFloat(__ENV.K6_ERROR_RATE_THRESHOLD || '0.01');
+  const stressErrorRate = parseFloat(__ENV.K6_STRESS_ERROR_RATE_THRESHOLD || '0.05');
+
+  return {
+    health: {
+      smoke: {
+        'http_req_duration': [`p(95)<${healthP95}`, `p(99)<${healthP99}`],
+        'http_req_failed': [`rate<${errorRate}`]
+      },
+      load: {
+        'http_req_duration': [`p(95)<${healthP95 * 2}`, `p(99)<${healthP99 * 2}`],
+        'http_req_failed': [`rate<${errorRate}`]
+      },
+      stress: {
+        'http_req_duration': [`p(95)<${healthP95 * 4}`, `p(99)<${healthP99 * 5}`],
+        'http_req_failed': [`rate<${stressErrorRate}`]
+      }
     },
-    load: {
-      'http_req_duration': ['p(95)<100', 'p(99)<200'],
-      'http_req_failed': ['rate<0.01']
+    tokens: {
+      smoke: {
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
+        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
+        'token_generation_rate': ['rate>0.99']
+      },
+      load: {
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
+        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
+        'token_generation_rate': ['rate>0.99'],
+        'tokens_per_second': ['rate>1000']
+      },
+      stress: {
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95 * 2}`, `p(99)<${tokensP99 * 2}`],
+        'http_req_failed{endpoint:tokens}': [`rate<${stressErrorRate}`],
+        'token_generation_rate': ['rate>0.95']
+      }
     },
-    stress: {
-      'http_req_duration': ['p(95)<200', 'p(99)<500'],
-      'http_req_failed': ['rate<0.05']
+    metrics: {
+      smoke: {
+        'http_req_duration{endpoint:metrics}': [`p(95)<${metricsP95}`, `p(99)<${metricsP99}`],
+        'http_req_failed{endpoint:metrics}': [`rate<${errorRate}`]
+      },
+      load: {
+        'http_req_duration{endpoint:metrics}': [`p(95)<${metricsP95 + 20}`, `p(99)<${metricsP99 + 50}`],
+        'http_req_failed{endpoint:metrics}': [`rate<${errorRate}`]
+      }
     }
-  },
-  tokens: {
-    smoke: {
-      'http_req_duration{endpoint:tokens}': ['p(95)<50', 'p(99)<100'],
-      'http_req_failed{endpoint:tokens}': ['rate<0.01'],
-      'token_generation_rate': ['rate>0.99']
-    },
-    load: {
-      'http_req_duration{endpoint:tokens}': ['p(95)<50', 'p(99)<100'],
-      'http_req_failed{endpoint:tokens}': ['rate<0.01'],
-      'token_generation_rate': ['rate>0.99'],
-      'tokens_per_second': ['rate>1000']
-    },
-    stress: {
-      'http_req_duration{endpoint:tokens}': ['p(95)<100', 'p(99)<200'],
-      'http_req_failed{endpoint:tokens}': ['rate<0.05'],
-      'token_generation_rate': ['rate>0.95']
-    }
-  },
-  metrics: {
-    smoke: {
-      'http_req_duration{endpoint:metrics}': ['p(95)<30', 'p(99)<50'],
-      'http_req_failed{endpoint:metrics}': ['rate<0.01']
-    },
-    load: {
-      'http_req_duration{endpoint:metrics}': ['p(95)<50', 'p(99)<100'],
-      'http_req_failed{endpoint:metrics}': ['rate<0.01']
-    }
-  }
+  };
 };
 
 export const getScenarioConfig = () => ({
   smoke: {
     executor: 'constant-vus',
-    vus: 3,
-    duration: '3m'
+    vus: parseInt(__ENV.K6_SMOKE_VUS || '3', 10),
+    duration: __ENV.K6_SMOKE_DURATION || '3m'
   },
   load: {
     executor: 'ramping-vus',
     stages: [
-      { duration: '2m', target: 10 },
-      { duration: '5m', target: 20 },
-      { duration: '2m', target: 0 }
+      {
+        duration: __ENV.K6_LOAD_RAMP_UP_DURATION || '2m',
+        target: parseInt(__ENV.K6_LOAD_INITIAL_VUS || '10', 10)
+      },
+      {
+        duration: __ENV.K6_LOAD_STEADY_DURATION || '5m',
+        target: parseInt(__ENV.K6_LOAD_TARGET_VUS || '20', 10)
+      },
+      {
+        duration: __ENV.K6_LOAD_RAMP_DOWN_DURATION || '2m',
+        target: 0
+      }
     ]
   },
   stress: {
     executor: 'ramping-vus',
     stages: [
-      { duration: '2m', target: 50 },
-      { duration: '5m', target: 100 },
-      { duration: '3m', target: 200 },
-      { duration: '2m', target: 0 }
+      {
+        duration: '2m',
+        target: parseInt(__ENV.K6_STRESS_INITIAL_VUS || '50', 10)
+      },
+      {
+        duration: __ENV.K6_STRESS_DURATION || '5m',
+        target: parseInt(__ENV.K6_STRESS_TARGET_VUS || '100', 10)
+      },
+      {
+        duration: '3m',
+        target: parseInt(__ENV.K6_STRESS_PEAK_VUS || '200', 10)
+      },
+      {
+        duration: '2m',
+        target: 0
+      }
     ]
   },
   spike: {
     executor: 'ramping-vus',
     stages: [
-      { duration: '1m', target: 10 },
-      { duration: '30s', target: 100 },
-      { duration: '3m', target: 100 },
-      { duration: '30s', target: 10 },
-      { duration: '1m', target: 0 }
+      {
+        duration: '1m',
+        target: parseInt(__ENV.K6_SPIKE_BASELINE_VUS || '10', 10)
+      },
+      {
+        duration: '30s',
+        target: parseInt(__ENV.K6_SPIKE_TARGET_VUS || '100', 10)
+      },
+      {
+        duration: __ENV.K6_SPIKE_DURATION || '3m',
+        target: parseInt(__ENV.K6_SPIKE_TARGET_VUS || '100', 10)
+      },
+      {
+        duration: '30s',
+        target: parseInt(__ENV.K6_SPIKE_BASELINE_VUS || '10', 10)
+      },
+      {
+        duration: '1m',
+        target: 0
+      }
     ]
   },
   rampingArrivalRate: {
@@ -139,7 +206,7 @@ export const getScenarioConfig = () => ({
     startRate: 100,
     timeUnit: '1s',
     preAllocatedVUs: 20,
-    maxVUs: 100,
+    maxVUs: parseInt(__ENV.K6_LOAD_TARGET_VUS || '100', 10),
     stages: [
       { target: 500, duration: '2m' },
       { target: 1000, duration: '5m' },

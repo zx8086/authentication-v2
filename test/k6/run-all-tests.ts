@@ -19,7 +19,7 @@ export const testSuites: TestSuite[] = [
     scriptPath: 'test/k6/smoke/health-smoke.ts',
     estimatedDuration: '3 minutes',
     category: 'smoke',
-    requirements: ['Service running at 192.168.178.10:3000']
+    requirements: ['Service running at localhost:3000']
   },
   {
     name: 'Token Smoke Test',
@@ -132,7 +132,7 @@ export const executionStrategies = {
 
 export const environmentConfigs = {
   local: {
-    TARGET_HOST: '192.168.178.10',
+    TARGET_HOST: 'localhost',
     TARGET_PORT: '3000',
     TARGET_PROTOCOL: 'http',
     TIMEOUT: '30s'

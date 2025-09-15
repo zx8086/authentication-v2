@@ -2,6 +2,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { getConfig } from '../utils/config';
 
 export const options = {
   scenarios: {
@@ -22,7 +23,8 @@ export const options = {
 };
 
 export default function() {
-  const baseUrl = 'http://192.168.178.10:3000';
+  const config = getConfig();
+  const baseUrl = config.baseUrl;
 
   // Rapid token requests for stress testing
   const headers = {

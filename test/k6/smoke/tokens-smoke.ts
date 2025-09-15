@@ -2,33 +2,25 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { getConfig, getPerformanceThresholds, getScenarioConfig, getTestConsumer, getHeaders } from '../utils/config.ts';
+
+const config = getConfig();
+const thresholds = getPerformanceThresholds();
+const scenarios = getScenarioConfig();
 
 export const options = {
   scenarios: {
-    token_smoke: {
-      executor: 'constant-vus',
-      vus: 3,
-      duration: '30s'
-    }
+    token_smoke: scenarios.smoke
   },
-  thresholds: {
-    'http_req_duration': ['p(95)<100', 'p(99)<500'],
-    'http_req_failed': ['rate<0.67']
-  }
+  thresholds: thresholds.tokens.smoke
 };
 
 export default function() {
-  const baseUrl = 'http://192.168.178.10:3000';
+  const baseUrl = config.baseUrl;
+  const consumer = getTestConsumer(0);
 
   // Test valid token generation with Kong consumer headers
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'K6-AuthService-LoadTest/1.0',
-    'X-Consumer-Id': `test-consumer-${String(__VU).padStart(3, '0')}`,
-    'X-Consumer-Username': `loadtest-user-${String(__VU).padStart(3, '0')}`,
-    'X-Anonymous-Consumer': 'false',
-  };
+  const headers = getHeaders(consumer);
 
   const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
   check(tokenResponse, {

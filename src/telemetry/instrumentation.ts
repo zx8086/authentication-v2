@@ -45,7 +45,7 @@ class DebugMetricExporter implements PushMetricExporter {
 
   async export(
     metrics: ResourceMetrics,
-    resultCallback: (result: ExportResult) => void,
+    resultCallback: (result: ExportResult) => void
   ): Promise<void> {
     this.exportCount++;
     this.lastExportTime = Date.now();
@@ -89,11 +89,8 @@ class DebugMetricExporter implements PushMetricExporter {
       totalExports: this.exportCount,
       successCount: this.successCount,
       failureCount: this.failureCount,
-      successRate:
-        this.exportCount > 0 ? (this.successCount / this.exportCount) * 100 : 0,
-      lastExportTime: this.lastExportTime
-        ? new Date(this.lastExportTime).toISOString()
-        : null,
+      successRate: this.exportCount > 0 ? (this.successCount / this.exportCount) * 100 : 0,
+      lastExportTime: this.lastExportTime ? new Date(this.lastExportTime).toISOString() : null,
       recentErrors: this.exportErrors.slice(-5),
     };
   }
@@ -256,18 +253,12 @@ export const getBunTelemetryStatus = getTelemetryStatus;
 export const getSimpleTelemetryStatus = getTelemetryStatus;
 
 function initializeElasticCompatibleMetrics(): void {
-  const meter = metrics.getMeter(
-    "authentication-service",
-    telemetryConfig.serviceVersion,
-  );
+  const meter = metrics.getMeter("authentication-service", telemetryConfig.serviceVersion);
 
-  const eventLoopDelayHistogram = meter.createHistogram(
-    "nodejs.eventloop.delay",
-    {
-      description: "Node.js event loop delay in milliseconds",
-      unit: "ms",
-    },
-  );
+  const eventLoopDelayHistogram = meter.createHistogram("nodejs.eventloop.delay", {
+    description: "Node.js event loop delay in milliseconds",
+    unit: "ms",
+  });
 
   const memoryGauge = meter.createGauge("process.memory.usage", {
     description: "Process memory usage",
@@ -302,8 +293,7 @@ function initializeElasticCompatibleMetrics(): void {
     const currentCpuUsage = process.cpuUsage(previousCpuUsage);
     const currentTime = Date.now();
     const timeDiff = currentTime - previousTime;
-    const cpuPercent =
-      ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
+    const cpuPercent = ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
     cpuGauge.record(cpuPercent);
     previousCpuUsage = process.cpuUsage();
     previousTime = currentTime;
