@@ -60,11 +60,25 @@ jobs:
       - name: Extract primary tag for scanning
         id: extract-tag
         run: |
-          # Extract the first tag from the metadata output
-          TAGS='${{ steps.meta.outputs.tags }}'
-          PRIMARY_TAG=$(echo "$TAGS" | head -n1 | tr -d '\n\r')
+          # Save tags to a temporary file to handle multiline properly
+          cat > tags.txt << 'EOF'
+          ${{ steps.meta.outputs.tags }}
+          EOF
+
+          # Extract the first non-empty tag
+          PRIMARY_TAG=$(head -n1 tags.txt | tr -d '\n\r' | xargs)
+
+          if [ -z "$PRIMARY_TAG" ]; then
+            echo "ERROR: No primary tag found"
+            cat tags.txt
+            exit 1
+          fi
+
           echo "Primary tag for scanning: $PRIMARY_TAG"
           echo "primary-tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+
+          # Clean up
+          rm -f tags.txt
 
       - name: Build and push Docker image
         id: build
@@ -156,8 +170,14 @@ jobs:
           # Use the primary tag from the build job
           PRIMARY_TAG='${{ needs.build-and-push.outputs.primary-tag }}'
 
-          if [ -z "$PRIMARY_TAG" ]; then
-            echo "ERROR: Primary tag is empty"
+          echo "DEBUG: Raw primary tag from build job: '$PRIMARY_TAG'"
+
+          if [ -z "$PRIMARY_TAG" ] || [ "$PRIMARY_TAG" = "''" ]; then
+            echo "ERROR: Primary tag is empty or invalid"
+            echo "Available job outputs:"
+            echo "  image-digest: ${{ needs.build-and-push.outputs.image-digest }}"
+            echo "  image-tags: ${{ needs.build-and-push.outputs.image-tags }}"
+            echo "  primary-tag: ${{ needs.build-and-push.outputs.primary-tag }}"
             exit 1
           fi
 
