@@ -11,7 +11,7 @@ on:
       - "v*"
   pull_request:
     branches:
-      - main
+      - master  # Fixed: was 'main', should match default branch 'master'
 
 env:
   REGISTRY: docker.io
@@ -29,6 +29,7 @@ jobs:
       image-digest: ${{ steps.build.outputs.digest }}
       image-tags: ${{ steps.meta.outputs.tags }}
       primary-tag: ${{ steps.extract-tag.outputs.primary-tag }}
+      image-ref: ${{ steps.extract-tag.outputs.image-ref }}
 
     steps:
       - name: Checkout repository
@@ -55,11 +56,27 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+          labels: |
+            org.opencontainers.image.title=Authentication Service
+            org.opencontainers.image.description=High-performance JWT authentication service
+            org.opencontainers.image.vendor=PVH Corp
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Extract primary tag for scanning
+      - name: Extract primary tag and create image reference
         id: extract-tag
         run: |
+          # Debug: Show all metadata outputs
+          echo "=== METADATA DEBUG ==="
+          echo "Tags from metadata action:"
+          echo '${{ steps.meta.outputs.tags }}'
+          echo
+          echo "Version: ${{ steps.meta.outputs.version }}"
+          echo "Labels:"
+          echo '${{ steps.meta.outputs.labels }}'
+          echo "======================="
+
           # Save tags to a temporary file to handle multiline properly
           cat > tags.txt << 'EOF'
           ${{ steps.meta.outputs.tags }}
@@ -68,14 +85,32 @@ jobs:
           # Extract the first non-empty tag
           PRIMARY_TAG=$(head -n1 tags.txt | tr -d '\n\r' | xargs)
 
-          if [ -z "$PRIMARY_TAG" ]; then
-            echo "ERROR: No primary tag found"
+          # Fallback logic if no tags are generated
+          if [ -z "$PRIMARY_TAG" ] || [ "$PRIMARY_TAG" = "''" ]; then
+            echo "⚠️ WARNING: No primary tag found from metadata action"
+            echo "Raw tags content:"
             cat tags.txt
-            exit 1
+
+            # Create fallback tag based on branch/event
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}"
+            elif [ "${{ github.ref_name }}" = "master" ]; then
+              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            else
+              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+            fi
+
+            echo "Using fallback tag: $FALLBACK_TAG"
+            PRIMARY_TAG="$FALLBACK_TAG"
           fi
 
           echo "Primary tag for scanning: $PRIMARY_TAG"
           echo "primary-tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+
+          # Also create a digest-based reference as fallback
+          DIGEST_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          echo "image-ref=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+          echo "digest-base=$DIGEST_REF" >> $GITHUB_OUTPUT
 
           # Clean up
           rm -f tags.txt
@@ -87,14 +122,14 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags || steps.extract-tag.outputs.primary-tag }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.meta.outputs.version || github.ref_name }}
 
       - name: Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
@@ -103,6 +138,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: "sarif"
           output: "trivy-results.sarif"
+          timeout: "10m"
         continue-on-error: true
 
       - name: Upload Trivy scan results to GitHub Security tab
@@ -164,34 +200,68 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Verify image availability and extract tag for scanning
+      - name: Determine image reference for scanning
         id: verify-image
         run: |
-          # Use the primary tag from the build job
+          # Get outputs from build job
           PRIMARY_TAG='${{ needs.build-and-push.outputs.primary-tag }}'
+          IMAGE_DIGEST='${{ needs.build-and-push.outputs.image-digest }}'
+          DIGEST_BASE='${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}'
 
-          echo "DEBUG: Raw primary tag from build job: '$PRIMARY_TAG'"
+          echo "=== IMAGE REFERENCE DEBUG ==="
+          echo "Primary tag: '$PRIMARY_TAG'"
+          echo "Image digest: '$IMAGE_DIGEST'"
+          echo "Available job outputs:"
+          echo "  image-digest: ${{ needs.build-and-push.outputs.image-digest }}"
+          echo "  image-tags: ${{ needs.build-and-push.outputs.image-tags }}"
+          echo "  primary-tag: ${{ needs.build-and-push.outputs.primary-tag }}"
+          echo "  image-ref: ${{ needs.build-and-push.outputs.image-ref }}"
+          echo "=============================="
 
-          if [ -z "$PRIMARY_TAG" ] || [ "$PRIMARY_TAG" = "''" ]; then
-            echo "ERROR: Primary tag is empty or invalid"
-            echo "Available job outputs:"
-            echo "  image-digest: ${{ needs.build-and-push.outputs.image-digest }}"
-            echo "  image-tags: ${{ needs.build-and-push.outputs.image-tags }}"
-            echo "  primary-tag: ${{ needs.build-and-push.outputs.primary-tag }}"
+          # Determine the best image reference to use
+          if [ -n "$PRIMARY_TAG" ] && [ "$PRIMARY_TAG" != "''" ] && [ "$PRIMARY_TAG" != "null" ]; then
+            IMAGE_REF="$PRIMARY_TAG"
+            echo "✅ Using primary tag: $IMAGE_REF"
+          elif [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "''" ] && [ "$IMAGE_DIGEST" != "null" ]; then
+            IMAGE_REF="${DIGEST_BASE}@${IMAGE_DIGEST}"
+            echo "⚠️  Primary tag unavailable, using digest reference: $IMAGE_REF"
+          else
+            echo "❌ ERROR: Neither primary tag nor digest is available"
+            echo "This indicates a critical issue with the build process"
             exit 1
           fi
 
-          echo "Using image tag for scanning: $PRIMARY_TAG"
+          # Wait a moment for image propagation in registry
+          echo "Waiting 30 seconds for image propagation..."
+          sleep 30
 
           # Verify the image exists and is accessible
           echo "Verifying image accessibility..."
-          if docker manifest inspect "$PRIMARY_TAG" > /dev/null 2>&1; then
-            echo "✅ Image $PRIMARY_TAG is accessible"
+          if docker manifest inspect "$IMAGE_REF" > /dev/null 2>&1; then
+            echo "✅ Image $IMAGE_REF is accessible"
+            IMAGE_STATUS="accessible"
           else
-            echo "⚠️  Image manifest not immediately available, proceeding with scan anyway"
+            echo "⚠️  Image manifest not immediately available"
+            # For digest-based references, try pulling to verify
+            if [[ "$IMAGE_REF" == *"@sha256:"* ]]; then
+              echo "Attempting to verify digest-based reference..."
+              if docker pull "$IMAGE_REF" > /dev/null 2>&1; then
+                echo "✅ Digest-based image verified via pull"
+                IMAGE_STATUS="accessible"
+                # Clean up pulled image
+                docker rmi "$IMAGE_REF" > /dev/null 2>&1 || true
+              else
+                echo "⚠️  Digest-based image not accessible, proceeding anyway"
+                IMAGE_STATUS="unknown"
+              fi
+            else
+              echo "⚠️  Tag-based image not accessible, proceeding anyway"
+              IMAGE_STATUS="unknown"
+            fi
           fi
 
-          echo "image-ref=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+          echo "image-ref=$IMAGE_REF" >> $GITHUB_OUTPUT
+          echo "image-status=$IMAGE_STATUS" >> $GITHUB_OUTPUT
 
       - name: Run Snyk container vulnerability scanner
         uses: snyk/actions/docker@master
@@ -199,7 +269,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ steps.verify-image.outputs.image-ref }}
-          args: --severity-threshold=medium --sarif-file-output=snyk-container-results.sarif
+          args: --severity-threshold=medium --sarif-file-output=snyk-container-results.sarif --timeout=300s
         continue-on-error: true
 
       - name: Upload Snyk container scan results to GitHub Security tab
@@ -212,36 +282,51 @@ jobs:
       - name: Generate security summary
         if: always()
         run: |
-          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Scan Type | Status | SARIF File |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|--------|------------|" >> $GITHUB_STEP_SUMMARY
+          echo "## 🛡️ Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scanned Image:** \`${{ steps.verify-image.outputs.image-ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Status:** ${{ steps.verify-image.outputs.image-status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ -f "snyk-code-results.sarif" ]; then
-            echo "| Code Analysis | ✅ Completed | snyk-code-results.sarif |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Code Analysis | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| Scan Type | Status | SARIF File | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|------------|---------|" >> $GITHUB_STEP_SUMMARY
 
-          if [ -f "snyk-container-results.sarif" ]; then
-            echo "| Container Scan | ✅ Completed | snyk-container-results.sarif |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Container Scan | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
-          fi
-
+          # Trivy scan results
           if [ -f "trivy-results.sarif" ]; then
-            echo "| Trivy Scan | ✅ Completed | trivy-results.sarif |" >> $GITHUB_STEP_SUMMARY
+            TRIVY_SIZE=$(wc -c < trivy-results.sarif)
+            echo "| Trivy Container Scan | ✅ Completed | trivy-results.sarif | ${TRIVY_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Trivy Scan | ❌ Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+            echo "| Trivy Container Scan | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Snyk code analysis results
+          if [ -f "snyk-code-results.sarif" ]; then
+            SNYK_CODE_SIZE=$(wc -c < snyk-code-results.sarif)
+            echo "| Snyk Code Analysis | ✅ Completed | snyk-code-results.sarif | ${SNYK_CODE_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Snyk Code Analysis | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Snyk container scan results
+          if [ -f "snyk-container-results.sarif" ]; then
+            SNYK_CONTAINER_SIZE=$(wc -c < snyk-container-results.sarif)
+            echo "| Snyk Container Scan | ✅ Completed | snyk-container-results.sarif | ${SNYK_CONTAINER_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Snyk Container Scan | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scanned Image:** \`${{ steps.verify-image.outputs.image-ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Digest:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Archive security scan results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-scan-results
+          name: security-scan-results-${{ github.run_number }}
           path: |
             *.sarif
           retention-days: 30
