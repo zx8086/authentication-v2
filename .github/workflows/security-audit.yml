@@ -1,0 +1,323 @@
+# Comprehensive Security Audit - Scheduled
+# This workflow runs comprehensive security scans on a schedule to avoid blocking deployments
+
+name: Comprehensive Security Audit
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      scan_depth:
+        description: 'Scan depth for vulnerability analysis'
+        required: false
+        default: '30'
+        type: string
+      severity_threshold:
+        description: 'Minimum severity level to report'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+          - critical
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: zx8086/authentication
+
+jobs:
+  comprehensive-security-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # Extended timeout for comprehensive scans
+    permissions:
+      contents: read
+      security-events: write
+      issues: write  # For creating security issues
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        timeout-minutes: 5
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        timeout-minutes: 3
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        timeout-minutes: 5
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        timeout-minutes: 3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Comprehensive Snyk Code Analysis
+      - name: Run comprehensive Snyk code analysis
+        uses: snyk/actions/node@master
+        timeout-minutes: 20
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-code-comprehensive.sarif --timeout=900s --all-projects
+        continue-on-error: true
+
+      # Dependency Vulnerability Scan
+      - name: Run Snyk dependency scan
+        run: |
+          bun add -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          snyk test --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --json > snyk-dependencies.json || true
+          snyk monitor --project-name=authentication-service || true
+        timeout-minutes: 15
+        continue-on-error: true
+
+      # Container Security Audit with Deep Scan
+      - name: Pull latest image for comprehensive container scan
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+        timeout-minutes: 10
+        continue-on-error: true
+
+      - name: Run comprehensive Snyk container scan
+        uses: snyk/actions/docker@master
+        timeout-minutes: 25
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          args: --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-container-comprehensive.sarif --timeout=1200s --max-depth=${{ inputs.scan_depth || '30' }} --exclude-app-vulns
+        continue-on-error: true
+
+      # Advanced Trivy Scans
+      - name: Run comprehensive Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        timeout-minutes: 15
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-comprehensive.sarif'
+          timeout: '10m'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+        continue-on-error: true
+
+      - name: Run comprehensive Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        timeout-minutes: 15
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
+          format: 'sarif'
+          output: 'trivy-container-comprehensive.sarif'
+          timeout: '10m'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+        continue-on-error: true
+
+      # License Compliance Check
+      - name: Run license compliance check
+        run: |
+          bun add -g license-checker
+          license-checker --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense' --summary > license-report.txt || true
+          cat license-report.txt || true
+        timeout-minutes: 5
+        continue-on-error: true
+
+      # Secrets Detection
+      - name: Run secrets detection with TruffleHog
+        run: |
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.63.2/trufflehog_3.63.2_linux_amd64.tar.gz | tar -xzf - trufflehog
+          ./trufflehog git file://. --json > secrets-scan.json || true
+        timeout-minutes: 10
+        continue-on-error: true
+
+      # Upload all SARIF results to GitHub Security tab
+      - name: Upload Snyk code analysis to GitHub Security
+        if: hashFiles('snyk-code-comprehensive.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 3
+        with:
+          sarif_file: 'snyk-code-comprehensive.sarif'
+          category: 'snyk-code-comprehensive'
+        continue-on-error: true
+
+      - name: Upload Snyk container scan to GitHub Security
+        if: hashFiles('snyk-container-comprehensive.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 3
+        with:
+          sarif_file: 'snyk-container-comprehensive.sarif'
+          category: 'snyk-container-comprehensive'
+        continue-on-error: true
+
+      - name: Upload Trivy filesystem scan to GitHub Security
+        if: hashFiles('trivy-fs-comprehensive.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 3
+        with:
+          sarif_file: 'trivy-fs-comprehensive.sarif'
+          category: 'trivy-fs-comprehensive'
+        continue-on-error: true
+
+      - name: Upload Trivy container scan to GitHub Security
+        if: hashFiles('trivy-container-comprehensive.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 3
+        with:
+          sarif_file: 'trivy-container-comprehensive.sarif'
+          category: 'trivy-container-comprehensive'
+        continue-on-error: true
+
+      # Generate comprehensive security report
+      - name: Generate comprehensive security report
+        if: always()
+        timeout-minutes: 5
+        run: |
+          echo "# 🛡️ Comprehensive Security Audit Report" > security-report.md
+          echo "" >> security-report.md
+          echo "**Audit Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> security-report.md
+          echo "**Repository:** ${{ github.repository }}" >> security-report.md
+          echo "**Commit:** ${{ github.sha }}" >> security-report.md
+          echo "**Scan Depth:** ${{ inputs.scan_depth || '30' }}" >> security-report.md
+          echo "**Severity Threshold:** ${{ inputs.severity_threshold || 'medium' }}" >> security-report.md
+          echo "" >> security-report.md
+
+          echo "## 📊 Scan Results Summary" >> security-report.md
+          echo "" >> security-report.md
+          echo "| Scan Type | Status | File | Size |" >> security-report.md
+          echo "|-----------|--------|------|------|" >> security-report.md
+
+          # Check each scan result
+          for file in snyk-code-comprehensive.sarif snyk-container-comprehensive.sarif trivy-fs-comprehensive.sarif trivy-container-comprehensive.sarif; do
+            if [ -f "$file" ]; then
+              size=$(wc -c < "$file")
+              echo "| ${file%.*} | ✅ Completed | $file | ${size} bytes |" >> security-report.md
+            else
+              echo "| ${file%.*} | ❌ Failed | N/A | N/A |" >> security-report.md
+            fi
+          done
+
+          echo "" >> security-report.md
+          echo "## 📄 Additional Reports" >> security-report.md
+          echo "" >> security-report.md
+
+          # License report
+          if [ -f "license-report.txt" ]; then
+            echo "### License Compliance" >> security-report.md
+            echo "\`\`\`" >> security-report.md
+            head -20 license-report.txt >> security-report.md
+            echo "\`\`\`" >> security-report.md
+            echo "" >> security-report.md
+          fi
+
+          # Secrets scan
+          if [ -f "secrets-scan.json" ]; then
+            secret_count=$(jq length secrets-scan.json 2>/dev/null || echo "0")
+            echo "### Secrets Detection" >> security-report.md
+            echo "**Potential secrets found:** $secret_count" >> security-report.md
+            echo "" >> security-report.md
+          fi
+
+          # Copy to step summary
+          cat security-report.md >> $GITHUB_STEP_SUMMARY
+
+      # Archive all security scan results
+      - name: Archive comprehensive security scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 5
+        with:
+          name: comprehensive-security-audit-${{ github.run_number }}
+          path: |
+            *.sarif
+            *.json
+            *.txt
+            *.md
+          retention-days: 90
+
+      # Create issue for critical vulnerabilities
+      - name: Create security issue for critical findings
+        if: always()
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check for critical vulnerabilities in SARIF files
+          critical_found=false
+          critical_details=""
+
+          for sarif_file in *.sarif; do
+            if [ -f "$sarif_file" ]; then
+              # Simple check for critical severity (this could be enhanced with jq parsing)
+              if grep -i "critical" "$sarif_file" > /dev/null 2>&1; then
+                critical_found=true
+                critical_details="$critical_details\n- Found in: $sarif_file"
+              fi
+            fi
+          done
+
+          if [ "$critical_found" = true ]; then
+            # Create issue title with timestamp
+            issue_title="🚨 Critical Security Vulnerabilities Detected - $(date -u '+%Y-%m-%d')"
+
+            # Create issue body
+            cat > issue_body.md << EOF
+          ## 🚨 Critical Security Vulnerabilities Detected
+
+          **Audit Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          **Repository:** ${{ github.repository }}
+          **Commit:** ${{ github.sha }}
+
+          ### Critical Findings
+          $critical_details
+
+          ### Action Required
+          - [ ] Review SARIF files in the [security audit artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [ ] Analyze each critical vulnerability
+          - [ ] Create remediation plan
+          - [ ] Apply security patches
+
+          ### Artifact Location
+          Download the complete security audit results from: [comprehensive-security-audit-${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ---
+          *This issue was automatically created by the Comprehensive Security Audit workflow.*
+          EOF
+
+            # Create the issue
+            gh issue create \
+              --title "$issue_title" \
+              --body-file issue_body.md \
+              --label "security,critical,automated" \
+              --assignee "${{ github.repository_owner }}" || true
+          fi
+
+      # Notify security team (optional - requires SLACK_WEBHOOK_URL secret)
+      - name: Notify security team
+        if: failure()
+        timeout-minutes: 2
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text":"🚨 Comprehensive Security Audit failed for ${{ github.repository }} - Check the workflow for details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+              ${{ secrets.SLACK_WEBHOOK_URL }} || true
+          fi
+        continue-on-error: true

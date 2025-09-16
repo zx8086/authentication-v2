@@ -1,49 +1,90 @@
-# Use the official Bun image
-FROM oven/bun:1.2.21-slim AS base
+# Multi-stage optimized Dockerfile for Bun + Authentication Service
+# Designed for minimal build time and maximum security
 
-# Set the working directory
+# syntax=docker/dockerfile:1
+FROM oven/bun:1.2.21-alpine AS deps-base
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lock* ./
+# Install minimal system dependencies in a single layer
+RUN apk add --no-cache dumb-init ca-certificates
 
-# Install dependencies
+# Dependencies stage - cache layer optimization
+FROM deps-base AS deps-dev
+COPY package.json bun.lockb* ./
+# Use --production=false to install all dependencies including devDependencies for build
 RUN bun install --frozen-lockfile
 
-# Copy source code
+# Production dependencies stage
+FROM deps-base AS deps-prod
+COPY package.json bun.lockb* ./
+# Install only production dependencies
+RUN bun install --frozen-lockfile --production
+
+# Build stage
+FROM deps-dev AS builder
 COPY . .
 
-RUN bun run build
+# Generate OpenAPI docs and build the application
+RUN bun run generate-docs && \
+    bun run build && \
+    # Clean up unnecessary files to reduce layer size
+    rm -rf .git node_modules/.cache test/ tests/ *.test.* *.spec.* && \
+    # Verify build output
+    ls -la dist/
 
-# Production stage
-FROM oven/bun:1.2.21-slim AS production
+# Final production stage - minimal footprint
+FROM oven/bun:1.2.21-alpine AS production
+
+# Install only essential runtime dependencies
+RUN apk add --no-cache dumb-init curl && \
+    # Create non-root user for security
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 bunuser && \
+    # Create app directory with proper ownership
+    mkdir -p /app && \
+    chown bunuser:nodejs /app
 
 WORKDIR /app
 
-# Copy package files and install only production dependencies
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+# Copy production dependencies with proper ownership
+COPY --from=deps-prod --chown=bunuser:nodejs /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=bunuser:nodejs /app/package.json ./
 
-# Copy built application or source code
-COPY --from=base /app/dist ./dist
-COPY --from=base /app/src ./src
+# Copy built application and source files with proper ownership
+COPY --from=builder --chown=bunuser:nodejs /app/dist ./dist
+COPY --from=builder --chown=bunuser:nodejs /app/src ./src
+COPY --from=builder --chown=bunuser:nodejs /app/public ./public
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 bunuser
+# Switch to non-root user before setting environment
 USER bunuser
 
-# Set default environment variables (override these in production)
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV TELEMETRY_MODE=console
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOST=0.0.0.0 \
+    TELEMETRY_MODE=console
 
-# Expose the port
+# Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Health check with reasonable timeout
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Start the application
+# Use dumb-init to handle signals properly and prevent zombie processes
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["bun", "src/server.ts"]
+
+# Build metadata
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+LABEL org.opencontainers.image.title="Authentication Service" \
+      org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
+      org.opencontainers.image.vendor="PVH Corp" \
+      org.opencontainers.image.version="${VERSION:-unknown}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="UNLICENSED" \
+      org.opencontainers.image.base.name="oven/bun:1.2.21-alpine"
