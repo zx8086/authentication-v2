@@ -100,7 +100,7 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 
 ### Configuration Management
 - Environment-based configuration in `src/config/index.ts`
-- Required environment variables: `JWT_AUTHORITY`, `JWT_AUDIENCE`, `KONG_ADMIN_URL`, `KONG_ADMIN_TOKEN`
+- Required environment variables: `KONG_JWT_AUTHORITY`, `KONG_JWT_AUDIENCE`, `KONG_ADMIN_URL`, `KONG_ADMIN_TOKEN`
 - Configuration validation with detailed error messages for missing variables
 
 ### API Endpoints
@@ -121,6 +121,9 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - **CORS Support**: Configurable CORS with origin validation
 
 ### Kong Integration Details
+- **Kong Mode Selection**: Supports both Kong API Gateway and Kong Konnect via `KONG_MODE` environment variable
+  - `API_GATEWAY`: Traditional self-hosted Kong with direct Admin API access
+  - `KONNECT`: Cloud-native Kong with control planes and realm management
 - Requires Kong consumer headers: `x-consumer-id`, `x-consumer-username`
 - Rejects anonymous consumers (`x-anonymous-consumer: true`)
 - Creates and caches JWT credentials for Kong consumers
@@ -132,10 +135,13 @@ Copy `.env.example` to `.env` and configure:
 #### Core Service Settings
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (development/production/test)
-- `JWT_AUTHORITY` - JWT issuer authority URL
-- `JWT_AUDIENCE` - JWT audience claim
-- `JWT_KEY_CLAIM_NAME` - JWT key claim identifier
+- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (e.g., https://sts-api.pvhcorp.com/)
+- `KONG_JWT_AUDIENCE` - JWT audience claim (e.g., http://api.pvhcorp.com/)
+- `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier
+- `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: KONNECT)
 - `KONG_ADMIN_URL` - Kong Admin API endpoint
+  - For API_GATEWAY mode: `http://kong-gateway:8001`
+  - For KONNECT mode: `https://region.api.konghq.com/v2/control-planes/{id}`
 - `KONG_ADMIN_TOKEN` - Kong Admin API authentication token
 
 #### OpenTelemetry Configuration
@@ -292,7 +298,7 @@ Recommended alerts based on available metrics:
 ## Code Quality Requirements
 
 ### Pre-Commit Checklist
-**IMPORTANT: Always run `bun run check` after code changes and before committing/pushing**
+Run `bun run check` after code changes and before committing/pushing
 
 The `check` command runs:
 - Biome linting and formatting
@@ -304,12 +310,10 @@ The `check` command runs:
 - We should have minimal comments throughout the code base
 - Use standardized file headers: `/* src/path/file.ts */`
 
-### Critical Development Rules
-**NEVER ASSUME OR MAKE UP PSEUDO CODE**
-- NEVER assume a method exists without verifying it first
-- NEVER write code based on assumptions about APIs
-- ALWAYS check actual method names and signatures before using them
-- ALWAYS test code snippets or use runtime inspection to verify functionality
+### Development Guidelines
+- Verify method existence before use
+- Check actual method names and signatures
+- Test code snippets or use runtime inspection
 - When unsure about an API, use `console.log()` or runtime inspection to check available methods
 - Example: `console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)))`
 
@@ -428,8 +432,8 @@ bun run test:watch
 bun run test:coverage
 ```
 
-### Important Reminders
-- ALWAYS run `bun run check` before committing
+### Reminders
+- Run `bun run check` before committing
 - Use `TELEMETRY_MODE=both` for development debugging
 - Monitor telemetry export success rates in development
 - Test both JWT and health endpoints after changes

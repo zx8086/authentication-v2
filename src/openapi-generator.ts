@@ -1,18 +1,6 @@
 /* src/openapi-generator.ts */
 
-// OpenAPI specification generator for authentication service endpoints
-
-export interface RouteDefinition {
-  path: string;
-  method: string;
-  summary: string;
-  description: string;
-  tags: string[];
-  requiresAuth?: boolean;
-  parameters?: any[];
-  requestBody?: any;
-  responses?: any;
-}
+import type { RouteDefinition } from "./config";
 
 class OpenAPIGenerator {
   private routes: RouteDefinition[] = [];
@@ -888,6 +876,58 @@ class OpenAPIGenerator {
         "Get detailed metrics export statistics including success rates, failure counts, and timing information.",
       tags: ["Debug", "Metrics"],
     });
+  }
+
+  convertToYaml(obj: any): string {
+    const yamlHeader = `# OpenAPI 3.0.3 specification for Authentication Service
+# Generated on: ${new Date().toISOString()}
+# This file is auto-generated. Do not edit manually.
+
+`;
+    return yamlHeader + this.objectToYaml(obj, 0);
+  }
+
+  private objectToYaml(obj: any, indent = 0): string {
+    const spaces = "  ".repeat(indent);
+
+    if (obj === null || obj === undefined) return "null";
+    if (typeof obj === "string") {
+      if (obj.includes("\n") || obj.includes('"')) {
+        return `|\n${spaces}  ${obj.split("\n").join(`\n${spaces}  `)}`;
+      }
+      if (obj.includes(":") || obj.includes("[") || obj.includes("{") || /^\d/.test(obj)) {
+        return `"${obj.replace(/"/g, '\\"')}"`;
+      }
+      return obj;
+    }
+    if (typeof obj === "number" || typeof obj === "boolean") return obj.toString();
+
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) return "[]";
+      return obj
+        .map(
+          (item) =>
+            `\n${spaces}- ${this.objectToYaml(item, indent + 1).replace(/\n/g, `\n${spaces}  `)}`
+        )
+        .join("");
+    }
+
+    if (typeof obj === "object") {
+      const entries = Object.entries(obj);
+      if (entries.length === 0) return "{}";
+
+      return entries
+        .map(([key, value]) => {
+          const yamlValue = this.objectToYaml(value, indent + 1);
+          if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+            return `\n${spaces}${key}:${yamlValue.startsWith("\n") ? yamlValue : ` ${yamlValue}`}`;
+          }
+          return `\n${spaces}${key}: ${yamlValue}`;
+        })
+        .join("");
+    }
+
+    return obj.toString();
   }
 }
 

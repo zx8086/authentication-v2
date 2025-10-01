@@ -1,7 +1,5 @@
 /* src/telemetry/metrics.ts */
 
-// Custom business metrics collection for authentication service performance monitoring
-
 import { type Attributes, metrics, type ObservableResult } from "@opentelemetry/api";
 import { error, warn } from "../utils/logger";
 

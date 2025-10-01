@@ -1,24 +1,7 @@
 /* src/services/jwt.service.ts */
 
-// JWT Service using Bun's native crypto.subtle API with OpenTelemetry tracing
-
 import { trace } from "@opentelemetry/api";
-export interface TokenResponse {
-  access_token: string;
-  expires_in: number;
-}
-
-export interface JWTPayload {
-  sub: string;
-  key: string;
-  jti: string;
-  iat: number;
-  exp: number;
-  iss: string;
-  aud: string;
-  name: string;
-  unique_name: string;
-}
+import type { JWTPayload, TokenResponse } from "../config";
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
@@ -32,7 +15,6 @@ export class NativeBunJWT {
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
-    // Create telemetry span
     const tracer = trace.getTracer("authentication-service");
     const span = tracer.startSpan("jwt_create", {
       attributes: {
@@ -56,7 +38,7 @@ export class NativeBunJWT {
       };
 
       const now = Math.floor(Date.now() / 1000);
-      const expirationTime = now + 900; // 15 minutes
+      const expirationTime = now + 900;
 
       const payload: JWTPayload = {
         sub: username,
@@ -113,7 +95,6 @@ export class NativeBunJWT {
   static async verifyToken(token: string, consumerSecret: string): Promise<JWTPayload | null> {
     const startTime = Bun.nanoseconds();
 
-    // Create telemetry span
     const tracer = trace.getTracer("authentication-service");
     const span = tracer.startSpan("jwt_verify", {
       attributes: {

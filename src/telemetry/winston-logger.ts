@@ -1,7 +1,5 @@
 /* src/telemetry/winston-logger.ts */
 
-// Winston logger with ECS format and OpenTelemetry correlation for structured logging
-
 import ecsFormat from "@elastic/ecs-winston-format";
 import { trace } from "@opentelemetry/api";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
@@ -35,9 +33,9 @@ export class WinstonTelemetryLogger {
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
         ecsFormat({
-          convertErr: true, // Convert err field to ECS error fields
-          convertReqRes: true, // Convert req/res to ECS HTTP fields
-          apmIntegration: true, // Enable APM integration for trace correlation
+          convertErr: true,
+          convertReqRes: true,
+          apmIntegration: true,
           serviceName: config.serviceName,
           serviceVersion: config.serviceVersion,
           serviceEnvironment: config.environment,
@@ -51,7 +49,7 @@ export class WinstonTelemetryLogger {
 
   private configureTransports(): winston.transport[] {
     const transports = [];
-    let mode = "console"; // Default fallback
+    let mode = "console";
     try {
       mode = telemetryConfig.mode || "console";
     } catch (_error) {
@@ -165,7 +163,7 @@ export class WinstonTelemetryLogger {
   }
 
   public reinitialize(): void {
-    this.logger = null; // Reset to force reinitialization
+    this.logger = null;
     const logger = this.initializeLogger();
     logger.clear();
     const transports = this.configureTransports();

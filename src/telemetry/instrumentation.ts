@@ -1,7 +1,5 @@
 /* src/telemetry/instrumentation.ts */
 
-// OpenTelemetry instrumentation setup with OTLP exporters and auto-instrumentation
-
 import { metrics } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { type ExportResult, ExportResultCode } from "@opentelemetry/core";

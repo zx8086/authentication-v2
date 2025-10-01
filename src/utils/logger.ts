@@ -1,7 +1,5 @@
 /* src/utils/logger.ts */
 
-// Fallback logger utilities with Winston telemetry integration
-
 let winstonLogger: any = null;
 
 function getWinstonLogger() {

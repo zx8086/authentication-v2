@@ -1,12 +1,11 @@
 /* src/server.ts */
 
-// Main authentication service server using Bun runtime with OpenTelemetry instrumentation
-
 import { SpanKind, trace } from "@opentelemetry/api";
 import { loadConfig } from "./config/index";
 import { apiDocGenerator } from "./openapi-generator";
 import { NativeBunJWT } from "./services/jwt.service";
-import { KongService } from "./services/kong.service";
+import type { IKongService } from "./services/kong.service";
+import { KongServiceFactory } from "./services/kong.service";
 import {
   forceMetricsFlush,
   getMetricsExportStats,
@@ -30,7 +29,11 @@ import { error, log, warn } from "./utils/logger";
 
 const config = loadConfig();
 
-const kongService = new KongService(config.kong.adminUrl, config.kong.adminToken);
+const kongService: IKongService = KongServiceFactory.create(
+  config.kong.mode,
+  config.kong.adminUrl,
+  config.kong.adminToken
+);
 
 try {
   await initializeTelemetry();
@@ -300,9 +303,9 @@ async function handleHealthCheck(span: any): Promise<Response> {
 
     // Check OTLP endpoint connectivity in parallel
     const [tracesHealth, metricsHealth, logsHealth] = await Promise.all([
-      checkOtlpEndpointHealth(telemetryHealth.config.tracesEndpoint),
-      checkOtlpEndpointHealth(telemetryHealth.config.metricsEndpoint),
-      checkOtlpEndpointHealth(telemetryHealth.config.logsEndpoint),
+      checkOtlpEndpointHealth(telemetryHealth.config.tracesEndpoint || ""),
+      checkOtlpEndpointHealth(telemetryHealth.config.metricsEndpoint || ""),
+      checkOtlpEndpointHealth(telemetryHealth.config.logsEndpoint || ""),
     ]);
 
     const otlpHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;

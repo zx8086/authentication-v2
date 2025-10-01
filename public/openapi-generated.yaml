@@ -1,6 +1,7 @@
 # OpenAPI 3.0.3 specification for Authentication Service
-# Generated on: 2025-09-15T22:10:34.242Z
+# Generated on: 2025-09-30T23:13:21.348Z
 # This file is auto-generated. Do not edit manually.
+
 
 openapi: "3.0.3"
 info:
@@ -111,8 +112,7 @@ paths:
                     name: x-anonymous-consumer
                     in: header
                     required: false
-                    description: |
-                        Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)
+                    description: Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)
                     schema:
                       type: string
                       enum: 

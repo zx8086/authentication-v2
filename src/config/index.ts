@@ -1,9 +1,99 @@
 /* src/config/index.ts */
 
-// Application configuration management with Zod validation
-
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
+
+// Kong Response Schemas
+export const ConsumerSecretSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  secret: z.string(),
+  consumer: z.object({
+    id: z.string(),
+  }),
+});
+
+export const ConsumerResponseSchema = z.object({
+  data: z.array(ConsumerSecretSchema),
+  total: z.number(),
+});
+
+export const ConsumerSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  custom_id: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  created_at: z.number(),
+});
+
+export const KongHealthCheckResultSchema = z.object({
+  healthy: z.boolean(),
+  responseTime: z.number(),
+  error: z.string().optional(),
+});
+
+export const KongCacheStatsSchema = z.object({
+  size: z.number(),
+  entries: z.array(z.any()),
+  activeEntries: z.number(),
+  hitRate: z.string(),
+});
+
+// Export types from Zod schemas
+export type ConsumerSecret = z.infer<typeof ConsumerSecretSchema>;
+export type ConsumerResponse = z.infer<typeof ConsumerResponseSchema>;
+export type Consumer = z.infer<typeof ConsumerSchema>;
+export type KongHealthCheckResult = z.infer<typeof KongHealthCheckResultSchema>;
+export type KongCacheStats = z.infer<typeof KongCacheStatsSchema>;
+
+// Kong Service Interface
+export const TokenResponseSchema = z.object({
+  access_token: z.string(),
+  expires_in: z.number(),
+});
+
+export const JWTPayloadSchema = z.object({
+  sub: z.string(),
+  key: z.string(),
+  jti: z.string(),
+  iat: z.number(),
+  exp: z.number(),
+  iss: z.string(),
+  aud: z.string(),
+  name: z.string(),
+  unique_name: z.string(),
+});
+
+export const RouteDefinitionSchema = z.object({
+  path: z.string(),
+  method: z.string(),
+  summary: z.string(),
+  description: z.string(),
+  tags: z.array(z.string()),
+  requiresAuth: z.boolean().optional(),
+  parameters: z.any().optional(),
+  requestBody: z.any().optional(),
+  responses: z.any().optional(),
+});
+
+export const CacheEntrySchema = z.object({
+  data: ConsumerSecretSchema,
+  expires: z.number(),
+});
+
+export type TokenResponse = z.infer<typeof TokenResponseSchema>;
+export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+export type RouteDefinition = z.infer<typeof RouteDefinitionSchema>;
+export type CacheEntry = z.infer<typeof CacheEntrySchema>;
+export type KongMode = "API_GATEWAY" | "KONNECT";
+
+export interface IKongService {
+  getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
+  createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
+  clearCache(consumerId?: string): void;
+  getCacheStats(): KongCacheStats;
+  healthCheck(): Promise<KongHealthCheckResult>;
+}
 
 const ServerConfigSchema = z.object({
   port: z.number().min(1).max(65535),
@@ -18,6 +108,7 @@ const JwtConfigSchema = z.object({
 });
 
 const KongConfigSchema = z.object({
+  mode: z.enum(["API_GATEWAY", "KONNECT"]),
   adminUrl: z.url(),
   adminToken: z.string().min(1),
   consumerIdHeader: z.string().min(1),
@@ -99,6 +190,7 @@ const defaultConfig: AppConfig = {
     expirationMinutes: 15,
   },
   kong: {
+    mode: "KONNECT",
     adminUrl: "",
     adminToken: "",
     consumerIdHeader: "x-consumer-id",
@@ -136,12 +228,13 @@ const envVarMapping = {
     nodeEnv: "NODE_ENV",
   },
   jwt: {
-    authority: "JWT_AUTHORITY",
-    audience: "JWT_AUDIENCE",
-    keyClaimName: "JWT_KEY_CLAIM_NAME",
+    authority: "KONG_JWT_AUTHORITY",
+    audience: "KONG_JWT_AUDIENCE",
+    keyClaimName: "KONG_JWT_KEY_CLAIM_NAME",
     expirationMinutes: "JWT_EXPIRATION_MINUTES",
   },
   kong: {
+    mode: "KONG_MODE",
     adminUrl: "KONG_ADMIN_URL",
     adminToken: "KONG_ADMIN_TOKEN",
   },
@@ -238,6 +331,9 @@ function loadConfigFromEnv(): Partial<AppConfig> {
   };
 
   config.kong = {
+    mode: parseEnvVar(Bun.env[envVarMapping.kong.mode], "string", defaultConfig.kong.mode) as
+      | "API_GATEWAY"
+      | "KONNECT",
     adminUrl: parseEnvVar(
       Bun.env[envVarMapping.kong.adminUrl],
       "string",
@@ -387,8 +483,8 @@ try {
   };
 
   const requiredVars = [
-    { key: "JWT_AUTHORITY", value: config.jwt.authority },
-    { key: "JWT_AUDIENCE", value: config.jwt.audience },
+    { key: "KONG_JWT_AUTHORITY", value: config.jwt.authority },
+    { key: "KONG_JWT_AUDIENCE", value: config.jwt.audience },
     { key: "KONG_ADMIN_URL", value: config.kong.adminUrl },
     { key: "KONG_ADMIN_TOKEN", value: config.kong.adminToken },
   ];
