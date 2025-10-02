@@ -399,6 +399,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - If no anonymous fallback: Returns 401 Unauthorized
 - Anonymous consumer has UUID: `12345678-1234-1234-1234-123456789abc`
 
+##### 5. Backend Service Processing
+- Backend service receives validated request with consumer headers
+- Processes business logic based on authenticated consumer identity
+- Returns response data to Kong Gateway
+
+##### 6. Response to Client
+- Kong Gateway forwards backend response to client
+- Response includes any headers set by backend service
+- Client receives final response with requested data
+
 ### Flow Diagram
 ```
 ┌──────────┐     ┌─────────┐     ┌───────────┐     ┌──────────┐
