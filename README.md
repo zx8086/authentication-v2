@@ -1,4 +1,4 @@
-# PVH Authentication Service - Comprehensive Documentation
+# Authentication Service
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)
@@ -19,7 +19,7 @@
 ## Executive Summary
 
 ### Service Purpose
-The PVH Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for the PVH ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
+The ACME Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for the ACME ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
 
 **Important**: This service is NOT a proxy - it's purely a JWT token issuer. Applications obtain a JWT token from this service once, then use that token directly with backend services through Kong Gateway.
 
@@ -27,7 +27,7 @@ The PVH Authentication Service is a high-performance microservice built with Bun
 - **JWT Token Generation**: Creates signed JWT tokens using native crypto.subtle Web API
 - **Consumer Secret Management**: Interfaces with Kong Admin API to retrieve or create consumer secrets
 - **Security Enforcement**: Validates consumer authentication status and blocks anonymous access
-- **Token Standardization**: Ensures consistent JWT structure and claims across the PVH platform
+- **Token Standardization**: Ensures consistent JWT structure and claims across the ACME platform
 - **Observability**: Provides comprehensive OpenTelemetry instrumentation for monitoring and debugging
 
 ### Core Capabilities
@@ -111,13 +111,13 @@ To appreciate the value of this authentication service, it's important to unders
 ```bash
 # Create consumer
 curl -X POST http://kong:8001/consumers \
-  -d "username=my-consumer"
+  -d "username=example-consumer"
 
 # Create JWT credential with secret
-curl -X POST http://kong:8001/consumers/my-consumer/jwt \
+curl -X POST http://kong:8001/consumers/example-consumer/jwt \
   -d '{
-    "key": "my-issuer-key",
-    "secret": "my-super-secret-signing-key-123456"
+    "key": "example-issuer-key",
+    "secret": "example-super-secret-signing-key-123456"
   }'
 ```
 
@@ -271,7 +271,7 @@ plugins:
 plugins:
 - name: jwt
   config:
-    anonymous: 871df7cc-79f8-4f3b-a195-265f2ecff22a  # Anonymous consumer UUID
+    anonymous: 12345678-1234-1234-1234-123456789abc  # Anonymous consumer UUID
     claims_to_verify:
     - exp  # Expiration time
     - nbf  # Not before time
@@ -291,7 +291,7 @@ plugins:
 ### Anonymous Consumer Handling
 
 #### Anonymous Consumer Configuration
-- **UUID**: `871df7cc-79f8-4f3b-a195-265f2ecff22a`
+- **UUID**: `12345678-1234-1234-1234-123456789abc`
 - **Purpose**: Allows certain endpoints to be accessed without authentication
 - **Behavior**: When JWT validation fails, Kong falls back to anonymous consumer
 
@@ -318,29 +318,29 @@ plugins:
 ##### 1. Client Requests JWT Token
 ```http
 GET /tokens HTTP/1.1
-Host: gateway.prd.shared-services.eu.pvh.cloud
+Host: gateway.example.com
 apikey: consumer-api-key-12345
 ```
 
 ##### 2. Kong Key-Auth Plugin Processing
 - Validates API key against consumer database
-- Identifies consumer: `pvh-consumer`
+- Identifies consumer: `example-consumer`
 - Adds upstream headers for authentication service
 
 ##### 3. Kong Adds Upstream Headers
 After successful authentication, Kong adds headers to the upstream request:
 ```
-X-Consumer-ID: 6a864ae2-b635-4bcb-9362-1406879108b7
-X-Consumer-Username: pvh-consumer
+X-Consumer-ID: 98765432-9876-5432-1098-765432109876
+X-Consumer-Username: example-consumer
 X-Anonymous-Consumer: false
 ```
 
 ##### 4. Request Reaches Authentication Service
 ```http
 GET /tokens HTTP/1.1
-Host: authentication.prd.shared-services.eu.pvh.cloud
-X-Consumer-ID: 6a864ae2-b635-4bcb-9362-1406879108b7
-X-Consumer-Username: pvh-consumer
+Host: auth.example.com
+X-Consumer-ID: 98765432-9876-5432-1098-765432109876
+X-Consumer-Username: example-consumer
 X-Anonymous-Consumer: false
 ```
 
@@ -379,7 +379,7 @@ Response:
 ##### 1. Client Calls Protected Service
 ```http
 GET /customer-assignments/123 HTTP/1.1
-Host: gateway.prd.shared-services.eu.pvh.cloud
+Host: gateway.example.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -397,7 +397,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ##### 4. Validation Failure Path
 - If JWT invalid/expired: Falls back to anonymous consumer (if configured)
 - If no anonymous fallback: Returns 401 Unauthorized
-- Anonymous consumer has UUID: `871df7cc-79f8-4f3b-a195-265f2ecff22a`
+- Anonymous consumer has UUID: `12345678-1234-1234-1234-123456789abc`
 
 ### Flow Diagram
 ```
@@ -437,7 +437,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   exp: Math.floor((Date.now() + expirationMs) / 1000), // Expires at
   nbf: Math.floor(Date.now() / 1000),        // Not before
   name: username,                             // Consumer name claim
-  unique_name: `pvhcorp.com#${username}`,    // Unique identifier
+  unique_name: `example.com#${username}`,    // Unique identifier
   key: consumerKey                           // Kong consumer key (from KONG_JWT_KEY_CLAIM_NAME)
 }
 ```
@@ -489,7 +489,7 @@ export class JWTService {
       iss: this.authority,
       aud: this.audience,
       name: username,
-      unique_name: `pvhcorp.com#${username}`
+      unique_name: `example.com#${username}`
     }));
 
     // Sign with HMAC SHA-256
@@ -605,8 +605,8 @@ try {
 | `KONG_MODE` | Kong deployment mode | `API_GATEWAY` or `KONNECT` | Yes |
 | `KONG_ADMIN_URL` | Kong Admin API endpoint | `http://kong-admin:8001` or `https://us.api.konghq.com/v2/control-planes/abc123` | Yes |
 | `KONG_ADMIN_TOKEN` | Kong Admin API authentication token | `Bearer xyz789...` | Yes |
-| `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts-api.pvhcorp.com/` | Yes |
-| `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.pvhcorp.com/` | Yes |
+| `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts-api.example.com/` | Yes |
+| `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.example.com/` | Yes |
 | `KONG_JWT_KEY_CLAIM_NAME` | Claim name for consumer key | `key` or `iss` | No (default: `key`) |
 | `JWT_EXPIRATION_MINUTES` | Token expiration in minutes | `15` | No (default: `15`) |
 
@@ -615,7 +615,7 @@ try {
 |----------|-------------|---------|----------|
 | `PORT` | Server port | `3000` | No (default: `3000`) |
 | `NODE_ENV` | Runtime environment | `development`, `production`, `test` | No (default: `development`) |
-| `API_CORS` | Allowed CORS origins | `https://webapp.pvhcorp.com` | No |
+| `API_CORS` | Allowed CORS origins | `https://webapp.example.com` | No |
 
 #### OpenTelemetry Configuration
 | Variable | Description | Example | Required |
@@ -637,8 +637,8 @@ try {
 | `API_TITLE` | API title for OpenAPI spec | `Authentication Service API` | No |
 | `API_DESCRIPTION` | API description | `JWT token generation service` | No |
 | `API_VERSION` | API version | `1.0.0` | No |
-| `API_CONTACT_NAME` | Contact name | `PVH Corp` | No |
-| `API_CONTACT_EMAIL` | Contact email | `api-support@pvh.com` | No |
+| `API_CONTACT_NAME` | Contact name | `ACME Corp` | No |
+| `API_CONTACT_EMAIL` | Contact email | `api-support@example.com` | No |
 | `API_LICENSE_NAME` | License name | `Proprietary` | No |
 | `API_LICENSE_IDENTIFIER` | License identifier | `UNLICENSED` | No |
 
@@ -703,7 +703,7 @@ Returns the OpenAPI specification for the service.
 **Request**
 ```http
 GET / HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 Accept: application/json
 ```
 
@@ -736,9 +736,9 @@ Issues a new JWT token for authenticated consumers.
 **Request**
 ```http
 GET /tokens HTTP/1.1
-Host: auth-service.pvhcorp.com
-X-Consumer-ID: 6a864ae2-b635-4bcb-9362-1406879108b7
-X-Consumer-Username: pvh-consumer
+Host: auth-service.example.com
+X-Consumer-ID: 98765432-9876-5432-1098-765432109876
+X-Consumer-Username: example-consumer
 X-Anonymous-Consumer: false
 ```
 
@@ -778,7 +778,7 @@ Main health check endpoint with dependency status.
 **Request**
 ```http
 GET /health HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Healthy (200 OK)**
@@ -828,7 +828,7 @@ Telemetry system health check.
 **Request**
 ```http
 GET /health/telemetry HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
@@ -855,7 +855,7 @@ Metrics system health and debugging information.
 **Request**
 ```http
 GET /health/metrics HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
@@ -881,7 +881,7 @@ Performance metrics and cache statistics.
 **Request**
 ```http
 GET /metrics HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
@@ -922,7 +922,7 @@ Record test metrics for verification (development only).
 **Request**
 ```http
 POST /debug/metrics/test HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 Content-Type: application/json
 
 {
@@ -952,7 +952,7 @@ Force immediate metrics export to OTLP endpoint (development only).
 **Request**
 ```http
 POST /debug/metrics/export HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
@@ -972,7 +972,7 @@ Export statistics and success rates (development only).
 **Request**
 ```http
 GET /debug/metrics/stats HTTP/1.1
-Host: auth-service.pvhcorp.com
+Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
@@ -1144,18 +1144,18 @@ bun run k6:smoke:health
 #### Docker Operations
 ```bash
 # Build Docker image
-docker build -t pvh/authentication-service:latest .
+docker build -t example/authentication-service:latest .
 
 # Run container
 docker run -p 3000:3000 \
   -e KONG_MODE=KONNECT \
   -e KONG_ADMIN_URL=https://us.api.konghq.com/v2/control-planes/abc123 \
   -e KONG_ADMIN_TOKEN=secret123 \
-  -e KONG_JWT_AUTHORITY=https://sts-api.pvhcorp.com/ \
-  -e KONG_JWT_AUDIENCE=http://api.pvhcorp.com/ \
+  -e KONG_JWT_AUTHORITY=https://sts-api.example.com/ \
+  -e KONG_JWT_AUDIENCE=http://api.example.com/ \
   -e TELEMETRY_MODE=otlp \
   -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://otel.example.com/v1/traces \
-  pvh/authentication-service:latest
+  example/authentication-service:latest
 
 # Health check
 docker exec <container> curl http://localhost:3000/health
@@ -1180,7 +1180,7 @@ spec:
     spec:
       containers:
       - name: authentication-service
-        image: pvh/authentication-service:latest
+        image: example/authentication-service:latest
         ports:
         - containerPort: 3000
         env:
@@ -1222,16 +1222,16 @@ spec:
 #### Health Check Endpoints
 ```bash
 # Main health check
-curl http://auth-service.pvhcorp.com/health
+curl http://auth-service.example.com/health
 
 # Telemetry health
-curl http://auth-service.pvhcorp.com/health/telemetry
+curl http://auth-service.example.com/health/telemetry
 
 # Metrics health
-curl http://auth-service.pvhcorp.com/health/metrics
+curl http://auth-service.example.com/health/metrics
 
 # Performance metrics
-curl http://auth-service.pvhcorp.com/metrics
+curl http://auth-service.example.com/metrics
 ```
 
 ### Performance Tuning
@@ -1505,7 +1505,7 @@ TARGET_PROTOCOL=http
 #### Step 1: Obtain JWT Token
 ```bash
 # Get JWT token using API key
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
+curl -X GET https://gateway.example.com/tokens \
   -H "apikey: your-consumer-api-key-12345"
 
 # Response:
@@ -1518,21 +1518,21 @@ curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
 #### Step 2: Use JWT for Protected Services
 ```bash
 # Call protected service with JWT
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/customer-assignments/123 \
+curl -X GET https://gateway.example.com/customer-assignments/123 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # Call another protected service with same JWT
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/images/product/456 \
+curl -X GET https://gateway.example.com/images/product/456 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
 ### Bun/TypeScript Example
 ```typescript
 // Native Bun implementation - no external dependencies needed
-class PVHApiClient {
+class ACMEApiClient {
   private token: string | null = null;
   private tokenExpiry: Date | null = null;
-  private readonly baseUrl = 'https://gateway.prd.shared-services.eu.pvh.cloud';
+  private readonly baseUrl = 'https://gateway.example.com';
 
   constructor(private readonly apiKey: string) {}
 
@@ -1576,7 +1576,7 @@ class PVHApiClient {
 }
 
 // Usage with Bun
-const client = new PVHApiClient('your-api-key-12345');
+const client = new ACMEApiClient('your-api-key-12345');
 const customerData = await client.callApi('/customer-assignments/123');
 
 // Can also run directly with: bun run client.ts
@@ -1587,12 +1587,12 @@ const customerData = await client.callApi('/customer-assignments/123');
 import requests
 from datetime import datetime, timedelta
 
-class PVHApiClient:
+class ACMEApiClient:
     def __init__(self, api_key):
         self.api_key = api_key
         self.token = None
         self.token_expiry = None
-        self.base_url = 'https://gateway.prd.shared-services.eu.pvh.cloud'
+        self.base_url = 'https://gateway.example.com'
 
     def get_token(self):
         # Check if token is still valid
@@ -1624,7 +1624,7 @@ class PVHApiClient:
         return response.json()
 
 # Usage
-client = PVHApiClient('your-api-key-12345')
+client = ACMEApiClient('your-api-key-12345')
 customer_data = client.call_api('/customer-assignments/123')
 ```
 
@@ -1633,8 +1633,8 @@ customer_data = client.call_api('/customer-assignments/123')
 #### Scenario 1: Public Endpoint (Anonymous Consumer)
 ```bash
 # Some endpoints allow anonymous access
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/prices-api-v2/public/catalog
-# Kong uses anonymous consumer: 871df7cc-79f8-4f3b-a195-265f2ecff22a
+curl -X GET https://gateway.example.com/prices-api-v2/public/catalog
+# Kong uses anonymous consumer: 12345678-1234-1234-1234-123456789abc
 ```
 
 #### Scenario 2: Token Expiration Handling
@@ -1683,7 +1683,7 @@ async function fetchMultipleResources(client) {
 #### Test 1: Valid Consumer with API Key
 ```bash
 # Should return JWT token
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
+curl -X GET https://gateway.example.com/tokens \
   -H "apikey: valid-api-key" \
   -v
 ```
@@ -1691,7 +1691,7 @@ curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
 #### Test 2: Invalid API Key
 ```bash
 # Should return 401 Unauthorized from Kong
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
+curl -X GET https://gateway.example.com/tokens \
   -H "apikey: invalid-key" \
   -v
 ```
@@ -1700,7 +1700,7 @@ curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/tokens \
 ```bash
 # Wait 15+ minutes after getting token, then try to use it
 # Should return 401 or fall back to anonymous consumer
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/customer-assignments \
+curl -X GET https://gateway.example.com/customer-assignments \
   -H "Authorization: Bearer expired-jwt-token" \
   -v
 ```
@@ -1709,7 +1709,7 @@ curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/customer-assignment
 ```bash
 # Services with anonymous consumer configured will work
 # Services without will return 401
-curl -X GET https://gateway.prd.shared-services.eu.pvh.cloud/prices-api-v2/catalog \
+curl -X GET https://gateway.example.com/prices-api-v2/catalog \
   -v
 ```
 
@@ -1761,4 +1761,4 @@ When migrating from .NET Core implementation:
 
 *Document Version: 2.0*
 *Last Updated: January 2025*
-*Service Version: PVH.Services.Authentication v2.0 (Bun/TypeScript)*
+*Service Version: ACME.Services.Authentication v2.0 (Bun/TypeScript)*
