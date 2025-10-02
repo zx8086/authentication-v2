@@ -43,3 +43,6 @@ pids
 # Temporary files
 tmp/
 temp/
+
+# Claude Code documentation
+CLAUDE.md
