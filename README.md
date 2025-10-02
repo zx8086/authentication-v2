@@ -1,7 +1,7 @@
 # Authentication Service
 
 ## Table of Contents
-1. [Executive Summary](#executive-summary)
+1. [Description](#description)
 2. [Architecture Overview](#architecture-overview)
 3. [Kong Gateway Integration Context](#kong-gateway-integration-context)
 4. [Authentication Flow](#authentication-flow)
@@ -16,7 +16,7 @@
 
 ---
 
-## Executive Summary
+## Description
 
 ### Service Purpose
 The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for AOI ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
