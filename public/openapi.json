@@ -5,8 +5,8 @@
     "description": "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
     "version": "1.0.0",
     "contact": {
-      "name": "PVH Corp",
-      "email": "api-support@pvh.com"
+      "name": "Example Corp",
+      "email": "api-support@example.com"
     },
     "license": {
       "name": "Proprietary",
@@ -19,11 +19,11 @@
       "description": "Development server (current)"
     },
     {
-      "url": "https://auth-staging.pvh.com",
+      "url": "https://auth-staging.example.com",
       "description": "Staging server"
     },
     {
-      "url": "https://auth.pvh.com",
+      "url": "https://auth.example.com",
       "description": "Production server"
     }
   ],

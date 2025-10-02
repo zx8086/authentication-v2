@@ -49,7 +49,7 @@ export class NativeBunJWT {
         iss: authority,
         aud: audience,
         name: username,
-        unique_name: `pvhcorp.com#${username}`,
+        unique_name: `example.com#${username}`,
       };
 
       const headerB64 = NativeBunJWT.base64urlEncode(JSON.stringify(header));

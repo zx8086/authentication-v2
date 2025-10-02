@@ -1,10 +1,11 @@
 /* src/openapi-generator.ts */
 
+import pkg from "../package.json" with { type: "json" };
 import type { RouteDefinition } from "./config";
 
 class OpenAPIGenerator {
   private routes: RouteDefinition[] = [];
-  private apiVersion = "1.0.0";
+  private apiVersion = pkg.version || "1.0.0";
   private config: any = null;
 
   registerRoute(route: RouteDefinition): void {
@@ -43,14 +44,14 @@ class OpenAPIGenerator {
 
       if (this.config.server.nodeEnv !== "staging") {
         servers.push({
-          url: "https://auth-staging.pvh.com",
+          url: "https://auth-staging.example.com",
           description: "Staging server",
         });
       }
 
       if (this.config.server.nodeEnv !== "production") {
         servers.push({
-          url: "https://auth.pvh.com",
+          url: "https://auth.example.com",
           description: "Production server",
         });
       }
@@ -62,11 +63,11 @@ class OpenAPIGenerator {
           description: "Development server",
         },
         {
-          url: "https://auth-staging.pvh.com",
+          url: "https://auth-staging.example.com",
           description: "Staging server",
         },
         {
-          url: "https://auth.pvh.com",
+          url: "https://auth.example.com",
           description: "Production server",
         }
       );
@@ -82,8 +83,8 @@ class OpenAPIGenerator {
       description:
         "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
       version: this.apiVersion,
-      contactName: "PVH Corp",
-      contactEmail: "api-support@pvh.com",
+      contactName: "Example Corp",
+      contactEmail: "api-support@example.com",
       licenseName: "Proprietary",
       licenseIdentifier: "UNLICENSED",
     };
@@ -366,7 +367,7 @@ class OpenAPIGenerator {
             version: {
               type: "string",
               description: "Service version",
-              example: "1.0.0",
+              example: pkg.version || "1.0.0",
             },
             uptime: {
               type: "integer",
@@ -432,7 +433,7 @@ class OpenAPIGenerator {
                 serviceVersion: {
                   type: "string",
                   description: "Service version for telemetry",
-                  example: "1.0.0",
+                  example: pkg.version || "1.0.0",
                 },
                 environment: {
                   type: "string",

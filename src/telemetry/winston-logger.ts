@@ -4,6 +4,7 @@ import ecsFormat from "@elastic/ecs-winston-format";
 import { trace } from "@opentelemetry/api";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
 import winston from "winston";
+import pkg from "../../package.json" with { type: "json" };
 import { telemetryConfig } from "./config";
 
 export class WinstonTelemetryLogger {
@@ -21,7 +22,7 @@ export class WinstonTelemetryLogger {
       console.warn("Could not load telemetry config, using fallback values:", error);
       config = {
         serviceName: "authentication-service",
-        serviceVersion: "1.0.0",
+        serviceVersion: pkg.version || "1.0.0",
         environment: "development",
         mode: "console",
       };

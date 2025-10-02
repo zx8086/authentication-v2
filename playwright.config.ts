@@ -36,6 +36,4 @@ export default defineConfig({
       },
     },
   ],
-
-  // webServer disabled - using existing running service
 });

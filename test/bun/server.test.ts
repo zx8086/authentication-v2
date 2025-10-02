@@ -12,7 +12,7 @@ import {
 
 // Mock environment variables
 process.env.JWT_AUTHORITY = "https://localhost:8000";
-process.env.JWT_AUDIENCE = "pvh-api";
+process.env.JWT_AUDIENCE = "example-api";
 process.env.KONG_ADMIN_URL = "http://test-kong:8001";
 process.env.KONG_ADMIN_TOKEN = "test-admin-token";
 process.env.PORT = "3000";
@@ -207,7 +207,7 @@ describe("Authentication Server Integration", () => {
       );
       expect(payload.sub).toBe("test-user");
       expect(payload.iss).toBe("https://localhost:8000");
-      expect(payload.aud).toBe("pvh-api");
+      expect(payload.aud).toBe("example-api");
     });
 
     it("should handle missing consumer ID header", async () => {

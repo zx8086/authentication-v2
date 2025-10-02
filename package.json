@@ -49,7 +49,7 @@
     "typescript",
     "microservice"
   ],
-  "author": "PVH Corp",
+  "author": "Example Corp",
   "license": "UNLICENSED",
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",

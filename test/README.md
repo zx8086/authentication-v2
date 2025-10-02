@@ -231,11 +231,11 @@ export API_BASE_URL=http://authentication-service:3000
 
 **Staging Environment**:
 ```bash
-export TARGET_HOST=staging-auth.pvhcorp.com
+export TARGET_HOST=staging-auth.example.com
 export TARGET_PORT=443
 export TARGET_PROTOCOL=https
 export K6_TIMEOUT=60s
-export API_BASE_URL=https://staging-auth.pvhcorp.com
+export API_BASE_URL=https://staging-auth.example.com
 export K6_HEALTH_P95_THRESHOLD=100    # Relaxed thresholds for staging
 export K6_ERROR_RATE_THRESHOLD=0.02   # Higher tolerance for staging
 ```

@@ -1,6 +1,7 @@
 /* src/telemetry/metrics.ts */
 
 import { type Attributes, metrics, type ObservableResult } from "@opentelemetry/api";
+import pkg from "../../package.json" with { type: "json" };
 import { error, warn } from "../utils/logger";
 
 let isInitialized = false;
@@ -42,7 +43,7 @@ export function initializeMetrics(): void {
 
   const _meterProvider = metrics.getMeterProvider();
 
-  const meter = metrics.getMeter("authentication-service", "1.0.0");
+  const meter = metrics.getMeter("authentication-service", pkg.version || "1.0.0");
 
   httpRequestCounter = meter.createCounter("http_requests_total", {
     description: "Total number of HTTP requests",
@@ -563,7 +564,7 @@ export function getMetricsStatus() {
     },
     meterInfo: {
       name: "authentication-service-metrics",
-      version: "1.0.0",
+      version: pkg.version || "1.0.0",
     },
     systemMetricsCollection: {
       enabled: !!systemMetricsInterval,

@@ -66,7 +66,7 @@ describe('NativeBunJWT', () => {
       expect(payload).toHaveProperty('iss', testAuthority);
       expect(payload).toHaveProperty('aud', testAudience);
       expect(payload).toHaveProperty('name', testUsername);
-      expect(payload).toHaveProperty('unique_name', `pvhcorp.com#${testUsername}`);
+      expect(payload).toHaveProperty('unique_name', `example.com#${testUsername}`);
       expect(payload).toHaveProperty('jti');
       expect(payload).toHaveProperty('iat');
       expect(payload).toHaveProperty('exp');
@@ -110,7 +110,7 @@ describe('NativeBunJWT', () => {
       const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
 
       expect(payload.sub).toBe(specialUsername);
-      expect(payload.unique_name).toBe(`pvhcorp.com#${specialUsername}`);
+      expect(payload.unique_name).toBe(`example.com#${specialUsername}`);
     });
 
     it('should complete within performance threshold', async () => {

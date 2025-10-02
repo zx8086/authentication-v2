@@ -215,8 +215,8 @@ const defaultConfig: AppConfig = {
     description:
       "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
     version: pkg.version || "1.0.0",
-    contactName: "PVH Corp",
-    contactEmail: "simonowusu@pvh.com",
+    contactName: "Example Corp",
+    contactEmail: "api-support@example.com",
     licenseName: "Proprietary",
     licenseIdentifier: "UNLICENSED",
   },

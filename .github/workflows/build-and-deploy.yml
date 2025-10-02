@@ -65,7 +65,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=Authentication Service
             org.opencontainers.image.description=High-performance JWT authentication service
-            org.opencontainers.image.vendor=PVH Corp
+            org.opencontainers.image.vendor=Example Corp
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
 

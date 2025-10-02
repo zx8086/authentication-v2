@@ -135,8 +135,8 @@ Copy `.env.example` to `.env` and configure:
 #### Core Service Settings
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (development/production/test)
-- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (e.g., https://sts-api.pvhcorp.com/)
-- `KONG_JWT_AUDIENCE` - JWT audience claim (e.g., http://api.pvhcorp.com/)
+- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (e.g., https://api.example.com/)
+- `KONG_JWT_AUDIENCE` - JWT audience claim (e.g., https://api.example.com/)
 - `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier
 - `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: KONNECT)
 - `KONG_ADMIN_URL` - Kong Admin API endpoint

@@ -144,7 +144,7 @@ export const environmentConfigs = {
     TIMEOUT: '30s'
   },
   staging: {
-    TARGET_HOST: 'staging-auth.pvhcorp.com',
+    TARGET_HOST: 'staging-auth.example.com',
     TARGET_PORT: '443',
     TARGET_PROTOCOL: 'https',
     TIMEOUT: '60s'

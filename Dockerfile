@@ -82,7 +82,7 @@ ARG VERSION
 
 LABEL org.opencontainers.image.title="Authentication Service" \
       org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
-      org.opencontainers.image.vendor="PVH Corp" \
+      org.opencontainers.image.vendor="Example Corp" \
       org.opencontainers.image.version="${VERSION:-unknown}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

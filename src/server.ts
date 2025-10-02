@@ -1,6 +1,7 @@
 /* src/server.ts */
 
 import { SpanKind, trace } from "@opentelemetry/api";
+import pkg from "../package.json" with { type: "json" };
 import { loadConfig } from "./config/index";
 import { apiDocGenerator } from "./openapi-generator";
 import { NativeBunJWT } from "./services/jwt.service";
@@ -315,7 +316,7 @@ async function handleHealthCheck(span: any): Promise<Response> {
     const health = {
       status: overallHealthy ? "healthy" : "degraded",
       timestamp: new Date().toISOString(),
-      version: "1.0.0",
+      version: pkg.version || "1.0.0",
       uptime: Math.floor(process.uptime()),
       environment: config.server.nodeEnv,
       dependencies: {
@@ -977,7 +978,7 @@ function handleMetrics(): Response {
 log("Authentication Service starting up", {
   component: "server",
   event: "startup_initiated",
-  version: "1.0.0",
+  version: pkg.version || "1.0.0",
   environment: config.server.nodeEnv,
   port: config.server.port,
 });
@@ -1080,7 +1081,7 @@ async function handleRoute(req: Request, url: URL, span: any): Promise<Response>
 let server: any;
 
 try {
-  const tracer = trace.getTracer("authentication-service", "1.0.0");
+  const tracer = trace.getTracer("authentication-service", pkg.version || "1.0.0");
 
   server = Bun.serve({
     port: config.server.port,
