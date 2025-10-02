@@ -409,17 +409,31 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - Response includes any headers set by backend service
 - Client receives final response with requested data
 
-### Flow Diagram
+### Phase 1 Flow Diagram (Getting JWT)
 ```
 ┌──────────┐     ┌─────────┐     ┌───────────┐     ┌──────────┐
 │  Client  │────▶│  Kong   │────▶│   Auth    │────▶│  Kong    │
 │          │◀────│ Gateway │◀────│  Service  │◀────│  Admin   │
 └──────────┘     └─────────┘     └───────────┘     └──────────┘
      │                │                │                 │
-     │ 1. Request     │ 2. Add Headers │ 3. Get Secret  │
+     │ 1. API Key     │ 2. Add Headers │ 3. Get Secret  │
      │                │                │                 │
-     │ 8. JWT Token   │ 7. Response    │ 4. Secret      │
+     │ 7. JWT Token   │ 6. JWT Response│ 4. Secret      │
      ▼                ▼                ▼                 ▼
+```
+
+### Phase 2 Flow Diagram (Using JWT)
+```
+┌──────────┐     ┌─────────┐     ┌───────────┐
+│  Client  │────▶│  Kong   │────▶│  Backend  │
+│          │◀────│ Gateway │◀────│  Service  │
+└──────────┘     └─────────┘     └───────────┘
+     │                │                │
+     │ 1. JWT Token   │ 2. Validate    │ 3. Process
+     │                │    & Forward   │    Request
+     │                │                │
+     │ 6. Response    │ 5. Response    │ 4. Data
+     ▼                ▼                ▼
 ```
 
 ---
