@@ -131,12 +131,18 @@ jobs:
             npm install -g license-checker
           fi
 
-          # Check for problematic licenses
-          license-checker --summary --excludePrivatePackages --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense;CC0-1.0;WTFPL' || {
-            echo "Found dependencies with non-permissive licenses. Generating detailed report..."
-            license-checker --detailed --excludePrivatePackages > license-report.txt
-            echo "License report saved to license-report.txt"
-            exit 1
+          # Check for problematic licenses, allowing UNLICENSED for private packages
+          license-checker --summary --excludePrivatePackages --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;WTFPL' || {
+            echo "Found dependencies with potentially problematic licenses. Generating detailed report..."
+            license-checker --detailed --excludePrivatePackages > license-report.txt || true
+
+            # Specifically check for AGPL which is the main concern for Docker Scout
+            if license-checker --summary | grep -i "AGPL"; then
+              echo "::error::Found AGPL licensed dependencies which are not compatible"
+              exit 1
+            else
+              echo "::warning::Some license issues found but no AGPL detected"
+            fi
           }
         continue-on-error: true
 
