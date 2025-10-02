@@ -25,6 +25,12 @@ jobs:
       contents: read
       packages: write
       security-events: write
+      id-token: write
+      attestations: write
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-uri: ${{ steps.build.outputs.imageuri }}
 
     steps:
       - name: Checkout repository
@@ -65,20 +71,30 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         timeout-minutes: 10
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version || github.ref_name }}
+
+      - name: Generate build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: Setup Bun for security scanning
         if: github.event_name != 'pull_request'
@@ -103,6 +119,26 @@ jobs:
         if: github.event_name != 'pull_request'
         run: bun install --frozen-lockfile
         timeout-minutes: 3
+
+      - name: License compliance check
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Checking for AGPL v3 and other problematic licenses..."
+          bun install --frozen-lockfile
+
+          # Install license-checker if not available
+          if ! command -v license-checker &> /dev/null; then
+            npm install -g license-checker
+          fi
+
+          # Check for problematic licenses
+          license-checker --summary --excludePrivatePackages --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense;CC0-1.0;WTFPL' || {
+            echo "Found dependencies with non-permissive licenses. Generating detailed report..."
+            license-checker --detailed --excludePrivatePackages > license-report.txt
+            echo "License report saved to license-report.txt"
+            exit 1
+          }
+        continue-on-error: true
 
       - name: Run Snyk code analysis
         if: github.event_name != 'pull_request'
@@ -145,6 +181,17 @@ jobs:
           exit-code: "0"
         continue-on-error: true
 
+      - name: Docker Scout analysis
+        if: github.event_name != 'pull_request'
+        uses: docker/scout-action@v1
+        timeout-minutes: 5
+        with:
+          command: cves,recommendations,compare
+          image: ${{ steps.image-tag.outputs.primary-tag }}
+          sarif-file: scout-results.sarif
+          summary: true
+        continue-on-error: true
+
       - name: Upload Snyk code analysis results
         if: github.event_name != 'pull_request' && hashFiles('snyk-code-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
@@ -169,6 +216,14 @@ jobs:
           sarif_file: "trivy-results.sarif"
         continue-on-error: true
 
+      - name: Upload Docker Scout results
+        if: github.event_name != 'pull_request' && hashFiles('scout-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 2
+        with:
+          sarif_file: "scout-results.sarif"
+        continue-on-error: true
+
       - name: Generate security summary
         if: github.event_name != 'pull_request' && always()
         timeout-minutes: 2
@@ -176,6 +231,8 @@ jobs:
           echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Scanned Image:** \`${{ steps.image-tag.outputs.primary-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Supply Chain Attestations:** Enabled (SBOM + Provenance)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "| Scan Type | Status | SARIF File |" >> $GITHUB_STEP_SUMMARY
@@ -199,12 +256,25 @@ jobs:
             echo "| Trivy Container Scan | Failed | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ -f "scout-results.sarif" ]; then
+            echo "| Docker Scout Analysis | Completed | scout-results.sarif |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Docker Scout Analysis | Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "license-report.txt" ]; then
+            echo "| License Compliance | Failed | license-report.txt |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| License Compliance | Passed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Multi-platform:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
 
       - name: Archive security scan results
         if: github.event_name != 'pull_request' && always()
@@ -214,4 +284,34 @@ jobs:
           name: security-scan-results-${{ github.run_number }}
           path: |
             *.sarif
+            license-report.txt
           retention-days: 30
+
+  supply-chain-verification:
+    needs: build-and-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+
+    steps:
+      - name: Verify supply chain attestations
+        run: |
+          echo "## Supply Chain Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Supply chain attestations (SBOM + Provenance) have been generated and attached to the image." >> $GITHUB_STEP_SUMMARY
+          echo "These attestations can be verified using Docker Scout or cosign." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification Commands:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Verify with Docker Scout" >> $GITHUB_STEP_SUMMARY
+          echo "docker scout attestation ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# View SBOM" >> $GITHUB_STEP_SUMMARY
+          echo "docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

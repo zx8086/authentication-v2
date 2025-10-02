@@ -19,7 +19,7 @@
 ## Executive Summary
 
 ### Service Purpose
-The ACME Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for the ACME ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
+The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for AOI ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
 
 **Important**: This service is NOT a proxy - it's purely a JWT token issuer. Applications obtain a JWT token from this service once, then use that token directly with backend services through Kong Gateway.
 
