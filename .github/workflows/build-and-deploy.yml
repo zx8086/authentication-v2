@@ -20,17 +20,11 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # CRITICAL: Job-level timeout to prevent hanging
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
       security-events: write
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-tags: ${{ steps.meta.outputs.tags }}
-      primary-tag: ${{ steps.extract-tag.outputs.primary-tag }}
-      image-ref: ${{ steps.extract-tag.outputs.image-ref }}
 
     steps:
       - name: Checkout repository
@@ -69,67 +63,15 @@ jobs:
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Extract primary tag and create image reference
-        id: extract-tag
-        timeout-minutes: 2
-        run: |
-          # Debug: Show all metadata outputs
-          echo "=== METADATA DEBUG ==="
-          echo "Tags from metadata action:"
-          echo '${{ steps.meta.outputs.tags }}'
-          echo
-          echo "Version: ${{ steps.meta.outputs.version }}"
-          echo "Labels:"
-          echo '${{ steps.meta.outputs.labels }}'
-          echo "======================="
-
-          # Save tags to a temporary file to handle multiline properly
-          cat > tags.txt << 'EOF'
-          ${{ steps.meta.outputs.tags }}
-          EOF
-
-          # Extract the first non-empty tag
-          PRIMARY_TAG=$(head -n1 tags.txt | tr -d '\n\r' | xargs)
-
-          # Fallback logic if no tags are generated
-          if [ -z "$PRIMARY_TAG" ] || [ "$PRIMARY_TAG" = "''" ]; then
-            echo "⚠️ WARNING: No primary tag found from metadata action"
-            echo "Raw tags content:"
-            cat tags.txt
-
-            # Create fallback tag based on branch/event
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}"
-            elif [ "${{ github.ref_name }}" = "master" ]; then
-              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            else
-              FALLBACK_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
-            fi
-
-            echo "Using fallback tag: $FALLBACK_TAG"
-            PRIMARY_TAG="$FALLBACK_TAG"
-          fi
-
-          echo "Primary tag for scanning: $PRIMARY_TAG"
-          echo "primary-tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
-
-          # Also create a digest-based reference as fallback
-          DIGEST_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          echo "image-ref=$PRIMARY_TAG" >> $GITHUB_OUTPUT
-          echo "digest-base=$DIGEST_REF" >> $GITHUB_OUTPUT
-
-          # Clean up
-          rm -f tags.txt
-
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
-        timeout-minutes: 12  # OPTIMIZED: Reduced from unlimited to 12 minutes
+        timeout-minutes: 10
         with:
           context: .
-          platforms: linux/amd64  # OPTIMIZED: Single platform for faster builds
+          platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags || steps.extract-tag.outputs.primary-tag }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -138,48 +80,15 @@ jobs:
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version || github.ref_name }}
 
-      - name: Run Trivy vulnerability scanner
+      - name: Setup Bun for security scanning
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@master
-        timeout-minutes: 8  # CRITICAL: Step-level timeout
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-          format: "sarif"
-          output: "trivy-results.sarif"
-          timeout: "5m"  # OPTIMIZED: Reduced from 10m to 5m
-          exit-code: "0"  # CRITICAL: Don't fail build on vulnerabilities
-        continue-on-error: true
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        if: github.event_name != 'pull_request' && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 3
-        with:
-          sarif_file: "trivy-results.sarif"
-        continue-on-error: true
-
-  # OPTIMIZED: Separate fast security scan job for non-blocking deployment
-  security-scan-fast:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    timeout-minutes: 12  # CRITICAL: Aggressive timeout for fast scans
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 3
+        timeout-minutes: 2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies
+        if: github.event_name != 'pull_request'
         uses: actions/cache@v4
         timeout-minutes: 2
         with:
@@ -190,163 +99,115 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - name: Install dependencies
+      - name: Install dependencies for security scanning
+        if: github.event_name != 'pull_request'
         run: bun install --frozen-lockfile
         timeout-minutes: 3
 
-      - name: Run Snyk code analysis (fast)
+      - name: Run Snyk code analysis
+        if: github.event_name != 'pull_request'
         uses: snyk/actions/node@master
-        timeout-minutes: 5  # CRITICAL: Step-level timeout
+        timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --timeout=120s
+          args: --severity-threshold=high --sarif-file-output=snyk-code-results.sarif
         continue-on-error: true
 
-      - name: Upload Snyk code analysis results to GitHub Security tab
-        if: hashFiles('snyk-code-results.sarif') != ''
+      - name: Get primary tag for container scanning
+        if: github.event_name != 'pull_request'
+        id: image-tag
+        run: |
+          FIRST_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          echo "primary-tag=$FIRST_TAG" >> $GITHUB_OUTPUT
+          echo "Scanning image: $FIRST_TAG"
+
+      - name: Run Snyk container scan
+        if: github.event_name != 'pull_request'
+        uses: snyk/actions/docker@master
+        timeout-minutes: 8
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ steps.image-tag.outputs.primary-tag }}
+          args: --severity-threshold=high --sarif-file-output=snyk-container-results.sarif
+        continue-on-error: true
+
+      - name: Run Trivy vulnerability scanner
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        timeout-minutes: 5
+        with:
+          image-ref: ${{ steps.image-tag.outputs.primary-tag }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+          timeout: "3m"
+          exit-code: "0"
+        continue-on-error: true
+
+      - name: Upload Snyk code analysis results
+        if: github.event_name != 'pull_request' && hashFiles('snyk-code-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         timeout-minutes: 2
         with:
           sarif_file: "snyk-code-results.sarif"
         continue-on-error: true
 
-  # NEW: Separate comprehensive security scan job (non-blocking)
-  security-scan-comprehensive:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    timeout-minutes: 25  # CRITICAL: Maximum timeout for comprehensive scans
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Log in to Docker Hub for container scan
-        uses: docker/login-action@v3
-        timeout-minutes: 2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Determine image reference for scanning with circuit breaker
-        id: verify-image
-        timeout-minutes: 3
-        run: |
-          # Get outputs from build job
-          PRIMARY_TAG='${{ needs.build-and-push.outputs.primary-tag }}'
-          IMAGE_DIGEST='${{ needs.build-and-push.outputs.image-digest }}'
-          DIGEST_BASE='${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}'
-
-          echo "=== IMAGE REFERENCE DEBUG ==="
-          echo "Primary tag: '$PRIMARY_TAG'"
-          echo "Image digest: '$IMAGE_DIGEST'"
-          echo "Available job outputs:"
-          echo "  image-digest: ${{ needs.build-and-push.outputs.image-digest }}"
-          echo "  image-tags: ${{ needs.build-and-push.outputs.image-tags }}"
-          echo "  primary-tag: ${{ needs.build-and-push.outputs.primary-tag }}"
-          echo "  image-ref: ${{ needs.build-and-push.outputs.image-ref }}"
-          echo "=============================="
-
-          # Determine the best image reference to use
-          if [ -n "$PRIMARY_TAG" ] && [ "$PRIMARY_TAG" != "''" ] && [ "$PRIMARY_TAG" != "null" ]; then
-            IMAGE_REF="$PRIMARY_TAG"
-            echo "✅ Using primary tag: $IMAGE_REF"
-          elif [ -n "$IMAGE_DIGEST" ] && [ "$IMAGE_DIGEST" != "''" ] && [ "$IMAGE_DIGEST" != "null" ]; then
-            IMAGE_REF="${DIGEST_BASE}@${IMAGE_DIGEST}"
-            echo "⚠️  Primary tag unavailable, using digest reference: $IMAGE_REF"
-          else
-            echo "❌ ERROR: Neither primary tag nor digest is available"
-            echo "This indicates a critical issue with the build process"
-            exit 1
-          fi
-
-          # OPTIMIZED: Reduced wait time for image propagation
-          echo "Waiting 15 seconds for image propagation..."
-          sleep 15
-
-          # CIRCUIT BREAKER: Quick verification with timeout
-          echo "Verifying image accessibility with timeout..."
-          if timeout 30 docker manifest inspect "$IMAGE_REF" > /dev/null 2>&1; then
-            echo "✅ Image $IMAGE_REF is accessible"
-            IMAGE_STATUS="accessible"
-          else
-            echo "⚠️  Image not accessible within timeout, proceeding with scan anyway"
-            IMAGE_STATUS="unknown"
-          fi
-
-          echo "image-ref=$IMAGE_REF" >> $GITHUB_OUTPUT
-          echo "image-status=$IMAGE_STATUS" >> $GITHUB_OUTPUT
-
-      - name: Run Snyk container vulnerability scanner with circuit breaker
-        uses: snyk/actions/docker@master
-        timeout-minutes: 15  # CRITICAL: Aggressive step timeout
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ steps.verify-image.outputs.image-ref }}
-          args: --severity-threshold=high --sarif-file-output=snyk-container-results.sarif --timeout=600s --max-depth=20
-        continue-on-error: true
-
-      - name: Upload Snyk container scan results to GitHub Security tab
-        if: hashFiles('snyk-container-results.sarif') != ''
+      - name: Upload Snyk container scan results
+        if: github.event_name != 'pull_request' && hashFiles('snyk-container-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 3
+        timeout-minutes: 2
         with:
           sarif_file: "snyk-container-results.sarif"
         continue-on-error: true
 
+      - name: Upload Trivy scan results
+        if: github.event_name != 'pull_request' && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        timeout-minutes: 2
+        with:
+          sarif_file: "trivy-results.sarif"
+        continue-on-error: true
+
       - name: Generate security summary
-        if: always()
+        if: github.event_name != 'pull_request' && always()
         timeout-minutes: 2
         run: |
-          echo "## 🛡️ Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scanned Image:** \`${{ steps.verify-image.outputs.image-ref }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Image Status:** ${{ steps.verify-image.outputs.image-status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Scanned Image:** \`${{ steps.image-tag.outputs.primary-tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "| Scan Type | Status | SARIF File | Details |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|--------|------------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status | SARIF File |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|------------|" >> $GITHUB_STEP_SUMMARY
 
-          # Trivy scan results
-          if [ -f "trivy-results.sarif" ]; then
-            TRIVY_SIZE=$(wc -c < trivy-results.sarif)
-            echo "| Trivy Container Scan | ✅ Completed | trivy-results.sarif | ${TRIVY_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Trivy Container Scan | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # Snyk code analysis results
           if [ -f "snyk-code-results.sarif" ]; then
-            SNYK_CODE_SIZE=$(wc -c < snyk-code-results.sarif)
-            echo "| Snyk Code Analysis | ✅ Completed | snyk-code-results.sarif | ${SNYK_CODE_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Code Analysis | Completed | snyk-code-results.sarif |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Snyk Code Analysis | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Code Analysis | Failed | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Snyk container scan results
           if [ -f "snyk-container-results.sarif" ]; then
-            SNYK_CONTAINER_SIZE=$(wc -c < snyk-container-results.sarif)
-            echo "| Snyk Container Scan | ✅ Completed | snyk-container-results.sarif | ${SNYK_CONTAINER_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Container Scan | Completed | snyk-container-results.sarif |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Snyk Container Scan | ❌ Failed | N/A | No results file |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Container Scan | Failed | N/A |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "trivy-results.sarif" ]; then
+            echo "| Trivy Container Scan | Completed | trivy-results.sarif |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Trivy Container Scan | Failed | N/A |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Digest:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Archive security scan results
-        if: always()
+        if: github.event_name != 'pull_request' && always()
         uses: actions/upload-artifact@v4
         timeout-minutes: 3
         with:
@@ -354,6 +215,3 @@ jobs:
           path: |
             *.sarif
           retention-days: 30
-
-  # NEW: Optional scheduled comprehensive security audit (runs separately)
-  # This prevents blocking deployments while still providing thorough security scanning
