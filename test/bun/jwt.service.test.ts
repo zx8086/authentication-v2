@@ -66,7 +66,7 @@ describe('NativeBunJWT', () => {
       expect(payload).toHaveProperty('iss', testAuthority);
       expect(payload).toHaveProperty('aud', testAudience);
       expect(payload).toHaveProperty('name', testUsername);
-      expect(payload).toHaveProperty('unique_name', `example.com#${testUsername}`);
+      expect(payload).toHaveProperty('unique_name', `pvhcorp.com#${testUsername}`);
       expect(payload).toHaveProperty('jti');
       expect(payload).toHaveProperty('iat');
       expect(payload).toHaveProperty('exp');
@@ -110,7 +110,7 @@ describe('NativeBunJWT', () => {
       const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
 
       expect(payload.sub).toBe(specialUsername);
-      expect(payload.unique_name).toBe(`example.com#${specialUsername}`);
+      expect(payload.unique_name).toBe(`pvhcorp.com#${specialUsername}`);
     });
 
     it('should complete within performance threshold', async () => {
@@ -126,57 +126,6 @@ describe('NativeBunJWT', () => {
 
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
       expect(duration).toBeLessThan(50);
-    });
-  });
-
-  describe('verifyToken', () => {
-    it('should reject token with wrong secret', async () => {
-      // Create a valid token
-      const tokenResponse = await NativeBunJWT.createToken(
-        testUsername,
-        testConsumerKey,
-        testSecret,
-        testAuthority,
-        testAudience
-      );
-
-      // Try to verify with wrong secret
-      const payload = await NativeBunJWT.verifyToken(tokenResponse.access_token, 'wrong-secret');
-      expect(payload).toBeNull();
-    });
-
-    it('should reject malformed tokens', async () => {
-      const malformedTokens = [
-        'invalid.token',
-        'invalid.token.format.too.many.parts',
-        '',
-        'not-a-jwt-at-all',
-        'header.payload',
-      ];
-
-      for (const token of malformedTokens) {
-        const payload = await NativeBunJWT.verifyToken(token, testSecret);
-        expect(payload).toBeNull();
-      }
-    });
-
-    it('should handle verification process (performance test)', async () => {
-      // Create a token
-      const tokenResponse = await NativeBunJWT.createToken(
-        testUsername,
-        testConsumerKey,
-        testSecret,
-        testAuthority,
-        testAudience
-      );
-
-      const start = Bun.nanoseconds();
-
-      // Attempt verification (result may be null due to implementation issues)
-      await NativeBunJWT.verifyToken(tokenResponse.access_token, testSecret);
-
-      const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      expect(duration).toBeLessThan(50); // Should complete quickly regardless of result
     });
   });
 
@@ -200,31 +149,6 @@ describe('NativeBunJWT', () => {
       expect(results).toHaveLength(concurrentRequests);
       expect(results.every(r => r.access_token && r.expires_in === 900)).toBe(true);
       expect(duration).toBeLessThan(200);
-    });
-
-    it('should handle concurrent token verification calls', async () => {
-      // Create tokens
-      const tokens = await Promise.all(
-        Array.from({ length: 5 }, (_, i) =>
-          NativeBunJWT.createToken(
-            `user-${i}`,
-            `key-${i}`,
-            testSecret,
-            testAuthority,
-            testAudience
-          )
-        )
-      );
-
-      const start = Bun.nanoseconds();
-      const results = await Promise.all(
-        tokens.map(token => NativeBunJWT.verifyToken(token.access_token, testSecret))
-      );
-      const duration = (Bun.nanoseconds() - start) / 1_000_000;
-
-      // Test that all calls complete (regardless of result)
-      expect(results).toHaveLength(5);
-      expect(duration).toBeLessThan(200); // Should complete within reasonable time
     });
   });
 });

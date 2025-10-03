@@ -54,7 +54,11 @@ export class KongKonnectService implements IKongService {
 
     try {
       await this.ensureRealmExists();
-      const consumerUuid = await this.ensureConsumerExists(consumerId);
+      const consumerUuid = await this.getConsumerId(consumerId);
+
+      if (!consumerUuid) {
+        return null;
+      }
 
       const keysUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
 

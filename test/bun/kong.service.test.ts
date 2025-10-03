@@ -53,7 +53,7 @@ describe('KongService', () => {
           return { ok: true, status: 200 };
         }
 
-        // Mock consumer check/creation
+        // Mock consumer check (consumer must exist)
         if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
           return {
             ok: true,
@@ -88,17 +88,31 @@ describe('KongService', () => {
     });
 
     it('should return null when consumer not found', async () => {
-      // Mock 404 response
-      global.fetch = mock(async () => ({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-      })) as any;
+      // Mock 404 response for consumer check
+      global.fetch = mock(async (url) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer not found (404)
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`)) {
+          return {
+            ok: false,
+            status: 404,
+            statusText: 'Not Found',
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
 
       const result = await kongService.getConsumerSecret(testConsumerId);
 
       expect(result).toBeNull();
-      
+
       global.fetch = originalFetch;
     });
 
@@ -108,17 +122,44 @@ describe('KongService', () => {
         total: 0
       };
 
-      // Mock empty response
-      global.fetch = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-      })) as any;
+      // Mock consumer exists but no JWT credentials
+      global.fetch = mock(async (url) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer exists
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock empty JWT credentials
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockResponse,
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
 
       const result = await kongService.getConsumerSecret(testConsumerId);
 
       expect(result).toBeNull();
-      
+
       global.fetch = originalFetch;
     });
 
@@ -215,7 +256,7 @@ describe('KongService', () => {
   });
 
   describe('createConsumerSecret', () => {
-    it('should create a new consumer secret', async () => {
+    it('should create a new consumer secret when consumer exists', async () => {
       const mockCreatedSecret = {
         id: 'new-secret-id-123',
         key: 'new-consumer-key-123',
@@ -263,6 +304,30 @@ describe('KongService', () => {
 
       expect(result).toEqual(mockCreatedSecret);
       expect(global.fetch).toHaveBeenCalledTimes(2); // consumer check, JWT creation
+
+      global.fetch = originalFetch;
+    });
+
+    it('should return null when consumer does not exist', async () => {
+      // Mock consumer not found
+      global.fetch = mock(async (url) => {
+        const urlStr = url.toString();
+
+        // Mock consumer not found (404)
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`)) {
+          return {
+            ok: false,
+            status: 404,
+            statusText: 'Not Found',
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
+
+      const result = await kongService.createConsumerSecret(testConsumerId);
+
+      expect(result).toBeNull();
 
       global.fetch = originalFetch;
     });
@@ -495,20 +560,46 @@ describe('KongService', () => {
         id: 'secret-id-123',
         key: 'consumer-key-123',
         secret: 'consumer-secret-456',
-        consumer: { id: testConsumerId }
+        consumer: { id: 'consumer-uuid-123' }
       };
 
-      // First, successfully cache a secret
-      global.fetch = mock(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [mockSecret], total: 1 }),
-      })) as any;
+      // First, successfully cache a secret with proper Kong flow
+      global.fetch = mock(async (url) => {
+        const urlStr = url.toString();
+
+        // Mock realm check
+        if (urlStr.includes('/realms/default')) {
+          return { ok: true, status: 200 };
+        }
+
+        // Mock consumer exists
+        if (urlStr.includes(`/core-entities/consumers/${testConsumerId}`) && !urlStr.includes('/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              id: 'consumer-uuid-123',
+              username: testConsumerId,
+              custom_id: testConsumerId,
+            }),
+          };
+        }
+
+        // Mock JWT credentials fetch
+        if (urlStr.includes('/core-entities/consumers/consumer-uuid-123/jwt')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [mockSecret], total: 1 }),
+          };
+        }
+
+        return { ok: false, status: 404 };
+      }) as any;
 
       await kongService.getConsumerSecret(testConsumerId);
 
-      // Clear the cache entry but keep it available for stale usage
-      // This simulates cache expiry
+      // Verify the cache is populated
       const stats = kongService.getCacheStats();
       expect(stats.size).toBe(1);
 

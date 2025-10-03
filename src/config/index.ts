@@ -106,7 +106,6 @@ const JwtConfigSchema = z.object({
   issuer: z.string().min(1).optional(),
   keyClaimName: z.string().min(1),
   expirationMinutes: z.number().min(1),
-  validateSignature: z.boolean(),
 });
 
 const KongConfigSchema = z.object({
@@ -192,7 +191,6 @@ const defaultConfig: AppConfig = {
     issuer: "",
     keyClaimName: "key",
     expirationMinutes: 15,
-    validateSignature: false,
   },
   kong: {
     mode: "KONNECT",
@@ -239,7 +237,6 @@ const envVarMapping = {
     issuer: "KONG_JWT_ISSUER",
     keyClaimName: "KONG_JWT_KEY_CLAIM_NAME",
     expirationMinutes: "JWT_EXPIRATION_MINUTES",
-    validateSignature: "KONG_JWT_VALIDATE_SIGNATURE",
   },
   kong: {
     mode: "KONG_MODE",
@@ -342,11 +339,6 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       "number",
       defaultConfig.jwt.expirationMinutes
     ) as number,
-    validateSignature: parseEnvVar(
-      Bun.env[envVarMapping.jwt.validateSignature],
-      "boolean",
-      defaultConfig.jwt.validateSignature
-    ) as boolean,
   };
 
   config.kong = {
@@ -383,11 +375,16 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       defaultConfig.telemetry.serviceVersion
     ) as string,
 
-    environment: parseEnvVar(
-      Bun.env[envVarMapping.telemetry.environment],
-      "string",
-      config.server?.nodeEnv || defaultConfig.telemetry.environment
-    ) as "local" | "development" | "staging" | "production",
+    environment: (() => {
+      const env = parseEnvVar(
+        Bun.env[envVarMapping.telemetry.environment],
+        "string",
+        config.server?.nodeEnv || defaultConfig.telemetry.environment
+      ) as string;
+      // Map "test" to "local" for testing purposes
+      if (env === "test") return "local";
+      return env as "local" | "development" | "staging" | "production";
+    })(),
 
     mode: parseEnvVar(
       Bun.env[envVarMapping.telemetry.mode],
