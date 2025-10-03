@@ -41,12 +41,10 @@ build/
 .nuxt/
 out/
 
-# Environment and config files
+# Environment and config files (exclude ALL env files except .env.example)
 .env
-.env.local
-.env.*.local
-.env.test
-.env.production
+.env.*
+!.env.example
 
 # Logs
 logs/
@@ -104,3 +102,6 @@ playwright.config*
 k6/
 perf/
 benchmark/
+
+# Old .NET version (for reference only)
+old/

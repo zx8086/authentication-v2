@@ -59,7 +59,7 @@ export const JWTPayloadSchema = z.object({
   iat: z.number(),
   exp: z.number(),
   iss: z.string(),
-  aud: z.string(),
+  aud: z.union([z.string(), z.array(z.string())]),
   name: z.string(),
   unique_name: z.string(),
 });
@@ -103,8 +103,10 @@ const ServerConfigSchema = z.object({
 const JwtConfigSchema = z.object({
   authority: z.string().min(1),
   audience: z.string().min(1),
+  issuer: z.string().min(1).optional(),
   keyClaimName: z.string().min(1),
   expirationMinutes: z.number().min(1),
+  validateSignature: z.boolean(),
 });
 
 const KongConfigSchema = z.object({
@@ -124,6 +126,7 @@ const ApiInfoConfigSchema = z.object({
   contactEmail: z.email().describe("Contact email"),
   licenseName: z.string().min(1).describe("License name"),
   licenseIdentifier: z.string().min(1).describe("License identifier"),
+  cors: z.string().min(1).describe("CORS origin configuration"),
 });
 
 const TelemetryConfigSchema = z
@@ -131,7 +134,7 @@ const TelemetryConfigSchema = z
     serviceName: z.string().min(1).describe("Service identifier for telemetry"),
     serviceVersion: z.string().min(1).describe("Service version for telemetry"),
     environment: z
-      .enum(["development", "staging", "production"])
+      .enum(["local", "development", "staging", "production"])
       .describe("Deployment environment"),
     mode: z.enum(["console", "otlp", "both"]),
 
@@ -186,8 +189,10 @@ const defaultConfig: AppConfig = {
   jwt: {
     authority: "",
     audience: "",
+    issuer: "",
     keyClaimName: "key",
     expirationMinutes: 15,
+    validateSignature: false,
   },
   kong: {
     mode: "KONNECT",
@@ -219,6 +224,7 @@ const defaultConfig: AppConfig = {
     contactEmail: "api-support@example.com",
     licenseName: "Proprietary",
     licenseIdentifier: "UNLICENSED",
+    cors: "*",
   },
 };
 
@@ -230,8 +236,10 @@ const envVarMapping = {
   jwt: {
     authority: "KONG_JWT_AUTHORITY",
     audience: "KONG_JWT_AUDIENCE",
+    issuer: "KONG_JWT_ISSUER",
     keyClaimName: "KONG_JWT_KEY_CLAIM_NAME",
     expirationMinutes: "JWT_EXPIRATION_MINUTES",
+    validateSignature: "KONG_JWT_VALIDATE_SIGNATURE",
   },
   kong: {
     mode: "KONG_MODE",
@@ -259,6 +267,7 @@ const envVarMapping = {
     contactEmail: "API_CONTACT_EMAIL",
     licenseName: "API_LICENSE_NAME",
     licenseIdentifier: "API_LICENSE_IDENTIFIER",
+    cors: "API_CORS",
   },
 } as const;
 
@@ -318,6 +327,11 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       "string",
       defaultConfig.jwt.audience
     ) as string,
+    issuer: parseEnvVar(
+      Bun.env[envVarMapping.jwt.issuer],
+      "string",
+      Bun.env[envVarMapping.jwt.authority] || defaultConfig.jwt.issuer
+    ) as string,
     keyClaimName: parseEnvVar(
       Bun.env[envVarMapping.jwt.keyClaimName],
       "string",
@@ -328,6 +342,11 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       "number",
       defaultConfig.jwt.expirationMinutes
     ) as number,
+    validateSignature: parseEnvVar(
+      Bun.env[envVarMapping.jwt.validateSignature],
+      "boolean",
+      defaultConfig.jwt.validateSignature
+    ) as boolean,
   };
 
   config.kong = {
@@ -368,7 +387,7 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       Bun.env[envVarMapping.telemetry.environment],
       "string",
       config.server?.nodeEnv || defaultConfig.telemetry.environment
-    ) as "development" | "staging" | "production",
+    ) as "local" | "development" | "staging" | "production",
 
     mode: parseEnvVar(
       Bun.env[envVarMapping.telemetry.mode],
@@ -453,6 +472,11 @@ function loadConfigFromEnv(): Partial<AppConfig> {
       Bun.env[envVarMapping.apiInfo.licenseIdentifier],
       "string",
       defaultConfig.apiInfo.licenseIdentifier
+    ) as string,
+    cors: parseEnvVar(
+      Bun.env[envVarMapping.apiInfo.cors],
+      "string",
+      defaultConfig.apiInfo.cors
     ) as string,
   };
 

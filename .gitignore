@@ -2,10 +2,10 @@
 node_modules/
 bun.lockb
 
-# Environment variables
+# Environment variables (only .env.example is tracked)
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
 # Build outputs
 dist/
@@ -46,3 +46,6 @@ temp/
 
 # Claude Code documentation
 CLAUDE.md
+
+# Old .NET version (for reference only)
+old/

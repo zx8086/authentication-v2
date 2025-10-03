@@ -129,14 +129,51 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - Creates and caches JWT credentials for Kong consumers
 - Health checks Kong Admin API connectivity
 
-### Environment Configuration
-Copy `.env.example` to `.env` and configure:
+### Environment Configuration Strategy
+
+#### File Structure
+```
+.env                    # Your local development (NODE_ENV=local)
+.env.dev                # Development environment
+.env.staging            # Staging environment
+.env.production         # Production environment
+.env.test              # Test environment (with console logs)
+
+.env.example           # Template for .env file (committed to git)
+.env.*.example         # Template files for each environment (committed to git)
+```
+
+#### How Bun Loads Environment Files
+1. **Always loads `.env` first** (your local settings)
+2. **Then loads environment-specific file** based on NODE_ENV:
+   - `NODE_ENV=local` → uses `.env` only (your local machine)
+   - `NODE_ENV=development` → loads `.env` then `.env.development` (overrides)
+   - `NODE_ENV=staging` → loads `.env` then `.env.staging` (overrides)
+   - `NODE_ENV=production` → loads `.env` then `.env.production` (overrides)
+   - `NODE_ENV=test` → loads `.env` then `.env.test` (overrides)
+
+#### Usage Examples
+```bash
+# Local development (your machine)
+bun run dev                              # Uses .env with NODE_ENV=local
+
+# Development environment
+NODE_ENV=development bun run dev         # Uses .env + .env.development
+
+# Test mode with console logs
+NODE_ENV=test bun run dev                # Uses .env + .env.test
+
+# Production mode
+NODE_ENV=production bun run start        # Uses .env + .env.production
+```
 
 #### Core Service Settings
 - `PORT` - Server port (default: 3000)
-- `NODE_ENV` - Environment (development/production/test)
-- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (e.g., https://api.example.com/)
-- `KONG_JWT_AUDIENCE` - JWT audience claim (e.g., https://api.example.com/)
+- `NODE_ENV` - Environment (local/development/staging/production/test)
+- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (supports comma-separated values)
+- `KONG_JWT_AUDIENCE` - JWT audience claim (supports comma-separated values)
+- `KONG_JWT_ISSUER` - JWT issuer(s) (supports comma-separated values)
+- `KONG_JWT_VALIDATE_SIGNATURE` - Whether to validate JWT signatures (true/false)
 - `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier
 - `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: KONNECT)
 - `KONG_ADMIN_URL` - Kong Admin API endpoint

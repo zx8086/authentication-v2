@@ -11,7 +11,8 @@ export class NativeBunJWT {
     consumerKey: string,
     consumerSecret: string,
     authority: string,
-    audience: string
+    audience: string,
+    issuer?: string
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
@@ -40,16 +41,19 @@ export class NativeBunJWT {
       const now = Math.floor(Date.now() / 1000);
       const expirationTime = now + 900;
 
+      const audiences = audience.split(",").map((a) => a.trim());
+      const issuers = (issuer || authority).split(",").map((i) => i.trim());
+
       const payload: JWTPayload = {
         sub: username,
         key: consumerKey,
         jti: crypto.randomUUID(),
         iat: now,
         exp: expirationTime,
-        iss: authority,
-        aud: audience,
+        iss: issuers[0],
+        aud: audiences.length === 1 ? audiences[0] : audiences,
         name: username,
-        unique_name: `example.com#${username}`,
+        unique_name: `pvhcorp.com#${username}`,
       };
 
       const headerB64 = NativeBunJWT.base64urlEncode(JSON.stringify(header));
@@ -92,7 +96,13 @@ export class NativeBunJWT {
     }
   }
 
-  static async verifyToken(token: string, consumerSecret: string): Promise<JWTPayload | null> {
+  static async verifyToken(
+    token: string,
+    consumerSecret: string,
+    validateSignature: boolean = true,
+    expectedAudiences?: string,
+    expectedIssuers?: string
+  ): Promise<JWTPayload | null> {
     const startTime = Bun.nanoseconds();
 
     const tracer = trace.getTracer("authentication-service");
@@ -111,27 +121,28 @@ export class NativeBunJWT {
       const [headerB64, payloadB64, signatureB64] = parts;
       const message = `${headerB64}.${payloadB64}`;
 
-      const key = await crypto.subtle.importKey(
-        "raw",
-        NativeBunJWT.encoder.encode(consumerSecret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["verify"]
-      );
+      if (validateSignature) {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          NativeBunJWT.encoder.encode(consumerSecret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["verify"]
+        );
 
-      const signature = Uint8Array.from(atob(NativeBunJWT.base64urlDecode(signatureB64)), (c) =>
-        c.charCodeAt(0)
-      );
+        const decodedSig = NativeBunJWT.base64urlDecode(signatureB64);
+        const signature = Uint8Array.from(decodedSig, (c) => c.charCodeAt(0));
 
-      const isValid = await crypto.subtle.verify(
-        "HMAC",
-        key,
-        signature,
-        NativeBunJWT.encoder.encode(message)
-      );
+        const isValid = await crypto.subtle.verify(
+          "HMAC",
+          key,
+          signature,
+          NativeBunJWT.encoder.encode(message)
+        );
 
-      if (!isValid) {
-        throw new Error("Invalid token signature");
+        if (!isValid) {
+          throw new Error("Invalid token signature");
+        }
       }
 
       const payloadJson = NativeBunJWT.base64urlDecode(payloadB64);
@@ -140,6 +151,23 @@ export class NativeBunJWT {
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
         throw new Error("Token expired");
+      }
+
+      if (expectedAudiences) {
+        const validAudiences = expectedAudiences.split(",").map((a) => a.trim());
+        const tokenAudiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+        const hasValidAudience = tokenAudiences.some((aud) => validAudiences.includes(aud));
+
+        if (!hasValidAudience) {
+          throw new Error(`Invalid audience. Expected one of: ${validAudiences.join(", ")}`);
+        }
+      }
+
+      if (expectedIssuers) {
+        const validIssuers = expectedIssuers.split(",").map((i) => i.trim());
+        if (!validIssuers.includes(payload.iss)) {
+          throw new Error(`Invalid issuer. Expected one of: ${validIssuers.join(", ")}`);
+        }
       }
 
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;

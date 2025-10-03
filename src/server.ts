@@ -141,6 +141,10 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
           headers: {
             "Content-Type": "application/json",
             "X-Request-Id": requestId,
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization, X-Consumer-Id, X-Consumer-Username",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           },
         }
       );
@@ -208,6 +212,10 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
             headers: {
               "Content-Type": "application/json",
               "X-Request-Id": requestId,
+              "Access-Control-Allow-Origin": config.apiInfo.cors,
+              "Access-Control-Allow-Headers":
+                "Content-Type, Authorization, X-Consumer-Id, X-Consumer-Username",
+              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
             },
           }
         );
@@ -222,7 +230,8 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
       consumerSecret.key,
       consumerSecret.secret,
       config.jwt.authority,
-      config.jwt.audience
+      config.jwt.audience,
+      config.jwt.issuer
     );
     const jwtDuration = (Bun.nanoseconds() - jwtStart) / 1_000_000;
 
@@ -257,6 +266,10 @@ async function handleTokenRequest(req: Request, span: any): Promise<Response> {
         "Content-Type": "application/json",
         "X-Request-Id": requestId,
         "X-Trace-Id": span.spanContext().traceId,
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization, X-Consumer-Id, X-Consumer-Username",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       },
     });
   } catch (err) {
@@ -391,7 +404,12 @@ async function handleHealthCheck(span: any): Promise<Response> {
 
     return new Response(JSON.stringify(health, null, 2), {
       status,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      },
     });
   } catch (err) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -463,7 +481,12 @@ function handleTelemetryHealth(): Response {
 
         return new Response(JSON.stringify(telemetryStatus, null, 2), {
           status: 200,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+          },
         });
       } catch (err) {
         const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -579,7 +602,12 @@ function handleMetricsHealth(): Response {
 
     return new Response(JSON.stringify(metricsHealth, null, 2), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      },
     });
   } catch (error) {
     return new Response(
@@ -837,6 +865,9 @@ function handleOpenAPISpec(acceptHeader?: string): Response {
         "Cache-Control": "public, max-age=300",
         "X-API-Version": openApiSpec.info.version,
         "X-Generated-At": new Date().toISOString(),
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
       },
     });
   } catch (error) {
@@ -950,7 +981,12 @@ function handleMetrics(): Response {
 
     return new Response(JSON.stringify(metrics, null, 2), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      },
     });
   } catch (err) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -1042,6 +1078,19 @@ const routes = {
 } as const;
 
 async function handleRoute(req: Request, url: URL, span: any): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization, X-Consumer-Id, X-Consumer-Username, X-Anonymous-Consumer",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
   const routeKey = `${req.method} ${url.pathname}` as keyof typeof routes;
   const handler = routes[routeKey];
 
@@ -1073,6 +1122,9 @@ async function handleRoute(req: Request, url: URL, span: any): Promise<Response>
         "Content-Type": "application/json",
         "X-Request-Id": requestId,
         "X-Trace-Id": span.spanContext().traceId,
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       },
     }
   );

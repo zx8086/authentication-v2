@@ -6,6 +6,9 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "bun run generate-docs && bun src/server.ts",
+    "dev:development": "bun run generate-docs && cp .env.dev .env.development && NODE_ENV=development bun src/server.ts; rm .env.development",
+    "dev:staging": "bun run generate-docs && cp .env.stg .env.staging && NODE_ENV=staging bun src/server.ts; rm .env.staging",
+    "dev:production": "bun run generate-docs && cp .env.prod .env.production && NODE_ENV=production bun src/server.ts; rm .env.production",
     "start": "bun run src/server.ts",
     "build": "bun run generate-docs && bun build src/server.ts --target=bun --outdir=dist --minify",
     "test": "bun test",

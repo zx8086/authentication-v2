@@ -68,7 +68,7 @@ export class WinstonTelemetryLogger {
       );
     }
 
-    if (mode === "otlp") {
+    if (mode === "otlp" || mode === "both") {
       transports.push(new OpenTelemetryTransportV3());
     }
 

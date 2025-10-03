@@ -49,8 +49,6 @@ WORKDIR /app
 # Copy production dependencies with proper ownership
 COPY --from=deps-prod --chown=bunuser:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=bunuser:nodejs /app/package.json ./
-
-# Copy built application and source files with proper ownership
 COPY --from=builder --chown=bunuser:nodejs /app/dist ./dist
 COPY --from=builder --chown=bunuser:nodejs /app/src ./src
 COPY --from=builder --chown=bunuser:nodejs /app/public ./public
@@ -83,7 +81,7 @@ ARG VERSION
 LABEL org.opencontainers.image.title="Authentication Service" \
       org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
       org.opencontainers.image.vendor="Example Corp" \
-      org.opencontainers.image.version="${VERSION:-unknown}" \
+      org.opencontainers.image.version="${VERSION:-1.0.0}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="UNLICENSED" \
