@@ -621,18 +621,34 @@ try {
 
 ## Configuration Guide
 
+### 4-Pillar Configuration Architecture
+
+The authentication service implements a robust 4-pillar configuration pattern with comprehensive security validation:
+
+#### Configuration Structure
+1. **Pillar 1**: Default Configuration Object - All baseline values with secure defaults
+2. **Pillar 2**: Environment Variable Mapping - Explicit mapping with type safety
+3. **Pillar 3**: Manual Configuration Loading - Controlled loading with proper fallbacks
+4. **Pillar 4**: Validation at End - Comprehensive Zod v4 schema validation
+
+#### Production Security Features
+- **HTTPS Enforcement**: All telemetry endpoints must use HTTPS in production
+- **Token Security Validation**: Minimum 32-character requirement for Kong admin tokens
+- **Environment Validation**: Prevents localhost URLs and weak configurations in production
+- **Configuration Immutability**: Runtime configuration changes are prevented
+
 ### Required Environment Variables
 
 #### Kong Integration
-| Variable | Description | Example | Required |
-|----------|-------------|---------|----------|
-| `KONG_MODE` | Kong deployment mode | `API_GATEWAY` or `KONNECT` | Yes |
-| `KONG_ADMIN_URL` | Kong Admin API endpoint | `http://kong-admin:8001` or `https://us.api.konghq.com/v2/control-planes/abc123` | Yes |
-| `KONG_ADMIN_TOKEN` | Kong Admin API authentication token | `Bearer xyz789...` | Yes |
-| `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts-api.example.com/` | Yes |
-| `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.example.com/` | Yes |
-| `KONG_JWT_KEY_CLAIM_NAME` | Claim name for consumer key | `key` or `iss` | No (default: `key`) |
-| `JWT_EXPIRATION_MINUTES` | Token expiration in minutes | `15` | No (default: `15`) |
+| Variable | Description | Example | Security Notes | Required |
+|----------|-------------|---------|----------------|----------|
+| `KONG_MODE` | Kong deployment mode | `API_GATEWAY` or `KONNECT` | Validated enum values | Yes |
+| `KONG_ADMIN_URL` | Kong Admin API endpoint | `http://kong-admin:8001` or `https://us.api.konghq.com/v2/control-planes/abc123` | HTTPS required in production | Yes |
+| `KONG_ADMIN_TOKEN` | Kong Admin API authentication token | `Bearer xyz789...` | Minimum 32 characters in production | Yes |
+| `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts-api.example.com/` | HTTPS required in production | Yes |
+| `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.example.com/` | Domain validation enforced | Yes |
+| `KONG_JWT_KEY_CLAIM_NAME` | Claim name for consumer key | `key` or `iss` | Validated against allowed values | No (default: `key`) |
+| `JWT_EXPIRATION_MINUTES` | Token expiration in minutes | `15` | Range: 1-60 minutes | No (default: `15`) |
 
 #### Application Settings
 | Variable | Description | Example | Required |
@@ -642,18 +658,19 @@ try {
 | `API_CORS` | Allowed CORS origins | `https://webapp.example.com` | No |
 
 #### OpenTelemetry Configuration
-| Variable | Description | Example | Required |
-|----------|-------------|---------|----------|
-| `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | No (default: `console`) |
-| `OTEL_SERVICE_NAME` | Service name for telemetry | `authentication-service` | No |
-| `OTEL_SERVICE_VERSION` | Service version | `1.0.0` | No |
-| `OTEL_DEPLOYMENT_ENVIRONMENT` | Deployment environment | `production` | No |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | OTLP traces endpoint | `https://otel.example.com/v1/traces` | No |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | OTLP metrics endpoint | `https://otel.example.com/v1/metrics` | No |
-| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | OTLP logs endpoint | `https://otel.example.com/v1/logs` | No |
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout in ms | `10000` | No |
-| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for exports | `512` | No |
-| `OTEL_BSP_MAX_QUEUE_SIZE` | Maximum queue size | `2048` | No |
+| Variable | Description | Example | Security Notes | Required |
+|----------|-------------|---------|----------------|----------|
+| `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | Controls telemetry enablement | No (default: `console`) |
+| `OTEL_SERVICE_NAME` | Service name for telemetry | `authentication-service` | No localhost/test in production | No |
+| `OTEL_SERVICE_VERSION` | Service version | `1.0.0` | No dev/latest in production | No |
+| `NODE_ENV` | Deployment environment | `production` | Maps to telemetry environment | No |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint | `https://otel.example.com` | HTTPS required in production | No |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | OTLP traces endpoint | `https://otel.example.com/v1/traces` | HTTPS required in production | No |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | OTLP metrics endpoint | `https://otel.example.com/v1/metrics` | HTTPS required in production | No |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | OTLP logs endpoint | `https://otel.example.com/v1/logs` | HTTPS required in production | No |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout in ms | `30000` | Range: 1000-60000ms | No |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for exports | `2048` | Range: 1-5000 | No |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | Maximum queue size | `10000` | Range: 1-50000 | No |
 
 #### API Documentation Configuration
 | Variable | Description | Example | Required |
@@ -665,6 +682,34 @@ try {
 | `API_CONTACT_EMAIL` | Contact email | `api-support@example.com` | No |
 | `API_LICENSE_NAME` | License name | `Proprietary` | No |
 | `API_LICENSE_IDENTIFIER` | License identifier | `UNLICENSED` | No |
+
+### Configuration Architecture Implementation
+
+#### Core Configuration Files
+- **`src/config/schemas.ts`**: Zod v4 schema definitions with top-level format functions
+- **`src/config/config.ts`**: 4-pillar configuration implementation with security validation
+- **`src/config/index.ts`**: Re-export hub for clean module imports
+
+#### Security Validation Features
+```typescript
+// Production environment validation
+if (environment === "production") {
+  // HTTPS endpoint validation
+  if (endpoint && !endpoint.startsWith("https://")) {
+    throw new Error("Production requires HTTPS endpoints");
+  }
+
+  // Service name validation
+  if (serviceName.includes("localhost") || serviceName.includes("test")) {
+    throw new Error("Production service name cannot contain localhost or test references");
+  }
+
+  // Version validation
+  if (serviceVersion === "dev" || serviceVersion === "latest") {
+    throw new Error("Production requires specific version, not dev or latest");
+  }
+}
+```
 
 ### Package Dependencies
 
@@ -686,7 +731,8 @@ try {
     "@opentelemetry/sdk-trace-node": "^1.30.0",
     "@opentelemetry/semantic-conventions": "^1.30.0",
     "@opentelemetry/winston-transport": "^0.8.0",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

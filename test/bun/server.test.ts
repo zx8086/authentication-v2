@@ -10,11 +10,14 @@ import {
   mock,
 } from "bun:test";
 
-// Mock environment variables
-process.env.JWT_AUTHORITY = "https://localhost:8000";
-process.env.JWT_AUDIENCE = "example-api";
+// Mock environment variables for new configuration system
+process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
+process.env.KONG_JWT_AUDIENCE = "example-api";
 process.env.KONG_ADMIN_URL = "http://test-kong:8001";
-process.env.KONG_ADMIN_TOKEN = "test-admin-token";
+process.env.KONG_ADMIN_TOKEN = "test-admin-token-123456789012345678901234567890";
+process.env.KONG_MODE = "KONNECT";
+process.env.NODE_ENV = "test";
+process.env.TELEMETRY_MODE = "console";
 process.env.PORT = "3000";
 
 describe("Authentication Server Integration", () => {

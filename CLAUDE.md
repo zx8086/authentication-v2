@@ -99,9 +99,18 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - **Config Management** (`src/telemetry/config.ts`): Environment-based telemetry configuration with validation
 
 ### Configuration Management
-- Environment-based configuration in `src/config/index.ts`
+- **4-Pillar Configuration Pattern** implemented in `src/config/` directory
+- **Core Files**:
+  - `src/config/schemas.ts` - Zod v4 schema definitions with top-level format functions
+  - `src/config/config.ts` - 4-pillar configuration implementation with security validation
+  - `src/config/index.ts` - Re-export hub for clean module imports
+- **Security Features**:
+  - HTTPS endpoint validation in production environments
+  - Token security validation (minimum 32-character requirement)
+  - Environment-specific validation rules (no localhost/test in production)
+  - Configuration immutability to prevent runtime mutations
 - Required environment variables: `KONG_JWT_AUTHORITY`, `KONG_JWT_AUDIENCE`, `KONG_ADMIN_URL`, `KONG_ADMIN_TOKEN`
-- Configuration validation with detailed error messages for missing variables
+- Comprehensive validation with detailed error messages and production readiness checks
 
 ### API Endpoints
 - `GET /tokens` - JWT token issuance (requires Kong consumer headers)
@@ -170,27 +179,28 @@ NODE_ENV=production bun run start        # Uses .env + .env.production
 #### Core Service Settings
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (local/development/staging/production/test)
-- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (supports comma-separated values)
-- `KONG_JWT_AUDIENCE` - JWT audience claim (supports comma-separated values)
-- `KONG_JWT_ISSUER` - JWT issuer(s) (supports comma-separated values)
-- `KONG_JWT_VALIDATE_SIGNATURE` - Whether to validate JWT signatures (true/false)
-- `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier
-- `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: KONNECT)
-- `KONG_ADMIN_URL` - Kong Admin API endpoint
+- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (HTTPS required in production)
+- `KONG_JWT_AUDIENCE` - JWT audience claim (domain validation enforced)
+- `KONG_JWT_ISSUER` - JWT issuer (falls back to authority if not specified)
+- `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier (default: 'key')
+- `JWT_EXPIRATION_MINUTES` - Token expiration in minutes (range: 1-60, default: 15)
+- `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: API_GATEWAY)
+- `KONG_ADMIN_URL` - Kong Admin API endpoint (HTTPS required in production)
   - For API_GATEWAY mode: `http://kong-gateway:8001`
   - For KONNECT mode: `https://region.api.konghq.com/v2/control-planes/{id}`
-- `KONG_ADMIN_TOKEN` - Kong Admin API authentication token
+- `KONG_ADMIN_TOKEN` - Kong Admin API authentication token (minimum 32 characters in production)
 
 #### OpenTelemetry Configuration
 - `TELEMETRY_MODE` - Telemetry mode: `console` (disabled), `otlp`, or `both` (determines if telemetry is enabled)
-- `OTEL_SERVICE_NAME` - Service name for telemetry (default: authentication-service)
-- `OTEL_SERVICE_VERSION` - Service version (default: from package.json)
-- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` - OTLP traces endpoint
-- `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` - OTLP metrics endpoint
-- `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` - OTLP logs endpoint
-- `OTEL_EXPORTER_OTLP_TIMEOUT` - Export timeout in milliseconds
-- `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` - Batch size for exports
-- `OTEL_BSP_MAX_QUEUE_SIZE` - Maximum queue size
+- `OTEL_SERVICE_NAME` - Service name for telemetry (no localhost/test in production, default: authentication-service)
+- `OTEL_SERVICE_VERSION` - Service version (no dev/latest in production, default: from package.json)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` - Base OTLP endpoint for automatic endpoint derivation
+- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` - OTLP traces endpoint (HTTPS required in production)
+- `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` - OTLP metrics endpoint (HTTPS required in production)
+- `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` - OTLP logs endpoint (HTTPS required in production)
+- `OTEL_EXPORTER_OTLP_TIMEOUT` - Export timeout in milliseconds (range: 1000-60000, default: 30000)
+- `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` - Batch size for exports (range: 1-5000, default: 2048)
+- `OTEL_BSP_MAX_QUEUE_SIZE` - Maximum queue size (range: 1-50000, default: 10000)
 
 #### Testing Configuration
 

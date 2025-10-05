@@ -79,10 +79,10 @@ ARG VCS_REF
 ARG VERSION
 
 LABEL org.opencontainers.image.title="Authentication Service" \
-      org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
-      org.opencontainers.image.vendor="Example Corp" \
-      org.opencontainers.image.version="${VERSION:-1.0.0}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.licenses="UNLICENSED" \
-      org.opencontainers.image.base.name="oven/bun:1.2.21-alpine"
+    org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
+    org.opencontainers.image.vendor="Example Corp" \
+    org.opencontainers.image.version="${VERSION:-1.0.0}" \
+    org.opencontainers.image.created="${BUILD_DATE}" \
+    org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.licenses="UNLICENSED" \
+    org.opencontainers.image.base.name="oven/bun:1.2.21-alpine"
