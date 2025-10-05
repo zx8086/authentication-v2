@@ -2,11 +2,12 @@
 # Designed for minimal build time and maximum security
 
 # syntax=docker/dockerfile:1
-FROM oven/bun:1.2.21-alpine AS deps-base
+FROM oven/bun:1.2.23-alpine AS deps-base
 WORKDIR /app
 
-# Install minimal system dependencies in a single layer
-RUN apk add --no-cache dumb-init ca-certificates
+# Install minimal system dependencies and upgrade vulnerable packages
+RUN apk add --no-cache dumb-init ca-certificates && \
+    apk upgrade curl openssl
 
 # Dependencies stage - cache layer optimization
 FROM deps-base AS deps-dev
@@ -33,10 +34,11 @@ RUN bun run generate-docs && \
     ls -la dist/
 
 # Final production stage - minimal footprint
-FROM oven/bun:1.2.21-alpine AS production
+FROM oven/bun:1.2.23-alpine AS production
 
-# Install only essential runtime dependencies
+# Install only essential runtime dependencies and upgrade vulnerable packages
 RUN apk add --no-cache dumb-init curl && \
+    apk upgrade curl openssl && \
     # Create non-root user for security
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 bunuser && \
@@ -85,4 +87,4 @@ LABEL org.opencontainers.image.title="Authentication Service" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
     org.opencontainers.image.licenses="UNLICENSED" \
-    org.opencontainers.image.base.name="oven/bun:1.2.21-alpine"
+    org.opencontainers.image.base.name="oven/bun:1.2.23-alpine"
