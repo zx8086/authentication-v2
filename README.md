@@ -19,7 +19,7 @@
 ## Description
 
 ### Service Purpose
-The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for AOI ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
+The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for the API ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
 
 **Important**: This service is NOT a proxy - it's purely a JWT token issuer. Applications obtain a JWT token from this service once, then use that token directly with backend services through Kong Gateway.
 
@@ -27,12 +27,12 @@ The Authentication Service is a high-performance microservice built with Bun run
 - **JWT Token Generation**: Creates signed JWT tokens using native crypto.subtle Web API
 - **Consumer Secret Management**: Interfaces with Kong Admin API to retrieve or create consumer secrets
 - **Security Enforcement**: Validates consumer authentication status and blocks anonymous access
-- **Token Standardization**: Ensures consistent JWT structure and claims across the ACME platform
+- **Token Standardization**: Ensures consistent JWT structure and claims across the platform
 - **Observability**: Provides comprehensive OpenTelemetry instrumentation for monitoring and debugging
 
 ### Core Capabilities
 - Issues JWT tokens with configurable expiration (default 15 minutes)
-- Automatically provisions JWT secrets for new consumers
+- Automatically provisions JWT secrets for consumers
 - Integrates with both Kong API Gateway and Kong Konnect
 - Provides distributed tracing via OpenTelemetry
 - Supports CORS for browser-based applications
@@ -55,13 +55,13 @@ The Authentication Service is a high-performance microservice built with Bun run
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌──────────────────┐
-│   Client App    │──────▶│  Kong Gateway   │──────▶│  Auth Service    │
+│   Client App    │─────▶│  Kong Gateway   │─────▶│  Auth Service    │
 └─────────────────┘      └─────────────────┘      └──────────────────┘
-                                  │                          │
-                                  │                          │
+                                  │                         │
+                                  │                         │
                           ┌───────▼────────┐        ┌───────▼────────┐
-                          │ Kong Admin API │        │ Consumer Secret │
-                          │   (Consumers)  │◀───────│   Management    │
+                          │ Kong Admin API │        │ Consumer Secret│
+                          │   (Consumers)  │◀───────│   Management   │
                           └────────────────┘        └────────────────┘
                                                              │
                                                     ┌────────▼────────┐
@@ -655,7 +655,7 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 |----------|-------------|---------|----------|
 | `PORT` | Server port | `3000` | No (default: `3000`) |
 | `NODE_ENV` | Runtime environment | `development`, `production`, `test` | No (default: `development`) |
-| `API_CORS` | Allowed CORS origins | `https://webapp.example.com` | No |
+| `API_CORS` | Allowed CORS origins | `*` | No |
 
 #### OpenTelemetry Configuration
 | Variable | Description | Example | Security Notes | Required |
@@ -678,7 +678,7 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 | `API_TITLE` | API title for OpenAPI spec | `Authentication Service API` | No |
 | `API_DESCRIPTION` | API description | `JWT token generation service` | No |
 | `API_VERSION` | API version | `1.0.0` | No |
-| `API_CONTACT_NAME` | Contact name | `ACME Corp` | No |
+| `API_CONTACT_NAME` | Contact name | `Simon Owusu` | No |
 | `API_CONTACT_EMAIL` | Contact email | `api-support@example.com` | No |
 | `API_LICENSE_NAME` | License name | `Proprietary` | No |
 | `API_LICENSE_IDENTIFIER` | License identifier | `UNLICENSED` | No |
@@ -1327,46 +1327,6 @@ RATE_LIMIT_MAX_REQUESTS=1000
 - **CPU**: 0.1-0.5 CPU cores per instance
 - **Replicas**: Minimum 2 for HA, 3-5 for production load
 
-### CI/CD Pipeline
-
-#### GitHub Actions Workflow
-```yaml
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun test
-      - run: bun run check
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
-        with:
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-```
-
 ---
 
 ## Security Considerations
@@ -1599,7 +1559,7 @@ curl -X GET https://gateway.example.com/images/product/456 \
 ### Bun/TypeScript Example
 ```typescript
 // Native Bun implementation - no external dependencies needed
-class ACMEApiClient {
+class ApiClient {
   private token: string | null = null;
   private tokenExpiry: Date | null = null;
   private readonly baseUrl = 'https://gateway.example.com';
@@ -1646,7 +1606,7 @@ class ACMEApiClient {
 }
 
 // Usage with Bun
-const client = new ACMEApiClient('your-api-key-12345');
+const client = new ApiClient('your-api-key-12345');
 const customerData = await client.callApi('/customer-assignments/123');
 
 // Can also run directly with: bun run client.ts
@@ -1657,7 +1617,7 @@ const customerData = await client.callApi('/customer-assignments/123');
 import requests
 from datetime import datetime, timedelta
 
-class ACMEApiClient:
+class ApiClient:
     def __init__(self, api_key):
         self.api_key = api_key
         self.token = None
@@ -1694,7 +1654,7 @@ class ACMEApiClient:
         return response.json()
 
 # Usage
-client = ACMEApiClient('your-api-key-12345')
+client = ApiClient('your-api-key-12345')
 customer_data = client.call_api('/customer-assignments/123')
 ```
 
@@ -1810,16 +1770,6 @@ curl -X GET https://gateway.example.com/prices-api-v2/catalog \
 | Memory growth | Cache overflow | Adjust CACHE_MAX_SIZE setting |
 | OTLP export failures | Network issues | Check OTLP endpoint connectivity |
 
-## Migration Notes
-
-When migrating from .NET Core implementation:
-1. Update client libraries to handle identical API contract
-2. No changes required to Kong Gateway configuration
-3. JWT tokens remain compatible
-4. Update monitoring to use OpenTelemetry endpoints
-5. Adjust resource allocations (lower memory requirements)
-6. Update CI/CD pipelines for Bun/Docker builds
-
 ## Support Resources
 
 - **Kong Documentation**: https://docs.konghq.com
@@ -1830,5 +1780,5 @@ When migrating from .NET Core implementation:
 ---
 
 *Document Version: 2.0*
-*Last Updated: January 2025*
-*Service Version: ACME.Services.Authentication v2.0 (Bun/TypeScript)*
+*Last Updated: October 2025*
+*Service Version: Authentication v2.0 (Bun/TypeScript)*
