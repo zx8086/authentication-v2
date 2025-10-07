@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 
-// Kong Response Schemas
 export const ConsumerSecretSchema = z.strictObject({
   id: z.string(),
   key: z.string(),
@@ -72,7 +71,6 @@ export const CacheEntrySchema = z.strictObject({
   expires: z.number(),
 });
 
-// Environment Types
 export const EnvironmentType = z.enum(["local", "development", "staging", "production"]);
 export const TelemetryMode = z.enum(["console", "otlp", "both"]);
 export const KongMode = z.enum(["API_GATEWAY", "KONNECT"]);
@@ -84,13 +82,11 @@ export const PositiveInt = z.int32().min(1);
 export const PortNumber = z.int32().min(1).max(65535);
 export const NonEmptyString = z.string().min(1);
 
-// Server Configuration Schema
 export const ServerConfigSchema = z.strictObject({
   port: PortNumber,
   nodeEnv: NonEmptyString,
 });
 
-// JWT Configuration Schema
 export const JwtConfigSchema = z.strictObject({
   authority: NonEmptyString,
   audience: NonEmptyString,
@@ -99,7 +95,6 @@ export const JwtConfigSchema = z.strictObject({
   expirationMinutes: PositiveInt,
 });
 
-// Kong Configuration Schema
 export const KongConfigSchema = z.strictObject({
   mode: KongMode,
   adminUrl: HttpsUrl,
@@ -109,7 +104,6 @@ export const KongConfigSchema = z.strictObject({
   anonymousHeader: NonEmptyString,
 });
 
-// API Info Configuration Schema
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -121,7 +115,6 @@ export const ApiInfoConfigSchema = z.strictObject({
   cors: NonEmptyString.describe("CORS origin configuration"),
 });
 
-// Telemetry Configuration Schema
 export const TelemetryConfigSchema = z
   .strictObject({
     serviceName: NonEmptyString.describe("Service identifier for telemetry"),
@@ -180,7 +173,6 @@ export const TelemetryConfigSchema = z
     }
   });
 
-// Main Configuration Schema
 export const AppConfigSchema = z
   .strictObject({
     server: ServerConfigSchema,
@@ -209,7 +201,6 @@ export const AppConfigSchema = z
     }
   });
 
-// Schema Registry
 export const SchemaRegistry = {
   Server: ServerConfigSchema,
   Jwt: JwtConfigSchema,
@@ -228,7 +219,6 @@ export const SchemaRegistry = {
   CacheEntry: CacheEntrySchema,
 } as const;
 
-// Type Exports
 export type ConsumerSecret = z.infer<typeof ConsumerSecretSchema>;
 export type ConsumerResponse = z.infer<typeof ConsumerResponseSchema>;
 export type Consumer = z.infer<typeof ConsumerSchema>;
@@ -251,7 +241,6 @@ export type KongConfig = z.infer<typeof KongConfigSchema>;
 export type TelemetryConfig = z.infer<typeof TelemetryConfigSchema>;
 export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
 
-// Service Interface
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
   createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;

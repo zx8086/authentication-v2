@@ -20,7 +20,6 @@ class OpenAPIGenerator {
     const servers = [];
 
     if (this.config) {
-      // Current environment server (dynamic based on actual running config)
       const currentUrl = `http://localhost:${this.config.server.port}`;
       const envDescription =
         this.config.server.nodeEnv === "production"
@@ -34,7 +33,6 @@ class OpenAPIGenerator {
         description: `${envDescription} (current)`,
       });
 
-      // Add environment-specific servers
       if (this.config.server.nodeEnv !== "development") {
         servers.push({
           url: "http://localhost:3000",
@@ -56,7 +54,6 @@ class OpenAPIGenerator {
         });
       }
     } else {
-      // Fallback if no config provided
       servers.push(
         {
           url: "http://localhost:3000",
@@ -153,12 +150,10 @@ class OpenAPIGenerator {
         responses: route.responses || this.generateDefaultResponses(route),
       };
 
-      // Add parameters if specified
       if (route.parameters) {
         operation.parameters = route.parameters;
       }
 
-      // Add Kong consumer headers for /tokens endpoint
       if (route.path === "/tokens") {
         operation.parameters = [
           {
@@ -196,12 +191,10 @@ class OpenAPIGenerator {
         ];
       }
 
-      // Add request body if specified
       if (route.requestBody) {
         operation.requestBody = route.requestBody;
       }
 
-      // Add security requirements
       if (route.requiresAuth) {
         operation.security = [{ KongAdminToken: [] }];
       }
@@ -265,7 +258,6 @@ class OpenAPIGenerator {
       },
     };
 
-    // Add specific error responses for /tokens endpoint
     if (route.path === "/tokens") {
       responses["401"] = {
         description: "Unauthorized - Missing or invalid Kong consumer headers",
@@ -772,7 +764,6 @@ class OpenAPIGenerator {
   }
 
   registerAllRoutes(): void {
-    // OpenAPI specification endpoint
     this.registerRoute({
       path: "/",
       method: "GET",
@@ -801,7 +792,6 @@ class OpenAPIGenerator {
       },
     });
 
-    // Authentication endpoints
     this.registerRoute({
       path: "/tokens",
       method: "GET",
@@ -812,7 +802,6 @@ class OpenAPIGenerator {
       requiresAuth: false, // Uses Kong consumer headers instead
     });
 
-    // Health check endpoints
     this.registerRoute({
       path: "/health",
       method: "GET",
@@ -840,7 +829,6 @@ class OpenAPIGenerator {
       tags: ["Health", "Metrics"],
     });
 
-    // Performance metrics endpoint
     this.registerRoute({
       path: "/metrics",
       method: "GET",
@@ -850,7 +838,6 @@ class OpenAPIGenerator {
       tags: ["Metrics"],
     });
 
-    // Debug endpoints
     this.registerRoute({
       path: "/debug/metrics/test",
       method: "POST",

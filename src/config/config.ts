@@ -304,7 +304,6 @@ function initializeConfig(): AppConfig {
       },
     };
 
-    // Post-validation required variables check
     const requiredVars = [
       { key: "KONG_JWT_AUTHORITY", value: config.jwt.authority },
       { key: "KONG_JWT_AUDIENCE", value: config.jwt.audience },
@@ -403,7 +402,6 @@ export function validateConfigurationHealth(): {
     }
   }
 
-  // Required variables check
   const requiredVars = [
     { path: "jwt.authority", value: config.jwt.authority },
     { path: "jwt.audience", value: config.jwt.audience },
@@ -423,7 +421,6 @@ export function validateConfigurationHealth(): {
     health.status = "critical";
   }
 
-  // Performance recommendations
   if (config.telemetry.batchSize > 3000) {
     health.recommendations.push("Consider reducing telemetry batch size for better memory usage");
   }
@@ -441,11 +438,9 @@ export function loadConfig(): AppConfig {
   return config;
 }
 
-// Re-export schemas and types
 export { SchemaRegistry };
 export type { AppConfig, ServerConfig, JwtConfig, KongConfig, TelemetryConfig, ApiInfoConfig };
 
-// Named exports for convenience
 export const serverConfig = config.server;
 export const jwtConfig = config.jwt;
 export const kongConfig = config.kong;
@@ -462,7 +457,6 @@ export const configMetadata = {
   zodVersion: "v4",
 };
 
-// Utility functions
 export const getConfigJSONSchema = () => AppConfigSchema;
 export const validateConfiguration = (data: unknown) => {
   const result = AppConfigSchema.safeParse(data);
