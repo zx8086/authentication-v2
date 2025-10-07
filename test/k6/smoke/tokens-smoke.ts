@@ -5,6 +5,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { getConfig, getPerformanceThresholds, getScenarioConfig, getTestConsumer, getHeaders } from '../utils/config.ts';
+import { setupTestConsumers } from '../utils/setup.js';
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -16,6 +17,16 @@ export const options = {
   },
   thresholds: thresholds.tokens.smoke
 };
+
+export function setup() {
+  console.log('[K6 Tokens Test] Running setup...');
+  const success = setupTestConsumers();
+  if (!success) {
+    throw new Error('Failed to setup test consumers');
+  }
+  console.log('[K6 Tokens Test] Setup completed successfully');
+  return { setupComplete: true };
+}
 
 export default function() {
   const baseUrl = config.baseUrl;

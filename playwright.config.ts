@@ -12,6 +12,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [["html", { outputFolder: "./test/results/playwright/html-report" }]],
+  globalSetup: "./test/playwright/global-setup.ts",
   use: {
     baseURL: process.env.API_BASE_URL || "http://localhost:3000",
     extraHTTPHeaders: {

@@ -3,6 +3,7 @@
 // E2E tests for authentication service core functionality
 
 import { test, expect } from '@playwright/test';
+import { getTestConsumer, getBasicTestConsumers, ANONYMOUS_CONSUMER } from '../shared/test-consumers';
 
 test.describe('Authentication Service Core Functionality', () => {
 
@@ -48,10 +49,11 @@ test.describe('Authentication Service Core Functionality', () => {
   });
 
   test('JWT Token Generation - Valid Kong Headers', async ({ request }) => {
+    const consumer = getTestConsumer(0);
     const response = await request.get('/tokens', {
       headers: {
-        'X-Consumer-Id': 'test-consumer',
-        'X-Consumer-Username': 'test-user',
+        'X-Consumer-Id': consumer.id,
+        'X-Consumer-Username': consumer.username,
         'X-Anonymous-Consumer': 'false',
       }
     });
@@ -69,7 +71,7 @@ test.describe('Authentication Service Core Functionality', () => {
 
     // Decode and validate payload
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    expect(payload).toHaveProperty('sub', 'test-user');
+    expect(payload).toHaveProperty('sub', consumer.username);
     expect(payload).toHaveProperty('iss');
     expect(payload).toHaveProperty('aud');
     expect(payload).toHaveProperty('exp');
@@ -82,8 +84,8 @@ test.describe('Authentication Service Core Functionality', () => {
   test('JWT Token Generation - Anonymous Consumer Rejection', async ({ request }) => {
     const response = await request.get('/tokens', {
       headers: {
-        'X-Consumer-Id': 'anonymous',
-        'X-Consumer-Username': 'anonymous',
+        'X-Consumer-Id': ANONYMOUS_CONSUMER.id,
+        'X-Consumer-Username': ANONYMOUS_CONSUMER.username,
         'X-Anonymous-Consumer': 'true',
       }
     });
@@ -96,6 +98,8 @@ test.describe('Authentication Service Core Functionality', () => {
   });
 
   test('JWT Token Generation - Missing Headers', async ({ request }) => {
+    const consumer = getTestConsumer(0);
+
     // No headers at all
     const noHeaders = await request.get('/tokens');
     expect(noHeaders.status()).toBe(401);
@@ -103,7 +107,7 @@ test.describe('Authentication Service Core Functionality', () => {
     // Missing Consumer ID
     const missingId = await request.get('/tokens', {
       headers: {
-        'X-Consumer-Username': 'test-user',
+        'X-Consumer-Username': consumer.username,
         'X-Anonymous-Consumer': 'false',
       }
     });
@@ -112,7 +116,7 @@ test.describe('Authentication Service Core Functionality', () => {
     // Missing Consumer Username
     const missingUsername = await request.get('/tokens', {
       headers: {
-        'X-Consumer-Id': 'test-consumer',
+        'X-Consumer-Id': consumer.id,
         'X-Anonymous-Consumer': 'false',
       }
     });
@@ -120,11 +124,7 @@ test.describe('Authentication Service Core Functionality', () => {
   });
 
   test('Multiple Users Get Unique Tokens', async ({ request }) => {
-    const users = [
-      { id: 'user1', username: 'alice' },
-      { id: 'user2', username: 'bob' },
-      { id: 'user3', username: 'charlie' }
-    ];
+    const users = getBasicTestConsumers();
 
     const tokenResponses = await Promise.all(
       users.map(user =>

@@ -1,7 +1,7 @@
 # Authentication Service
 
 ## Table of Contents
-1. [Description](#description)
+1. [Purpose](#purpose)
 2. [Architecture Overview](#architecture-overview)
 3. [Kong Gateway Integration Context](#kong-gateway-integration-context)
 4. [Authentication Flow](#authentication-flow)
@@ -16,10 +16,8 @@
 
 ---
 
-## Description
-
-### Service Purpose
-The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for the API ecosystem, issuing secure, short-lived JWT tokens to authenticated consumers.
+## Purpose
+The Authentication Service is a high-performance microservice built with Bun runtime and TypeScript that bridges Kong API Gateway's consumer management system with JWT token generation. It serves as the central authentication authority for an API ecosystem - issuing secure short-lived JWT tokens to authenticated consumers.
 
 **Important**: This service is NOT a proxy - it's purely a JWT token issuer. Applications obtain a JWT token from this service once, then use that token directly with backend services through Kong Gateway.
 
@@ -41,11 +39,11 @@ The Authentication Service is a high-performance microservice built with Bun run
 - Provides debug endpoints for metrics testing
 
 ### Performance Characteristics
-- **Throughput**: 100,000+ requests/second capability
-- **Memory Usage**: ~50-80MB baseline with telemetry enabled
+- **Throughput**: 100,000+ requests/second capability with Bun v1.2.23
+- **Memory Usage**: ~50-80MB baseline with full telemetry enabled
 - **Cold Start**: <100ms initialization time
-- **Response Time**: <10ms p99 for token generation
-- **Container Size**: <100MB with all dependencies
+- **Response Time**: <10ms p99 for token generation (native crypto.subtle)
+- **Container Size**: <100MB with all dependencies (multi-stage Alpine build)
 
 ---
 
@@ -86,13 +84,14 @@ The Authentication Service is a high-performance microservice built with Bun run
 - **Health Monitors**: Multiple health check endpoints with dependency status
 
 ### Technology Stack
-- **Runtime**: Bun v1.2.21+ (native JavaScript runtime)
+- **Runtime**: Bun v1.2.23+ (native JavaScript runtime)
 - **Language**: TypeScript
 - **HTTP Server**: Native Bun.serve() with built-in performance optimizations
 - **JWT Generation**: Web Crypto API (crypto.subtle) with HMAC-SHA256
-- **Container**: Docker with Alpine Linux base (oven/bun:alpine)
+- **Container**: Docker with Alpine Linux base (oven/bun:1.2.23-alpine)
 - **Monitoring**: OpenTelemetry with OTLP protocol
 - **API Documentation**: Dynamic OpenAPI generation
+- **Code Quality**: Biome for linting and formatting
 - **Testing**: Bun test runner, Playwright E2E, K6 performance testing
 
 ---
@@ -648,6 +647,7 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 | `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts-api.example.com/` | HTTPS required in production | Yes |
 | `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.example.com/` | Domain validation enforced | Yes |
 | `KONG_JWT_KEY_CLAIM_NAME` | Claim name for consumer key | `key` or `iss` | Validated against allowed values | No (default: `key`) |
+| `KONG_JWT_ISSUER` | JWT issuer (optional) | `https://sts-api.example.com/` | Falls back to authority if not set, supports comma-separated values | No |
 | `JWT_EXPIRATION_MINUTES` | Token expiration in minutes | `15` | Range: 1-60 minutes | No (default: `15`) |
 
 #### Application Settings
@@ -655,7 +655,6 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 |----------|-------------|---------|----------|
 | `PORT` | Server port | `3000` | No (default: `3000`) |
 | `NODE_ENV` | Runtime environment | `development`, `production`, `test` | No (default: `development`) |
-| `API_CORS` | Allowed CORS origins | `*` | No |
 
 #### OpenTelemetry Configuration
 | Variable | Description | Example | Security Notes | Required |
@@ -675,10 +674,11 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 #### API Documentation Configuration
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
+| `API_CORS` | CORS origin configuration | `*` or `https://example.com` | No (default: `*`) |
 | `API_TITLE` | API title for OpenAPI spec | `Authentication Service API` | No |
-| `API_DESCRIPTION` | API description | `JWT token generation service` | No |
+| `API_DESCRIPTION` | API description | `High-performance authentication service with Kong integration` | No |
 | `API_VERSION` | API version | `1.0.0` | No |
-| `API_CONTACT_NAME` | Contact name | `Simon Owusu` | No |
+| `API_CONTACT_NAME` | Contact name | `Example Corp` | No |
 | `API_CONTACT_EMAIL` | Contact email | `api-support@example.com` | No |
 | `API_LICENSE_NAME` | License name | `Proprietary` | No |
 | `API_LICENSE_IDENTIFIER` | License identifier | `UNLICENSED` | No |
@@ -686,7 +686,7 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 ### Configuration Architecture Implementation
 
 #### Core Configuration Files
-- **`src/config/schemas.ts`**: Zod v4 schema definitions with top-level format functions
+- **`src/config/schemas.ts`**: Zod v4.1.11 schema definitions with top-level format functions
 - **`src/config/config.ts`**: 4-pillar configuration implementation with security validation
 - **`src/config/index.ts`**: Re-export hub for clean module imports
 
@@ -717,28 +717,39 @@ if (environment === "production") {
 ```json
 {
   "dependencies": {
+    "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.51.0",
-    "@opentelemetry/exporter-metrics-otlp-proto": "^0.56.0",
-    "@opentelemetry/exporter-trace-otlp-proto": "^0.56.0",
-    "@opentelemetry/host-metrics": "^0.36.0",
-    "@opentelemetry/instrumentation": "^0.56.0",
-    "@opentelemetry/instrumentation-runtime-node": "^0.10.0",
-    "@opentelemetry/resources": "^1.30.0",
-    "@opentelemetry/sdk-metrics": "^1.30.0",
-    "@opentelemetry/sdk-node": "^0.56.0",
-    "@opentelemetry/sdk-trace-base": "^1.30.0",
-    "@opentelemetry/sdk-trace-node": "^1.30.0",
-    "@opentelemetry/semantic-conventions": "^1.30.0",
-    "@opentelemetry/winston-transport": "^0.8.0",
-    "winston": "^3.17.0",
-    "zod": "^3.23.8"
+    "@opentelemetry/api-logs": "^0.206.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.65.0",
+    "@opentelemetry/core": "^2.1.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.206.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.206.0",
+    "@opentelemetry/exporter-otlp-http": "^0.26.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.206.0",
+    "@opentelemetry/host-metrics": "^0.36.2",
+    "@opentelemetry/instrumentation-fetch": "^0.206.0",
+    "@opentelemetry/instrumentation-http": "^0.206.0",
+    "@opentelemetry/instrumentation-winston": "^0.51.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-logs": "^0.206.0",
+    "@opentelemetry/sdk-metrics": "^2.1.0",
+    "@opentelemetry/sdk-node": "^0.206.0",
+    "@opentelemetry/sdk-trace-base": "^2.1.0",
+    "@opentelemetry/semantic-conventions": "^1.37.0",
+    "@opentelemetry/winston-transport": "^0.17.0",
+    "winston": "^3.18.3",
+    "winston-transport": "^4.9.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@playwright/test": "^1.49.0",
-    "@types/bun": "^1.1.14",
-    "@types/k6": "^0.57.0"
+    "@biomejs/biome": "^2.2.5",
+    "@playwright/test": "^1.56.0",
+    "@types/bun": "1.2.23",
+    "@types/k6": "^1.3.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.1.35"
   }
 }
 ```
@@ -749,17 +760,23 @@ CORS support is built into the server with configurable origins:
 
 ```typescript
 const corsHeaders = {
-  "Access-Control-Allow-Origin": process.env.API_CORS || "*",
+  "Access-Control-Allow-Origin": config.apiInfo.cors,  // Configurable via API_CORS
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username, X-Anonymous-Consumer",
   "Access-Control-Max-Age": "86400"
 };
 ```
+
+CORS Configuration:
+- **Default**: `*` (wildcard - allows all origins)
+- **Configurable**: Set `API_CORS` environment variable to specific origins
+- **Security**: Use specific origins in production (e.g., `https://app.example.com`)
 
 CORS is required when:
 - Web browsers directly call the authentication service
 - Frontend applications need cross-origin access
 - Testing from local development environments
+- SPA applications making direct API calls
 
 ---
 
@@ -1171,21 +1188,35 @@ curl http://localhost:3000/metrics
 
 #### Dockerfile
 ```dockerfile
-FROM oven/bun:1.2.21-alpine AS builder
+FROM oven/bun:1.2.23-alpine AS deps-base
 WORKDIR /app
-COPY package*.json bun.lockb ./
+RUN apk add --no-cache dumb-init ca-certificates && \
+    apk upgrade curl openssl
+
+FROM deps-base AS deps-prod
+COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile --production
 
-FROM oven/bun:1.2.21-alpine AS release
-RUN apk --no-cache add dumb-init
-RUN addgroup -g 1001 nodejs && adduser -S -u 1001 -G nodejs nodejs
+FROM oven/bun:1.2.23-alpine AS production
+RUN apk add --no-cache dumb-init curl && \
+    apk upgrade curl openssl && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 bunuser && \
+    mkdir -p /app && \
+    chown bunuser:nodejs /app
+
 WORKDIR /app
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --chown=nodejs:nodejs . .
-USER nodejs
+COPY --from=deps-prod --chown=bunuser:nodejs /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=bunuser:nodejs /app/package.json ./
+COPY --chown=bunuser:nodejs /app/src ./src
+
+USER bunuser
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 TELEMETRY_MODE=console
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["bun", "run", "start"]
+CMD ["bun", "src/server.ts"]
 ```
 
 ### Build Commands
@@ -1198,23 +1229,51 @@ bun install
 # Start development server with hot reload
 bun run dev
 
+# Start with specific environments
+bun run dev:development    # Development environment
+bun run dev:staging        # Staging environment
+bun run dev:production     # Production environment
+
+# Clean development restart
+bun run dev:clean          # Kill existing processes and start fresh
+bun run kill-server        # Kill processes on port 3000
+
 # Run with specific telemetry mode
 TELEMETRY_MODE=both bun run dev
 
 # Run tests
-bun test
+bun run bun:test           # Run all Bun tests
+bun run bun:test:watch     # Watch mode for TDD
+bun run bun:test:coverage  # Test with coverage
+bun run test:clean         # Clean test result directories
 
-# Run E2E tests
-bun run playwright:test
+# Code quality checks
+bun run typecheck          # TypeScript type checking
+bun run biome:check        # Biome linting and formatting
+bun run biome:check:write  # Fix linting/formatting issues
+bun run biome:check:unsafe # Fix with unsafe transformations
 
-# Run performance tests
-bun run k6:smoke:health
+# Generate OpenAPI documentation
+bun run generate-docs        # Generate docs before server start
+bun run generate-docs:json   # Generate JSON format
+bun run generate-docs:yaml   # Generate YAML format
+bun run generate-docs:verbose # Verbose output
+
+# E2E and Performance Tests
+bun run playwright:test    # Run Playwright E2E tests
+bun run playwright:ui      # Interactive Playwright UI
+bun run k6:info           # Display all available K6 tests
+
+# Health and debugging
+bun run health-check       # Quick health check via curl
 ```
 
 #### Docker Operations
 ```bash
 # Build Docker image
-docker build -t example/authentication-service:latest .
+bun run docker:build
+# OR manually:
+docker build -t authentication-service:latest .
 
 # Run container
 docker run -p 3000:3000 \
@@ -1225,10 +1284,16 @@ docker run -p 3000:3000 \
   -e KONG_JWT_AUDIENCE=http://api.example.com/ \
   -e TELEMETRY_MODE=otlp \
   -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://otel.example.com/v1/traces \
-  example/authentication-service:latest
+  authentication-service:latest
 
 # Health check
-docker exec <container> curl http://localhost:3000/health
+bun run health-check
+# OR manually:
+docker exec <container> curl -f http://localhost:3000/health
+
+# Kill server processes if needed
+bun run kill-server  # Kill processes on port 3000
+bun run dev:clean    # Kill server and start fresh
 ```
 
 ### Kubernetes Deployment
@@ -1323,9 +1388,11 @@ RATE_LIMIT_MAX_REQUESTS=1000
 
 #### Scaling Recommendations
 - **Horizontal Scaling**: Service is stateless, scale horizontally as needed
-- **Memory**: 64-128MB per instance is typically sufficient
+- **Memory**: 64-128MB per instance (128-256MB with full telemetry)
 - **CPU**: 0.1-0.5 CPU cores per instance
 - **Replicas**: Minimum 2 for HA, 3-5 for production load
+- **Container Resources**: Request 100m CPU, 64Mi memory; Limit 500m CPU, 128Mi memory
+- **Autoscaling**: Target 70% CPU utilization for optimal performance
 
 ---
 
@@ -1429,12 +1496,14 @@ The service relies on Kong to provide security headers:
 
 ### Three-Tier Testing Approach
 
+The authentication service implements a comprehensive testing strategy with automatic test consumer setup across all frameworks. Tests are organized to minimize dependencies and maximize reliability.
+
 #### 1. Bun Unit & Integration Tests
 Located in `test/bun/` directory:
 
 ```bash
 # Run all tests
-bun test
+bun run bun:test
 
 # Run specific test files
 bun test test/bun/jwt.service.test.ts
@@ -1442,10 +1511,10 @@ bun test test/bun/kong.service.test.ts
 bun test test/bun/server.test.ts
 
 # Run with coverage
-bun run test:coverage
+bun run bun:test:coverage
 
 # Watch mode for TDD
-bun run test:watch
+bun run bun:test:watch
 ```
 
 Test Coverage Areas:
@@ -1456,74 +1525,160 @@ Test Coverage Areas:
 - Configuration validation
 
 #### 2. Playwright E2E Tests
-Located in `test/playwright/` directory:
+Located in `test/playwright/` directory with automatic consumer setup:
 
 ```bash
-# Run all E2E tests
+# Run all E2E tests (consumers auto-provisioned)
 bun run playwright:test
 
 # Interactive UI mode
 bun run playwright:ui
 
 # Run specific test
-bunx playwright test test/playwright/health.spec.ts
+bunx playwright test test/playwright/core-functionality.e2e.ts
 
 # With specific configuration
 API_BASE_URL=https://staging.example.com bun run playwright:test
 ```
 
+**Automatic Setup Features:**
+- **Global Setup**: Automatically provisions standardized test consumers before all tests
+- **Idempotent Creation**: Safe to run multiple times - detects existing consumers
+- **Shared Configuration**: Uses centralized test consumer definitions from `test/shared/test-consumers.ts`
+- **Environment Loading**: Automatically loads `.env` file for Kong Admin API access
+
 E2E Test Scenarios:
 - Health endpoint availability
-- Token generation flow
+- Token generation flow with real Kong consumers
 - Error response validation
 - CORS header verification
 - Metrics endpoint functionality
+- Anonymous consumer rejection
+- Missing header validation
 
 #### 3. K6 Performance Tests
-Located in `test/k6/` directory:
+Located in `test/k6/` directory with intelligent consumer management:
 
+**Test Categories with Automatic Setup:**
 ```bash
-# Smoke tests (basic functionality)
-bun run k6:smoke:health      # Health endpoint validation
-bun run k6:smoke:tokens      # JWT generation validation
-bun run k6:smoke:metrics     # Metrics endpoint validation
-bun run k6:smoke:openapi     # OpenAPI endpoint validation
+# Smoke tests (endpoints only - no Kong setup needed)
+bun run k6:smoke:health      # Health endpoint only
+bun run k6:smoke:metrics     # Metrics endpoint only
+bun run k6:smoke:openapi     # OpenAPI endpoint only
+bun run k6:smoke:all-endpoints # Basic health smoke test
 
-# Load testing (normal traffic)
-bun run k6:load              # Production load simulation
+# Authentication tests (automatic consumer setup)
+bun run k6:smoke:tokens      # JWT generation with consumer provisioning
+bun run k6:load              # Load testing with consumer setup
+bun run k6:stress            # Stress testing with consumer setup
+bun run k6:spike             # Spike testing with consumer setup
 
-# Stress testing (breaking point)
-bun run k6:stress            # System breaking point
-
-# Spike testing (traffic bursts)
-bun run k6:spike             # Traffic burst handling
-
-# Custom configurations
-K6_SMOKE_VUS=2 K6_SMOKE_DURATION=10s k6 run test/k6/smoke/health-smoke.ts
-TARGET_HOST=staging.example.com TARGET_PORT=443 TARGET_PROTOCOL=https bun run k6:load
+# Test information
+bun run k6:info              # Display all available tests and configuration
 ```
 
-Performance Thresholds:
+**Intelligent Consumer Management:**
+- **Automatic Setup**: Tests that need Kong consumers automatically provision them before execution
+- **No Unnecessary Dependencies**: Simple endpoint tests (health, metrics, openapi) run without Kong setup
+- **Environment Variables**: Kong Admin API credentials automatically loaded from `.env` file
+- **Idempotent Operations**: Consumer setup is safe to run repeatedly
+- **Shared Consumers**: All K6 tests use the same standardized test consumer set
+
+**Test File Structure:**
+- `test/shared/test-consumers.ts` - **Centralized test consumer definitions (TypeScript)**
+- `test/k6/utils/test-consumers.js` - **K6-compatible JavaScript version**
+- `test/k6/utils/setup.js` - **K6 consumer provisioning with idempotent creation**
+- `test/k6/smoke/` - Smoke tests for individual endpoints
+- `test/k6/load/` - Load testing scenarios with automatic setup
+- `test/k6/stress/` - Stress testing scenarios with automatic setup
+- `test/k6/spike/` - Spike testing scenarios with automatic setup
+- `test/k6/utils/config.ts` - Centralized test configuration
+- `test/k6/utils/helpers.ts` - Test helper functions
+- `test/k6/utils/metrics.ts` - Custom metrics handling
+
+**Test Consumer Configuration:**
+- **5 Standard Test Consumers**: `test-user-001` through `test-user-005`
+- **1 Anonymous Consumer**: For testing anonymous rejection scenarios
+- **Consistent Across Frameworks**: Same consumers used in Playwright and K6 tests
+- **Kong Admin API Integration**: Automatically creates missing consumers via Kong Admin API
+
+**Custom Configurations:**
+```bash
+# Quick smoke tests with minimal load
+K6_SMOKE_VUS=1 K6_SMOKE_DURATION=3s bun run k6:smoke:tokens
+
+# Load testing against different environments
+TARGET_HOST=staging.example.com TARGET_PORT=443 TARGET_PROTOCOL=https bun run k6:load
+
+# Non-blocking thresholds for CI/CD
+K6_THRESHOLDS_NON_BLOCKING=true bun run k6:stress
+```
+
+**Performance Thresholds:**
 - Health endpoint: p95 < 400ms, p99 < 500ms
 - Token endpoint: p95 < 50ms, p99 < 100ms
 - Metrics endpoint: p95 < 30ms, p99 < 50ms
+- OpenAPI endpoint: p95 < 50ms, p99 < 100ms
 - Error rate: < 1% (normal), < 5% (stress)
+- Configurable via environment variables (K6_*_THRESHOLD)
+- Non-blocking mode available (K6_THRESHOLDS_NON_BLOCKING=true)
 
 ### Test Environment Configuration
 
+#### Playwright E2E Tests
 ```bash
-# Test consumer configuration for K6
-TEST_CONSUMER_ID_1=test-consumer-001
-TEST_CONSUMER_USERNAME_1=test-user-001
+# Base URL for Playwright E2E tests
+API_BASE_URL=http://localhost:3000
+```
 
-# Custom thresholds
-K6_HEALTH_P95_THRESHOLD=200
-K6_ERROR_RATE_THRESHOLD=0.01
-
-# Target environment
+#### K6 Performance Testing
+```bash
+# Target service configuration
 TARGET_HOST=localhost
 TARGET_PORT=3000
 TARGET_PROTOCOL=http
+K6_TIMEOUT=30s
+
+# Test execution parameters
+K6_SMOKE_VUS=3
+K6_SMOKE_DURATION=3m
+K6_LOAD_INITIAL_VUS=10
+K6_LOAD_TARGET_VUS=20
+K6_LOAD_RAMP_UP_DURATION=2m
+K6_LOAD_STEADY_DURATION=5m
+K6_LOAD_RAMP_DOWN_DURATION=2m
+K6_STRESS_INITIAL_VUS=50
+K6_STRESS_TARGET_VUS=100
+K6_STRESS_PEAK_VUS=200
+K6_STRESS_DURATION=5m
+K6_SPIKE_BASELINE_VUS=10
+K6_SPIKE_TARGET_VUS=100
+K6_SPIKE_DURATION=3m
+
+# Performance thresholds (in milliseconds)
+K6_HEALTH_P95_THRESHOLD=50
+K6_HEALTH_P99_THRESHOLD=100
+K6_TOKENS_P95_THRESHOLD=50
+K6_TOKENS_P99_THRESHOLD=100
+K6_METRICS_P95_THRESHOLD=30
+K6_METRICS_P99_THRESHOLD=50
+
+# Error rate thresholds (as decimal)
+K6_ERROR_RATE_THRESHOLD=0.01
+K6_STRESS_ERROR_RATE_THRESHOLD=0.05
+K6_THRESHOLDS_NON_BLOCKING=false
+
+# Test consumer configuration
+TEST_CONSUMER_ID_1=test-consumer-001
+TEST_CONSUMER_USERNAME_1=loadtest-user-001
+TEST_CONSUMER_ID_2=test-consumer-002
+TEST_CONSUMER_USERNAME_2=loadtest-user-002
+TEST_CONSUMER_ID_3=test-consumer-003
+TEST_CONSUMER_USERNAME_3=loadtest-user-003
+TEST_CONSUMER_ID_4=test-consumer-004
+TEST_CONSUMER_USERNAME_4=loadtest-user-004
+TEST_CONSUMER_ID_5=test-consumer-005
+TEST_CONSUMER_USERNAME_5=loadtest-user-005
 ```
 
 ---
@@ -1779,6 +1934,7 @@ curl -X GET https://gateway.example.com/prices-api-v2/catalog \
 
 ---
 
-*Document Version: 2.0*
+*Document Version: 2.1*
 *Last Updated: October 2025*
-*Service Version: Authentication v2.0 (Bun/TypeScript)*
+*Service Version: Authentication v2.0 (Bun v1.2.23/TypeScript)*
+*Codebase Synchronized: README.md updated to reflect current implementation*

@@ -5,6 +5,19 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { getConfig } from '../utils/config.ts';
+import { setupTestConsumers } from '../utils/setup.js';
+
+export function setup() {
+  console.log('[K6 Load Test] Running setup...');
+
+  const success = setupTestConsumers();
+  if (!success) {
+    throw new Error('Failed to setup test consumers');
+  }
+
+  console.log('[K6 Load Test] Setup completed successfully');
+  return { setupComplete: true };
+}
 
 export const options = {
   scenarios: {

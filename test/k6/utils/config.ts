@@ -2,6 +2,8 @@
 
 // Centralized configuration for K6 authentication service tests
 
+import { getTestConsumer as getStandardTestConsumer } from './test-consumers.js';
+
 export interface K6Config {
   host: string;
   port: number;
@@ -33,35 +35,45 @@ export const getConfig = (): K6Config => {
 };
 
 export const getTestConsumer = (index: number = 0): ConsumerConfig => {
-  const consumers = [
-    {
-      id: __ENV.TEST_CONSUMER_ID_1 || 'test-consumer-001',
-      username: __ENV.TEST_CONSUMER_USERNAME_1 || 'loadtest-user-001',
-      isAnonymous: false
-    },
-    {
-      id: __ENV.TEST_CONSUMER_ID_2 || 'test-consumer-002',
-      username: __ENV.TEST_CONSUMER_USERNAME_2 || 'loadtest-user-002',
-      isAnonymous: false
-    },
-    {
-      id: __ENV.TEST_CONSUMER_ID_3 || 'test-consumer-003',
-      username: __ENV.TEST_CONSUMER_USERNAME_3 || 'loadtest-user-003',
-      isAnonymous: false
-    },
-    {
-      id: __ENV.TEST_CONSUMER_ID_4 || 'test-consumer-004',
-      username: __ENV.TEST_CONSUMER_USERNAME_4 || 'loadtest-user-004',
-      isAnonymous: false
-    },
-    {
-      id: __ENV.TEST_CONSUMER_ID_5 || 'test-consumer-005',
-      username: __ENV.TEST_CONSUMER_USERNAME_5 || 'loadtest-user-005',
-      isAnonymous: false
-    }
-  ];
+  // Use environment variables if provided, otherwise fall back to standard test consumers
+  if (__ENV.TEST_CONSUMER_ID_1 || __ENV.TEST_CONSUMER_USERNAME_1) {
+    const consumers = [
+      {
+        id: __ENV.TEST_CONSUMER_ID_1 || 'test-consumer-001',
+        username: __ENV.TEST_CONSUMER_USERNAME_1 || 'loadtest-user-001',
+        isAnonymous: false
+      },
+      {
+        id: __ENV.TEST_CONSUMER_ID_2 || 'test-consumer-002',
+        username: __ENV.TEST_CONSUMER_USERNAME_2 || 'loadtest-user-002',
+        isAnonymous: false
+      },
+      {
+        id: __ENV.TEST_CONSUMER_ID_3 || 'test-consumer-003',
+        username: __ENV.TEST_CONSUMER_USERNAME_3 || 'loadtest-user-003',
+        isAnonymous: false
+      },
+      {
+        id: __ENV.TEST_CONSUMER_ID_4 || 'test-consumer-004',
+        username: __ENV.TEST_CONSUMER_USERNAME_4 || 'loadtest-user-004',
+        isAnonymous: false
+      },
+      {
+        id: __ENV.TEST_CONSUMER_ID_5 || 'test-consumer-005',
+        username: __ENV.TEST_CONSUMER_USERNAME_5 || 'loadtest-user-005',
+        isAnonymous: false
+      }
+    ];
+    return consumers[index % consumers.length];
+  }
 
-  return consumers[index % consumers.length];
+  // Use standard test consumers from shared configuration
+  const standardConsumer = getStandardTestConsumer(index);
+  return {
+    id: standardConsumer.id,
+    username: standardConsumer.username,
+    isAnonymous: false
+  };
 };
 
 export const getHeaders = (consumer: ConsumerConfig, additionalHeaders: Record<string, string> = {}) => {

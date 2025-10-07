@@ -28,7 +28,7 @@ bun run test:coverage
 bun run typecheck
 
 # Code quality checks (lint + format + typecheck)
-bun run check
+bun run biome:check
 
 # Health check endpoint
 bun run health-check
@@ -37,6 +37,19 @@ bun run health-check
 ## Testing Strategy
 
 ### Three-Tier Testing Approach
+
+#### Recent Updates (October 2025)
+**Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6) with the following improvements:
+
+- **Centralized Consumer Configuration**: Created `test/shared/test-consumers.ts` with standardized test consumer definitions
+- **Automatic Setup Hooks**: Added global setup functions for Playwright and K6 tests that automatically provision test consumers
+- **Idempotent Operations**: Consumer setup is safe to run multiple times - detects and skips existing consumers
+- **Intelligent Dependencies**: Only tests that need Kong consumers (tokens, load, stress, spike) perform setup; simple endpoint tests (health, metrics, openapi) run without dependencies
+- **Environment Variable Management**: K6 tests automatically load `.env` file and pass Kong Admin API credentials
+- **Removed Manual Scripts**: Eliminated redundant manual setup scripts (`consumers:list`, `consumers:cleanup`) in favor of automatic setup
+- **Consistent Test Data**: All test frameworks now use the same 5 standardized test consumers plus 1 anonymous consumer
+
+This eliminates manual test setup while ensuring consistent test data across all testing frameworks.
 
 #### Bun Tests - Unit & Integration Testing
 ```bash
@@ -345,9 +358,9 @@ Recommended alerts based on available metrics:
 ## Code Quality Requirements
 
 ### Pre-Commit Checklist
-Run `bun run check` after code changes and before committing/pushing
+Run `bun run biome:check` after code changes and before committing/pushing
 
-The `check` command runs:
+The `biome:check` command runs:
 - Biome linting and formatting
 - TypeScript type checking
 - Code quality validation
@@ -396,7 +409,7 @@ TELEMETRY_MODE=both bun run dev         # Both console + OTLP
 bun run kill-server
 
 # Run unsafe biome fixes
-bun run check:unsafe
+bun run biome:check:unsafe
 ```
 
 ### Debugging & Troubleshooting
@@ -480,7 +493,7 @@ bun run test:coverage
 ```
 
 ### Reminders
-- Run `bun run check` before committing
+- Run `bun run biome:check` before committing
 - Use `TELEMETRY_MODE=both` for development debugging
 - Monitor telemetry export success rates in development
 - Test both JWT and health endpoints after changes
