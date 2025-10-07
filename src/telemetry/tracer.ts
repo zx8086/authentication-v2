@@ -4,7 +4,10 @@
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
-import { telemetryConfig } from "./config";
+import { loadConfig } from "../config/index";
+
+const config = loadConfig();
+const telemetryConfig = config.telemetry;
 
 export interface SpanContext {
   operationName: string;
@@ -79,7 +82,7 @@ class BunTelemetryTracer {
   ): T | Promise<T> {
     return this.createSpan(
       {
-        operationName: `HTTP ${method}`,
+        operationName: `${method} ${url}`,
         kind: SpanKind.SERVER,
         attributes: {
           [SemanticAttributes.HTTP_METHOD]: method,

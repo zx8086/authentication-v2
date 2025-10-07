@@ -5,7 +5,10 @@ import { trace } from "@opentelemetry/api";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
 import winston from "winston";
 import pkg from "../../package.json" with { type: "json" };
-import { telemetryConfig } from "./config";
+import { loadConfig } from "../config/index";
+
+const config = loadConfig();
+const telemetryConfig = config.telemetry;
 
 export class WinstonTelemetryLogger {
   private logger: winston.Logger | null = null;

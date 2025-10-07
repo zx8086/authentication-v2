@@ -3,6 +3,7 @@
 // Tests for Kong service integration
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { KongService } from '../../src/services/kong.service';
+import { getTestConsumer } from '../shared/test-consumers';
 
 // Mock fetch for testing
 const originalFetch = global.fetch;
@@ -11,7 +12,8 @@ describe('KongService', () => {
   let kongService: KongService;
   const mockAdminUrl = 'http://test-kong:8001';
   const mockAdminToken = 'test-admin-token';
-  const testConsumerId = 'test-consumer-id-123';
+  const testConsumer = getTestConsumer(0);
+  const testConsumerId = testConsumer.id;
 
   beforeEach(() => {
     kongService = new KongService(mockAdminUrl, mockAdminToken);

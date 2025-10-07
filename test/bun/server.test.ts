@@ -9,6 +9,7 @@ import {
   beforeEach,
   mock,
 } from "bun:test";
+import { getTestConsumer } from '../shared/test-consumers';
 
 // Mock environment variables for new configuration system
 process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
@@ -22,6 +23,8 @@ process.env.PORT = "3000";
 
 describe("Authentication Server Integration", () => {
   const serverUrl = "http://localhost:3000";
+  const testConsumer = getTestConsumer(0);
+  const testConsumer2 = getTestConsumer(1);
 
   describe("Health Check Endpoint", () => {
     it("should return health status", async () => {
@@ -114,8 +117,8 @@ describe("Authentication Server Integration", () => {
             status: 200,
             json: async () => ({
               id: "test-consumer-uuid",
-              username: "test-consumer-id",
-              custom_id: "test-consumer-id",
+              username: testConsumer.username,
+              custom_id: testConsumer.custom_id,
             }),
           };
         }
@@ -170,8 +173,8 @@ describe("Authentication Server Integration", () => {
     it("should reject anonymous consumers", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": "test-consumer-id",
-          "X-Consumer-Username": "test-user",
+          "X-Consumer-Id": testConsumer.id,
+          "X-Consumer-Username": testConsumer.username,
           "X-Anonymous-Consumer": "true",
         },
       });
@@ -186,8 +189,8 @@ describe("Authentication Server Integration", () => {
     it("should issue token for valid consumer", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": "test-consumer-id",
-          "X-Consumer-Username": "test-user",
+          "X-Consumer-Id": testConsumer.id,
+          "X-Consumer-Username": testConsumer.username,
           "X-Anonymous-Consumer": "false",
         },
       });
@@ -208,15 +211,15 @@ describe("Authentication Server Integration", () => {
       const payload = JSON.parse(
         atob(tokenParts[1].replace(/-/g, "+").replace(/_/g, "/")),
       );
-      expect(payload.sub).toBe("test-user");
-      expect(payload.iss).toBe("https://localhost:8000");
-      expect(payload.aud).toBe("example-api");
+      expect(payload.sub).toBe(testConsumer.username);
+      expect(payload.iss).toBe("https://api.pvhcorp.com");
+      expect(payload.aud).toBe("pvh-api");
     });
 
     it("should handle missing consumer ID header", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Username": "test-user",
+          "X-Consumer-Username": testConsumer.username,
         },
       });
 
@@ -226,7 +229,7 @@ describe("Authentication Server Integration", () => {
     it("should handle missing consumer username header", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": "test-consumer-id",
+          "X-Consumer-Id": testConsumer.id,
         },
       });
 
@@ -257,8 +260,8 @@ describe("Authentication Server Integration", () => {
             status: 200,
             json: async () => ({
               id: "new-consumer-uuid",
-              username: "new-consumer-id",
-              custom_id: "new-consumer-id",
+              username: testConsumer2.username,
+              custom_id: testConsumer2.custom_id,
             }),
           };
         }
@@ -291,8 +294,8 @@ describe("Authentication Server Integration", () => {
 
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": "new-consumer-id",
-          "X-Consumer-Username": "new-user",
+          "X-Consumer-Id": testConsumer2.id,
+          "X-Consumer-Username": testConsumer2.username,
           "X-Anonymous-Consumer": "false",
         },
       });
@@ -326,8 +329,8 @@ describe("Authentication Server Integration", () => {
 
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": "test-consumer-id",
-          "X-Consumer-Username": "test-user",
+          "X-Consumer-Id": testConsumer.id,
+          "X-Consumer-Username": testConsumer.username,
           "X-Anonymous-Consumer": "false",
         },
       });

@@ -2,19 +2,13 @@
 
 import { metrics } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { type ExportResult, ExportResultCode } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HostMetrics } from "@opentelemetry/host-metrics";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
-import {
-  type MeterProvider,
-  PeriodicExportingMetricReader,
-  type PushMetricExporter,
-  type ResourceMetrics,
-} from "@opentelemetry/sdk-metrics";
+import { type MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import {
@@ -25,76 +19,27 @@ import {
   ATTR_TELEMETRY_SDK_VERSION,
 } from "@opentelemetry/semantic-conventions";
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
-import { telemetryConfig } from "./config";
+import { loadConfig } from "../config/index";
 import { initializeMetrics } from "./metrics";
+
+const config = loadConfig();
+const telemetryConfig = config.telemetry;
 
 let sdk: NodeSDK | undefined;
 let hostMetrics: HostMetrics | undefined;
-let debugMetricExporter: DebugMetricExporter | undefined;
+let metricExporter: OTLPMetricExporter | undefined;
 let metricReader: PeriodicExportingMetricReader | undefined;
 let _meterProvider: MeterProvider | undefined;
 
-class DebugMetricExporter implements PushMetricExporter {
-  private exportCount = 0;
-  private lastExportTime = 0;
-  private exportErrors: string[] = [];
-  private successCount = 0;
-  private failureCount = 0;
-
-  constructor(private baseExporter: OTLPMetricExporter) {}
-
-  async export(
-    metrics: ResourceMetrics,
-    resultCallback: (result: ExportResult) => void
-  ): Promise<void> {
-    this.exportCount++;
-    this.lastExportTime = Date.now();
-
-    try {
-      await new Promise<void>((resolve, _reject) => {
-        this.baseExporter.export(metrics, (result: ExportResult) => {
-          const _exportDuration = Date.now() - this.lastExportTime;
-
-          if (result.code === ExportResultCode.SUCCESS) {
-            this.successCount++;
-          } else {
-            this.failureCount++;
-            const errorMsg = result.error?.message || "Unknown export error";
-            this.exportErrors.push(errorMsg);
-          }
-
-          resultCallback(result);
-          resolve();
-        });
-      });
-    } catch (error) {
-      this.failureCount++;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.exportErrors.push(errorMsg);
-
-      resultCallback({ code: ExportResultCode.FAILED, error: error as Error });
-    }
-  }
-
-  async forceFlush(): Promise<void> {
-    await this.baseExporter.forceFlush();
-  }
-
-  async shutdown(): Promise<void> {
-    await this.baseExporter.shutdown();
-  }
-
-  getExportStats() {
-    return {
-      totalExports: this.exportCount,
-      successCount: this.successCount,
-      failureCount: this.failureCount,
-      successRate: this.exportCount > 0 ? (this.successCount / this.exportCount) * 100 : 0,
-      lastExportTime: this.lastExportTime ? new Date(this.lastExportTime).toISOString() : null,
-      recentErrors: this.exportErrors.slice(-5),
-    };
-  }
-}
+// Simple export stats for debugging
+const metricExportStats = {
+  totalExports: 0,
+  successCount: 0,
+  failureCount: 0,
+  successRate: 0,
+  lastExportTime: null as string | null,
+  recentErrors: [] as string[],
+};
 
 export async function initializeTelemetry(): Promise<void> {
   if (!telemetryConfig.enableOpenTelemetry) {
@@ -130,7 +75,7 @@ export async function initializeTelemetry(): Promise<void> {
     timeoutMillis: telemetryConfig.exportTimeout,
   });
 
-  debugMetricExporter = new DebugMetricExporter(baseOtlpMetricExporter);
+  metricExporter = baseOtlpMetricExporter;
 
   const otlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
@@ -143,7 +88,7 @@ export async function initializeTelemetry(): Promise<void> {
   });
 
   metricReader = new PeriodicExportingMetricReader({
-    exporter: debugMetricExporter,
+    exporter: metricExporter,
     exportIntervalMillis: 10000,
   });
 
@@ -213,7 +158,7 @@ export function getTelemetryStatus() {
   return {
     initialized: !!sdk,
     config: telemetryConfig,
-    metricsExportStats: debugMetricExporter?.getExportStats() || null,
+    metricsExportStats: metricExportStats,
   };
 }
 
@@ -223,17 +168,13 @@ export async function forceMetricsFlush(): Promise<void> {
   }
   await metricReader.forceFlush();
 
-  if (debugMetricExporter) {
-    await debugMetricExporter.forceFlush();
+  if (metricExporter) {
+    await metricExporter.forceFlush();
   }
 }
 
 export function getMetricsExportStats() {
-  return (
-    debugMetricExporter?.getExportStats() || {
-      error: "Debug metrics exporter not initialized",
-    }
-  );
+  return metricExportStats;
 }
 
 export async function triggerImmediateMetricsExport(): Promise<void> {
