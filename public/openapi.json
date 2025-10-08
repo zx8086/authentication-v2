@@ -3,7 +3,7 @@
   "info": {
     "title": "Authentication Service API",
     "description": "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
-    "version": "1.0.0",
+    "version": "2.3.0",
     "contact": {
       "name": "Example Corp",
       "email": "api-support@example.com"
@@ -522,7 +522,7 @@
           "version": {
             "type": "string",
             "description": "Service version",
-            "example": "1.0.0"
+            "example": "2.3.0"
           },
           "uptime": {
             "type": "integer",
@@ -597,7 +597,7 @@
               "serviceVersion": {
                 "type": "string",
                 "description": "Service version for telemetry",
-                "example": "1.0.0"
+                "example": "2.3.0"
               },
               "environment": {
                 "type": "string",

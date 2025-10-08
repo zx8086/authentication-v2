@@ -1602,6 +1602,13 @@ bun run k6:spike             # Spike testing with consumer setup
 bun run k6:info              # Display all available tests and configuration
 ```
 
+**Unified K6 Test Execution:**
+All K6 tests now use a standardized shell script wrapper (`scripts/run-k6.sh`) that provides:
+- **Automatic Environment Loading**: Loads `.env` file for Kong Admin API credentials
+- **Conditional Kong Variables**: Only passes Kong credentials to tests that need them
+- **Result Output Management**: Automatically creates `test/results/k6/` directory
+- **Cloud-Native Compatibility**: Enhanced environment variable handling for containerized deployments
+
 **Intelligent Consumer Management:**
 - **Automatic Setup**: Tests that need Kong consumers automatically provision them before execution
 - **No Unnecessary Dependencies**: Simple endpoint tests (health, metrics, openapi) run without Kong setup
@@ -1618,13 +1625,14 @@ bun run k6:info              # Display all available tests and configuration
   - `kong.service.test.ts` - Kong service integration testing
   - `logger.test.ts` - **NEW: Logger utility testing**
   - `server.test.ts` - HTTP server integration testing
+- `scripts/run-k6.sh` - **NEW: Unified K6 test execution wrapper with environment loading**
 - `test/k6/utils/test-consumers.js` - **K6-compatible JavaScript version**
 - `test/k6/utils/setup.js` - **K6 consumer provisioning with idempotent creation**
 - `test/k6/smoke/` - Smoke tests for individual endpoints
 - `test/k6/load/` - Load testing scenarios with automatic setup
 - `test/k6/stress/` - Stress testing scenarios with automatic setup
 - `test/k6/spike/` - Spike testing scenarios with automatic setup
-- `test/k6/utils/config.ts` - Centralized test configuration
+- `test/k6/utils/config.ts` - Centralized test configuration with standardized consumer access
 - `test/k6/utils/helpers.ts` - Test helper functions
 - `test/k6/utils/metrics.ts` - Custom metrics handling
 
@@ -1644,6 +1652,10 @@ TARGET_HOST=staging.example.com TARGET_PORT=443 TARGET_PROTOCOL=https bun run k6
 
 # Non-blocking thresholds for CI/CD
 K6_THRESHOLDS_NON_BLOCKING=true bun run k6:stress
+
+# Direct shell script usage for advanced scenarios
+scripts/run-k6.sh test/k6/smoke/health-only-smoke.ts test/results/custom-health.json false
+scripts/run-k6.sh test/k6/load/auth-load.ts test/results/custom-load.json true
 ```
 
 **Performance Thresholds:**
@@ -1966,8 +1978,9 @@ curl -X GET https://gateway.example.com/prices-api-v2/catalog \
 
 ---
 
-*Document Version: 2.2*
+*Document Version: 2.3*
 *Last Updated: October 2025*
 *Service Version: Authentication v2.0 (Bun v1.2.23/TypeScript)*
 *Architecture: Modular DRY/KISS implementation with 80.78% test coverage*
-*Codebase Synchronized: README.md updated to reflect modular refactoring and enhanced testing*
+*Testing: Unified K6 execution with standardized consumer management and shell script wrapper*
+*Codebase Synchronized: README.md updated to reflect K6 test execution improvements and consumer standardization*
