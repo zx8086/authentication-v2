@@ -4,7 +4,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getConfig } from '../utils/config.ts';
+import { getConfig, getTestConsumer, getHeaders } from '../utils/config.ts';
 import { setupTestConsumers } from '../utils/setup.js';
 
 export function setup() {
@@ -42,14 +42,8 @@ export default function() {
 
   // 70% token generation requests
   if (Math.random() < 0.7) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'K6-AuthService-LoadTest/1.0',
-      'X-Consumer-Id': `load-consumer-${String(__VU).padStart(3, '0')}`,
-      'X-Consumer-Username': `load-user-${String(__VU).padStart(3, '0')}`,
-      'X-Anonymous-Consumer': 'false',
-    };
+    const consumer = getTestConsumer(__VU % 5);
+    const headers = getHeaders(consumer);
 
     const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
     check(tokenResponse, {
@@ -72,14 +66,8 @@ export default function() {
     sleep(0.3);
 
     // Token request
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'K6-AuthService-LoadTest/1.0',
-      'X-Consumer-Id': `journey-consumer-${String(__VU).padStart(3, '0')}`,
-      'X-Consumer-Username': `journey-user-${String(__VU).padStart(3, '0')}`,
-      'X-Anonymous-Consumer': 'false',
-    };
+    const consumer = getTestConsumer((__VU + 2) % 5); // Offset for variety
+    const headers = getHeaders(consumer);
 
     const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
     check(tokenResponse, {

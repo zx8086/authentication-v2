@@ -4,7 +4,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getConfig } from '../utils/config.ts';
+import { getConfig, getTestConsumer, getHeaders } from '../utils/config.ts';
 import { setupTestConsumers } from '../utils/setup.js';
 
 export function setup() {
@@ -42,14 +42,8 @@ export default function() {
   const baseUrl = config.baseUrl;
 
   // Rapid token requests for stress testing
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'K6-AuthService-StressTest/1.0',
-    'X-Consumer-Id': `stress-consumer-${String(__VU).padStart(3, '0')}`,
-    'X-Consumer-Username': `stress-user-${String(__VU).padStart(3, '0')}`,
-    'X-Anonymous-Consumer': 'false',
-  };
+  const consumer = getTestConsumer(__VU % 5);
+  const headers = getHeaders(consumer);
 
   const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
   check(tokenResponse, {
