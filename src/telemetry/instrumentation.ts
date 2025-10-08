@@ -31,19 +31,46 @@ let metricExporter: OTLPMetricExporter | undefined;
 let metricReader: PeriodicExportingMetricReader | undefined;
 let _meterProvider: MeterProvider | undefined;
 
-// Simple export stats for debugging
+// Enhanced export stats for debugging
 const metricExportStats = {
   totalExports: 0,
   successCount: 0,
   failureCount: 0,
-  successRate: 0,
+  get successRate() {
+    return this.totalExports > 0 ? Math.round((this.successCount / this.totalExports) * 100) : 0;
+  },
   lastExportTime: null as string | null,
+  lastSuccessTime: null as string | null,
+  lastFailureTime: null as string | null,
   recentErrors: [] as string[],
+
+  recordExportAttempt() {
+    this.totalExports++;
+  },
+
+  recordExportSuccess() {
+    this.successCount++;
+    this.lastExportTime = new Date().toISOString();
+    this.lastSuccessTime = this.lastExportTime;
+  },
+
+  recordExportFailure(error: string) {
+    this.failureCount++;
+    this.lastExportTime = new Date().toISOString();
+    this.lastFailureTime = this.lastExportTime;
+    this.recentErrors.push(`${this.lastExportTime}: ${error}`);
+    if (this.recentErrors.length > 10) {
+      this.recentErrors.shift();
+    }
+  },
 };
 
 export async function initializeTelemetry(): Promise<void> {
-  if (!telemetryConfig.enableOpenTelemetry) {
-    initializeMetrics();
+  // Always initialize metrics, regardless of OpenTelemetry mode
+  initializeMetrics();
+
+  // Skip OTLP setup only if explicitly disabled or in console-only mode
+  if (!telemetryConfig.enableOpenTelemetry || telemetryConfig.mode === "console") {
     return;
   }
 
@@ -75,7 +102,25 @@ export async function initializeTelemetry(): Promise<void> {
     timeoutMillis: telemetryConfig.exportTimeout,
   });
 
-  metricExporter = baseOtlpMetricExporter;
+  // Create wrapper to track export stats
+  const trackingMetricExporter = {
+    export: (metrics: any, resultCallback: any) => {
+      metricExportStats.recordExportAttempt();
+      baseOtlpMetricExporter.export(metrics, (result: any) => {
+        if (result.code === 0) {
+          // ExportResultCode.SUCCESS
+          metricExportStats.recordExportSuccess();
+        } else {
+          metricExportStats.recordExportFailure(result.error?.message || "Export failed");
+        }
+        resultCallback(result);
+      });
+    },
+    forceFlush: () => baseOtlpMetricExporter.forceFlush(),
+    shutdown: () => baseOtlpMetricExporter.shutdown(),
+  };
+
+  metricExporter = trackingMetricExporter as any;
 
   const otlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
@@ -88,7 +133,7 @@ export async function initializeTelemetry(): Promise<void> {
   });
 
   metricReader = new PeriodicExportingMetricReader({
-    exporter: metricExporter,
+    exporter: metricExporter as any, // trackingMetricExporter implements PushMetricExporter interface
     exportIntervalMillis: 10000,
   });
 

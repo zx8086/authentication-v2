@@ -2,6 +2,7 @@
 
 import { loadConfig } from "../config/index";
 import { apiDocGenerator } from "../openapi-generator";
+import { log } from "../utils/logger";
 
 const config = loadConfig();
 
@@ -36,6 +37,13 @@ function convertToYaml(obj: any, indent = 0): string {
 }
 
 export function handleOpenAPISpec(acceptHeader?: string): Response {
+  log("Processing OpenAPI spec request", {
+    component: "openapi",
+    operation: "handle_openapi_spec",
+    endpoint: "/",
+    accept_header: acceptHeader,
+  });
+
   try {
     const spec = apiDocGenerator.generateSpec();
 

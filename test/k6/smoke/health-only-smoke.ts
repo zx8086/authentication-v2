@@ -31,8 +31,8 @@ export default function () {
     "health has status field": (r) => r.body.includes('"status"'),
     "health has dependencies": (r) => r.body.includes('"dependencies"'),
     "health has kong dependency": (r) => r.body.includes('"kong"'),
-    "health has opentelemetry dependency": (r) =>
-      r.body.includes('"opentelemetry"'),
+    "health has telemetry dependency": (r) =>
+      r.body.includes('"telemetry"') && r.body.includes('"traces"'),
     "health has telemetry info": (r) => r.body.includes('"telemetry"'),
   });
 

@@ -465,44 +465,73 @@ export function recordTelemetryExport(
 }
 
 function setupSystemMetricsCollection(): void {
-  systemMetricsInterval = setInterval(() => {
+  // Set up callbacks once during initialization
+  processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
     try {
       const memUsage = process.memoryUsage();
-      const cpuUsage = process.cpuUsage();
+      observableResult.observe(memUsage.rss, { type: "rss" });
+      observableResult.observe(memUsage.external, { type: "external" });
+      observableResult.observe(memUsage.arrayBuffers, { type: "array_buffers" });
+    } catch (err) {
+      error("Failed to collect memory metrics", { error: (err as Error).message });
+    }
+  });
 
-      processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(memUsage.rss, { type: "rss" });
-        observableResult.observe(memUsage.external, { type: "external" });
-        observableResult.observe(memUsage.arrayBuffers, {
-          type: "array_buffers",
-        });
-      });
+  processHeapUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
+    try {
+      const memUsage = process.memoryUsage();
+      observableResult.observe(memUsage.heapUsed, { type: "used" });
+      observableResult.observe(memUsage.heapTotal, { type: "total" });
+    } catch (err) {
+      error("Failed to collect heap metrics", { error: (err as Error).message });
+    }
+  });
 
-      processHeapUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(memUsage.heapUsed, { type: "used" });
-        observableResult.observe(memUsage.heapTotal, { type: "total" });
-      });
+  let previousCpuUsage = process.cpuUsage();
+  let previousTime = Date.now();
 
-      const cpuPercent = (cpuUsage.user + cpuUsage.system) / 1000;
-      processCpuUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(cpuPercent, { type: "combined" });
-      });
+  processCpuUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
+    try {
+      const currentCpuUsage = process.cpuUsage(previousCpuUsage);
+      const currentTime = Date.now();
+      const timeDiff = currentTime - previousTime;
+      const cpuPercent =
+        timeDiff > 0
+          ? ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100
+          : 0;
 
-      processUptimeGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-        observableResult.observe(process.uptime());
-      });
+      observableResult.observe(cpuPercent, { type: "combined" });
 
+      previousCpuUsage = process.cpuUsage();
+      previousTime = currentTime;
+    } catch (err) {
+      error("Failed to collect CPU metrics", { error: (err as Error).message });
+    }
+  });
+
+  processUptimeGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
+    try {
+      observableResult.observe(process.uptime());
+    } catch (err) {
+      error("Failed to collect uptime metrics", { error: (err as Error).message });
+    }
+  });
+
+  processActiveHandlesGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
+    try {
       if (typeof (process as any)._getActiveHandles === "function") {
         const activeHandles = (process as any)._getActiveHandles().length;
-        processActiveHandlesGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
-          observableResult.observe(activeHandles);
-        });
+        observableResult.observe(activeHandles);
       }
     } catch (err) {
-      error("Failed to collect system metrics", {
-        error: (err as Error).message,
-      });
+      error("Failed to collect active handles metrics", { error: (err as Error).message });
     }
+  });
+
+  // Optional interval for additional monitoring (not required for OpenTelemetry)
+  systemMetricsInterval = setInterval(() => {
+    // This can be used for logging or debugging purposes
+    // The actual metrics collection happens through callbacks above
   }, 10000);
 }
 

@@ -46,6 +46,12 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
 }
 
 export async function handleHealthCheck(kongService: IKongService): Promise<Response> {
+  log("Processing health check request", {
+    component: "health",
+    operation: "handle_health_check",
+    endpoint: "/health",
+  });
+
   const requestId = crypto.randomUUID();
   const startTime = Bun.nanoseconds();
 

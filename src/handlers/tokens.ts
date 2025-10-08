@@ -37,6 +37,12 @@ export async function handleTokenRequest(
   req: Request,
   kongService: IKongService
 ): Promise<Response> {
+  log("Processing token request", {
+    component: "tokens",
+    operation: "handle_token_request",
+    endpoint: "/tokens",
+  });
+
   const requestId = crypto.randomUUID();
   const url = new URL(req.url);
   const startTime = Bun.nanoseconds();

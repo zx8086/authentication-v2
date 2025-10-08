@@ -10,6 +10,12 @@ const config = loadConfig();
 
 export function handleMetrics(kongService: IKongService): Response {
   try {
+    log("Processing metrics request", {
+      component: "metrics",
+      operation: "handle_metrics",
+      endpoint: "/metrics",
+    });
+
     const cacheStats = kongService.getCacheStats();
     const timestamp = new Date().toISOString();
 
