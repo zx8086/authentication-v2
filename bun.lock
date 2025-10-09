@@ -44,6 +44,7 @@
     "@opentelemetry/sdk-metrics": "^2.1.0",
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.37.0",
+    "glob": "^10.0.0",
     "protobufjs": "^7.4.0",
     "semver": "^7.6.3",
   },
