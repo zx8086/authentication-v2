@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: THIS IS A BUN PROJECT - NOT NPM/NODE
+
+**ALWAYS REMEMBER: This project uses BUN as its runtime and package manager**
+- **NEVER use npm commands** - use `bun` instead
+- **NEVER use `npm install` or `npm ls`** - use `bun install` or `bun pm ls`
+- **NEVER use `npx`** - use `bunx` instead
+- **NEVER use node** - use `bun` instead
+- Package management: `bun install`, `bun add`, `bun remove`, `bun pm ls`
+- Running scripts: `bun run <script>` or just `bun <script>`
+- Direct execution: `bun src/server.ts` (not `node src/server.ts`)
+- The lockfile is `bun.lockb` (NOT package-lock.json or yarn.lock)
+
 ## Development Commands
 
 ### Common Development Tasks

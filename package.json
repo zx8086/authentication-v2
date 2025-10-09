@@ -121,5 +121,8 @@
     "winston": "^3.18.3",
     "winston-transport": "^4.9.0",
     "zod": "^4.1.12"
-  }
+  },
+  "trustedDependencies": [
+    "protobufjs"
+  ]
 }
