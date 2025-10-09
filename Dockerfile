@@ -81,7 +81,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 ARG SERVICE_NAME="authentication-service"
 ARG SERVICE_VERSION="1.0.0"
-ARG SERVICE_DESCRIPTION="Authentication Service"
+ARG SERVICE_DESCRIPTION="High-performance JWT authentication service built with Bun"
 ARG SERVICE_AUTHOR="Simon Owusu"
 ARG SERVICE_LICENSE="UNLICENSED"
 
