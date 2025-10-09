@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
-/* scripts/setup-test-consumers.ts */
+/* test/shared/setup-test-consumers.ts */
 
-import { loadConfig } from '../src/config/index';
-import { TEST_CONSUMERS, ANONYMOUS_CONSUMER, type TestConsumer } from '../test/shared/test-consumers';
+import { loadConfig } from '../../src/config/index';
+import { TEST_CONSUMERS, ANONYMOUS_CONSUMER, type TestConsumer } from './test-consumers';
 
 interface KongConsumer {
   id: string;

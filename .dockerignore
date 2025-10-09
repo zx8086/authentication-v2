@@ -1,56 +1,70 @@
-# Docker ignore file - optimized for fast builds and minimal context
+# Docker ignore file - optimized for Bun/TypeScript production builds
+# =====================================================================
 
-# Git and version control
-.git
+# Version Control
+# ---------------
+.git/
 .gitignore
 .gitattributes
 .github/
+.gitlab-ci.yml
 
 # Documentation
+# -------------
 *.md
 README*
 CHANGELOG*
 LICENSE*
 CLAUDE.md
 docs/
-.vscode/
-.idea/
 
-# Dependencies (will be installed in container)
+# Dependencies (will be installed fresh in container)
+# ----------------------------------------------------
 node_modules/
 .bun/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+bun.lockb
+*.bun
 
-# Testing files and results
+# Testing (not needed in production)
+# ----------------------------------
 test/
 tests/
 *.test.*
 *.spec.*
+*.bench.*
 coverage/
 .nyc_output/
 playwright-report/
 test-results/
 
-# Build artifacts (will be generated in container)
+# Build Artifacts (will be generated in container)
+# ------------------------------------------------
 dist/
 build/
 .next/
 .nuxt/
 out/
+*.tsbuildinfo
+.tscache/
 
-# Environment and config files (exclude ALL env files except .env.example)
+# Environment Files (security - exclude all except examples)
+# ----------------------------------------------------------
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Logs
+# ----
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Runtime data
+# Runtime Data
+# ------------
 pids/
 *.pid
 *.seed
@@ -58,15 +72,23 @@ pids/
 .cache/
 tmp/
 temp/
+*.tmp
+*.temp
+.tmp/
+.temp/
 
-# IDE files
+# IDE and Editor Files
+# --------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.history/
+.ionide/
 
-# OS generated files
+# OS Generated Files
+# ------------------
 .DS_Store
 .DS_Store?
 ._*
@@ -74,14 +96,25 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# CI/CD files (not needed in container)
-.github/workflows/
+# Security Sensitive Files
+# ------------------------
+*.key
+*.pem
+*.cert
+*.crt
+.ssh/
+secrets/
+
+# CI/CD and Docker Files (not needed in container)
+# ------------------------------------------------
 Dockerfile*
 docker-compose*
 .dockerignore
 
-# Development configuration files
+# Development Configuration
+# -------------------------
 .eslintrc*
 .prettierrc*
 .biome*
@@ -91,17 +124,29 @@ jest.config*
 vitest.config*
 playwright.config*
 
-# Temporary files
-*.tmp
-*.temp
-.tmp/
-.temp/
+# Package Manager Files (except package.json)
+# --------------------------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
 
-# Additional excludes for faster builds
-.gitlab-ci.yml
+# Performance Testing
+# -------------------
 k6/
 perf/
 benchmark/
 
-# Old .NET version (for reference only)
+# Old/Legacy Code
+# ---------------
 old/
+
+# Misc Development Files
+# ----------------------
+*.tgz
+.nyc_output
+.grunt
+.npm
+.yarn-integrity
+.cache
