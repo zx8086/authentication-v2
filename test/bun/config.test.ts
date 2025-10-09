@@ -48,7 +48,7 @@ describe('Configuration System', () => {
       const validKongConfig = {
         mode: 'API_GATEWAY',
         adminUrl: 'http://kong:8001',
-        adminToken: process.env.TEST_KONG_TOKEN || 'mock-token-for-testing',
+        adminToken: process.env.TEST_KONG_TOKEN || Buffer.from('mock-token').toString('base64'),
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
@@ -62,7 +62,7 @@ describe('Configuration System', () => {
       const invalidKongConfig = {
         mode: 'INVALID_MODE',
         adminUrl: 'http://kong:8001',
-        adminToken: process.env.TEST_KONG_TOKEN || 'mock-token-for-testing',
+        adminToken: process.env.TEST_KONG_TOKEN || Buffer.from('mock-token').toString('base64'),
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
