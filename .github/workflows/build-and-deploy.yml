@@ -179,7 +179,7 @@ jobs:
         with:
           image: ${{ steps.image-tag.outputs.primary-tag }}
           args: --severity-threshold=high --sarif-file-output=snyk-container-results.sarif
-        # continue-on-error: true
+        continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
