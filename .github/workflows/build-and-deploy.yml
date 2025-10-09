@@ -96,6 +96,12 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: |
+            org.opencontainers.image.title=${{ steps.package.outputs.service-name }}
+            org.opencontainers.image.description=${{ steps.package.outputs.service-description }}
+            org.opencontainers.image.licenses=${{ steps.package.outputs.service-license }}
+            org.opencontainers.image.vendor=${{ steps.package.outputs.service-author }}
+            org.opencontainers.image.version=${{ steps.package.outputs.service-version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
