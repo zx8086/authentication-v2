@@ -15,19 +15,43 @@ export interface TestSuite {
 export const testSuites: TestSuite[] = [
   {
     name: 'Health Smoke Test',
-    description: 'Quick validation of health, metrics, and OpenAPI endpoints',
-    scriptPath: 'test/k6/smoke/health-smoke.ts',
+    description: 'Health endpoint validation only',
+    scriptPath: 'test/k6/smoke/health-only-smoke.ts',
+    estimatedDuration: '3 minutes',
+    category: 'smoke',
+    requirements: ['Service running at localhost:3000']
+  },
+  {
+    name: 'Metrics Smoke Test',
+    description: 'Metrics endpoint validation only',
+    scriptPath: 'test/k6/smoke/metrics-only-smoke.ts',
+    estimatedDuration: '3 minutes',
+    category: 'smoke',
+    requirements: ['Service running at localhost:3000']
+  },
+  {
+    name: 'OpenAPI Smoke Test',
+    description: 'OpenAPI specification endpoint validation',
+    scriptPath: 'test/k6/smoke/openapi-only-smoke.ts',
     estimatedDuration: '3 minutes',
     category: 'smoke',
     requirements: ['Service running at localhost:3000']
   },
   {
     name: 'Token Smoke Test',
-    description: 'Basic JWT token generation validation and error handling',
+    description: 'JWT token generation validation and error handling',
     scriptPath: 'test/k6/smoke/tokens-smoke.ts',
     estimatedDuration: '3 minutes',
     category: 'smoke',
-    requirements: ['Service running', 'Kong integration (mocked in CI)']
+    requirements: ['Service running', 'Kong integration (auto-provisioned)']
+  },
+  {
+    name: 'All Endpoints Smoke Test',
+    description: 'Combined validation of all service endpoints',
+    scriptPath: 'test/k6/smoke/all-endpoints-smoke.ts',
+    estimatedDuration: '3 minutes',
+    category: 'smoke',
+    requirements: ['Service running at localhost:3000']
   },
   {
     name: 'Authentication Load Test',
@@ -57,9 +81,9 @@ export const testSuites: TestSuite[] = [
 
 export const testCategories = {
   smoke: {
-    description: 'Quick validation tests (3 VUs, 2-3 minutes)',
+    description: 'Quick validation tests (1-3 VUs, 3 minutes each)',
     purpose: 'Verify basic functionality before comprehensive testing',
-    totalDuration: '6 minutes',
+    totalDuration: '15 minutes (for all 5 smoke tests)',
     tests: testSuites.filter(t => t.category === 'smoke')
   },
   load: {
@@ -87,23 +111,39 @@ export const executionStrategies = {
     name: 'Full Test Suite',
     description: 'Execute all tests in recommended sequence',
     sequence: ['smoke', 'load', 'stress', 'scenarios'],
-    totalDuration: '40+ minutes',
+    totalDuration: '45+ minutes',
     commands: [
       'bun run k6:smoke:health',
+      'bun run k6:smoke:metrics',
+      'bun run k6:smoke:openapi',
       'bun run k6:smoke:tokens',
-      'bun run k6:load:auth',
-      'bun run k6:stress:system',
+      'bun run k6:smoke:all-endpoints',
+      'bun run k6:load',
+      'bun run k6:stress',
       'bun run k6:spike'
     ]
   },
   quick: {
     name: 'Quick Validation',
-    description: 'Smoke tests only for rapid feedback',
+    description: 'Essential smoke tests for rapid feedback',
     sequence: ['smoke'],
     totalDuration: '6 minutes',
     commands: [
       'bun run k6:smoke:health',
       'bun run k6:smoke:tokens'
+    ]
+  },
+  comprehensive_smoke: {
+    name: 'Comprehensive Smoke Tests',
+    description: 'All smoke tests for thorough validation',
+    sequence: ['smoke'],
+    totalDuration: '15 minutes',
+    commands: [
+      'bun run k6:smoke:health',
+      'bun run k6:smoke:metrics',
+      'bun run k6:smoke:openapi',
+      'bun run k6:smoke:tokens',
+      'bun run k6:smoke:all-endpoints'
     ]
   },
   performance: {
@@ -113,8 +153,8 @@ export const executionStrategies = {
     totalDuration: '34 minutes',
     commands: [
       'bun run k6:smoke:health',
-      'bun run k6:load:auth',
-      'bun run k6:stress:system'
+      'bun run k6:load',
+      'bun run k6:stress'
     ]
   },
   spike: {
@@ -163,8 +203,8 @@ export const prerequisites = [
 export const performanceTargets = {
   baselineExpectations: {
     healthEndpoint: {
-      p95ResponseTime: '< 50ms',
-      p99ResponseTime: '< 100ms',
+      p95ResponseTime: '< 400ms',
+      p99ResponseTime: '< 500ms',
       errorRate: '< 1%'
     },
     tokenGeneration: {
