@@ -5,9 +5,11 @@
 FROM oven/bun:1.2.23-alpine AS deps-base
 WORKDIR /app
 
-# Install minimal system dependencies and upgrade vulnerable packages
-RUN apk add --no-cache dumb-init ca-certificates && \
-    apk upgrade curl openssl
+# Install minimal system dependencies and upgrade ALL vulnerable packages
+RUN apk update && \
+    apk upgrade --no-cache && \
+    apk add --no-cache dumb-init ca-certificates && \
+    rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
 FROM deps-base AS deps-dev
@@ -36,9 +38,12 @@ RUN bun run generate-docs && \
 # Final production stage - minimal footprint
 FROM oven/bun:1.2.23-alpine AS production
 
-# Install only essential runtime dependencies and upgrade vulnerable packages
-RUN apk add --no-cache dumb-init curl && \
-    apk upgrade curl openssl && \
+# Update and upgrade all packages to fix vulnerabilities, then install runtime dependencies
+RUN apk update && \
+    apk upgrade --no-cache && \
+    apk add --no-cache dumb-init curl && \
+    # Clean up package cache
+    rm -rf /var/cache/apk/* && \
     # Create non-root user for security
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 bunuser && \

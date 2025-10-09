@@ -118,7 +118,6 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           },
         },
       },
-      cache: kongService.getCacheStats(),
       requestId,
     };
 
