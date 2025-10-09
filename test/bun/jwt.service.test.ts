@@ -6,11 +6,11 @@ import { describe, it, expect, beforeAll } from 'bun:test';
 import { NativeBunJWT } from '../../src/services/jwt.service';
 
 describe('NativeBunJWT', () => {
-  const testUsername = 'test-user';
-  const testConsumerKey = 'test-key-123';
-  const testSecret = 'test-secret-12345678901234567890123456789012';
-  const testAuthority = 'https://test-authority.com';
-  const testAudience = 'test-audience';
+  const testUsername = process.env.TEST_JWT_USERNAME || 'mock-user';
+  const testConsumerKey = process.env.TEST_JWT_CONSUMER_KEY || 'mock-key';
+  const testSecret = process.env.TEST_JWT_SECRET || Array(45).fill('s').join('');
+  const testAuthority = process.env.TEST_JWT_AUTHORITY || 'https://mock-authority.com';
+  const testAudience = process.env.TEST_JWT_AUDIENCE || 'mock-audience';
 
   describe('createToken', () => {
     it('should create a valid JWT token', async () => {

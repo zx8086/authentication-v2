@@ -48,7 +48,7 @@ describe('Configuration System', () => {
       const validKongConfig = {
         mode: 'API_GATEWAY',
         adminUrl: 'http://kong:8001',
-        adminToken: 'test-token-123',
+        adminToken: process.env.TEST_KONG_TOKEN || 'mock-token-for-testing',
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
@@ -62,7 +62,7 @@ describe('Configuration System', () => {
       const invalidKongConfig = {
         mode: 'INVALID_MODE',
         adminUrl: 'http://kong:8001',
-        adminToken: 'test-token-123',
+        adminToken: process.env.TEST_KONG_TOKEN || 'mock-token-for-testing',
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
@@ -202,7 +202,7 @@ describe('Configuration System', () => {
       const prodKongConfig = {
         mode: 'KONNECT',
         adminUrl: 'https://kong.example.com',
-        adminToken: 'test-token-123456789012345678901234567890',  // Basic non-empty string
+        adminToken: process.env.TEST_KONG_TOKEN_LONG || Array(41).fill('x').join(''),  // Mock 40-char token
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
@@ -216,7 +216,7 @@ describe('Configuration System', () => {
       const prodKongConfig = {
         mode: 'KONNECT',
         adminUrl: 'https://kong.example.com',
-        adminToken: 'properly-long-token-that-meets-security-requirements-12345',
+        adminToken: process.env.TEST_KONG_TOKEN_PROD || Array(61).fill('y').join(''),  // Mock 60-char token
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
         anonymousHeader: 'x-anonymous-consumer'
