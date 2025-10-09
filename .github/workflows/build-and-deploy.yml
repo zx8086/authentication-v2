@@ -135,16 +135,17 @@ jobs:
           # Install fresh license-checker locally
           npm install --no-save license-checker
 
-          # Check for problematic licenses, excluding our own package and allowing UNLICENSED
-          npx license-checker --summary --excludePrivatePackages --excludePackages 'authentication-service@1.0.0' \
+          # Check for problematic licenses, excluding our own package (which is correctly UNLICENSED)
+          # Note: Using the correct package name from package.json
+          npx license-checker --summary --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' \
                               --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-4.0;WTFPL;Python-2.0' || {
             echo "Found dependencies with potentially problematic licenses. Generating detailed report..."
-            npx license-checker --detailed --excludePrivatePackages --excludePackages 'authentication-service@1.0.0' > license-report.txt || true
+            npx license-checker --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' > license-report.txt || true
 
             # Specifically check for AGPL which is the main concern for Docker Scout
-            if npx license-checker --summary --excludePackages 'authentication-service@1.0.0' | grep -E "AGPL|GPL-3"; then
+            if npx license-checker --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL-3"; then
               echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible"
-              npx license-checker --summary --excludePackages 'authentication-service@1.0.0' | grep -E "AGPL|GPL" || true
+              npx license-checker --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL" || true
               exit 1
             else
               echo "::warning::License check passed - no AGPL/GPL-3 dependencies detected"
