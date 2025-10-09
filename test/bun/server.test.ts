@@ -133,7 +133,7 @@ describe("Authentication Server Integration", () => {
                 {
                   id: "test-secret-id",
                   key: "test-consumer-key",
-                  secret: process.env.TEST_CONSUMER_SECRET || Buffer.from('mock-consumer-secret').toString('base64').padEnd(52, 'x'),
+                  secret: process.env.TEST_CONSUMER_SECRET || Array(53).fill('t').join(''),
                   consumer: { id: "test-consumer-uuid" },
                 },
               ],
@@ -150,7 +150,7 @@ describe("Authentication Server Integration", () => {
             json: async () => ({
               id: "new-secret-id",
               key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Buffer.from('new-consumer-secret').toString('base64').padEnd(52, 'y'),
+              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill('n').join(''),
               consumer: { id: "test-consumer-uuid" },
             }),
           };
@@ -283,7 +283,7 @@ describe("Authentication Server Integration", () => {
             json: async () => ({
               id: "new-secret-id",
               key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Buffer.from('new-consumer-secret').toString('base64').padEnd(52, 'y'),
+              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill('n').join(''),
               consumer: { id: "new-consumer-uuid" },
             }),
           };
