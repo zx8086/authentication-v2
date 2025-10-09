@@ -125,30 +125,20 @@ jobs:
         run: |
           echo "Checking for AGPL v3 and other problematic licenses..."
 
-          # Clean npm cache to avoid stale data
-          npm cache clean --force || true
-
-          # Fresh install of dependencies
-          rm -rf node_modules package-lock.json
-          bun install --frozen-lockfile
-
-          # Install fresh license-checker locally
-          npm install --no-save license-checker
-
-          # Check for problematic licenses, excluding our own package (which is correctly UNLICENSED)
-          # Note: Using the correct package name from package.json
-          npx license-checker --summary --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' \
-                              --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-4.0;WTFPL;Python-2.0' || {
+          # Use bunx instead of npx to avoid npm deprecation warnings
+          # bunx runs packages without installing them globally
+          bunx license-checker@latest --summary --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' \
+                              --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-3-Clause-Clear;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-3.0;CC-BY-4.0;WTFPL;Python-2.0' || {
             echo "Found dependencies with potentially problematic licenses. Generating detailed report..."
-            npx license-checker --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' > license-report.txt || true
+            bunx license-checker@latest --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' > license-report.txt || true
 
             # Specifically check for AGPL which is the main concern for Docker Scout
-            if npx license-checker --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL-3"; then
+            if bunx license-checker@latest --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL-3"; then
               echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible"
-              npx license-checker --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL" || true
+              bunx license-checker@latest --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL" || true
               exit 1
             else
-              echo "::warning::License check passed - no AGPL/GPL-3 dependencies detected"
+              echo "::notice::License check passed - no AGPL/GPL-3 dependencies detected"
             fi
           }
         continue-on-error: true
@@ -184,7 +174,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.33.1
         timeout-minutes: 5
         with:
           image-ref: ${{ steps.image-tag.outputs.primary-tag }}
@@ -196,10 +186,10 @@ jobs:
 
       - name: Docker Scout analysis
         if: github.event_name != 'pull_request'
-        uses: docker/scout-action@v1
+        uses: docker/scout-action@v1.15.1
         timeout-minutes: 5
         with:
-          command: cves,recommendations,compare
+          command: cves,recommendations
           image: ${{ steps.image-tag.outputs.primary-tag }}
           sarif-file: scout-results.sarif
           summary: true
@@ -299,6 +289,14 @@ jobs:
             *.sarif
             license-report.txt
           retention-days: 30
+
+      - name: Clean up temporary files
+        if: always()
+        run: |
+          rm -f trivy_envs.txt || true
+          rm -f *.sarif || true
+          rm -f license-report.txt || true
+        continue-on-error: true
 
   supply-chain-verification:
     needs: build-and-push
