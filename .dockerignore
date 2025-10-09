@@ -22,8 +22,6 @@ docs/
 # ----------------------------------------------------
 node_modules/
 .bun/
-bun.lockb
-*.bun
 
 # Testing (not needed in production)
 # ----------------------------------

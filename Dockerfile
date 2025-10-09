@@ -38,16 +38,13 @@ RUN bun run generate-docs && \
 # Final production stage - minimal footprint
 FROM oven/bun:1.2.23-alpine AS production
 
-# Update and upgrade all packages to fix vulnerabilities, then install runtime dependencies
+# Update packages, install runtime dependencies, and create non-root user
 RUN apk update && \
     apk upgrade --no-cache && \
     apk add --no-cache dumb-init curl && \
-    # Clean up package cache
     rm -rf /var/cache/apk/* && \
-    # Create non-root user for security
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 bunuser && \
-    # Create app directory with proper ownership
     mkdir -p /app && \
     chown bunuser:nodejs /app
 
@@ -56,7 +53,6 @@ WORKDIR /app
 # Copy production dependencies with proper ownership
 COPY --from=deps-prod --chown=bunuser:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=bunuser:nodejs /app/package.json ./
-COPY --from=builder --chown=bunuser:nodejs /app/dist ./dist
 COPY --from=builder --chown=bunuser:nodejs /app/src ./src
 COPY --from=builder --chown=bunuser:nodejs /app/public ./public
 
@@ -67,7 +63,7 @@ USER bunuser
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0 \
-    TELEMETRY_MODE=console
+    TELEMETRY_MODE=otlp
 
 # Expose port
 EXPOSE 3000
