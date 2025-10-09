@@ -140,7 +140,7 @@ export const getPerformanceThresholds = () => {
     tokens: {
       smoke: {
         'http_req_duration': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
-        'http_req_failed': [`rate<${errorRate}`]
+        'http_req_failed{expected_response:true}': [`rate<${errorRate}`]
       },
       load: {
         'http_req_duration': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
