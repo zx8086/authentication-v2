@@ -76,16 +76,20 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["bun", "src/server.ts"]
 
-# Build metadata
+# Build metadata from package.json
 ARG BUILD_DATE
 ARG VCS_REF
-ARG VERSION
+ARG SERVICE_NAME="authentication-service"
+ARG SERVICE_VERSION="1.0.0"
+ARG SERVICE_DESCRIPTION="Authentication Service"
+ARG SERVICE_AUTHOR="Simon Owusu"
+ARG SERVICE_LICENSE="UNLICENSED"
 
-LABEL org.opencontainers.image.title="Authentication Service" \
-    org.opencontainers.image.description="High-performance JWT authentication service built with Bun" \
-    org.opencontainers.image.vendor="Example Corp" \
-    org.opencontainers.image.version="${VERSION:-1.0.0}" \
+LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
+    org.opencontainers.image.description="${SERVICE_DESCRIPTION}" \
+    org.opencontainers.image.vendor="${SERVICE_AUTHOR}" \
+    org.opencontainers.image.version="${SERVICE_VERSION}" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
-    org.opencontainers.image.licenses="UNLICENSED" \
+    org.opencontainers.image.licenses="${SERVICE_LICENSE}" \
     org.opencontainers.image.base.name="oven/bun:1.2.23-alpine"

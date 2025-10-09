@@ -23,7 +23,7 @@ function loadEnvFile() {
       }
     });
   } catch (error) {
-    console.warn('[Playwright Setup] Could not load .env file:', error.message);
+    console.warn('[Playwright Setup] Could not load .env file:', error instanceof Error ? error.message : String(error));
   }
 }
 

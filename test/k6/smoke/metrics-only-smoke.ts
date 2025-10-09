@@ -25,11 +25,26 @@ export default function() {
   check(metricsResponse, {
     'metrics status is 200': (r) => r.status === 200,
     'metrics response time < 50ms': (r) => r.timings.duration < 50,
-    'metrics has timestamp': (r) => r.body.includes('"timestamp"'),
-    'metrics has uptime': (r) => r.body.includes('"uptime"'),
-    'metrics has memory info': (r) => r.body.includes('"memory"'),
-    'metrics has cache info': (r) => r.body.includes('"cache"'),
-    'metrics has telemetry info': (r) => r.body.includes('"telemetry"'),
+    'metrics has timestamp': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"timestamp"');
+    },
+    'metrics has uptime': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"uptime"');
+    },
+    'metrics has memory info': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"memory"');
+    },
+    'metrics has cache info': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"cache"');
+    },
+    'metrics has telemetry info': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"telemetry"');
+    },
   });
 
   sleep(1);

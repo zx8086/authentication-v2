@@ -24,11 +24,26 @@ export default function() {
   const openapiResponse = http.get(`${baseUrl}/`);
   check(openapiResponse, {
     'openapi status is 200': (r) => r.status === 200,
-    'openapi contains spec': (r) => r.body.includes('"openapi": "3.0.3"'),
-    'openapi has info section': (r) => r.body.includes('"info"'),
-    'openapi has paths': (r) => r.body.includes('"paths"'),
-    'openapi has components': (r) => r.body.includes('"components"'),
-    'openapi has schemas': (r) => r.body.includes('"schemas"'),
+    'openapi contains spec': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"openapi": "3.0.3"');
+    },
+    'openapi has info section': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"info"');
+    },
+    'openapi has paths': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"paths"');
+    },
+    'openapi has components': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"components"');
+    },
+    'openapi has schemas': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"schemas"');
+    },
   });
 
   // Test with YAML Accept header
@@ -37,8 +52,14 @@ export default function() {
   });
   check(yamlResponse, {
     'yaml openapi status is 200': (r) => r.status === 200,
-    'yaml contains openapi version': (r) => r.body.includes('openapi: "3.0.3"'),
-    'yaml content type is yaml': (r) => r.headers['Content-Type'].includes('yaml'),
+    'yaml contains openapi version': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('openapi: "3.0.3"');
+    },
+    'yaml content type is yaml': (r) => {
+      const contentType = r.headers['Content-Type'];
+      return contentType ? contentType.includes('yaml') : false;
+    },
   });
 
   sleep(1);

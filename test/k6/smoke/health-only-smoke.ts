@@ -28,12 +28,26 @@ export default function () {
   const healthResponse = http.get(`${baseUrl}/health`);
   check(healthResponse, {
     "health status is 200": (r) => r.status === 200,
-    "health has status field": (r) => r.body.includes('"status"'),
-    "health has dependencies": (r) => r.body.includes('"dependencies"'),
-    "health has kong dependency": (r) => r.body.includes('"kong"'),
-    "health has telemetry dependency": (r) =>
-      r.body.includes('"telemetry"') && r.body.includes('"traces"'),
-    "health has telemetry info": (r) => r.body.includes('"telemetry"'),
+    "health has status field": (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"status"');
+    },
+    "health has dependencies": (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"dependencies"');
+    },
+    "health has kong dependency": (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"kong"');
+    },
+    "health has telemetry dependency": (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"telemetry"') && body.includes('"traces"');
+    },
+    "health has telemetry info": (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"telemetry"');
+    },
   });
 
   sleep(1);

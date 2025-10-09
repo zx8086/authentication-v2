@@ -39,8 +39,14 @@ export default function() {
   check(tokenResponse, {
     'token status is 200': (r) => r.status === 200,
     'token response time < 100ms': (r) => r.timings.duration < 100,
-    'token has access_token': (r) => r.body.includes('"access_token"'),
-    'token has expires_in': (r) => r.body.includes('"expires_in"'),
+    'token has access_token': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"access_token"');
+    },
+    'token has expires_in': (r) => {
+      const body = typeof r.body === 'string' ? r.body : '';
+      return body.includes('"expires_in"');
+    },
   });
 
   sleep(1);

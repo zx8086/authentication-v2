@@ -164,7 +164,7 @@ export const recordPerformanceBudgetViolation = (operation: string, actualDurati
 };
 
 export const getPerformanceBudget = (operation: string): number => {
-  const budgets = {
+  const budgets: { [key: string]: number } = {
     'token_generation': 50,   // 50ms budget for token generation
     'health_check': 30,       // 30ms budget for health checks
     'metrics_endpoint': 20,   // 20ms budget for metrics

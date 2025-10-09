@@ -18,8 +18,8 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["bun-types"]
+    "types": ["bun-types", "@types/k6"]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "test/**/*"],
   "exclude": ["node_modules", "dist"]
 }

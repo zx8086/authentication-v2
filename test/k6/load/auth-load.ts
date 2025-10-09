@@ -49,7 +49,10 @@ export default function() {
     check(tokenResponse, {
       'token status is 200': (r) => r.status === 200,
       'token response time < 200ms': (r) => r.timings.duration < 200,
-      'token has access_token': (r) => r.body.includes('"access_token"'),
+      'token has access_token': (r) => {
+        const body = typeof r.body === 'string' ? r.body : '';
+        return body.includes('"access_token"');
+      },
     });
 
     sleep(0.5 + Math.random() * 0.5); // 0.5-1s think time

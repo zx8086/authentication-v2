@@ -9,12 +9,11 @@ const mockConsumerSecret: ConsumerSecret = {
   key: "test-key-123",
   secret: "test-secret-456",
   consumer: { id: "test-consumer-id" },
-  algorithm: "HS256",
-  created_at: Date.now(),
 };
 
 const mockConsumerResponse: ConsumerResponse = {
   data: [mockConsumerSecret],
+  total: 1,
 };
 
 describe("KongApiGatewayService", () => {

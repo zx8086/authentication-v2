@@ -48,14 +48,15 @@ const defaultConfig: AppConfig = {
     enabled: true,
   } as any,
   apiInfo: {
-    title: "Authentication Service API",
+    title: pkg.name || "Authentication Service API",
     description:
+      pkg.description ||
       "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
     version: pkg.version || "1.0.0",
-    contactName: "Simon Owusu",
+    contactName: pkg.author || "Simon Owusu",
     contactEmail: "simonowusu@pvh.com",
     licenseName: "Proprietary",
-    licenseIdentifier: "UNLICENSED",
+    licenseIdentifier: pkg.license || "UNLICENSED",
     cors: "*",
   },
 };

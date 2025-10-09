@@ -2,10 +2,12 @@
 
 // Test helper functions for authentication service testing
 
-import http, { Response } from 'k6/http';
+import http from 'k6/http';
+import type { Response } from 'k6/http';
 import { check } from 'k6';
-import { getConfig, getHeaders, ConsumerConfig } from './config.ts';
-import { recordTokenGeneration, recordHealthCheck, recordError, getPerformanceBudget, recordPerformanceBudgetViolation } from './metrics.ts';
+import type { Checkers } from 'k6';
+import { getConfig, getHeaders, ConsumerConfig } from './config';
+import { recordTokenGeneration, recordHealthCheck, recordError, getPerformanceBudget, recordPerformanceBudgetViolation } from './metrics';
 
 export interface TokenResponse {
   access_token: string;
@@ -51,7 +53,7 @@ export const executeTokenRequest = (consumer: ConsumerConfig, options: Validatio
     success,
     duration,
     tokenValid: success && options.validateJWT,
-    cacheHit: response.headers['X-Cache-Status'] === 'HIT',
+    cacheHit: typeof response.headers['X-Cache-Status'] === 'string' && response.headers['X-Cache-Status'] === 'HIT',
     rateLimited: response.status === 429
   });
 
@@ -67,17 +69,24 @@ export const executeTokenRequest = (consumer: ConsumerConfig, options: Validatio
 export const validateTokenResponse = (response: Response, options: ValidationOptions): boolean => {
   const expectedStatus = options.expectedStatus || 200;
 
-  const checks = {
+  const checks: Checkers<Response> = {
     [`status is ${expectedStatus}`]: (r: Response) => r.status === expectedStatus,
-    'has content-type header': (r: Response) => r.headers['Content-Type'] === 'application/json',
-    'has request-id header': (r: Response) => !!r.headers['X-Request-Id'],
+    'has content-type header': (r: Response) => {
+      const contentType = r.headers['Content-Type'];
+      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    },
+    'has request-id header': (r: Response) => {
+      const requestId = r.headers['X-Request-Id'];
+      return typeof requestId === 'string' ? !!requestId : false;
+    },
     'response time acceptable': (r: Response) => r.timings.duration < (options.performanceBudget || 100)
   };
 
   if (expectedStatus === 200 && options.expectToken !== false) {
     checks['has access_token'] = (r: Response) => {
       try {
-        const tokenResponse = JSON.parse(r.body as string) as TokenResponse;
+        const body = typeof r.body === 'string' ? r.body : '';
+        const tokenResponse = JSON.parse(body) as TokenResponse;
         return !!tokenResponse.access_token;
       } catch {
         return false;
@@ -86,7 +95,8 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
 
     checks['has expires_in'] = (r: Response) => {
       try {
-        const tokenResponse = JSON.parse(r.body as string) as TokenResponse;
+        const body = typeof r.body === 'string' ? r.body : '';
+        const tokenResponse = JSON.parse(body) as TokenResponse;
         return tokenResponse.expires_in === 900;
       } catch {
         return false;
@@ -96,7 +106,8 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
     if (options.validateJWT) {
       checks['valid JWT structure'] = (r: Response) => {
         try {
-          const tokenResponse = JSON.parse(r.body as string) as TokenResponse;
+          const body = typeof r.body === 'string' ? r.body : '';
+          const tokenResponse = JSON.parse(body) as TokenResponse;
           const tokenParts = tokenResponse.access_token.split('.');
           return tokenParts.length === 3;
         } catch {
@@ -106,7 +117,8 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
 
       checks['valid JWT payload'] = (r: Response) => {
         try {
-          const tokenResponse = JSON.parse(r.body as string) as TokenResponse;
+          const body = typeof r.body === 'string' ? r.body : '';
+          const tokenResponse = JSON.parse(body) as TokenResponse;
           const tokenParts = tokenResponse.access_token.split('.');
           const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
           return payload.sub && payload.iss && payload.aud && payload.exp;
@@ -135,7 +147,7 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
       errorType,
       endpoint: options.endpoint,
       httpStatus: response.status,
-      consumerId: response.request?.headers?.['X-Consumer-Id'] as string
+      consumerId: response.request?.headers?.['X-Consumer-Id']?.[0]
     });
   }
 
@@ -169,7 +181,8 @@ export const executeHealthCheck = (): Response => {
 
   if (success && response.status === 200) {
     try {
-      const healthData = JSON.parse(response.body as string);
+      const body = typeof response.body === 'string' ? response.body : '';
+      const healthData = JSON.parse(body);
       kongHealthy = healthData.dependencies?.kong?.status === 'healthy';
       memoryUsage = healthData.memory?.used ? Math.round(healthData.memory.used / (1024 * 1024)) : undefined;
     } catch {
@@ -195,12 +208,16 @@ export const executeHealthCheck = (): Response => {
 };
 
 export const validateHealthResponse = (response: Response): boolean => {
-  const checks = {
+  const checks: Checkers<Response> = {
     'status is 200 or 503': (r: Response) => [200, 503].includes(r.status),
-    'has content-type header': (r: Response) => r.headers['Content-Type'] === 'application/json',
+    'has content-type header': (r: Response) => {
+      const contentType = r.headers['Content-Type'];
+      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    },
     'has valid health response': (r: Response) => {
       try {
-        const health = JSON.parse(r.body as string);
+        const body = typeof r.body === 'string' ? r.body : '';
+        const health = JSON.parse(body);
         return health.status && health.timestamp && health.version !== undefined;
       } catch {
         return false;
@@ -244,12 +261,16 @@ export const executeMetricsCheck = (): Response => {
 };
 
 export const validateMetricsResponse = (response: Response): boolean => {
-  const checks = {
+  const checks: Checkers<Response> = {
     'status is 200': (r: Response) => r.status === 200,
-    'has content-type header': (r: Response) => r.headers['Content-Type'] === 'application/json',
+    'has content-type header': (r: Response) => {
+      const contentType = r.headers['Content-Type'];
+      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    },
     'has valid metrics response': (r: Response) => {
       try {
-        const metrics = JSON.parse(r.body as string);
+        const body = typeof r.body === 'string' ? r.body : '';
+        const metrics = JSON.parse(body);
         return metrics.timestamp && metrics.uptime !== undefined && metrics.memory && metrics.performance;
       } catch {
         return false;
@@ -293,12 +314,16 @@ export const executeOpenAPICheck = (): Response => {
 };
 
 export const validateOpenAPIResponse = (response: Response): boolean => {
-  const checks = {
+  const checks: Checkers<Response> = {
     'status is 200': (r: Response) => r.status === 200,
-    'has content-type header': (r: Response) => r.headers['Content-Type'] === 'application/json',
+    'has content-type header': (r: Response) => {
+      const contentType = r.headers['Content-Type'];
+      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    },
     'has valid OpenAPI spec': (r: Response) => {
       try {
-        const spec = JSON.parse(r.body as string);
+        const body = typeof r.body === 'string' ? r.body : '';
+        const spec = JSON.parse(body);
         return spec.openapi && spec.info && spec.paths;
       } catch {
         return false;
@@ -352,7 +377,8 @@ export const simulateUserJourney = (consumer: ConsumerConfig): void => {
   // 4. Verify token was generated successfully
   if (tokenResponse.status === 200) {
     try {
-      const tokenData = JSON.parse(tokenResponse.body as string) as TokenResponse;
+      const body = typeof tokenResponse.body === 'string' ? tokenResponse.body : '';
+      const tokenData = JSON.parse(body) as TokenResponse;
       console.log(`Generated token for ${consumer.username}, expires in ${tokenData.expires_in}s`);
     } catch (e) {
       console.error(`Failed to parse token response for ${consumer.username}`);
