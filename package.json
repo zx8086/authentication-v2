@@ -1,6 +1,6 @@
 {
   "name": "authentication-service",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "description": "High-performance JWT authentication service built with Bun",
   "main": "dist/server.js",

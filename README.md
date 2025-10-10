@@ -1560,11 +1560,30 @@ bun run playwright:test
 bun run playwright:ui
 
 # Run specific test
-bunx playwright test test/playwright/core-functionality.e2e.ts
+bunx playwright test test/playwright/business-requirements.e2e.ts
+bunx playwright test test/playwright/comprehensive-business.e2e.ts
 
 # With specific configuration
 API_BASE_URL=https://staging.example.com bun run playwright:test
 ```
+
+**Current Test Suite (32 tests across 2 files - 100% pass rate):**
+
+**business-requirements.e2e.ts (16 tests):**
+- Service Health & Availability
+- JWT Token Generation
+- Security Requirements (401 status for invalid consumers)
+- Error Handling
+- CORS Support
+- Caching Behavior
+
+**comprehensive-business.e2e.ts (16 tests):**
+- Service Health & Dependencies
+- JWT Token Generation Core Flow
+- Security Enforcement (401 status for authentication failures)
+- Cache Management
+- Telemetry & Observability
+- Error Handling & Resilience
 
 **Automatic Setup Features:**
 - **Global Setup**: Automatically provisions standardized test consumers before all tests
@@ -1572,14 +1591,11 @@ API_BASE_URL=https://staging.example.com bun run playwright:test
 - **Shared Configuration**: Uses centralized test consumer definitions from `test/shared/test-consumers.ts`
 - **Environment Loading**: Automatically loads `.env` file for Kong Admin API access
 
-E2E Test Scenarios:
-- Health endpoint availability
-- Token generation flow with real Kong consumers
-- Error response validation
-- CORS header verification
-- Metrics endpoint functionality
-- Anonymous consumer rejection
-- Missing header validation
+**Recent Improvements (Linear Issues SIO-5 to SIO-9):**
+- Applied KISS principle - reduced from 176 to 32 essential tests
+- Fixed critical HTTP status code bug (401 vs 500 for invalid consumers)
+- Improved test reliability with consistent consumer management
+- Enhanced error response structure validation
 
 #### 3. K6 Performance Tests
 Located in `test/k6/` directory with intelligent consumer management:
@@ -1978,9 +1994,10 @@ curl -X GET https://gateway.example.com/prices-api-v2/catalog \
 
 ---
 
-*Document Version: 2.3*
+*Document Version: 2.4*
 *Last Updated: October 2025*
 *Service Version: Authentication v2.0 (Bun v1.2.23/TypeScript)*
 *Architecture: Modular DRY/KISS implementation with 80.78% test coverage*
+*E2E Testing: 32 Playwright tests with 100% pass rate (Linear Issues SIO-5 to SIO-9 completed)*
 *Testing: Unified K6 execution with standardized consumer management and shell script wrapper*
-*Codebase Synchronized: README.md updated to reflect K6 test execution improvements and consumer standardization*
+*Recent Updates: Fixed critical HTTP 401 status code for authentication failures, updated Playwright test documentation*

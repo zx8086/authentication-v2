@@ -121,35 +121,35 @@ export async function handleTokenRequest(
           recordError("kong_consumer_lookup_failed", {
             consumerId,
             username,
-            error: "Consumer secret not found",
+            error: "Consumer not found or no JWT credentials",
           });
 
-          error("Failed to get consumer secret from Kong", {
+          log("Consumer not found or has no JWT credentials", {
             consumerId,
             username,
-            error: "Consumer secret not found",
+            error: "Invalid consumer credentials",
             requestId,
           });
 
           log("HTTP request processed", {
             method: req.method,
             url: url.pathname,
-            statusCode: 500,
+            statusCode: 401,
             duration,
             requestId,
-            error: "Kong consumer lookup failed",
+            error: "Invalid consumer credentials",
           });
 
           return new Response(
             JSON.stringify({
-              error: "Internal Server Error",
-              message: "Authentication service temporarily unavailable",
-              statusCode: 500,
+              error: "Unauthorized",
+              message: "Invalid consumer credentials",
+              statusCode: 401,
               timestamp: new Date().toISOString(),
               requestId,
             }),
             {
-              status: 500,
+              status: 401,
               headers: {
                 "Content-Type": "application/json",
                 "X-Request-Id": requestId,

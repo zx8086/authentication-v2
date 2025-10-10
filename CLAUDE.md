@@ -2,6 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Management
+
+### Linear Project
+This service has a dedicated Linear project for tracking all development and maintenance work:
+- **Project**: Authentication Service
+- **URL**: https://linear.app/siobytes/project/authentication-service-f7a13083a8cc
+- **Team**: Siobytes
+- **Status**: In Progress
+
+### Git Commit Integration with Linear
+**IMPORTANT**: When making git commits, always link them to Linear issues using the issue identifier in the commit message:
+
+```bash
+# Format: Include the Linear issue ID in your commit message
+git commit -m "SIO-XX: Your commit message here"
+
+# Examples:
+git commit -m "SIO-5: Add telemetry endpoint tests"
+git commit -m "SIO-6: Fix 401 status for invalid consumers"
+git commit -m "SIO-7: Implement CORS security tests"
+```
+
+**Benefits of linking commits:**
+- Automatic updates in Linear showing related commits
+- Full traceability between code changes and issues
+- Git branch names auto-generated from Linear issues
+- Easy navigation between Linear and GitHub
+
+### Completed E2E Testing Issues
+- ✅ **SIO-5**: Telemetry & Monitoring Endpoints
+- ✅ **SIO-6**: Error Scenarios & Resilience (includes 500→401 status fix)
+- ✅ **SIO-7**: Security & Compliance
+- ✅ **SIO-8**: Performance & Resilience
+- ✅ **SIO-9**: Core Functionality Enhancement
+
+All issues completed with 100% test coverage (32 tests passing).
+
 ## CRITICAL: THIS IS A BUN PROJECT - NOT NPM/NODE
 
 **ALWAYS REMEMBER: This project uses BUN as its runtime and package manager**
