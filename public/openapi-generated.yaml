@@ -1,5 +1,5 @@
 # OpenAPI 3.0.3 specification for Authentication Service
-# Generated on: 2025-10-10T03:07:20.440Z
+# Generated on: 2025-10-10T03:30:56.777Z
 # This file is auto-generated. Do not edit manually.
 
 
@@ -7,7 +7,7 @@ openapi: "3.0.3"
 info:
   title: Authentication Service API
   description: High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring
-  version: "2.3.0"
+  version: "2.4.0"
   contact:
     name: Example Corp
     email: api-support@example.com
@@ -349,7 +349,7 @@ components:
         version:
           type: string
           description: Service version
-          example: "2.3.0"
+          example: "2.4.0"
         uptime:
           type: integer
           description: Service uptime in seconds
@@ -407,7 +407,7 @@ components:
             serviceVersion:
               type: string
               description: Service version for telemetry
-              example: "2.3.0"
+              example: "2.4.0"
             environment:
               type: string
               enum: 

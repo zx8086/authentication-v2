@@ -1529,8 +1529,12 @@ Located in `test/bun/` directory:
 bun run bun:test
 
 # Run specific test files
+bun test test/bun/config.test.ts
 bun test test/bun/jwt.service.test.ts
 bun test test/bun/kong.service.test.ts
+bun test test/bun/kong-api-gateway.service.test.ts
+bun test test/bun/kong.factory.test.ts
+bun test test/bun/logger.test.ts
 bun test test/bun/server.test.ts
 
 # Run with coverage
@@ -1541,13 +1545,13 @@ bun run bun:test:watch
 ```
 
 Test Coverage Areas:
-- **JWT token generation and signing**: Native crypto.subtle validation
-- **Kong API integration**: Complete mocking with factory pattern testing
-- **HTTP endpoint behavior**: Modular handler testing with proper isolation
-- **Error handling scenarios**: Centralized middleware error handling
-- **Configuration validation**: 4-pillar configuration pattern validation
-- **Test Consumer Management**: Standardized consumer setup across all frameworks
-- **Mock Cleanup**: Proper fetch spy restoration to prevent test pollution
+- **Configuration validation**: 4-pillar configuration pattern with Zod schema testing (`config.test.ts`)
+- **JWT token generation and signing**: Native crypto.subtle validation (`jwt.service.test.ts`)
+- **Kong API integration**: Complete mocking with factory pattern testing (`kong.service.test.ts`)
+- **Kong API Gateway Service**: 100% coverage with 33 test cases (`kong-api-gateway.service.test.ts`)
+- **Kong Factory Pattern**: 100% coverage with mode validation (`kong.factory.test.ts`)
+- **Logger Utility**: Error-free execution validation (`logger.test.ts`)
+- **HTTP endpoint behavior**: Modular handler testing with proper isolation (`server.test.ts`)
 
 #### 2. Playwright E2E Tests
 Located in `test/playwright/` directory with automatic consumer setup:
@@ -1610,12 +1614,16 @@ bun run k6:smoke:all-endpoints # Basic health smoke test
 
 # Authentication tests (automatic consumer setup)
 bun run k6:smoke:tokens      # JWT generation with consumer provisioning
-bun run k6:load              # Load testing with consumer setup
-bun run k6:stress            # Stress testing with consumer setup
-bun run k6:spike             # Spike testing with consumer setup
+bun run k6:load              # Load testing (70% tokens, 20% user journey, 10% metrics)
+bun run k6:stress            # Stress testing (primarily tokens with mixed traffic)
+bun run k6:spike             # Spike testing (primarily tokens with mixed traffic)
 
 # Test information
-bun run k6:info              # Display all available tests and configuration
+bun run k6:info              # Display all available tests
+
+# Convenience scripts for test suites
+bun run k6:quick             # Quick smoke tests (6 minutes) - health + tokens only
+bun run k6:full              # Full test suite (30-40 minutes) - smoke tests + performance tests (tokens-focused) and configuration
 ```
 
 **Unified K6 Test Execution:**
@@ -1633,24 +1641,30 @@ All K6 tests now use a standardized shell script wrapper (`scripts/run-k6.sh`) t
 - **Shared Consumers**: All K6 tests use the same standardized test consumer set
 
 **Test File Structure:**
-- `test/shared/test-consumers.ts` - **Centralized test consumer definitions (TypeScript)**
-- `test/bun/` - **Unit and integration tests**
+- `test/shared/test-consumers.ts` - Centralized test consumer definitions (TypeScript)
+- `test/bun/` - Unit and integration tests
+  - `config.test.ts` - Configuration validation with Zod schemas
   - `jwt.service.test.ts` - JWT generation and validation
-  - `kong-api-gateway.service.test.ts` - **NEW: 100% coverage Kong API Gateway**
-  - `kong.factory.test.ts` - **NEW: 100% coverage Kong factory pattern**
   - `kong.service.test.ts` - Kong service integration testing
-  - `logger.test.ts` - **NEW: Logger utility testing**
+  - `kong-api-gateway.service.test.ts` - Kong API Gateway service (100% coverage)
+  - `kong.factory.test.ts` - Kong factory pattern (100% coverage)
+  - `logger.test.ts` - Logger utility testing
   - `server.test.ts` - HTTP server integration testing
-- `scripts/run-k6.sh` - **NEW: Unified K6 test execution wrapper with environment loading**
-- `test/k6/utils/test-consumers.js` - **K6-compatible JavaScript version**
-- `test/k6/utils/setup.js` - **K6 consumer provisioning with idempotent creation**
-- `test/k6/smoke/` - Smoke tests for individual endpoints
-- `test/k6/load/` - Load testing scenarios with automatic setup
-- `test/k6/stress/` - Stress testing scenarios with automatic setup
-- `test/k6/spike/` - Spike testing scenarios with automatic setup
-- `test/k6/utils/config.ts` - Centralized test configuration with standardized consumer access
-- `test/k6/utils/helpers.ts` - Test helper functions
-- `test/k6/utils/metrics.ts` - Custom metrics handling
+- `test/playwright/` - E2E tests
+  - `business-requirements.e2e.ts` - Core business requirement tests (16 tests)
+  - `comprehensive-business.e2e.ts` - Comprehensive business logic tests (16 tests)
+  - `utils/test-helpers.ts` - Playwright test utilities
+- `test/k6/` - Performance tests
+  - `smoke/` - Individual endpoint smoke tests
+  - `load/auth-load.ts` - Load testing with mixed traffic patterns
+  - `stress/system-stress.ts` - Stress testing scenarios
+  - `spike/spike-test.ts` - Spike testing scenarios
+  - `utils/config.ts` - Test configuration
+  - `utils/helpers.ts` - Test helper functions
+  - `utils/metrics.ts` - Custom metrics handling
+  - `utils/setup.js` - Consumer provisioning
+  - `utils/test-consumers.js` - K6-compatible consumer definitions
+- `test/k6/run-k6.sh` - Unified K6 test execution wrapper
 
 **Test Consumer Configuration:**
 - **5 Standard Test Consumers**: `test-user-001` through `test-user-005`
@@ -1728,17 +1742,17 @@ K6_ERROR_RATE_THRESHOLD=0.01
 K6_STRESS_ERROR_RATE_THRESHOLD=0.05
 K6_THRESHOLDS_NON_BLOCKING=false
 
-# Test consumer configuration
-TEST_CONSUMER_ID_1=test-consumer-001
-TEST_CONSUMER_USERNAME_1=loadtest-user-001
-TEST_CONSUMER_ID_2=test-consumer-002
-TEST_CONSUMER_USERNAME_2=loadtest-user-002
-TEST_CONSUMER_ID_3=test-consumer-003
-TEST_CONSUMER_USERNAME_3=loadtest-user-003
-TEST_CONSUMER_ID_4=test-consumer-004
-TEST_CONSUMER_USERNAME_4=loadtest-user-004
-TEST_CONSUMER_ID_5=test-consumer-005
-TEST_CONSUMER_USERNAME_5=loadtest-user-005
+# Test consumer configuration (auto-generated from test/shared/test-consumers.ts)
+TEST_CONSUMER_ID_1=test-user-001
+TEST_CONSUMER_USERNAME_1=test-user-001
+TEST_CONSUMER_ID_2=test-user-002
+TEST_CONSUMER_USERNAME_2=test-user-002
+TEST_CONSUMER_ID_3=test-user-003
+TEST_CONSUMER_USERNAME_3=test-user-003
+TEST_CONSUMER_ID_4=test-user-004
+TEST_CONSUMER_USERNAME_4=test-user-004
+TEST_CONSUMER_ID_5=test-user-005
+TEST_CONSUMER_USERNAME_5=test-user-005
 ```
 
 ---

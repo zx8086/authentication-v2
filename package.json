@@ -42,7 +42,9 @@
     "k6:load": "test/k6/run-k6.sh test/k6/load/auth-load.ts test/results/k6/load-auth-results.json true",
     "k6:stress": "test/k6/run-k6.sh test/k6/stress/system-stress.ts test/results/k6/stress-system-results.json true",
     "k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
-    "k6:info": "bun run test/k6/run-all-tests.ts"
+    "k6:info": "bun run test/k6/run-all-tests.ts",
+    "k6:quick": "bun run k6:smoke:health && bun run k6:smoke:tokens",
+    "k6:full": "bun run k6:smoke:health && bun run k6:smoke:metrics && bun run k6:smoke:openapi && bun run k6:smoke:tokens && bun run k6:load && bun run k6:stress && bun run k6:spike"
   },
   "keywords": [
     "authentication",
