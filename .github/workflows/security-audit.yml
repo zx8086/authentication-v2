@@ -26,7 +26,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: zx8086/authentication
+  IMAGE_NAME: zx8086/authentication-v2
 
 jobs:
   comprehensive-security-audit:
@@ -73,7 +73,7 @@ jobs:
 
       # Comprehensive Snyk Code Analysis
       - name: Run comprehensive Snyk code analysis
-        uses: snyk/actions/node@master
+        uses: snyk/actions/node@v1.1.0
         timeout-minutes: 20
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -99,7 +99,7 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Snyk container scan
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/docker@v1.1.0
         timeout-minutes: 25
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -110,7 +110,7 @@ jobs:
 
       # Advanced Trivy Scans
       - name: Run comprehensive Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         timeout-minutes: 15
         with:
           scan-type: 'fs'
@@ -122,7 +122,7 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Trivy container scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.33.1
         timeout-minutes: 15
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
@@ -144,7 +144,7 @@ jobs:
       # Secrets Detection
       - name: Run secrets detection with TruffleHog
         run: |
-          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.63.2/trufflehog_3.63.2_linux_amd64.tar.gz | tar -xzf - trufflehog
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.6/trufflehog_3.82.6_linux_amd64.tar.gz | tar -xzf - trufflehog
           ./trufflehog git file://. --json > secrets-scan.json || true
         timeout-minutes: 10
         continue-on-error: true
