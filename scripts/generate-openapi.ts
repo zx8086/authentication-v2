@@ -18,15 +18,7 @@ async function main(): Promise<void> {
     const outputDir = "public";
     await ensureDirectoryExists(outputDir);
 
-    // Set default config for generation
-    apiDocGenerator.setConfig({
-      server: {
-        port: 3000,
-        nodeEnv: "development",
-      },
-    });
-
-    // Register all routes
+    // Register all routes (config loaded automatically from 4-pillar system)
     apiDocGenerator.registerAllRoutes();
 
     // Generate the spec
@@ -41,13 +33,13 @@ async function main(): Promise<void> {
     const yamlContent = apiDocGenerator.convertToYaml(openApiSpec);
     await writeFile(yamlPath, yamlContent, "utf-8");
 
-    console.log(`✅ Generated OpenAPI specifications:`);
-    console.log(`   📄 ${jsonPath}`);
-    console.log(`   📄 ${yamlPath}`);
+    console.log(`Generated OpenAPI specifications:`);
+    console.log(`   ${jsonPath}`);
+    console.log(`   ${yamlPath}`);
 
     process.exit(0);
   } catch (error) {
-    console.error("❌ OpenAPI generation failed:", error);
+    console.error("OpenAPI generation failed:", error);
     process.exit(1);
   }
 }

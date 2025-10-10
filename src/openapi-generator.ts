@@ -1,242 +1,161 @@
 /* src/openapi-generator.ts */
 
-import pkg from "../package.json" with { type: "json" };
 import type { RouteDefinition } from "./config";
+import { type AppConfig, loadConfig } from "./config/index";
 
 class OpenAPIGenerator {
   private routes: RouteDefinition[] = [];
-  private apiVersion = pkg.version || "1.0.0";
-  private config: any = null;
+  private config: AppConfig;
+  private readonly _immutableCache = new Map<string, any>();
+  private _specGenerated = false;
+
+  constructor() {
+    // Use existing 4-pillar configuration system directly
+    this.config = loadConfig();
+    this._initializeImmutableCache();
+  }
+
+  private _initializeImmutableCache(): void {
+    // Pre-compute immutable schema components that never change
+    this._immutableCache.set("securitySchemes", Object.freeze(this._createSecuritySchemes()));
+    this._immutableCache.set("commonParameters", Object.freeze(this._createCommonParameters()));
+    this._immutableCache.set("tags", Object.freeze(this._createTags()));
+    this._immutableCache.set("errorSchemas", Object.freeze(this._createErrorSchemas()));
+  }
 
   registerRoute(route: RouteDefinition): void {
     this.routes.push(route);
   }
 
-  setConfig(config: any): void {
-    this.config = config;
-  }
-
-  private generateServers(): any[] {
-    const servers = [];
-
-    if (this.config) {
-      const currentUrl = `http://localhost:${this.config.server.port}`;
-      const envDescription =
-        this.config.server.nodeEnv === "production"
-          ? "Production server"
-          : this.config.server.nodeEnv === "staging"
-            ? "Staging server"
-            : "Development server";
-
-      servers.push({
-        url: currentUrl,
-        description: `${envDescription} (current)`,
-      });
-
-      if (this.config.server.nodeEnv !== "development") {
-        servers.push({
-          url: "http://localhost:3000",
-          description: "Development server",
-        });
-      }
-
-      if (this.config.server.nodeEnv !== "staging") {
-        servers.push({
-          url: "https://auth-staging.example.com",
-          description: "Staging server",
-        });
-      }
-
-      if (this.config.server.nodeEnv !== "production") {
-        servers.push({
-          url: "https://auth.example.com",
-          description: "Production server",
-        });
-      }
-    } else {
-      servers.push(
-        {
-          url: "http://localhost:3000",
-          description: "Development server",
-        },
-        {
-          url: "https://auth-staging.example.com",
-          description: "Staging server",
-        },
-        {
-          url: "https://auth.example.com",
-          description: "Production server",
-        }
-      );
+  private getEnvironmentDescription(): string {
+    switch (this.config.telemetry.environment) {
+      case "production":
+        return "Production server";
+      case "staging":
+        return "Staging server";
+      case "development":
+        return "Development server";
+      case "local":
+        return "Local development server";
+      default:
+        return "Development server";
     }
-
-    return servers;
   }
 
   generateSpec(): any {
-    // Use dynamic API info from config if available, otherwise use defaults
-    const apiInfo = this.config?.apiInfo || {
-      title: "Authentication Service API",
-      description:
-        "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
-      version: this.apiVersion,
-      contactName: "Example Corp",
-      contactEmail: "api-support@example.com",
-      licenseName: "Proprietary",
-      licenseIdentifier: "UNLICENSED",
-    };
-
-    return {
-      openapi: "3.0.3",
-      info: {
-        title: apiInfo.title,
-        description: apiInfo.description,
-        version: apiInfo.version,
-        contact: {
-          name: apiInfo.contactName,
-          email: apiInfo.contactEmail,
-        },
-        license: {
-          name: apiInfo.licenseName,
-          identifier: apiInfo.licenseIdentifier,
-        },
-      },
-      servers: this.generateServers(),
-      security: [
-        {
-          KongAdminToken: [],
-        },
-      ],
-      paths: this.generatePaths(),
-      components: this.generateComponents(),
-      tags: [
-        {
-          name: "Documentation",
-          description: "API documentation and specification endpoints",
-        },
-        {
-          name: "Authentication",
-          description: "JWT token issuance and authentication operations",
-        },
-        {
-          name: "Health",
-          description: "System health and dependency status monitoring",
-        },
-        {
-          name: "Metrics",
-          description: "Performance metrics and operational statistics",
-        },
-        {
-          name: "Debug",
-          description: "Debug endpoints for development and troubleshooting",
-        },
-      ],
-    };
-  }
-
-  private generatePaths(): any {
-    const paths: any = {};
-
-    for (const route of this.routes) {
-      if (!paths[route.path]) {
-        paths[route.path] = {};
-      }
-
-      const operation: any = {
-        summary: route.summary,
-        description: route.description,
-        tags: route.tags,
-        operationId: this.generateOperationId(route.path, route.method),
-        responses: route.responses || this.generateDefaultResponses(route),
-      };
-
-      if (route.parameters) {
-        operation.parameters = route.parameters;
-      }
-
-      if (route.path === "/tokens") {
-        operation.parameters = [
-          {
-            name: "x-consumer-id",
-            in: "header",
-            required: true,
-            description: "Kong consumer ID",
-            schema: {
-              type: "string",
-              example: "demo_user",
-            },
-          },
-          {
-            name: "x-consumer-username",
-            in: "header",
-            required: true,
-            description: "Kong consumer username",
-            schema: {
-              type: "string",
-              example: "demo_user",
-            },
-          },
-          {
-            name: "x-anonymous-consumer",
-            in: "header",
-            required: false,
-            description:
-              "Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)",
-            schema: {
-              type: "string",
-              enum: ["true", "false"],
-              example: "false",
-            },
-          },
-        ];
-      }
-
-      if (route.requestBody) {
-        operation.requestBody = route.requestBody;
-      }
-
-      if (route.requiresAuth) {
-        operation.security = [{ KongAdminToken: [] }];
-      }
-
-      paths[route.path][route.method.toLowerCase()] = operation;
+    // Use immutable caching for one-time spec generation
+    if (this._specGenerated && this._immutableCache.has("fullSpec")) {
+      return this._immutableCache.get("fullSpec");
     }
 
-    return paths;
+    const spec = Object.freeze({
+      openapi: "3.0.3",
+      info: Object.freeze({
+        title: this.config.apiInfo.title,
+        description: this.config.apiInfo.description,
+        version: this.config.apiInfo.version,
+        contact: Object.freeze({
+          name: this.config.apiInfo.contactName,
+          email: this.config.apiInfo.contactEmail,
+        }),
+        license: Object.freeze({
+          name: this.config.apiInfo.licenseName,
+          identifier: this.config.apiInfo.licenseIdentifier,
+        }),
+      }),
+      servers: this._generateServersImmutable(),
+      security: Object.freeze([
+        Object.freeze({
+          KongAdminToken: Object.freeze([]),
+        }),
+      ]),
+      paths: this._generatePathsImmutable(),
+      components: this._generateComponentsImmutable(),
+      tags: this._immutableCache.get("tags"),
+    });
+
+    // Cache the complete spec immutably
+    this._immutableCache.set("fullSpec", spec);
+    this._specGenerated = true;
+    return spec;
   }
 
-  private generateOperationId(path: string, method: string): string {
-    // Convert path to camelCase operation ID
-    const cleanPath = path
-      .replace(/^\//, "") // Remove leading slash
-      .replace(/\{(\w+)\}/g, "By$1") // Convert {id} to ById
-      .replace(/[/-]/g, "_") // Replace slashes and hyphens with underscores
-      .split("_")
-      .map((part, index) => {
-        if (index === 0) return part.toLowerCase();
-        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-      })
-      .join("");
-
-    const methodPrefix =
+  registerAllRoutes(): void {
+    const routes = [
+      { path: "/", method: "GET", handler: "getOpenAPISpec", tags: ["Documentation"] },
+      { path: "/tokens", method: "GET", handler: "issueToken", tags: ["Authentication"] },
+      { path: "/health", method: "GET", handler: "healthCheck", tags: ["Health"] },
+      { path: "/health/telemetry", method: "GET", handler: "getTelemetryHealth", tags: ["Health"] },
       {
-        GET: "get",
-        POST: "create",
-        PUT: "update",
-        DELETE: "delete",
-        PATCH: "patch",
-      }[method.toUpperCase()] || method.toLowerCase();
+        path: "/health/metrics",
+        method: "GET",
+        handler: "getMetricsHealth",
+        tags: ["Health", "Metrics"],
+      },
+      { path: "/metrics", method: "GET", handler: "getMetrics", tags: ["Metrics"] },
+      {
+        path: "/debug/metrics/test",
+        method: "POST",
+        handler: "recordTestMetrics",
+        tags: ["Debug", "Metrics"],
+      },
+      {
+        path: "/debug/metrics/export",
+        method: "POST",
+        handler: "forceMetricsExport",
+        tags: ["Debug", "Metrics"],
+      },
+      {
+        path: "/debug/metrics/stats",
+        method: "GET",
+        handler: "getExportStats",
+        tags: ["Debug", "Metrics"],
+      },
+    ];
 
-    return `${methodPrefix}${cleanPath.charAt(0).toUpperCase() + cleanPath.slice(1)}`;
+    routes.forEach((route) => {
+      this.registerRoute({
+        path: route.path,
+        method: route.method,
+        summary: this.generateSummary(route.handler),
+        description: this.generateDescription(route.handler),
+        tags: route.tags,
+        responses: this.generateResponsesForHandler(route.handler),
+        requiresAuth: route.path === "/tokens" ? false : undefined,
+      });
+    });
   }
 
-  private generateDefaultResponses(route: RouteDefinition): any {
+  private generateSummary(handlerName: string): string {
+    return handlerName
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (str) => str.toUpperCase())
+      .trim();
+  }
+
+  private generateDescription(handlerName: string): string {
+    const descriptions = {
+      getOpenAPISpec: "Returns the OpenAPI 3.0.3 specification in JSON or YAML format",
+      issueToken: "Generate JWT access token for authenticated Kong consumers",
+      healthCheck: "Get comprehensive system health status including dependency checks",
+      getTelemetryHealth: "Get OpenTelemetry configuration and initialization status",
+      getMetricsHealth: "Get metrics system health including export statistics",
+      getMetrics: "Get service performance metrics and operational statistics",
+      recordTestMetrics: "Manually record test metrics for debugging purposes",
+      forceMetricsExport: "Trigger immediate metrics export to OTLP endpoint",
+      getExportStats: "Get detailed metrics export statistics and timing information",
+    };
+
+    return descriptions[handlerName as keyof typeof descriptions] || `Handler: ${handlerName}`;
+  }
+
+  private generateResponsesForHandler(handlerName: string): any {
     const responses: any = {
       "200": {
         description: "Successful operation",
         content: {
           "application/json": {
-            schema: this.getResponseSchema(route.path, route.method),
+            schema: this.getResponseSchemaForHandler(handlerName),
           },
         },
       },
@@ -258,7 +177,8 @@ class OpenAPIGenerator {
       },
     };
 
-    if (route.path === "/tokens") {
+    // Add specific responses based on handler
+    if (handlerName === "issueToken") {
       responses["401"] = {
         description: "Unauthorized - Missing or invalid Kong consumer headers",
         content: {
@@ -285,637 +205,1001 @@ class OpenAPIGenerator {
       };
     }
 
+    if (handlerName === "getOpenAPISpec") {
+      responses["200"].content["application/yaml"] = {
+        schema: {
+          type: "string",
+          description: "OpenAPI 3.0.3 specification in YAML format",
+        },
+      };
+    }
+
     return responses;
   }
 
-  private getResponseSchema(path: string, method: string): any {
-    // Map endpoints to their response schemas
-    if (path === "/tokens" && method === "GET") {
-      return { $ref: "#/components/schemas/TokenResponse" };
-    }
-    if (path === "/health" && method === "GET") {
-      return { $ref: "#/components/schemas/HealthResponse" };
-    }
-    if (path === "/health/telemetry" && method === "GET") {
-      return { $ref: "#/components/schemas/TelemetryStatus" };
-    }
-    if (path === "/health/metrics" && method === "GET") {
-      return { $ref: "#/components/schemas/MetricsHealth" };
-    }
-    if (path === "/metrics" && method === "GET") {
-      return { $ref: "#/components/schemas/PerformanceMetrics" };
-    }
-    if (path === "/debug/metrics/test" && method === "POST") {
-      return { $ref: "#/components/schemas/DebugResponse" };
-    }
-    if (path === "/debug/metrics/export" && method === "POST") {
-      return { $ref: "#/components/schemas/DebugResponse" };
-    }
-    if (path === "/debug/metrics/stats" && method === "GET") {
-      return { $ref: "#/components/schemas/MetricsStats" };
-    }
-
-    return { type: "object" };
-  }
-
-  private generateComponents(): any {
-    return {
-      schemas: {
-        TokenResponse: {
-          type: "object",
-          required: ["access_token", "expires_in"],
-          properties: {
-            access_token: {
-              type: "string",
-              description: "JWT access token",
-              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            },
-            expires_in: {
-              type: "integer",
-              description: "Token expiration time in seconds",
-              example: 900,
-              minimum: 1,
-            },
-          },
-          description: "JWT token response",
-        },
-
-        HealthResponse: {
-          type: "object",
-          required: ["status", "timestamp", "version", "uptime", "environment", "dependencies"],
-          properties: {
-            status: {
-              type: "string",
-              enum: ["healthy", "degraded", "unhealthy"],
-              description: "Overall system health status",
-              example: "healthy",
-            },
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Health check timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            version: {
-              type: "string",
-              description: "Service version",
-              example: pkg.version || "1.0.0",
-            },
-            uptime: {
-              type: "integer",
-              description: "Service uptime in seconds",
-              example: 3600,
-              minimum: 0,
-            },
-            environment: {
-              type: "string",
-              description: "Deployment environment",
-              example: "development",
-            },
-            dependencies: {
-              type: "object",
-              properties: {
-                kong: {
-                  type: "object",
-                  required: ["status", "response_time", "url"],
-                  properties: {
-                    status: {
-                      type: "string",
-                      enum: ["healthy", "unhealthy"],
-                      description: "Kong Admin API status",
-                      example: "healthy",
-                    },
-                    response_time: {
-                      type: "integer",
-                      description: "Kong response time in milliseconds",
-                      example: 45,
-                      minimum: 0,
-                    },
-                    url: {
-                      type: "string",
-                      format: "uri",
-                      description: "Kong Admin API URL",
-                      example: "https://kong-admin.example.com",
-                    },
-                  },
-                },
-              },
-            },
-          },
-          description: "System health status with dependency information",
-        },
-
-        TelemetryStatus: {
-          type: "object",
-          required: ["initialized", "config"],
-          properties: {
-            initialized: {
-              type: "boolean",
-              description: "Whether OpenTelemetry is initialized",
-              example: true,
-            },
-            config: {
-              type: "object",
-              properties: {
-                serviceName: {
-                  type: "string",
-                  description: "OpenTelemetry service name",
-                  example: "authentication-service",
-                },
-                serviceVersion: {
-                  type: "string",
-                  description: "Service version for telemetry",
-                  example: pkg.version || "1.0.0",
-                },
-                environment: {
-                  type: "string",
-                  enum: ["development", "staging", "production"],
-                  description: "Deployment environment",
-                  example: "development",
-                },
-                mode: {
-                  type: "string",
-                  enum: ["console", "otlp", "both"],
-                  description: "Telemetry output mode",
-                  example: "both",
-                },
-                tracesEndpoint: {
-                  type: "string",
-                  format: "uri",
-                  description: "OTLP traces endpoint",
-                  example: "https://otel-http.example.com/v1/traces",
-                },
-                metricsEndpoint: {
-                  type: "string",
-                  format: "uri",
-                  description: "OTLP metrics endpoint",
-                  example: "https://otel-http.example.com/v1/metrics",
-                },
-                logsEndpoint: {
-                  type: "string",
-                  format: "uri",
-                  description: "OTLP logs endpoint",
-                  example: "https://otel-http.example.com/v1/logs",
-                },
-              },
-            },
-          },
-          description: "OpenTelemetry configuration and status",
-        },
-
-        MetricsHealth: {
-          type: "object",
-          required: ["timestamp", "telemetry", "metrics", "export_statistics"],
-          properties: {
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Metrics health check timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            telemetry: {
-              $ref: "#/components/schemas/TelemetryStatus",
-            },
-            metrics: {
-              type: "object",
-              properties: {
-                total_instruments: {
-                  type: "integer",
-                  description: "Total number of metric instruments",
-                  example: 23,
-                  minimum: 0,
-                },
-              },
-            },
-            export_statistics: {
-              type: "object",
-              properties: {
-                totalExports: {
-                  type: "integer",
-                  description: "Total number of metric exports",
-                  example: 145,
-                  minimum: 0,
-                },
-                successCount: {
-                  type: "integer",
-                  description: "Number of successful exports",
-                  example: 143,
-                  minimum: 0,
-                },
-                failureCount: {
-                  type: "integer",
-                  description: "Number of failed exports",
-                  example: 2,
-                  minimum: 0,
-                },
-                successRate: {
-                  type: "number",
-                  description: "Export success rate percentage",
-                  example: 98.62,
-                  minimum: 0,
-                  maximum: 100,
-                },
-              },
-            },
-          },
-          description: "Comprehensive metrics system health information",
-        },
-
-        PerformanceMetrics: {
-          type: "object",
-          required: ["timestamp", "uptime", "metrics"],
-          properties: {
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Metrics collection timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            uptime: {
-              type: "integer",
-              description: "Service uptime in seconds",
-              example: 3600,
-              minimum: 0,
-            },
-            metrics: {
-              type: "object",
-              properties: {
-                requests: {
-                  type: "object",
-                  properties: {
-                    total: {
-                      type: "integer",
-                      description: "Total requests processed",
-                      example: 15420,
-                      minimum: 0,
-                    },
-                    rate: {
-                      type: "number",
-                      description: "Requests per second",
-                      example: 4.28,
-                      minimum: 0,
-                    },
-                  },
-                },
-                response_time: {
-                  type: "object",
-                  properties: {
-                    avg: {
-                      type: "number",
-                      description: "Average response time in milliseconds",
-                      example: 12.5,
-                      minimum: 0,
-                    },
-                    p95: {
-                      type: "number",
-                      description: "95th percentile response time in milliseconds",
-                      example: 45.2,
-                      minimum: 0,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          description: "Service performance metrics and statistics",
-        },
-
-        MetricsStats: {
-          type: "object",
-          required: ["timestamp", "message", "export_statistics", "metrics_status"],
-          properties: {
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Statistics retrieval timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            message: {
-              type: "string",
-              description: "Status message",
-              example: "Metrics statistics retrieved successfully",
-            },
-            export_statistics: {
-              type: "object",
-              properties: {
-                totalExports: {
-                  type: "integer",
-                  description: "Total number of metric exports",
-                  example: 145,
-                  minimum: 0,
-                },
-                successCount: {
-                  type: "integer",
-                  description: "Number of successful exports",
-                  example: 143,
-                  minimum: 0,
-                },
-                failureCount: {
-                  type: "integer",
-                  description: "Number of failed exports",
-                  example: 2,
-                  minimum: 0,
-                },
-                successRate: {
-                  type: "number",
-                  description: "Export success rate percentage",
-                  example: 98.62,
-                  minimum: 0,
-                  maximum: 100,
-                },
-                lastExportTime: {
-                  type: "string",
-                  format: "date-time",
-                  description: "Last successful export timestamp",
-                  example: "2024-01-15T10:29:45.000Z",
-                },
-              },
-            },
-            metrics_status: {
-              type: "object",
-              properties: {
-                total_instruments: {
-                  type: "integer",
-                  description: "Total number of metric instruments",
-                  example: 23,
-                  minimum: 0,
-                },
-              },
-            },
-          },
-          description: "Detailed metrics export statistics and status",
-        },
-
-        DebugResponse: {
-          type: "object",
-          required: ["timestamp", "message", "success"],
-          properties: {
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Operation timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            message: {
-              type: "string",
-              description: "Operation result message",
-              example: "Test metrics recorded successfully",
-            },
-            success: {
-              type: "boolean",
-              description: "Operation success status",
-              example: true,
-            },
-            details: {
-              type: "object",
-              description: "Additional operation details",
-              additionalProperties: true,
-            },
-          },
-          description: "Debug operation response",
-        },
-
-        ErrorResponse: {
-          type: "object",
-          required: ["error", "message", "statusCode", "timestamp"],
-          properties: {
-            error: {
-              type: "string",
-              description: "Error type or code",
-              example: "VALIDATION_ERROR",
-            },
-            message: {
-              type: "string",
-              description: "Human-readable error message",
-              example: "Missing required Kong consumer headers",
-            },
-            statusCode: {
-              type: "integer",
-              description: "HTTP status code",
-              example: 400,
-              minimum: 400,
-              maximum: 599,
-            },
-            timestamp: {
-              type: "string",
-              format: "date-time",
-              description: "Error occurrence timestamp",
-              example: "2024-01-15T10:30:00.000Z",
-            },
-            requestId: {
-              type: "string",
-              format: "uuid",
-              description: "Unique request identifier for tracing",
-              example: "550e8400-e29b-41d4-a716-446655440000",
-            },
-            details: {
-              type: "object",
-              description: "Additional error context",
-              additionalProperties: true,
-            },
-          },
-          description: "Standard error response format",
-        },
-      },
-
-      securitySchemes: {
-        KongAdminToken: {
-          type: "apiKey",
-          in: "header",
-          name: "Kong-Admin-Token",
-          description: "Kong Admin API authentication token",
-        },
-      },
-
-      parameters: {
-        ConsumerIdHeader: {
-          name: "x-consumer-id",
-          in: "header",
-          required: true,
-          description: "Kong consumer ID",
-          schema: {
-            type: "string",
-            example: "demo_user",
-          },
-        },
-        ConsumerUsernameHeader: {
-          name: "x-consumer-username",
-          in: "header",
-          required: true,
-          description: "Kong consumer username",
-          schema: {
-            type: "string",
-            example: "demo_user",
-          },
-        },
-        AnonymousConsumerHeader: {
-          name: "x-anonymous-consumer",
-          in: "header",
-          required: false,
-          description: "Indicates if the request is from an anonymous consumer",
-          schema: {
-            type: "string",
-            enum: ["true", "false"],
-            example: "false",
-          },
-        },
-      },
+  private getResponseSchemaForHandler(handlerName: string): any {
+    const schemaMap = {
+      getOpenAPISpec: { type: "object", description: "OpenAPI 3.0.3 specification object" },
+      issueToken: { $ref: "#/components/schemas/TokenResponse" },
+      healthCheck: { $ref: "#/components/schemas/HealthResponse" },
+      getTelemetryHealth: { $ref: "#/components/schemas/TelemetryStatus" },
+      getMetricsHealth: { $ref: "#/components/schemas/MetricsHealth" },
+      getMetrics: { $ref: "#/components/schemas/PerformanceMetrics" },
+      recordTestMetrics: { $ref: "#/components/schemas/DebugResponse" },
+      forceMetricsExport: { $ref: "#/components/schemas/DebugResponse" },
+      getExportStats: { $ref: "#/components/schemas/MetricsStats" },
     };
-  }
 
-  registerAllRoutes(): void {
-    this.registerRoute({
-      path: "/",
-      method: "GET",
-      summary: "OpenAPI specification",
-      description:
-        "Get the OpenAPI 3.0.3 specification for this API. Returns JSON by default, or YAML if Accept header includes application/yaml, text/yaml, or application/x-yaml.",
-      tags: ["Documentation"],
-      responses: {
-        "200": {
-          description: "OpenAPI specification",
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                description: "OpenAPI 3.0.3 specification object",
-              },
-            },
-            "application/yaml": {
-              schema: {
-                type: "string",
-                description: "OpenAPI 3.0.3 specification in YAML format",
-              },
-            },
-          },
-        },
-      },
-    });
-
-    this.registerRoute({
-      path: "/tokens",
-      method: "GET",
-      summary: "Issue JWT token",
-      description:
-        "Generate a JWT access token for authenticated Kong consumers. Requires valid Kong consumer headers and rejects anonymous consumers.",
-      tags: ["Authentication"],
-      requiresAuth: false, // Uses Kong consumer headers instead
-    });
-
-    this.registerRoute({
-      path: "/health",
-      method: "GET",
-      summary: "System health check",
-      description:
-        "Get comprehensive system health status including dependency checks (Kong Admin API connectivity) and service information.",
-      tags: ["Health"],
-    });
-
-    this.registerRoute({
-      path: "/health/telemetry",
-      method: "GET",
-      summary: "Telemetry health status",
-      description:
-        "Get OpenTelemetry configuration and initialization status, including OTLP endpoints and service metadata.",
-      tags: ["Health"],
-    });
-
-    this.registerRoute({
-      path: "/health/metrics",
-      method: "GET",
-      summary: "Metrics health and debugging",
-      description:
-        "Get comprehensive metrics system health including export statistics, telemetry configuration, and instrument counts.",
-      tags: ["Health", "Metrics"],
-    });
-
-    this.registerRoute({
-      path: "/metrics",
-      method: "GET",
-      summary: "Performance metrics",
-      description:
-        "Get service performance metrics including request rates, response times, uptime, and operational statistics.",
-      tags: ["Metrics"],
-    });
-
-    this.registerRoute({
-      path: "/debug/metrics/test",
-      method: "POST",
-      summary: "Record test metrics",
-      description:
-        "Manually record test metrics for debugging and validation purposes. Used for testing OpenTelemetry metrics collection.",
-      tags: ["Debug", "Metrics"],
-    });
-
-    this.registerRoute({
-      path: "/debug/metrics/export",
-      method: "POST",
-      summary: "Force metrics export",
-      description:
-        "Manually trigger an immediate metrics export to the configured OTLP endpoint. Used for debugging export functionality.",
-      tags: ["Debug", "Metrics"],
-    });
-
-    this.registerRoute({
-      path: "/debug/metrics/stats",
-      method: "GET",
-      summary: "Export statistics",
-      description:
-        "Get detailed metrics export statistics including success rates, failure counts, and timing information.",
-      tags: ["Debug", "Metrics"],
-    });
+    return schemaMap[handlerName as keyof typeof schemaMap] || { type: "object" };
   }
 
   convertToYaml(obj: any): string {
+    const cacheKey = `yaml_${JSON.stringify(obj).slice(0, 100)}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
     const yamlHeader = `# OpenAPI 3.0.3 specification for Authentication Service
 # Generated on: ${new Date().toISOString()}
 # This file is auto-generated. Do not edit manually.
 
 `;
-    return yamlHeader + this.objectToYaml(obj, 0);
+    const result = yamlHeader + this._objectToYamlEnhanced(obj, 0);
+    this._immutableCache.set(cacheKey, result);
+    return result;
   }
 
-  private objectToYaml(obj: any, indent = 0): string {
+  private _generateServersImmutable(): readonly any[] {
+    const cacheKey = `servers_${this.config.server.port}_${this.config.telemetry.environment}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const servers = [];
+
+    // Use environment-aware server generation from 4-pillar config
+    const currentUrl = `http://localhost:${this.config.server.port}`;
+    const envDescription = this.getEnvironmentDescription();
+
+    servers.push(
+      Object.freeze({
+        url: currentUrl,
+        description: `${envDescription} (current)`,
+        environment: this.config.telemetry.environment,
+      })
+    );
+
+    // Add environment-specific servers based on configuration
+    if (this.config.telemetry.environment !== "development") {
+      servers.push(
+        Object.freeze({
+          url: "http://localhost:3000",
+          description: "Development server",
+          environment: "development",
+        })
+      );
+    }
+
+    if (this.config.telemetry.environment !== "staging") {
+      servers.push(
+        Object.freeze({
+          url: "https://auth-staging.example.com",
+          description: "Staging server",
+          environment: "staging",
+        })
+      );
+    }
+
+    if (this.config.telemetry.environment !== "production") {
+      servers.push(
+        Object.freeze({
+          url: "https://auth.example.com",
+          description: "Production server",
+          environment: "production",
+        })
+      );
+    }
+
+    const frozenServers = Object.freeze(servers);
+    this._immutableCache.set(cacheKey, frozenServers);
+    return frozenServers;
+  }
+
+  private _generatePathsImmutable(): any {
+    const cacheKey = `paths_${this.routes.length}_${JSON.stringify(this.routes.map((r) => `${r.path}:${r.method}`))}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const paths: any = {};
+
+    for (const route of this.routes) {
+      if (!paths[route.path]) {
+        paths[route.path] = {};
+      }
+
+      const operation: any = Object.freeze({
+        summary: route.summary,
+        description: route.description,
+        tags: Object.freeze([...route.tags]),
+        operationId: this._generateOperationIdImmutable(route.path, route.method),
+        responses: route.responses || this._generateDefaultResponsesImmutable(route),
+        ...(route.parameters && { parameters: Object.freeze([...route.parameters]) }),
+        ...(route.path === "/tokens" && {
+          parameters: Object.freeze(this._getTokensParametersImmutable()),
+        }),
+        ...(route.requestBody && { requestBody: Object.freeze(route.requestBody) }),
+        ...(route.requiresAuth && {
+          security: Object.freeze([Object.freeze({ KongAdminToken: Object.freeze([]) })]),
+        }),
+      });
+
+      paths[route.path][route.method.toLowerCase()] = operation;
+    }
+
+    const frozenPaths = Object.freeze(paths);
+    this._immutableCache.set(cacheKey, frozenPaths);
+    return frozenPaths;
+  }
+
+  private _generateComponentsImmutable(): any {
+    const cacheKey = "components";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const components = Object.freeze({
+      schemas: Object.freeze({
+        ...this._generateAuthSchemasImmutable(),
+        ...this._generateHealthSchemasImmutable(),
+        ...this._generateMetricsSchemasImmutable(),
+        ...this._immutableCache.get("errorSchemas"),
+      }),
+      securitySchemes: this._immutableCache.get("securitySchemes"),
+      parameters: this._immutableCache.get("commonParameters"),
+    });
+
+    this._immutableCache.set(cacheKey, components);
+    return components;
+  }
+
+  private _generateOperationIdImmutable(path: string, method: string): string {
+    const cacheKey = `opId_${path}_${method}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    // Convert path to camelCase operation ID
+    const cleanPath = path
+      .replace(/^\//, "") // Remove leading slash
+      .replace(/\{(\w+)\}/g, "By$1") // Convert {id} to ById
+      .replace(/[/-]/g, "_") // Replace slashes and hyphens with underscores
+      .split("_")
+      .map((part, index) => {
+        if (index === 0) return part.toLowerCase();
+        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+      })
+      .join("");
+
+    const methodPrefix =
+      {
+        GET: "get",
+        POST: "create",
+        PUT: "update",
+        DELETE: "delete",
+        PATCH: "patch",
+      }[method.toUpperCase()] || method.toLowerCase();
+
+    const operationId = `${methodPrefix}${cleanPath.charAt(0).toUpperCase() + cleanPath.slice(1)}`;
+    this._immutableCache.set(cacheKey, operationId);
+    return operationId;
+  }
+
+  private _getTokensParametersImmutable(): readonly any[] {
+    const cacheKey = "tokensParameters";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const params = Object.freeze([
+      Object.freeze({
+        name: "x-consumer-id",
+        in: "header",
+        required: true,
+        description: "Kong consumer ID",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      Object.freeze({
+        name: "x-consumer-username",
+        in: "header",
+        required: true,
+        description: "Kong consumer username",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      Object.freeze({
+        name: "x-anonymous-consumer",
+        in: "header",
+        required: false,
+        description:
+          "Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)",
+        schema: Object.freeze({
+          type: "string",
+          enum: Object.freeze(["true", "false"]),
+          example: "false",
+        }),
+      }),
+    ]);
+
+    this._immutableCache.set(cacheKey, params);
+    return params;
+  }
+
+  private _generateDefaultResponsesImmutable(route: RouteDefinition): any {
+    const cacheKey = `responses_${route.path}_${route.method}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const responses: any = {
+      "200": Object.freeze({
+        description: "Successful operation",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: this._getResponseSchemaImmutable(route.path, route.method),
+          }),
+        }),
+      }),
+      "400": Object.freeze({
+        description: "Bad Request",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      }),
+      "500": Object.freeze({
+        description: "Internal Server Error",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      }),
+    };
+
+    if (route.path === "/tokens") {
+      responses["401"] = Object.freeze({
+        description: "Unauthorized - Missing or invalid Kong consumer headers",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      });
+      responses["403"] = Object.freeze({
+        description: "Forbidden - Anonymous consumers are not allowed",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      });
+      responses["429"] = Object.freeze({
+        description: "Rate limit exceeded",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      });
+    }
+
+    const frozenResponses = Object.freeze(responses);
+    this._immutableCache.set(cacheKey, frozenResponses);
+    return frozenResponses;
+  }
+
+  private _getResponseSchemaImmutable(path: string, method: string): any {
+    const cacheKey = `schema_${path}_${method}`;
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    let schema: any;
+    // Map endpoints to their response schemas
+    if (path === "/tokens" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/TokenResponse" });
+    } else if (path === "/health" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/HealthResponse" });
+    } else if (path === "/health/telemetry" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/TelemetryStatus" });
+    } else if (path === "/health/metrics" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/MetricsHealth" });
+    } else if (path === "/metrics" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/PerformanceMetrics" });
+    } else if (path === "/debug/metrics/test" && method === "POST") {
+      schema = Object.freeze({ $ref: "#/components/schemas/DebugResponse" });
+    } else if (path === "/debug/metrics/export" && method === "POST") {
+      schema = Object.freeze({ $ref: "#/components/schemas/DebugResponse" });
+    } else if (path === "/debug/metrics/stats" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/MetricsStats" });
+    } else {
+      schema = Object.freeze({ type: "object" });
+    }
+
+    this._immutableCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private _createTags(): readonly any[] {
+    return Object.freeze([
+      Object.freeze({
+        name: "Documentation",
+        description: "API documentation and specification endpoints",
+      }),
+      Object.freeze({
+        name: "Authentication",
+        description: "JWT token issuance and authentication operations",
+      }),
+      Object.freeze({
+        name: "Health",
+        description: "System health and dependency status monitoring",
+      }),
+      Object.freeze({
+        name: "Metrics",
+        description: "Performance metrics and operational statistics",
+      }),
+      Object.freeze({
+        name: "Debug",
+        description: "Debug endpoints for development and troubleshooting",
+      }),
+    ]);
+  }
+
+  private _createSecuritySchemes(): any {
+    return Object.freeze({
+      KongAdminToken: Object.freeze({
+        type: "apiKey",
+        in: "header",
+        name: "Kong-Admin-Token",
+        description: "Kong Admin API authentication token",
+      }),
+    });
+  }
+
+  private _createCommonParameters(): any {
+    return Object.freeze({
+      ConsumerIdHeader: Object.freeze({
+        name: "x-consumer-id",
+        in: "header",
+        required: true,
+        description: "Kong consumer ID",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      ConsumerUsernameHeader: Object.freeze({
+        name: "x-consumer-username",
+        in: "header",
+        required: true,
+        description: "Kong consumer username",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      AnonymousConsumerHeader: Object.freeze({
+        name: "x-anonymous-consumer",
+        in: "header",
+        required: false,
+        description: "Indicates if the request is from an anonymous consumer",
+        schema: Object.freeze({
+          type: "string",
+          enum: Object.freeze(["true", "false"]),
+          example: "false",
+        }),
+      }),
+    });
+  }
+
+  private _createErrorSchemas(): any {
+    return Object.freeze({
+      DebugResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "message", "success"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Operation timestamp",
+            example: new Date().toISOString(),
+          }),
+          message: Object.freeze({
+            type: "string",
+            description: "Operation result message",
+            example: "Test metrics recorded successfully",
+          }),
+          success: Object.freeze({
+            type: "boolean",
+            description: "Operation success status",
+            example: true,
+          }),
+          details: Object.freeze({
+            type: "object",
+            description: "Additional operation details",
+            additionalProperties: true,
+          }),
+        }),
+        description: "Debug operation response",
+      }),
+      ErrorResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze(["error", "message", "statusCode", "timestamp"]),
+        properties: Object.freeze({
+          error: Object.freeze({
+            type: "string",
+            description: "Error type or code",
+            example: "VALIDATION_ERROR",
+          }),
+          message: Object.freeze({
+            type: "string",
+            description: "Human-readable error message",
+            example: "Missing required Kong consumer headers",
+          }),
+          statusCode: Object.freeze({
+            type: "integer",
+            description: "HTTP status code",
+            example: 400,
+            minimum: 400,
+            maximum: 599,
+          }),
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Error occurrence timestamp",
+            example: new Date().toISOString(),
+          }),
+          requestId: Object.freeze({
+            type: "string",
+            format: "uuid",
+            description: "Unique request identifier for tracing",
+            example: "550e8400-e29b-41d4-a716-446655440000",
+          }),
+          details: Object.freeze({
+            type: "object",
+            description: "Additional error context",
+            additionalProperties: true,
+          }),
+        }),
+        description: "Standard error response format",
+      }),
+    });
+  }
+
+  private _generateAuthSchemasImmutable(): any {
+    const cacheKey = "authSchemas";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schemas = Object.freeze({
+      TokenResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze(["access_token", "expires_in"]),
+        properties: Object.freeze({
+          access_token: Object.freeze({
+            type: "string",
+            description: "JWT access token",
+            example: this._generateJWTExample(),
+          }),
+          expires_in: Object.freeze({
+            type: "integer",
+            description: "Token expiration time in seconds",
+            example: 900,
+            minimum: 1,
+          }),
+        }),
+        description: "JWT token response",
+      }),
+    });
+
+    this._immutableCache.set(cacheKey, schemas);
+    return schemas;
+  }
+
+  private _generateHealthSchemasImmutable(): any {
+    const cacheKey = "healthSchemas";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schemas = Object.freeze({
+      HealthResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze([
+          "status",
+          "timestamp",
+          "version",
+          "uptime",
+          "environment",
+          "dependencies",
+        ]),
+        properties: Object.freeze({
+          status: Object.freeze({
+            type: "string",
+            enum: Object.freeze(["healthy", "degraded", "unhealthy"]),
+            description: "Overall system health status",
+            example: "healthy",
+          }),
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Health check timestamp",
+            example: new Date().toISOString(),
+          }),
+          version: Object.freeze({
+            type: "string",
+            description: "Service version",
+            example: this.config.apiInfo.version,
+          }),
+          uptime: Object.freeze({
+            type: "integer",
+            description: "Service uptime in seconds",
+            example: 3600,
+            minimum: 0,
+          }),
+          environment: Object.freeze({
+            type: "string",
+            description: "Deployment environment",
+            example: this.config.telemetry.environment,
+          }),
+          dependencies: Object.freeze({
+            type: "object",
+            properties: Object.freeze({
+              kong: Object.freeze({
+                type: "object",
+                required: Object.freeze(["status", "response_time", "url"]),
+                properties: Object.freeze({
+                  status: Object.freeze({
+                    type: "string",
+                    enum: Object.freeze(["healthy", "unhealthy"]),
+                    description: "Kong Admin API status",
+                    example: "healthy",
+                  }),
+                  response_time: Object.freeze({
+                    type: "integer",
+                    description: "Kong response time in milliseconds",
+                    example: 45,
+                    minimum: 0,
+                  }),
+                  url: Object.freeze({
+                    type: "string",
+                    format: "uri",
+                    description: "Kong Admin API URL",
+                    example: "https://kong-admin.example.com",
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+        description: "System health status with dependency information",
+      }),
+      TelemetryStatus: Object.freeze({
+        type: "object",
+        required: Object.freeze(["initialized", "config"]),
+        properties: Object.freeze({
+          initialized: Object.freeze({
+            type: "boolean",
+            description: "Whether OpenTelemetry is initialized",
+            example: true,
+          }),
+          config: Object.freeze({
+            type: "object",
+            properties: Object.freeze({
+              serviceName: Object.freeze({
+                type: "string",
+                description: "OpenTelemetry service name",
+                example: this.config.telemetry.serviceName,
+              }),
+              serviceVersion: Object.freeze({
+                type: "string",
+                description: "Service version for telemetry",
+                example: this.config.telemetry.serviceVersion,
+              }),
+              environment: Object.freeze({
+                type: "string",
+                enum: Object.freeze(["local", "development", "staging", "production"]),
+                description: "Deployment environment",
+                example: this.config.telemetry.environment,
+              }),
+              mode: Object.freeze({
+                type: "string",
+                enum: Object.freeze(["console", "otlp", "both"]),
+                description: "Telemetry output mode",
+                example: this.config.telemetry.mode,
+              }),
+              tracesEndpoint: Object.freeze({
+                type: "string",
+                format: "uri",
+                description: "OTLP traces endpoint",
+                example: "https://otel-http.example.com/v1/traces",
+              }),
+              metricsEndpoint: Object.freeze({
+                type: "string",
+                format: "uri",
+                description: "OTLP metrics endpoint",
+                example: "https://otel-http.example.com/v1/metrics",
+              }),
+              logsEndpoint: Object.freeze({
+                type: "string",
+                format: "uri",
+                description: "OTLP logs endpoint",
+                example: "https://otel-http.example.com/v1/logs",
+              }),
+            }),
+          }),
+        }),
+        description: "OpenTelemetry configuration and status",
+      }),
+    });
+
+    this._immutableCache.set(cacheKey, schemas);
+    return schemas;
+  }
+
+  private _generateMetricsSchemasImmutable(): any {
+    const cacheKey = "metricsSchemas";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schemas = Object.freeze({
+      MetricsHealth: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "telemetry", "metrics", "export_statistics"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Metrics health check timestamp",
+            example: new Date().toISOString(),
+          }),
+          telemetry: Object.freeze({
+            $ref: "#/components/schemas/TelemetryStatus",
+          }),
+          metrics: Object.freeze({
+            type: "object",
+            properties: Object.freeze({
+              total_instruments: Object.freeze({
+                type: "integer",
+                description: "Total number of metric instruments",
+                example: 23,
+                minimum: 0,
+              }),
+            }),
+          }),
+          export_statistics: this._generateExportStatisticsSchemaImmutable(),
+        }),
+        description: "Comprehensive metrics system health information",
+      }),
+      PerformanceMetrics: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "uptime", "metrics"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Metrics collection timestamp",
+            example: new Date().toISOString(),
+          }),
+          uptime: Object.freeze({
+            type: "integer",
+            description: "Service uptime in seconds",
+            example: 3600,
+            minimum: 0,
+          }),
+          metrics: Object.freeze({
+            type: "object",
+            properties: Object.freeze({
+              requests: Object.freeze({
+                type: "object",
+                properties: Object.freeze({
+                  total: Object.freeze({
+                    type: "integer",
+                    description: "Total requests processed",
+                    example: 15420,
+                    minimum: 0,
+                  }),
+                  rate: Object.freeze({
+                    type: "number",
+                    description: "Requests per second",
+                    example: 4.28,
+                    minimum: 0,
+                  }),
+                }),
+              }),
+              response_time: Object.freeze({
+                type: "object",
+                properties: Object.freeze({
+                  avg: Object.freeze({
+                    type: "number",
+                    description: "Average response time in milliseconds",
+                    example: 12.5,
+                    minimum: 0,
+                  }),
+                  p95: Object.freeze({
+                    type: "number",
+                    description: "95th percentile response time in milliseconds",
+                    example: 45.2,
+                    minimum: 0,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+        description: "Service performance metrics and statistics",
+      }),
+      MetricsStats: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "message", "export_statistics", "metrics_status"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Statistics retrieval timestamp",
+            example: new Date().toISOString(),
+          }),
+          message: Object.freeze({
+            type: "string",
+            description: "Status message",
+            example: "Metrics statistics retrieved successfully",
+          }),
+          export_statistics: this._generateExportStatisticsSchemaImmutable(),
+          metrics_status: Object.freeze({
+            type: "object",
+            properties: Object.freeze({
+              total_instruments: Object.freeze({
+                type: "integer",
+                description: "Total number of metric instruments",
+                example: 23,
+                minimum: 0,
+              }),
+            }),
+          }),
+        }),
+        description: "Detailed metrics export statistics and status",
+      }),
+    });
+
+    this._immutableCache.set(cacheKey, schemas);
+    return schemas;
+  }
+
+  private _generateExportStatisticsSchemaImmutable(): any {
+    const cacheKey = "exportStatsSchema";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schema = Object.freeze({
+      type: "object",
+      properties: Object.freeze({
+        totalExports: Object.freeze({
+          type: "integer",
+          description: "Total number of metric exports",
+          example: 145,
+          minimum: 0,
+        }),
+        successCount: Object.freeze({
+          type: "integer",
+          description: "Number of successful exports",
+          example: 143,
+          minimum: 0,
+        }),
+        failureCount: Object.freeze({
+          type: "integer",
+          description: "Number of failed exports",
+          example: 2,
+          minimum: 0,
+        }),
+        successRate: Object.freeze({
+          type: "number",
+          description: "Export success rate percentage",
+          example: 98.62,
+          minimum: 0,
+          maximum: 100,
+        }),
+        lastExportTime: Object.freeze({
+          type: "string",
+          format: "date-time",
+          description: "Last successful export timestamp",
+          example: new Date(Date.now() - 15000).toISOString(),
+        }),
+      }),
+    });
+
+    this._immutableCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private _generateJWTExample(): string {
+    const cacheKey = "jwtExample";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const payload = btoa(
+      JSON.stringify({
+        sub: "demo_user",
+        exp: Math.floor(Date.now() / 1000) + 900,
+        iat: Math.floor(Date.now() / 1000),
+        iss: this.config.jwt.authority,
+        aud: this.config.jwt.audience,
+        key: "generated-key",
+      })
+    );
+    const example = `${header}.${payload}.signature`;
+
+    this._immutableCache.set(cacheKey, example);
+    return example;
+  }
+
+  private _objectToYamlEnhanced(obj: any, indent = 0): string {
     const spaces = "  ".repeat(indent);
 
+    // Handle null and undefined
     if (obj === null || obj === undefined) return "null";
+
+    // Enhanced string handling with proper YAML 1.2 compliance
     if (typeof obj === "string") {
-      if (obj.includes("\n") || obj.includes('"')) {
-        return `|\n${spaces}  ${obj.split("\n").join(`\n${spaces}  `)}`;
-      }
-      if (obj.includes(":") || obj.includes("[") || obj.includes("{") || /^\d/.test(obj)) {
-        return `"${obj.replace(/"/g, '\\"')}"`;
-      }
-      return obj;
+      return this._formatYamlString(obj, spaces, indent);
     }
-    if (typeof obj === "number" || typeof obj === "boolean") return obj.toString();
 
+    // Number and boolean handling
+    if (typeof obj === "number") {
+      return Number.isFinite(obj) ? obj.toString() : `"${obj.toString()}"`;
+    }
+    if (typeof obj === "boolean") return obj.toString();
+
+    // Enhanced array handling
     if (Array.isArray(obj)) {
-      if (obj.length === 0) return "[]";
-      return obj
-        .map(
-          (item) =>
-            `\n${spaces}- ${this.objectToYaml(item, indent + 1).replace(/\n/g, `\n${spaces}  `)}`
-        )
-        .join("");
+      return this._formatYamlArray(obj, spaces, indent);
     }
 
+    // Enhanced object handling
     if (typeof obj === "object") {
-      const entries = Object.entries(obj);
-      if (entries.length === 0) return "{}";
-
-      return entries
-        .map(([key, value]) => {
-          const yamlValue = this.objectToYaml(value, indent + 1);
-          if (typeof value === "object" && !Array.isArray(value) && value !== null) {
-            return `\n${spaces}${key}:${yamlValue.startsWith("\n") ? yamlValue : ` ${yamlValue}`}`;
-          }
-          return `\n${spaces}${key}: ${yamlValue}`;
-        })
-        .join("");
+      return this._formatYamlObject(obj, spaces, indent);
     }
 
     return obj.toString();
+  }
+
+  private _formatYamlString(str: string, spaces: string, _indent: number): string {
+    // Handle empty strings
+    if (str === "") return '""';
+
+    // Multi-line strings use literal block scalar
+    if (str.includes("\n")) {
+      const lines = str.split("\n");
+      return `|\n${lines.map((line) => `${spaces}  ${line}`).join("\n")}`;
+    }
+
+    // Check if string needs quoting based on YAML 1.2 rules
+    if (this._needsQuoting(str)) {
+      return `"${this._escapeYamlString(str)}"`;
+    }
+
+    return str;
+  }
+
+  private _formatYamlArray(arr: any[], spaces: string, indent: number): string {
+    if (arr.length === 0) return "[]";
+
+    // Use flow style for simple arrays
+    if (this._isSimpleArray(arr)) {
+      return `[${arr.map((item) => this._objectToYamlEnhanced(item, 0)).join(", ")}]`;
+    }
+
+    // Use block style for complex arrays
+    return arr
+      .map((item) => {
+        const yamlValue = this._objectToYamlEnhanced(item, indent + 1);
+        if (typeof item === "object" && !Array.isArray(item) && item !== null) {
+          return `\n${spaces}-${yamlValue.startsWith("\n") ? yamlValue.replace(/\n/, "\n ") : ` ${yamlValue}`}`;
+        }
+        return `\n${spaces}- ${yamlValue}`;
+      })
+      .join("");
+  }
+
+  private _formatYamlObject(obj: any, spaces: string, indent: number): string {
+    const entries = Object.entries(obj);
+    if (entries.length === 0) return "{}";
+
+    // Sort keys for consistent output
+    const sortedEntries = entries.sort(([a], [b]) => {
+      // Sort 'type' and 'required' fields first for OpenAPI consistency
+      const priority = { type: 0, required: 1, properties: 2, description: 3 };
+      const aPriority = priority[a as keyof typeof priority] ?? 999;
+      const bPriority = priority[b as keyof typeof priority] ?? 999;
+
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return a.localeCompare(b);
+    });
+
+    return sortedEntries
+      .map(([key, value]) => {
+        const yamlValue = this._objectToYamlEnhanced(value, indent + 1);
+        const safeKey = this._needsQuoting(key) ? `"${this._escapeYamlString(key)}"` : key;
+
+        if (typeof value === "object" && !Array.isArray(value) && value !== null) {
+          return `\n${spaces}${safeKey}:${yamlValue.startsWith("\n") ? yamlValue : ` ${yamlValue}`}`;
+        }
+        return `\n${spaces}${safeKey}: ${yamlValue}`;
+      })
+      .join("");
+  }
+
+  private _needsQuoting(str: string): boolean {
+    // YAML 1.2 indicators and special cases that need quoting
+    const yamlIndicators = /^[-?:,[\]{}#&*!|>'"%@`]/;
+    const yamlKeywords = /^(true|false|null|yes|no|on|off|~)$/i;
+    const numericPattern = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
+    const timestampPattern = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/;
+
+    return (
+      yamlIndicators.test(str) ||
+      yamlKeywords.test(str) ||
+      numericPattern.test(str) ||
+      timestampPattern.test(str) ||
+      str.includes(":") ||
+      str.includes("#") ||
+      str.includes("\t") ||
+      str.includes("\r") ||
+      str.trim() !== str
+    );
+  }
+
+  private _escapeYamlString(str: string): string {
+    return str
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t");
+  }
+
+  private _isSimpleArray(arr: any[]): boolean {
+    return (
+      arr.length <= 5 &&
+      arr.every(
+        (item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean"
+      ) &&
+      JSON.stringify(arr).length <= 80
+    );
   }
 }
 

@@ -1,12 +1,12 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Authentication Service API",
-    "description": "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
+    "title": "authentication-service",
+    "description": "High-performance JWT authentication service built with Bun",
     "version": "2.4.0",
     "contact": {
-      "name": "Example Corp",
-      "email": "api-support@example.com"
+      "name": "Simon Owusu",
+      "email": "simonowusu@pvh.com"
     },
     "license": {
       "name": "Proprietary",
@@ -16,15 +16,23 @@
   "servers": [
     {
       "url": "http://localhost:3000",
-      "description": "Development server (current)"
+      "description": "Local development server (current)",
+      "environment": "local"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server",
+      "environment": "development"
     },
     {
       "url": "https://auth-staging.example.com",
-      "description": "Staging server"
+      "description": "Staging server",
+      "environment": "staging"
     },
     {
       "url": "https://auth.example.com",
-      "description": "Production server"
+      "description": "Production server",
+      "environment": "production"
     }
   ],
   "security": [
@@ -35,15 +43,15 @@
   "paths": {
     "/": {
       "get": {
-        "summary": "OpenAPI specification",
-        "description": "Get the OpenAPI 3.0.3 specification for this API. Returns JSON by default, or YAML if Accept header includes application/yaml, text/yaml, or application/x-yaml.",
+        "summary": "Get Open A P I Spec",
+        "description": "Returns the OpenAPI 3.0.3 specification in JSON or YAML format",
         "tags": [
           "Documentation"
         ],
         "operationId": "get",
         "responses": {
           "200": {
-            "description": "OpenAPI specification",
+            "description": "Successful operation",
             "content": {
               "application/json": {
                 "schema": {
@@ -58,14 +66,34 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens": {
       "get": {
-        "summary": "Issue JWT token",
-        "description": "Generate a JWT access token for authenticated Kong consumers. Requires valid Kong consumer headers and rejects anonymous consumers.",
+        "summary": "Issue Token",
+        "description": "Generate JWT access token for authenticated Kong consumers",
         "tags": [
           "Authentication"
         ],
@@ -172,8 +200,8 @@
     },
     "/health": {
       "get": {
-        "summary": "System health check",
-        "description": "Get comprehensive system health status including dependency checks (Kong Admin API connectivity) and service information.",
+        "summary": "Health Check",
+        "description": "Get comprehensive system health status including dependency checks",
         "tags": [
           "Health"
         ],
@@ -214,8 +242,8 @@
     },
     "/health/telemetry": {
       "get": {
-        "summary": "Telemetry health status",
-        "description": "Get OpenTelemetry configuration and initialization status, including OTLP endpoints and service metadata.",
+        "summary": "Get Telemetry Health",
+        "description": "Get OpenTelemetry configuration and initialization status",
         "tags": [
           "Health"
         ],
@@ -256,8 +284,8 @@
     },
     "/health/metrics": {
       "get": {
-        "summary": "Metrics health and debugging",
-        "description": "Get comprehensive metrics system health including export statistics, telemetry configuration, and instrument counts.",
+        "summary": "Get Metrics Health",
+        "description": "Get metrics system health including export statistics",
         "tags": [
           "Health",
           "Metrics"
@@ -299,8 +327,8 @@
     },
     "/metrics": {
       "get": {
-        "summary": "Performance metrics",
-        "description": "Get service performance metrics including request rates, response times, uptime, and operational statistics.",
+        "summary": "Get Metrics",
+        "description": "Get service performance metrics and operational statistics",
         "tags": [
           "Metrics"
         ],
@@ -341,8 +369,8 @@
     },
     "/debug/metrics/test": {
       "post": {
-        "summary": "Record test metrics",
-        "description": "Manually record test metrics for debugging and validation purposes. Used for testing OpenTelemetry metrics collection.",
+        "summary": "Record Test Metrics",
+        "description": "Manually record test metrics for debugging purposes",
         "tags": [
           "Debug",
           "Metrics"
@@ -384,8 +412,8 @@
     },
     "/debug/metrics/export": {
       "post": {
-        "summary": "Force metrics export",
-        "description": "Manually trigger an immediate metrics export to the configured OTLP endpoint. Used for debugging export functionality.",
+        "summary": "Force Metrics Export",
+        "description": "Trigger immediate metrics export to OTLP endpoint",
         "tags": [
           "Debug",
           "Metrics"
@@ -427,8 +455,8 @@
     },
     "/debug/metrics/stats": {
       "get": {
-        "summary": "Export statistics",
-        "description": "Get detailed metrics export statistics including success rates, failure counts, and timing information.",
+        "summary": "Get Export Stats",
+        "description": "Get detailed metrics export statistics and timing information",
         "tags": [
           "Debug",
           "Metrics"
@@ -481,7 +509,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjAxMTM3NDgsImlhdCI6MTc2MDExMjg0OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -517,7 +545,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.864Z"
           },
           "version": {
             "type": "string",
@@ -533,7 +561,7 @@
           "environment": {
             "type": "string",
             "description": "Deployment environment",
-            "example": "development"
+            "example": "local"
           },
           "dependencies": {
             "type": "object",
@@ -602,12 +630,13 @@
               "environment": {
                 "type": "string",
                 "enum": [
+                  "local",
                   "development",
                   "staging",
                   "production"
                 ],
                 "description": "Deployment environment",
-                "example": "development"
+                "example": "local"
               },
               "mode": {
                 "type": "string",
@@ -655,7 +684,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.864Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -698,6 +727,12 @@
                 "example": 98.62,
                 "minimum": 0,
                 "maximum": 100
+              },
+              "lastExportTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last successful export timestamp",
+                "example": "2025-10-10T16:13:53.864Z"
               }
             }
           }
@@ -716,7 +751,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.864Z"
           },
           "uptime": {
             "type": "integer",
@@ -779,7 +814,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.864Z"
           },
           "message": {
             "type": "string",
@@ -818,7 +853,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2024-01-15T10:29:45.000Z"
+                "example": "2025-10-10T16:13:53.864Z"
               }
             }
           },
@@ -848,7 +883,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.863Z"
           },
           "message": {
             "type": "string",
@@ -898,7 +933,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Error occurrence timestamp",
-            "example": "2024-01-15T10:30:00.000Z"
+            "example": "2025-10-10T16:14:08.863Z"
           },
           "requestId": {
             "type": "string",
