@@ -73,7 +73,7 @@ jobs:
 
       # Comprehensive Snyk Code Analysis
       - name: Run comprehensive Snyk code analysis
-        uses: snyk/actions/node@v1.1.0
+        uses: snyk/actions/node@v1.0.0
         timeout-minutes: 20
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -99,7 +99,7 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Snyk container scan
-        uses: snyk/actions/docker@v1.1.0
+        uses: snyk/actions/docker@v1.0.0
         timeout-minutes: 25
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
