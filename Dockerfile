@@ -28,7 +28,8 @@ FROM deps-dev AS builder
 COPY . .
 
 # Generate OpenAPI docs and build the application
-RUN bun run generate-docs && \
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files to reduce layer size
     rm -rf .git node_modules/.cache test/ tests/ *.test.* *.spec.* && \
@@ -70,7 +71,7 @@ EXPOSE 3000
 
 # Health check with reasonable timeout
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f -H "User-Agent: Docker-Health-Check" http://localhost:3000/health || exit 1
 
 # Use dumb-init to handle signals properly and prevent zombie processes
 ENTRYPOINT ["dumb-init", "--"]
