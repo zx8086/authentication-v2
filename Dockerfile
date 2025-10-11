@@ -28,7 +28,13 @@ FROM deps-dev AS builder
 COPY . .
 
 # Generate OpenAPI docs and build the application
+# Set minimal placeholder environment variables for OpenAPI generation during build
 RUN --mount=type=cache,target=/root/.bun/install/cache \
+    KONG_JWT_AUTHORITY=https://build.example.com \
+    KONG_JWT_AUDIENCE=build-audience \
+    KONG_JWT_ISSUER=https://build.example.com \
+    KONG_ADMIN_URL=http://build-kong:8001 \
+    KONG_ADMIN_TOKEN=build-placeholder-token-32characters \
     bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files to reduce layer size
