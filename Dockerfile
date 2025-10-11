@@ -2,7 +2,7 @@
 # Designed for minimal build time and maximum security
 
 # syntax=docker/dockerfile:1
-FROM oven/bun:1.2.23-alpine AS deps-base
+FROM oven/bun:1.3.0-alpine AS deps-base
 WORKDIR /app
 
 # Install minimal system dependencies and upgrade ALL vulnerable packages
@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     ls -la dist/
 
 # Final production stage - minimal footprint
-FROM oven/bun:1.2.23-alpine AS production
+FROM oven/bun:1.3.0-alpine AS production
 
 # Update packages, install runtime dependencies, and create non-root user
 RUN apk update && \
@@ -92,4 +92,4 @@ LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
     org.opencontainers.image.licenses="${SERVICE_LICENSE}" \
-    org.opencontainers.image.base.name="oven/bun:1.2.23-alpine"
+    org.opencontainers.image.base.name="oven/bun:1.3.0-alpine"

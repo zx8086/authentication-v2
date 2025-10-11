@@ -1,0 +1,11 @@
+# Trivy ignore file for suppressing false positives
+# See: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+
+# JWT tokens in OpenAPI documentation examples - these are not real secrets
+# Files: public/openapi-generated.yaml, public/openapi.json
+# Reason: Example JWT tokens for API documentation, contains dummy data
+jwt-token
+
+# Alternative: More specific ignore with file paths (if needed)
+# jwt-token:public/openapi-generated.yaml
+# jwt-token:public/openapi.json

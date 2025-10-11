@@ -158,15 +158,15 @@ jobs:
 
           # Use bunx instead of npx to avoid npm deprecation warnings
           # bunx runs packages without installing them globally
-          bunx license-checker@latest --summary --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' \
-                              --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-3-Clause-Clear;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-3.0;CC-BY-4.0;WTFPL;Python-2.0' || {
+          bunx license-checker@latest --summary --excludePrivatePackages --excludePackages 'authentication-service@2.4.0' \
+                              --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-3-Clause-Clear;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-3.0;CC-BY-4.0;WTFPL;Python-2.0;MIT OR Apache-2.0' || {
             echo "Found dependencies with potentially problematic licenses. Generating detailed report..."
-            bunx license-checker@latest --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.3.0' > license-report.txt || true
+            bunx license-checker@latest --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.4.0' > license-report.txt || true
 
             # Specifically check for AGPL which is the main concern for Docker Scout
-            if bunx license-checker@latest --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL-3"; then
+            if bunx license-checker@latest --summary --excludePackages 'authentication-service@2.4.0' | grep -E "AGPL|GPL-3"; then
               echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible"
-              bunx license-checker@latest --summary --excludePackages 'authentication-service@2.3.0' | grep -E "AGPL|GPL" || true
+              bunx license-checker@latest --summary --excludePackages 'authentication-service@2.4.0' | grep -E "AGPL|GPL" || true
               exit 1
             else
               echo "::notice::License check passed - no AGPL/GPL-3 dependencies detected"
