@@ -1,5 +1,6 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.1",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "info": {
     "title": "authentication-service",
     "description": "High-performance JWT authentication service built with Bun",
@@ -509,7 +510,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjAxNTA3MjAsImlhdCI6MTc2MDE0OTgyMCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjAxNTM4NzAsImlhdCI6MTc2MDE1Mjk3MCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -545,7 +546,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2025-10-11T02:30:20.031Z"
+            "example": "2025-10-11T03:22:50.552Z"
           },
           "version": {
             "type": "string",
@@ -684,7 +685,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2025-10-11T02:30:20.031Z"
+            "example": "2025-10-11T03:22:50.552Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -732,7 +733,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-11T02:30:05.031Z"
+                "example": "2025-10-11T03:22:35.552Z"
               }
             }
           }
@@ -751,7 +752,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2025-10-11T02:30:20.031Z"
+            "example": "2025-10-11T03:22:50.552Z"
           },
           "uptime": {
             "type": "integer",
@@ -814,7 +815,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2025-10-11T02:30:20.031Z"
+            "example": "2025-10-11T03:22:50.552Z"
           },
           "message": {
             "type": "string",
@@ -853,7 +854,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-11T02:30:05.031Z"
+                "example": "2025-10-11T03:22:35.552Z"
               }
             }
           },
@@ -883,7 +884,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2025-10-11T02:30:20.029Z"
+            "example": "2025-10-11T03:22:50.551Z"
           },
           "message": {
             "type": "string",
@@ -933,7 +934,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Error occurrence timestamp",
-            "example": "2025-10-11T02:30:20.029Z"
+            "example": "2025-10-11T03:22:50.551Z"
           },
           "requestId": {
             "type": "string",

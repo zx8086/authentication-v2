@@ -21,6 +21,7 @@ class OpenAPIGenerator {
     this._immutableCache.set("commonParameters", Object.freeze(this._createCommonParameters()));
     this._immutableCache.set("tags", Object.freeze(this._createTags()));
     this._immutableCache.set("errorSchemas", Object.freeze(this._createErrorSchemas()));
+    this._immutableCache.set("openapi311Info", Object.freeze(this._createOpenAPI311Info()));
   }
 
   registerRoute(route: RouteDefinition): void {
@@ -48,8 +49,9 @@ class OpenAPIGenerator {
       return this._immutableCache.get("fullSpec");
     }
 
+    const openapi311Info = this._immutableCache.get("openapi311Info");
     const spec = Object.freeze({
-      openapi: "3.0.3",
+      ...openapi311Info,
       info: Object.freeze({
         title: this.config.apiInfo.title,
         description: this.config.apiInfo.description,
@@ -240,9 +242,10 @@ class OpenAPIGenerator {
       return this._immutableCache.get(cacheKey);
     }
 
-    const yamlHeader = `# OpenAPI 3.0.3 specification for Authentication Service
+    const yamlHeader = `# OpenAPI 3.1.1 specification for Authentication Service
 # Generated on: ${new Date().toISOString()}
 # This file is auto-generated. Do not edit manually.
+# Compliant with JSON Schema Draft 2020-12
 
 `;
     const result = yamlHeader + this._objectToYamlEnhanced(obj, 0);
@@ -568,6 +571,13 @@ class OpenAPIGenerator {
         description: "Debug endpoints for development and troubleshooting",
       }),
     ]);
+  }
+
+  private _createOpenAPI311Info(): any {
+    return Object.freeze({
+      openapi: "3.1.1",
+      jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
+    });
   }
 
   private _createSecuritySchemes(): any {
