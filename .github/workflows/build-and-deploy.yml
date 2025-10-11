@@ -58,6 +58,34 @@ jobs:
         run: bun install --frozen-lockfile
         timeout-minutes: 3
 
+      - name: Start application server for testing
+        run: |
+          bun run dev &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "Started server with PID: $SERVER_PID"
+
+          # Wait for server to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
+          echo "Server is ready for testing"
+        timeout-minutes: 2
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: key
+          JWT_EXPIRATION_MINUTES: 15
+          KONG_MODE: ${{ secrets.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
+          OTEL_SERVICE_NAME: authentication-service
+          TELEMETRY_MODE: console
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
+
       - name: Run unit tests
         run: bun run bun:test
         timeout-minutes: 3
@@ -72,11 +100,21 @@ jobs:
           KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
           OTEL_SERVICE_NAME: authentication-service
-          TELEMETRY_MODE: both
+          TELEMETRY_MODE: console
           OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
           OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
+
+      - name: Stop application server
+        if: always()
+        run: |
+          if [ ! -z "$SERVER_PID" ]; then
+            echo "Stopping server with PID: $SERVER_PID"
+            kill $SERVER_PID || true
+            sleep 2
+            kill -9 $SERVER_PID 2>/dev/null || true
+          fi
 
       - name: Run Biome code quality checks
         run: bun run biome:check
