@@ -10,7 +10,7 @@
     "dev:staging": "bun run generate-docs && cp .env.stg .env.staging && NODE_ENV=staging bun src/server.ts; rm .env.staging",
     "dev:production": "bun run generate-docs && cp .env.prod .env.production && NODE_ENV=production bun src/server.ts; rm .env.production",
     "start": "bun run src/server.ts",
-    "build": "bun run generate-docs && bun build src/server.ts --target=bun --outdir=dist --minify",
+    "build": "bun build src/server.ts --target=bun --outdir=dist --minify",
     "bun:test": "bun test",
     "bun:test:watch": "bun test --watch",
     "bun:test:coverage": "bun test --coverage",

@@ -27,22 +27,8 @@ RUN bun install --frozen-lockfile --production
 FROM deps-dev AS builder
 COPY . .
 
-# Build arguments for OpenAPI generation placeholder values
-ARG BUILD_JWT_AUTHORITY=https://build.example.com
-ARG BUILD_JWT_AUDIENCE=build-audience
-ARG BUILD_JWT_ISSUER=https://build.example.com
-ARG BUILD_KONG_URL=http://build-kong:8001
-ARG BUILD_KONG_TOKEN=build-placeholder-token-for-docs-generation
-
-# Generate OpenAPI docs and build the application
-# Set minimal placeholder environment variables for OpenAPI generation during build
+# Build the application (OpenAPI docs will be generated at runtime)
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    KONG_JWT_AUTHORITY=${BUILD_JWT_AUTHORITY} \
-    KONG_JWT_AUDIENCE=${BUILD_JWT_AUDIENCE} \
-    KONG_JWT_ISSUER=${BUILD_JWT_ISSUER} \
-    KONG_ADMIN_URL=${BUILD_KONG_URL} \
-    KONG_ADMIN_TOKEN=${BUILD_KONG_TOKEN} \
-    bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files to reduce layer size
     rm -rf .git node_modules/.cache test/ tests/ *.test.* *.spec.* && \
