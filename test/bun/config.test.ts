@@ -1,6 +1,6 @@
 /* test/bun/config.test.ts */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { SchemaRegistry } from '../../src/config/schemas';
 
 describe('Configuration System', () => {
@@ -362,6 +362,205 @@ describe('Configuration System', () => {
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Environment Schema Validation', () => {
+    const originalEnv = { ...Bun.env };
+
+    beforeEach(async () => {
+      // Clear all environment variables except system ones
+      Object.keys(Bun.env).forEach(key => {
+        if (!['PATH', 'HOME', 'USER', 'SHELL', 'TERM'].includes(key)) {
+          delete Bun.env[key];
+        }
+      });
+
+      // Set NODE_ENV to test to suppress console errors during validation tests
+      Bun.env.NODE_ENV = 'test';
+
+      // Reset config cache before each test
+      const { resetConfigCache } = await import('../../src/config/config');
+      resetConfigCache();
+    });
+
+    afterEach(async () => {
+      // Restore original environment
+      Object.keys(Bun.env).forEach(key => {
+        if (!(key in originalEnv)) {
+          delete Bun.env[key];
+        }
+      });
+      Object.assign(Bun.env, originalEnv);
+
+      // Reset config cache to allow fresh initialization with new environment
+      const { resetConfigCache } = await import('../../src/config/config');
+      resetConfigCache();
+    });
+
+    it('should validate complete environment configuration', async () => {
+      // Mock a complete environment configuration
+      Bun.env.PORT = '3000';
+      Bun.env.NODE_ENV = 'development';
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_JWT_ISSUER = 'https://auth.example.com';
+      Bun.env.KONG_JWT_KEY_CLAIM_NAME = 'key';
+      Bun.env.JWT_EXPIRATION_MINUTES = '15';
+      Bun.env.KONG_MODE = 'API_GATEWAY';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+      Bun.env.TELEMETRY_MODE = 'console';
+      Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://otlp.example.com';
+
+      // Import the config module to test the new schema
+      const { loadConfig } = await import('../../src/config/config');
+
+      expect(() => loadConfig()).not.toThrow();
+      const config = loadConfig();
+
+      expect(config.server.port).toBe(3000);
+      expect(config.server.nodeEnv).toBe('development');
+      expect(config.jwt.authority).toBe('https://auth.example.com');
+      expect(config.jwt.audience).toBe('https://api.example.com');
+      expect(config.kong.mode).toBe('API_GATEWAY');
+      expect(config.kong.adminUrl).toBe('http://kong:8001');
+      expect(config.telemetry.mode).toBe('console');
+    });
+
+    it('should apply defaults for missing optional values', async () => {
+      // Set only required environment variables and explicitly set NODE_ENV
+      Bun.env.NODE_ENV = 'development';  // Set explicitly to test default behavior
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+
+      const { loadConfig } = await import('../../src/config/config');
+      const config = loadConfig();
+
+      // Check that defaults are applied
+      expect(config.server.port).toBe(3000); // Default PORT
+      expect(config.server.nodeEnv).toBe('development'); // Default NODE_ENV
+      expect(config.jwt.keyClaimName).toBe('key'); // Default KONG_JWT_KEY_CLAIM_NAME
+      expect(config.jwt.expirationMinutes).toBe(15); // Default JWT_EXPIRATION_MINUTES
+      expect(config.kong.mode).toBe('API_GATEWAY'); // Default KONG_MODE
+      expect(config.telemetry.mode).toBe('both'); // Default TELEMETRY_MODE
+    });
+
+    it('should derive OTLP endpoints from base endpoint', async () => {
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+      Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://otlp.example.com';
+      // Explicitly clear specific endpoints to test derivation
+      delete Bun.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+      delete Bun.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
+      delete Bun.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+
+      const { loadConfig } = await import('../../src/config/config');
+      const config = loadConfig();
+
+      expect(config.telemetry.logsEndpoint).toBe('https://otlp.example.com/v1/logs');
+      expect(config.telemetry.tracesEndpoint).toBe('https://otlp.example.com/v1/traces');
+      expect(config.telemetry.metricsEndpoint).toBe('https://otlp.example.com/v1/metrics');
+    });
+
+    it('should prefer specific endpoints over derived ones', async () => {
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+      Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://otlp.example.com';
+      Bun.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = 'https://specific-traces.example.com';
+      // Explicitly clear other endpoints to test mixed derivation/specific behavior
+      delete Bun.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+      delete Bun.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+
+      const { loadConfig } = await import('../../src/config/config');
+      const config = loadConfig();
+
+      expect(config.telemetry.logsEndpoint).toBe('https://otlp.example.com/v1/logs'); // Derived
+      expect(config.telemetry.tracesEndpoint).toBe('https://specific-traces.example.com'); // Specific
+      expect(config.telemetry.metricsEndpoint).toBe('https://otlp.example.com/v1/metrics'); // Derived
+    });
+
+    it('should enforce production validation rules', async () => {
+      Bun.env.NODE_ENV = 'production';
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://localhost:8001'; // Invalid for production
+      Bun.env.KONG_ADMIN_TOKEN = 'short'; // Too short for production
+      Bun.env.OTEL_SERVICE_NAME = 'test-service'; // Contains 'test'
+
+      const { loadConfig } = await import('../../src/config/config');
+
+      expect(() => loadConfig()).toThrow();
+    });
+
+    it('should handle type coercion correctly', async () => {
+      Bun.env.PORT = '8080'; // String that should become number
+      Bun.env.JWT_EXPIRATION_MINUTES = '30'; // String that should become number
+      Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = '45000'; // String that should become number
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+
+      const { loadConfig } = await import('../../src/config/config');
+      const config = loadConfig();
+
+      expect(typeof config.server.port).toBe('number');
+      expect(config.server.port).toBe(8080);
+      expect(typeof config.jwt.expirationMinutes).toBe('number');
+      expect(config.jwt.expirationMinutes).toBe(30);
+      expect(typeof config.telemetry.exportTimeout).toBe('number');
+      expect(config.telemetry.exportTimeout).toBe(45000);
+    });
+
+    it('should reject invalid ranges and formats', async () => {
+      Bun.env.PORT = '70000'; // Too high
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'not-a-url'; // Invalid URL
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+
+      const { loadConfig } = await import('../../src/config/config');
+
+      expect(() => loadConfig()).toThrow();
+    });
+
+    it('should fail on missing required environment variables', async () => {
+      // Don't set any required variables
+      delete Bun.env.KONG_JWT_AUTHORITY;
+      delete Bun.env.KONG_JWT_AUDIENCE;
+      delete Bun.env.KONG_ADMIN_URL;
+      delete Bun.env.KONG_ADMIN_TOKEN;
+
+      const { loadConfig } = await import('../../src/config/config');
+
+      expect(() => loadConfig()).toThrow();
+    });
+
+    it('should handle URL normalization in endpoint derivation', async () => {
+      Bun.env.KONG_JWT_AUTHORITY = 'https://auth.example.com';
+      Bun.env.KONG_JWT_AUDIENCE = 'https://api.example.com';
+      Bun.env.KONG_ADMIN_URL = 'http://kong:8001';
+      Bun.env.KONG_ADMIN_TOKEN = 'test-token-123456789012345678901234567890';
+      Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://otlp.example.com/'; // With trailing slash
+      // Explicitly clear specific endpoints to test derivation
+      delete Bun.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+      delete Bun.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
+      delete Bun.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+
+      const { loadConfig } = await import('../../src/config/config');
+      const config = loadConfig();
+
+      // Should normalize trailing slash
+      expect(config.telemetry.logsEndpoint).toBe('https://otlp.example.com/v1/logs');
+      expect(config.telemetry.tracesEndpoint).toBe('https://otlp.example.com/v1/traces');
+      expect(config.telemetry.metricsEndpoint).toBe('https://otlp.example.com/v1/metrics');
     });
   });
 });

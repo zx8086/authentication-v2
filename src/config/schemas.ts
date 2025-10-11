@@ -71,15 +71,90 @@ export const CacheEntrySchema = z.strictObject({
   expires: z.number(),
 });
 
-export const EnvironmentType = z.enum(["local", "development", "staging", "production"]);
+export const EnvironmentType = z.enum(["local", "development", "staging", "production", "test"]);
 export const TelemetryMode = z.enum(["console", "otlp", "both"]);
 export const KongMode = z.enum(["API_GATEWAY", "KONNECT"]);
+
+// Consolidated Cross-Validation Functions
+export function addProductionSecurityValidation<
+  T extends { environment?: string; nodeEnv?: string },
+>(
+  data: T,
+  ctx: z.RefinementCtx,
+  options: {
+    serviceName?: string;
+    serviceVersion?: string;
+    adminUrl?: string;
+    adminToken?: string;
+    endpoints?: Array<{ path: string[]; value?: string }>;
+  } = {}
+): void {
+  const isProduction = data.environment === "production" || data.nodeEnv === "production";
+
+  if (!isProduction) return;
+
+  // Service name validation
+  if (options.serviceName) {
+    if (options.serviceName.includes("localhost") || options.serviceName.includes("test")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Production service name cannot contain localhost or test references",
+        path: ["serviceName"],
+      });
+    }
+  }
+
+  // Service version validation
+  if (options.serviceVersion) {
+    if (options.serviceVersion === "dev" || options.serviceVersion === "latest") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Production requires specific version, not dev or latest",
+        path: ["serviceVersion"],
+      });
+    }
+  }
+
+  // HTTPS endpoint validation
+  if (options.endpoints) {
+    for (const endpoint of options.endpoints) {
+      if (endpoint.value && !endpoint.value.startsWith("https://")) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Production telemetry endpoints must use HTTPS",
+          path: endpoint.path,
+        });
+      }
+    }
+  }
+
+  // Kong security validation
+  if (options.adminUrl) {
+    if (options.adminUrl.includes("localhost")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Kong Admin URL cannot use localhost in production",
+        path: ["kong", "adminUrl"],
+      });
+    }
+  }
+
+  if (options.adminToken) {
+    if (options.adminToken === "test" || options.adminToken.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Production Kong admin token must be secure (32+ characters)",
+        path: ["kong", "adminToken"],
+      });
+    }
+  }
+}
 
 // Reusable Format Functions (Zod v4)
 export const HttpsUrl = z.url();
 export const EmailAddress = z.email();
-export const PositiveInt = z.int32().min(1);
-export const PortNumber = z.int32().min(1).max(65535);
+export const PositiveInt = z.coerce.number().int().min(1);
+export const PortNumber = z.coerce.number().int().min(1).max(65535);
 export const NonEmptyString = z.string().min(1);
 
 export const ServerConfigSchema = z.strictObject({
@@ -132,45 +207,15 @@ export const TelemetryConfigSchema = z
     enableOpenTelemetry: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
-    // Production-specific validation
-    if (data.environment === "production") {
-      if (data.serviceName.includes("localhost") || data.serviceName.includes("test")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production service name cannot contain localhost or test references",
-          path: ["serviceName"],
-        });
-      }
-      if (data.serviceVersion === "dev" || data.serviceVersion === "latest") {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production requires specific version, not dev or latest",
-          path: ["serviceVersion"],
-        });
-      }
-      // Ensure HTTPS endpoints in production
-      if (data.logsEndpoint && !data.logsEndpoint.startsWith("https://")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production telemetry endpoints must use HTTPS",
-          path: ["logsEndpoint"],
-        });
-      }
-      if (data.tracesEndpoint && !data.tracesEndpoint.startsWith("https://")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production telemetry endpoints must use HTTPS",
-          path: ["tracesEndpoint"],
-        });
-      }
-      if (data.metricsEndpoint && !data.metricsEndpoint.startsWith("https://")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production telemetry endpoints must use HTTPS",
-          path: ["metricsEndpoint"],
-        });
-      }
-    }
+    addProductionSecurityValidation(data, ctx, {
+      serviceName: data.serviceName,
+      serviceVersion: data.serviceVersion,
+      endpoints: [
+        { path: ["logsEndpoint"], value: data.logsEndpoint },
+        { path: ["tracesEndpoint"], value: data.tracesEndpoint },
+        { path: ["metricsEndpoint"], value: data.metricsEndpoint },
+      ],
+    });
   });
 
 export const AppConfigSchema = z
@@ -182,23 +227,10 @@ export const AppConfigSchema = z
     apiInfo: ApiInfoConfigSchema,
   })
   .superRefine((data, ctx) => {
-    // Cross-field validation
-    if (data.server.nodeEnv === "production") {
-      if (data.kong.adminUrl.includes("localhost")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Kong Admin URL cannot use localhost in production",
-          path: ["kong", "adminUrl"],
-        });
-      }
-      if (data.kong.adminToken === "test" || data.kong.adminToken.length < 32) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production Kong admin token must be secure (32+ characters)",
-          path: ["kong", "adminToken"],
-        });
-      }
-    }
+    addProductionSecurityValidation({ nodeEnv: data.server.nodeEnv }, ctx, {
+      adminUrl: data.kong.adminUrl,
+      adminToken: data.kong.adminToken,
+    });
   });
 
 export const SchemaRegistry = {
@@ -248,3 +280,13 @@ export interface IKongService {
   getCacheStats(): KongCacheStats;
   healthCheck(): Promise<KongHealthCheckResult>;
 }
+
+export type { OtlpEndpointConfig, OtlpEndpoints } from "./helpers";
+// Re-export helpers for convenience
+export {
+  createOtlpConfig,
+  deriveAllOtlpEndpoints,
+  deriveOtlpEndpoint,
+  OTLP_STANDARD_PATHS,
+  validateOtlpEndpoints,
+} from "./helpers";

@@ -315,13 +315,6 @@ NODE_ENV=production bun run start        # Uses .env + .env.production
 - `API_LICENSE_NAME` - License name for OpenAPI spec
 - `API_LICENSE_IDENTIFIER` - License identifier for OpenAPI spec
 
-### Migration Context
-This service is a complete migration from .NET Core 3.1, maintaining identical API contracts while improving:
-- 3-4x performance improvement
-- 60% reduction in memory usage
-- 5x smaller container images
-- <100ms cold start times
-
 ## OpenTelemetry Observability
 
 ### Overview

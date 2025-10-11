@@ -65,6 +65,9 @@
         "useSingleVarDeclarator": "off",
         "useTemplate": "error"
       },
+      "security": {
+        "noGlobalEval": "error"
+      },
       "suspicious": {
         "noAssignInExpressions": "error",
         "noAsyncPromiseExecutor": "error",
@@ -99,7 +102,7 @@
     }
   },
   "javascript": {
-    "globals": ["Bun", "Timer"],
+    "globals": ["Bun", "Timer", "process", "Buffer"],
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",

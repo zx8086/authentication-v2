@@ -44,8 +44,5 @@ pids
 tmp/
 temp/
 
-# Claude Code documentation
-CLAUDE.md
-
 # Old .NET version (for reference only)
 old/
