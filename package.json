@@ -44,7 +44,19 @@
     "k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
     "k6:info": "bun run test/k6/run-all-tests.ts",
     "k6:quick": "bun run k6:smoke:health && bun run k6:smoke:tokens",
-    "k6:full": "bun run k6:smoke:health && bun run k6:smoke:metrics && bun run k6:smoke:openapi && bun run k6:smoke:tokens && bun run k6:load && bun run k6:stress && bun run k6:spike"
+    "k6:full": "bun run k6:smoke:health && bun run k6:smoke:metrics && bun run k6:smoke:openapi && bun run k6:smoke:tokens && bun run k6:load && bun run k6:stress && bun run k6:spike",
+    "docker:run:local": "docker run --rm --env-file .env -p 3000:3000 --name auth-service-local authentication-service:latest",
+    "docker:run:dev": "docker run --rm --env-file .env.dev -p 3001:3000 --name auth-service-dev authentication-service:latest",
+    "docker:run:staging": "docker run --rm --env-file .env.stg -p 3002:3000 --name auth-service-staging authentication-service:latest",
+    "docker:run:production": "docker run -d --restart=always --env-file .env.prod -p 3000:3000 --name auth-service-prod authentication-service:latest",
+    "docker:stop:local": "docker stop auth-service-local 2>/dev/null || true",
+    "docker:stop:dev": "docker stop auth-service-dev 2>/dev/null || true",
+    "docker:stop:staging": "docker stop auth-service-staging 2>/dev/null || true",
+    "docker:stop:production": "docker stop auth-service-prod 2>/dev/null || true",
+    "docker:local": "bun run docker:stop:local && bun run docker:build && bun run docker:run:local",
+    "docker:dev": "bun run docker:stop:dev && bun run docker:build && bun run docker:run:dev",
+    "docker:staging": "bun run docker:stop:staging && bun run docker:build && bun run docker:run:staging",
+    "docker:production": "bun run docker:stop:production && bun run docker:build && bun run docker:run:production"
   },
   "keywords": [
     "authentication",
