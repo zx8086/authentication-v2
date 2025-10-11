@@ -61,6 +61,18 @@ jobs:
       - name: Run unit tests
         run: bun run bun:test
         timeout-minutes: 3
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          KONG_JWT_AUTHORITY: https://test.example.com
+          KONG_JWT_AUDIENCE: test-api
+          KONG_JWT_KEY_CLAIM_NAME: key
+          JWT_EXPIRATION_MINUTES: 15
+          KONG_MODE: API_GATEWAY
+          KONG_ADMIN_URL: http://kong:8001
+          KONG_ADMIN_TOKEN: test-token-for-ci-environment
+          OTEL_SERVICE_NAME: authentication-service-test
+          TELEMETRY_MODE: console
 
       - name: Run Biome code quality checks
         run: bun run biome:check
