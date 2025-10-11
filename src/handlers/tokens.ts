@@ -47,29 +47,84 @@ export async function handleTokenRequest(
   const url = new URL(req.url);
   const startTime = Bun.nanoseconds();
 
-  return telemetryTracer.createHttpSpan(
-    req.method,
-    url.pathname,
-    200, // Will be updated based on actual response
-    async () => {
-      log("Token request started", {
-        method: req.method,
-        url: url.pathname,
-        requestId,
+  return telemetryTracer.createHttpSpan(req.method, url.pathname, 200, async () => {
+    log("Token request started", {
+      method: req.method,
+      url: url.pathname,
+      requestId,
+    });
+
+    const headerValidation = validateKongHeaders(req);
+
+    if ("error" in headerValidation) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      recordAuthenticationAttempt("header_validation_failed", false);
+      recordError("kong_header_validation_failed", {
+        error: headerValidation.error,
+        headers: {
+          consumerId: req.headers.get(config.kong.consumerIdHeader) || "missing",
+          username: req.headers.get(config.kong.consumerUsernameHeader) || "missing",
+          isAnonymous: req.headers.get(config.kong.anonymousHeader) || "false",
+        },
       });
 
-      const headerValidation = validateKongHeaders(req);
+      log("HTTP request processed", {
+        method: req.method,
+        url: url.pathname,
+        statusCode: 401,
+        duration,
+        requestId,
+        error: headerValidation.error,
+      });
 
-      if ("error" in headerValidation) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-        recordAuthenticationAttempt("header_validation_failed", false);
-        recordError("kong_header_validation_failed", {
-          error: headerValidation.error,
+      return new Response(
+        JSON.stringify({
+          error: "Unauthorized",
+          message: headerValidation.error,
+          statusCode: 401,
+          timestamp: new Date().toISOString(),
+          requestId,
+        }),
+        {
+          status: 401,
           headers: {
-            consumerId: req.headers.get(config.kong.consumerIdHeader) || "missing",
-            username: req.headers.get(config.kong.consumerUsernameHeader) || "missing",
-            isAnonymous: req.headers.get(config.kong.anonymousHeader) || "false",
+            "Content-Type": "application/json",
+            "X-Request-Id": requestId,
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           },
+        }
+      );
+    }
+
+    try {
+      const { consumerId, username } = headerValidation;
+
+      const secretStartTime = Bun.nanoseconds();
+      const secretResult = await telemetryTracer.createKongSpan(
+        "getConsumerSecret",
+        `${config.kong.adminUrl}/consumers/${consumerId}/jwt`,
+        "GET",
+        () => kongService.getConsumerSecret(consumerId)
+      );
+      const secretDuration = (Bun.nanoseconds() - secretStartTime) / 1_000_000;
+      recordOperationDuration("kong_get_consumer_secret", secretDuration, true);
+
+      if (!secretResult) {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        recordAuthenticationAttempt("consumer_lookup_failed", false, username);
+        recordError("kong_consumer_lookup_failed", {
+          consumerId,
+          username,
+          error: "Consumer not found or no JWT credentials",
+        });
+
+        log("Consumer not found or has no JWT credentials", {
+          consumerId,
+          username,
+          error: "Invalid consumer credentials",
+          requestId,
         });
 
         log("HTTP request processed", {
@@ -78,13 +133,13 @@ export async function handleTokenRequest(
           statusCode: 401,
           duration,
           requestId,
-          error: headerValidation.error,
+          error: "Invalid consumer credentials",
         });
 
         return new Response(
           JSON.stringify({
             error: "Unauthorized",
-            message: headerValidation.error,
+            message: "Invalid consumer credentials",
             statusCode: 401,
             timestamp: new Date().toISOString(),
             requestId,
@@ -102,162 +157,102 @@ export async function handleTokenRequest(
         );
       }
 
-      try {
-        const { consumerId, username } = headerValidation;
-
-        const secretStartTime = Bun.nanoseconds();
-        const secretResult = await telemetryTracer.createKongSpan(
-          "getConsumerSecret",
-          `${config.kong.adminUrl}/consumers/${consumerId}/jwt`,
-          "GET",
-          () => kongService.getConsumerSecret(consumerId)
-        );
-        const secretDuration = (Bun.nanoseconds() - secretStartTime) / 1_000_000;
-        recordOperationDuration("kong_get_consumer_secret", secretDuration, true);
-
-        if (!secretResult) {
-          const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-          recordAuthenticationAttempt("consumer_lookup_failed", false, username);
-          recordError("kong_consumer_lookup_failed", {
-            consumerId,
+      const jwtStartTime = Bun.nanoseconds();
+      const tokenResponse = await telemetryTracer.createJWTSpan(
+        "createToken",
+        () =>
+          NativeBunJWT.createToken(
             username,
-            error: "Consumer not found or no JWT credentials",
-          });
+            secretResult.key,
+            secretResult.secret,
+            config.jwt.authority,
+            config.jwt.audience,
+            config.jwt.issuer
+          ),
+        username
+      );
+      const jwtDuration = (Bun.nanoseconds() - jwtStartTime) / 1_000_000;
+      recordOperationDuration("jwt_generation", jwtDuration, true);
+      recordJwtTokenIssued(username, jwtDuration);
 
-          log("Consumer not found or has no JWT credentials", {
-            consumerId,
-            username,
-            error: "Invalid consumer credentials",
-            requestId,
-          });
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      recordAuthenticationAttempt("success", true, username);
 
-          log("HTTP request processed", {
-            method: req.method,
-            url: url.pathname,
-            statusCode: 401,
-            duration,
-            requestId,
-            error: "Invalid consumer credentials",
-          });
+      log("JWT token generated successfully", {
+        consumerId,
+        username,
+        jwtDuration,
+        totalDuration: duration,
+        requestId,
+      });
 
-          return new Response(
-            JSON.stringify({
-              error: "Unauthorized",
-              message: "Invalid consumer credentials",
-              statusCode: 401,
-              timestamp: new Date().toISOString(),
-              requestId,
-            }),
-            {
-              status: 401,
-              headers: {
-                "Content-Type": "application/json",
-                "X-Request-Id": requestId,
-                "Access-Control-Allow-Origin": config.apiInfo.cors,
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-              },
-            }
-          );
+      log("HTTP request processed", {
+        method: req.method,
+        url: url.pathname,
+        statusCode: 200,
+        duration,
+        requestId,
+      });
+
+      return new Response(
+        JSON.stringify({
+          access_token: tokenResponse.access_token,
+          expires_in: config.jwt.expirationMinutes * 60,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            Pragma: "no-cache",
+            "X-Request-Id": requestId,
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          },
         }
+      );
+    } catch (err) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      recordAuthenticationAttempt("exception", false, headerValidation.username);
+      recordException(err as Error);
 
-        const jwtStartTime = Bun.nanoseconds();
-        const tokenResponse = await telemetryTracer.createJWTSpan(
-          "createToken",
-          () =>
-            NativeBunJWT.createToken(
-              username,
-              secretResult.key,
-              secretResult.secret,
-              config.jwt.authority,
-              config.jwt.audience,
-              config.jwt.issuer
-            ),
-          username
-        );
-        const jwtDuration = (Bun.nanoseconds() - jwtStartTime) / 1_000_000;
-        recordOperationDuration("jwt_generation", jwtDuration, true);
-        recordJwtTokenIssued(username, jwtDuration);
+      error("Unexpected error during token generation", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        stack: err instanceof Error ? err.stack : undefined,
+        consumerId: headerValidation.consumerId,
+        username: headerValidation.username,
+        requestId,
+      });
 
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-        recordAuthenticationAttempt("success", true, username);
+      log("HTTP request processed", {
+        method: req.method,
+        url: url.pathname,
+        statusCode: 500,
+        duration,
+        requestId,
+        error: "Unexpected error",
+      });
 
-        log("JWT token generated successfully", {
-          consumerId,
-          username,
-          jwtDuration,
-          totalDuration: duration,
-          requestId,
-        });
-
-        log("HTTP request processed", {
-          method: req.method,
-          url: url.pathname,
-          statusCode: 200,
-          duration,
-          requestId,
-        });
-
-        return new Response(
-          JSON.stringify({
-            access_token: tokenResponse.access_token,
-            expires_in: config.jwt.expirationMinutes * 60,
-          }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-store, no-cache, must-revalidate",
-              Pragma: "no-cache",
-              "X-Request-Id": requestId,
-              "Access-Control-Allow-Origin": config.apiInfo.cors,
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            },
-          }
-        );
-      } catch (err) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
-        recordAuthenticationAttempt("exception", false, headerValidation.username);
-        recordException(err as Error);
-
-        error("Unexpected error during token generation", {
-          error: err instanceof Error ? err.message : "Unknown error",
-          stack: err instanceof Error ? err.stack : undefined,
-          consumerId: headerValidation.consumerId,
-          username: headerValidation.username,
-          requestId,
-        });
-
-        log("HTTP request processed", {
-          method: req.method,
-          url: url.pathname,
+      return new Response(
+        JSON.stringify({
+          error: "Internal Server Error",
+          message: "An unexpected error occurred during token generation",
           statusCode: 500,
-          duration,
+          timestamp: new Date().toISOString(),
           requestId,
-          error: "Unexpected error",
-        });
-
-        return new Response(
-          JSON.stringify({
-            error: "Internal Server Error",
-            message: "An unexpected error occurred during token generation",
-            statusCode: 500,
-            timestamp: new Date().toISOString(),
-            requestId,
-          }),
-          {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Request-Id": requestId,
-              "Access-Control-Allow-Origin": config.apiInfo.cors,
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            },
-          }
-        );
-      }
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Request-Id": requestId,
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          },
+        }
+      );
     }
-  ); // Close HTTP span wrapper
+  });
 }

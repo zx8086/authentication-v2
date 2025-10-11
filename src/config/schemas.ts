@@ -75,7 +75,6 @@ export const EnvironmentType = z.enum(["local", "development", "staging", "produ
 export const TelemetryMode = z.enum(["console", "otlp", "both"]);
 export const KongMode = z.enum(["API_GATEWAY", "KONNECT"]);
 
-// Consolidated Cross-Validation Functions
 export function addProductionSecurityValidation<
   T extends { environment?: string; nodeEnv?: string },
 >(
@@ -93,7 +92,6 @@ export function addProductionSecurityValidation<
 
   if (!isProduction) return;
 
-  // Service name validation
   if (options.serviceName) {
     if (options.serviceName.includes("localhost") || options.serviceName.includes("test")) {
       ctx.addIssue({
@@ -104,7 +102,6 @@ export function addProductionSecurityValidation<
     }
   }
 
-  // Service version validation
   if (options.serviceVersion) {
     if (options.serviceVersion === "dev" || options.serviceVersion === "latest") {
       ctx.addIssue({
@@ -115,7 +112,6 @@ export function addProductionSecurityValidation<
     }
   }
 
-  // HTTPS endpoint validation
   if (options.endpoints) {
     for (const endpoint of options.endpoints) {
       if (endpoint.value && !endpoint.value.startsWith("https://")) {
@@ -128,7 +124,6 @@ export function addProductionSecurityValidation<
     }
   }
 
-  // Kong security validation
   if (options.adminUrl) {
     if (options.adminUrl.includes("localhost")) {
       ctx.addIssue({
@@ -150,7 +145,6 @@ export function addProductionSecurityValidation<
   }
 }
 
-// Reusable Format Functions (Zod v4)
 export const HttpsUrl = z.url();
 export const EmailAddress = z.email();
 export const PositiveInt = z.coerce.number().int().min(1);
@@ -282,7 +276,6 @@ export interface IKongService {
 }
 
 export type { OtlpEndpointConfig, OtlpEndpoints } from "./helpers";
-// Re-export helpers for convenience
 export {
   createOtlpConfig,
   deriveAllOtlpEndpoints,

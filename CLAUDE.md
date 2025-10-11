@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this authentication service.
 
 ## Project Management
 
@@ -51,92 +51,62 @@ All issues completed with 100% test coverage (32 tests passing).
 - Direct execution: `bun src/server.ts` (not `node src/server.ts`)
 - The lockfile is `bun.lockb` (NOT package-lock.json or yarn.lock)
 
-## Development Commands
+## Quick Reference Commands
 
-### Common Development Tasks
+### Development
 ```bash
-# Start development server with hot reload
-bun run dev
-
-# Start production server
-bun run start
-
-# Build for production
-bun run build
-
-# Run tests
-bun test
-
-# Run tests in watch mode
-bun run test:watch
-
-# Run tests with coverage
-bun run test:coverage
-
-# Type checking
-bun run typecheck
-
-# Code quality checks (lint + format + typecheck)
-bun run biome:check
-
-# Health check endpoint
-bun run health-check
+bun run dev              # Development server with hot reload
+bun run start            # Production server
+bun run build            # Build for production
+bun run typecheck        # TypeScript type checking
+bun run biome:check      # Code quality (see biome-config agent)
+bun run health-check     # Health check endpoint
+bun run generate-docs    # Generate OpenAPI documentation
+bun run test:clean       # Clean test results and artifacts
 ```
 
-## Testing Strategy
+### Testing
+For detailed testing configuration and patterns, see specialized agents:
+- **Unit & Integration Tests**: Use `bun-test-specialist` agent
+- **E2E Browser Tests**: Use `playwright-specialist` agent
+- **Performance Testing**: Use `k6-specialist` agent
+- **Test Orchestration**: Use `test-orchestrator` agent
 
-### Three-Tier Testing Approach
+```bash
+bun run bun:test         # Run all unit tests
+bun run bun:test:watch   # Watch mode for TDD
+bun run bun:test:coverage # Coverage reports
+
+bun run playwright:test  # E2E tests
+bun run playwright:ui    # Interactive E2E testing UI
+
+bun run k6:smoke:health  # Performance smoke tests
+bun run k6:load          # Production load simulation
+bun run k6:stress        # System breaking point tests
+bun run k6:info          # Display all K6 test options
+
+# K6 Convenience Scripts
+bun run k6:quick         # Quick smoke tests (health + tokens)
+bun run k6:full          # Full test suite (all smoke, load, stress, spike)
+
+# Individual K6 Test Categories
+bun run k6:smoke:metrics    # Metrics endpoint smoke test
+bun run k6:smoke:openapi    # OpenAPI endpoint smoke test
+bun run k6:smoke:tokens     # Token generation smoke test
+bun run k6:smoke:all-endpoints # All endpoints smoke test
+bun run k6:spike            # Traffic spike testing
+```
+
+### Test Consumer Management
+**Automatic Setup**: Test consumers are automatically provisioned during test execution. No manual setup required.
 
 #### Recent Updates (October 2025)
-**Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6) with the following improvements:
-
-- **Centralized Consumer Configuration**: Created `test/shared/test-consumers.ts` with standardized test consumer definitions
-- **Automatic Setup Hooks**: Added global setup functions for Playwright and K6 tests that automatically provision test consumers
-- **Idempotent Operations**: Consumer setup is safe to run multiple times - detects and skips existing consumers
-- **Intelligent Dependencies**: Only tests that need Kong consumers (tokens, load, stress, spike) perform setup; simple endpoint tests (health, metrics, openapi) run without dependencies
-- **Environment Variable Management**: K6 tests automatically load `.env` file and pass Kong Admin API credentials
-- **Removed Manual Scripts**: Eliminated redundant manual setup scripts (`consumers:list`, `consumers:cleanup`) in favor of automatic setup
-- **Consistent Test Data**: All test frameworks now use the same 5 standardized test consumers plus 1 anonymous consumer
-
-This eliminates manual test setup while ensuring consistent test data across all testing frameworks.
-
-#### Bun Tests - Unit & Integration Testing
-```bash
-# Run all Bun tests
-bun test
-
-# Run specific test files
-bun test test/bun/jwt.service.test.ts
-bun test test/bun/kong.service.test.ts
-bun test test/bun/server.test.ts
-```
-
-#### Playwright Tests - E2E Scenarios
-```bash
-# Run all E2E tests
-bun run playwright:test
-
-# Interactive testing UI
-bun run playwright:ui
-```
-
-#### K6 Tests - Performance Testing
-```bash
-# Individual test categories
-bun run k6:smoke:health        # Health endpoint validation
-bun run k6:smoke:tokens        # JWT token generation validation
-bun run k6:load                # Production load simulation
-bun run k6:stress              # System breaking point
-bun run k6:spike               # Traffic burst testing
-
-# Test information
-bun run k6:info                # Display all available tests
-
-# Custom environment variable examples
-K6_SMOKE_VUS=2 K6_SMOKE_DURATION=10s k6 run test/k6/smoke/health-smoke.ts
-TARGET_HOST=staging.example.com TARGET_PORT=443 TARGET_PROTOCOL=https bun run k6:smoke:health
-K6_HEALTH_P95_THRESHOLD=100 K6_ERROR_RATE_THRESHOLD=0.05 bun run k6:load
-```
+**Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6):
+- Centralized consumer configuration in `test/shared/test-consumers.ts`
+- Automatic setup hooks provision consumers before tests
+- Idempotent operations (safe to run multiple times)
+- Intelligent dependencies (only tests needing Kong consumers perform setup)
+- Consistent test data across all frameworks (5 test consumers + 1 anonymous)
 
 ## Architecture Overview
 
@@ -153,26 +123,8 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 ### Service Layer Structure
 - **JWT Service** (`src/services/jwt.service.ts`): Native crypto.subtle JWT generation with HMAC-SHA256
 - **Kong Service** (`src/services/kong.service.ts`): Kong Admin API integration with caching and health checks
-
-### Telemetry & Observability Layer
-- **Instrumentation** (`src/telemetry/instrumentation.ts`): OpenTelemetry SDK configuration with vendor-neutral OTLP export
-- **Winston Logger** (`src/telemetry/winston-logger.ts`): ECS-formatted structured logging with APM correlation
-- **Metrics Collection** (`src/telemetry/metrics.ts`): Custom business metrics and performance counters
-- **Config Management** (`src/telemetry/config.ts`): Environment-based telemetry configuration with validation
-
-### Configuration Management
-- **4-Pillar Configuration Pattern** implemented in `src/config/` directory
-- **Core Files**:
-  - `src/config/schemas.ts` - Zod v4 schema definitions with top-level format functions
-  - `src/config/config.ts` - 4-pillar configuration implementation with security validation
-  - `src/config/index.ts` - Re-export hub for clean module imports
-- **Security Features**:
-  - HTTPS endpoint validation in production environments
-  - Token security validation (minimum 32-character requirement)
-  - Environment-specific validation rules (no localhost/test in production)
-  - Configuration immutability to prevent runtime mutations
-- Required environment variables: `KONG_JWT_AUTHORITY`, `KONG_JWT_AUDIENCE`, `KONG_ADMIN_URL`, `KONG_ADMIN_TOKEN`
-- Comprehensive validation with detailed error messages and production readiness checks
+- **Telemetry Layer** (`src/telemetry/`): OpenTelemetry instrumentation, structured logging, metrics collection
+- **Configuration** (`src/config/`): 4-pillar configuration pattern (see `config-reviewer` agent for details)
 
 ### API Endpoints
 - `GET /tokens` - JWT token issuance (requires Kong consumer headers)
@@ -200,120 +152,89 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - Creates and caches JWT credentials for Kong consumers
 - Health checks Kong Admin API connectivity
 
-### Environment Configuration Strategy
+## Environment Configuration
 
-#### File Structure
+### File Structure
 ```
 .env                    # Your local development (NODE_ENV=local)
 .env.dev                # Development environment
-.env.staging            # Staging environment
-.env.production         # Production environment
+.env.stg                # Staging environment
+.env.prod               # Production environment
 .env.test              # Test environment (with console logs)
 
 .env.example           # Template for .env file (committed to git)
 .env.*.example         # Template files for each environment (committed to git)
 ```
 
-#### How Bun Loads Environment Files
+### How Bun Loads Environment Files
 1. **Always loads `.env` first** (your local settings)
 2. **Then loads environment-specific file** based on NODE_ENV:
    - `NODE_ENV=local` → uses `.env` only (your local machine)
-   - `NODE_ENV=development` → loads `.env` then `.env.development` (overrides)
-   - `NODE_ENV=staging` → loads `.env` then `.env.staging` (overrides)
-   - `NODE_ENV=production` → loads `.env` then `.env.production` (overrides)
+   - `NODE_ENV=development` → loads `.env` then `.env.dev` (overrides)
+   - `NODE_ENV=staging` → loads `.env` then `.env.stg` (overrides)
+   - `NODE_ENV=production` → loads `.env` then `.env.prod` (overrides)
    - `NODE_ENV=test` → loads `.env` then `.env.test` (overrides)
 
-#### Usage Examples
+### Usage Examples
 ```bash
 # Local development (your machine)
 bun run dev                              # Uses .env with NODE_ENV=local
 
 # Development environment
-NODE_ENV=development bun run dev         # Uses .env + .env.development
+NODE_ENV=development bun run dev         # Uses .env + .env.dev
 
 # Test mode with console logs
 NODE_ENV=test bun run dev                # Uses .env + .env.test
 
 # Production mode
-NODE_ENV=production bun run start        # Uses .env + .env.production
+NODE_ENV=production bun run start        # Uses .env + .env.prod
 ```
 
-#### Core Service Settings
-- `PORT` - Server port (default: 3000)
-- `NODE_ENV` - Environment (local/development/staging/production/test)
-- `KONG_JWT_AUTHORITY` - JWT issuer authority URL (HTTPS required in production)
-- `KONG_JWT_AUDIENCE` - JWT audience claim (domain validation enforced)
-- `KONG_JWT_ISSUER` - JWT issuer (falls back to authority if not specified)
-- `KONG_JWT_KEY_CLAIM_NAME` - JWT key claim identifier (default: 'key')
-- `JWT_EXPIRATION_MINUTES` - Token expiration in minutes (range: 1-60, default: 15)
-- `KONG_MODE` - Kong implementation mode: `API_GATEWAY` or `KONNECT` (default: API_GATEWAY)
-- `KONG_ADMIN_URL` - Kong Admin API endpoint (HTTPS required in production)
-  - For API_GATEWAY mode: `http://kong-gateway:8001`
-  - For KONNECT mode: `https://region.api.konghq.com/v2/control-planes/{id}`
-- `KONG_ADMIN_TOKEN` - Kong Admin API authentication token (minimum 32 characters in production)
+### Core Service Settings
+```bash
+PORT=3000
+NODE_ENV=local|development|staging|production|test
 
-#### OpenTelemetry Configuration
-- `TELEMETRY_MODE` - Telemetry mode: `console` (disabled), `otlp`, or `both` (determines if telemetry is enabled)
-- `OTEL_SERVICE_NAME` - Service name for telemetry (no localhost/test in production, default: authentication-service)
-- `OTEL_SERVICE_VERSION` - Service version (no dev/latest in production, default: from package.json)
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - Base OTLP endpoint for automatic endpoint derivation
-- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` - OTLP traces endpoint (HTTPS required in production)
-- `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` - OTLP metrics endpoint (HTTPS required in production)
-- `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` - OTLP logs endpoint (HTTPS required in production)
-- `OTEL_EXPORTER_OTLP_TIMEOUT` - Export timeout in milliseconds (range: 1000-60000, default: 30000)
-- `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` - Batch size for exports (range: 1-5000, default: 2048)
-- `OTEL_BSP_MAX_QUEUE_SIZE` - Maximum queue size (range: 1-50000, default: 10000)
+KONG_JWT_AUTHORITY=https://auth.example.com
+KONG_JWT_AUDIENCE=api.example.com
+KONG_JWT_ISSUER=auth.example.com
+KONG_JWT_KEY_CLAIM_NAME=key
+JWT_EXPIRATION_MINUTES=15
 
-#### Testing Configuration
+KONG_MODE=API_GATEWAY|KONNECT
+KONG_ADMIN_URL=https://kong-admin:8001
+KONG_ADMIN_TOKEN=<minimum 32 characters in production>
+```
 
-##### Playwright E2E Tests
-- `API_BASE_URL` - Base URL for Playwright E2E tests (default: http://localhost:3000)
+### OpenTelemetry Configuration
+```bash
+TELEMETRY_MODE=console|otlp|both
+OTEL_SERVICE_NAME=authentication-service
+OTEL_SERVICE_VERSION=1.0.0
+OTEL_EXPORTER_OTLP_ENDPOINT=https://apm.example.com
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://apm.example.com/v1/traces
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://apm.example.com/v1/metrics
+OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://apm.example.com/v1/logs
+OTEL_EXPORTER_OTLP_TIMEOUT=30000
+OTEL_BSP_MAX_EXPORT_BATCH_SIZE=2048
+OTEL_BSP_MAX_QUEUE_SIZE=10000
+```
 
-##### K6 Performance Testing
-**Target Configuration:**
-- `TARGET_HOST` - Target service host (default: localhost)
-- `TARGET_PORT` - Target service port (default: 3000)
-- `TARGET_PROTOCOL` - Target protocol (default: http)
-- `K6_TIMEOUT` - Request timeout (default: 30s)
+### Testing Configuration
+See specialized testing agents for complete configuration details:
+- **Playwright E2E**: `playwright-specialist` agent
+  - `API_BASE_URL` - Base URL for E2E tests (default: http://localhost:3000)
+- **K6 Performance**: `k6-specialist` agent
+  - `TARGET_HOST`, `TARGET_PORT`, `TARGET_PROTOCOL` - Target service configuration
+  - `K6_SMOKE_VUS`, `K6_LOAD_TARGET_VUS`, `K6_STRESS_VUS` - Test load parameters
+  - `K6_*_P95_THRESHOLD`, `K6_ERROR_RATE_THRESHOLD` - Performance thresholds
+- **Bun Unit Tests**: `bun-test-specialist` agent
+  - Test timeout, coverage, and execution configuration
 
-**Test Execution Parameters:**
-- `K6_SMOKE_VUS` - Smoke test virtual users (default: 3)
-- `K6_SMOKE_DURATION` - Smoke test duration (default: 3m)
-- `K6_LOAD_INITIAL_VUS` - Load test initial VUs (default: 10)
-- `K6_LOAD_TARGET_VUS` - Load test target VUs (default: 20)
-- `K6_LOAD_RAMP_UP_DURATION` - Load test ramp up time (default: 2m)
-- `K6_LOAD_STEADY_DURATION` - Load test steady state time (default: 5m)
-- `K6_LOAD_RAMP_DOWN_DURATION` - Load test ramp down time (default: 2m)
-- `K6_STRESS_INITIAL_VUS` - Stress test initial VUs (default: 50)
-- `K6_STRESS_TARGET_VUS` - Stress test target VUs (default: 100)
-- `K6_STRESS_PEAK_VUS` - Stress test peak VUs (default: 200)
-- `K6_STRESS_DURATION` - Stress test duration (default: 5m)
-- `K6_SPIKE_BASELINE_VUS` - Spike test baseline VUs (default: 10)
-- `K6_SPIKE_TARGET_VUS` - Spike test target VUs (default: 100)
-- `K6_SPIKE_DURATION` - Spike test duration (default: 3m)
-
-**Performance Thresholds:**
-- `K6_HEALTH_P95_THRESHOLD` - Health endpoint p95 threshold in ms (default: 400)
-- `K6_HEALTH_P99_THRESHOLD` - Health endpoint p99 threshold in ms (default: 500)
-- `K6_TOKENS_P95_THRESHOLD` - Tokens endpoint p95 threshold in ms (default: 50)
-- `K6_TOKENS_P99_THRESHOLD` - Tokens endpoint p99 threshold in ms (default: 100)
-- `K6_METRICS_P95_THRESHOLD` - Metrics endpoint p95 threshold in ms (default: 30)
-- `K6_METRICS_P99_THRESHOLD` - Metrics endpoint p99 threshold in ms (default: 50)
-- `K6_ERROR_RATE_THRESHOLD` - Error rate threshold as decimal (default: 0.01)
-- `K6_STRESS_ERROR_RATE_THRESHOLD` - Stress test error rate threshold (default: 0.05)
-
-**Test Consumer Configuration:**
-- `TEST_CONSUMER_ID_1` through `TEST_CONSUMER_ID_5` - Consumer IDs for load testing
-- `TEST_CONSUMER_USERNAME_1` through `TEST_CONSUMER_USERNAME_5` - Consumer usernames for load testing
-
-#### API Documentation Configuration
-- `API_TITLE` - API title for OpenAPI spec
-- `API_DESCRIPTION` - API description for OpenAPI spec
-- `API_VERSION` - API version for OpenAPI spec
-- `API_CONTACT_NAME` - Contact name for OpenAPI spec
-- `API_CONTACT_EMAIL` - Contact email for OpenAPI spec
-- `API_LICENSE_NAME` - License name for OpenAPI spec
-- `API_LICENSE_IDENTIFIER` - License identifier for OpenAPI spec
+### Configuration Management
+For configuration architecture, schema validation, and the 4-pillar pattern:
+- **Configuration patterns**: Use `config-reviewer` agent
+- **Schema validation**: Use `zod-validator` agent
 
 ## OpenTelemetry Observability
 
@@ -328,14 +249,10 @@ The service implements comprehensive observability using vendor-neutral OpenTele
 - **Structured Logging**: ECS-formatted logs with trace correlation and APM integration
 - **Auto-Instrumentation**: HTTP, DNS, and NET instrumentation with custom hooks
 
-### Metrics Available
+### Key Metrics
 - `nodejs.eventloop.delay` - Event loop utilization percentage
 - `process.memory.usage` - Memory usage by type (heap_used, heap_total, rss, external)
 - `process.cpu.usage` - CPU utilization percentage
-- `nodejs.active_handles` - Active handle count
-- `nodejs.active_requests` - Active request count
-- `system.cpu.utilization` - System CPU usage by logical core
-- `system.memory.usage` - System memory metrics
 - `http_requests_total` - HTTP request counters by method/status
 - `http_response_time_seconds` - HTTP response time histograms
 - `jwt_tokens_generated` - JWT generation counters
@@ -349,16 +266,9 @@ The service implements comprehensive observability using vendor-neutral OpenTele
 
 ### Debugging Telemetry
 ```bash
-# Test metrics export
 curl -X POST http://localhost:3000/debug/metrics/test
-
-# Force immediate metrics export
 curl -X POST http://localhost:3000/debug/metrics/export
-
-# View export statistics
 curl http://localhost:3000/debug/metrics/stats
-
-# Check telemetry health
 curl http://localhost:3000/health/telemetry
 ```
 
@@ -368,24 +278,7 @@ curl http://localhost:3000/health/telemetry
 - **Memory Usage**: ~50-80MB baseline with telemetry enabled
 - **CPU Overhead**: <2% additional overhead for full observability
 - **Network**: Metrics export every 10 seconds, logs exported in batches
-- **Storage**: Efficient resource attributes to minimize metric cardinality
-
-### Environment Setup
-```bash
-# Production telemetry configuration
-TELEMETRY_MODE=otlp
-OTEL_SERVICE_NAME=authentication-service
-OTEL_DEPLOYMENT_ENVIRONMENT=production
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://your-apm.example.com/v1/traces
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://your-apm.example.com/v1/metrics
-OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://your-apm.example.com/v1/logs
-```
-
-### Container Deployment
-The service is optimized for containerized deployments:
-- **Image Size**: <100MB with all dependencies
-- **Cold Start**: <100ms initialization time
-- **Health Checks**: Multiple health endpoints for orchestrator readiness probes
+- **Container Optimized**: <100MB image size, <100ms cold start
 - **Graceful Shutdown**: Proper telemetry cleanup on SIGTERM
 
 ### Monitoring Alerts
@@ -397,10 +290,10 @@ Recommended alerts based on available metrics:
 - Cache miss rate >50%
 - Export failures in telemetry
 
-## Code Quality Requirements
+## Code Quality & Development
 
 ### Pre-Commit Checklist
-Run `bun run biome:check` after code changes and before committing/pushing
+Run `bun run biome:check` before commits. For Biome configuration details, see `biome-config` agent.
 
 The `biome:check` command runs:
 - Biome linting and formatting
@@ -408,20 +301,26 @@ The `biome:check` command runs:
 - Code quality validation
 
 ### Code Style Guidelines
-- DO NOT use emojis and do not add comments for every single code change
-- We should have minimal comments throughout the code base
-- Use standardized file headers: `/* src/path/file.ts */`
+- NO emojis in code or logs
+- Minimal comments (no excessive JSDoc)
+- Standardized file headers: `/* src/path/file.ts */`
 
 ### Development Guidelines
 - Verify method existence before use
 - Check actual method names and signatures
-- Test code snippets or use runtime inspection
-- When unsure about an API, use `console.log()` or runtime inspection to check available methods
+- Test code snippets with runtime inspection
+- Use `console.log()` for API exploration when unsure
 - Example: `console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)))`
 
-## Development Workflow
+### Bun Runtime Optimization
+For Bun-specific runtime optimization and native API usage, see `bun-reviewer` agent:
+- Native `Bun.serve()` routes API patterns
+- `Bun.file()`, `Bun.spawn()` optimization
+- Performance measurement with `Bun.nanoseconds()`
+- Runtime detection patterns
 
-### Local Development Setup
+## Local Development Setup
+
 ```bash
 # Clone and install dependencies
 git clone <repository>
@@ -454,6 +353,30 @@ bun run kill-server
 bun run biome:check:unsafe
 ```
 
+### Docker Deployment Commands
+```bash
+# Build Docker image
+bun run docker:build
+
+# Environment-specific deployment
+bun run docker:local        # Local development deployment
+bun run docker:dev          # Development environment deployment
+bun run docker:staging      # Staging environment deployment
+bun run docker:production   # Production environment deployment
+
+# Stop specific deployments
+bun run docker:stop:local
+bun run docker:stop:dev
+bun run docker:stop:staging
+bun run docker:stop:production
+
+# Direct Docker run commands (without rebuild)
+bun run docker:run:local    # Run with .env
+bun run docker:run:dev      # Run with .env.dev
+bun run docker:run:staging  # Run with .env.stg
+bun run docker:run:production # Run with .env.prod
+```
+
 ### Debugging & Troubleshooting
 
 #### Common Development Issues
@@ -464,15 +387,10 @@ bun run biome:check:unsafe
 
 #### Telemetry Debugging
 ```bash
-# Check telemetry status
 curl http://localhost:3000/health/telemetry
-
-# Test metrics are being collected
 curl -X POST http://localhost:3000/debug/metrics/test
 curl http://localhost:3000/debug/metrics/stats
-
-# Force immediate export
-curl -X POST http://localhost:3000/debug/metrics/flush
+curl -X POST http://localhost:3000/debug/metrics/export
 
 # Monitor export success rate
 watch 'curl -s http://localhost:3000/debug/metrics/stats | jq .successRate'
@@ -490,53 +408,28 @@ curl -H "x-consumer-id: test-consumer" \\
 
 # Monitor metrics during load
 curl http://localhost:3000/metrics
-
-# K6 Performance Testing with Environment Variables
-# Quick smoke test (2 VUs, 10 seconds)
-K6_SMOKE_VUS=2 K6_SMOKE_DURATION=10s k6 run test/k6/smoke/health-smoke.ts
-
-# Load testing against staging environment
-TARGET_HOST=staging.example.com TARGET_PORT=443 TARGET_PROTOCOL=https \\
-K6_LOAD_INITIAL_VUS=5 K6_LOAD_TARGET_VUS=15 \\
-bun run k6:load
-
-# Stress testing with relaxed thresholds
-K6_HEALTH_P95_THRESHOLD=200 K6_ERROR_RATE_THRESHOLD=0.05 \\
-K6_STRESS_TARGET_VUS=50 K6_STRESS_PEAK_VUS=100 \\
-bun run k6:stress
-
-# Custom consumer credentials testing
-TEST_CONSUMER_ID_1=prod-consumer-001 TEST_CONSUMER_USERNAME_1=prod-user-001 \\
-k6 run test/k6/smoke/tokens-smoke.ts
 ```
 
-### Code Quality Automation
-The project uses Biome for linting and formatting. Pre-commit hooks ensure code quality:
-- Automatic formatting on save
-- Lint error prevention in commits
-- TypeScript strict type checking
-- Import organization and cleanup
+For comprehensive performance testing scenarios, see `k6-specialist` agent.
 
-### Testing Strategy
-```bash
-# Run all tests
-bun test
+## Getting Help with Specialized Tasks
 
-# Test specific components
-bun test tests/jwt.service.test.ts
-bun test tests/kong.service.test.ts
-bun test tests/server.test.ts
+This project uses specialized agents for technical domains:
 
-# Watch mode for TDD
-bun run test:watch
+### Configuration & Validation
+- **Configuration management**: `config-reviewer` agent - 4-pillar configuration pattern
+- **Schema validation**: `zod-validator` agent - Zod v4 schemas and validation
+- **Code quality**: `biome-config` agent - Biome linting and formatting setup
 
-# Coverage reports
-bun run test:coverage
-```
+### Testing & Quality
+- **Unit testing**: `bun-test-specialist` agent - Bun test framework and patterns
+- **E2E testing**: `playwright-specialist` agent - Browser automation and visual testing
+- **Performance testing**: `k6-specialist` agent - Load, stress, and spike testing
+- **Test orchestration**: `test-orchestrator` agent - Cross-framework test coordination
 
-### Reminders
-- Run `bun run biome:check` before committing
-- Use `TELEMETRY_MODE=both` for development debugging
-- Monitor telemetry export success rates in development
-- Test both JWT and health endpoints after changes
-- Verify Kong connectivity before deployment
+### Runtime & Deployment
+- **Bun optimization**: `bun-reviewer` agent - Native Bun API usage and performance
+- **Docker containers**: `docker-reviewer` agent - Container optimization and deployment
+- **CI/CD pipelines**: `github-deployment-specialist` agent - GitHub Actions workflows
+
+When working on these specific areas, invoke the relevant specialist agent for detailed guidance and best practices.

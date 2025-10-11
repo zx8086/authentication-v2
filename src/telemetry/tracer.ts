@@ -1,7 +1,5 @@
 /* src/telemetry/tracer.ts */
 
-// OpenTelemetry tracing utilities for distributed request tracking
-
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
 import { loadConfig } from "../config/index";
@@ -20,7 +18,7 @@ class BunTelemetryTracer {
   private tracer = trace.getTracer(telemetryConfig.serviceName, telemetryConfig.serviceVersion);
 
   public initialize(_config?: any): void {
-    // No initialization needed - keeping for interface compatibility
+    /* no-op */
   }
 
   public createSpan<T>(spanContext: SpanContext, operation: () => T | Promise<T>): T | Promise<T> {

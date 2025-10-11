@@ -17,7 +17,6 @@ import { error, log, warn } from "./utils/logger";
 
 const config = loadConfig();
 
-// Initialize OpenAPI documentation generator
 apiDocGenerator.registerAllRoutes();
 
 const kongService: IKongService = KongServiceFactory.create(

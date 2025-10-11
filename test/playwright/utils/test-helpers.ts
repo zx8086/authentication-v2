@@ -4,9 +4,6 @@ import { expect } from '@playwright/test';
 import { ANONYMOUS_CONSUMER } from '../../shared/test-consumers';
 import type { APIRequestContext } from '@playwright/test';
 
-/**
- * Custom assertions for JWT validation
- */
 export class JWTValidator {
   static validateStructure(token: string) {
     const parts = token.split('.');
@@ -46,9 +43,6 @@ export class JWTValidator {
   }
 }
 
-/**
- * Performance measurement utilities
- */
 export class PerformanceHelper {
   static async measureResponseTime(fn: () => Promise<any>): Promise<number> {
     const start = performance.now();
@@ -86,9 +80,6 @@ export class PerformanceHelper {
   }
 }
 
-/**
- * Kong mock helper for simulating failures
- */
 export class KongMockHelper {
   static getInvalidConsumerHeaders() {
     return {
@@ -120,9 +111,6 @@ export class KongMockHelper {
   }
 }
 
-/**
- * Test data generators
- */
 export class TestDataGenerator {
 
   static generateMaliciousInput() {
@@ -143,9 +131,6 @@ export class TestDataGenerator {
   }
 }
 
-/**
- * Response validators
- */
 export class ResponseValidator {
   static validateErrorResponse(response: any, expectedStatus: number, expectedError: string) {
     expect(response.status()).toBe(expectedStatus);
@@ -184,9 +169,6 @@ export class ResponseValidator {
   }
 }
 
-/**
- * Wait utilities for async operations
- */
 export class WaitHelper {
   static async waitForCondition(
     condition: () => Promise<boolean>,
@@ -226,9 +208,6 @@ export class WaitHelper {
   }
 }
 
-/**
- * Custom matchers for Playwright assertions
- */
 export const customMatchers = {
   toBeValidUUID(received: string) {
     const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
