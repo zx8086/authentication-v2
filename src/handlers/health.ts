@@ -78,11 +78,22 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     const allHealthy =
       kongHealth.healthy && tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
 
+    const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
+
     const statusCode = allHealthy ? 200 : 503;
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
+    let healthStatus: string;
+    if (allHealthy) {
+      healthStatus = "healthy";
+    } else if (!kongHealth.healthy && telemetryHealthy) {
+      healthStatus = "degraded";
+    } else {
+      healthStatus = "unhealthy";
+    }
+
     const healthData = {
-      status: allHealthy ? "healthy" : "unhealthy",
+      status: healthStatus,
       timestamp: new Date().toISOString(),
       version: pkg.version || "1.0.0",
       environment: config.server.nodeEnv,
@@ -124,9 +135,9 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     log("Health check completed", {
       component: "health",
       duration,
-      status: allHealthy ? "healthy" : "unhealthy",
+      status: healthStatus,
       kongHealthy: kongHealth.healthy,
-      telemetryHealthy: tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy,
+      telemetryHealthy: telemetryHealthy,
       requestId,
     });
 

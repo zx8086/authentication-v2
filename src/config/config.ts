@@ -15,7 +15,6 @@ import {
   type KongConfig,
   KongMode,
   NonEmptyString,
-  PositiveInt,
   SchemaRegistry,
   type ServerConfig,
   type TelemetryConfig,
