@@ -10,6 +10,7 @@ import {
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
 import { log } from "../utils/logger";
+import { createHealthResponse } from "../utils/response";
 
 const config = loadConfig();
 
@@ -149,17 +150,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       requestId,
     });
 
-    return new Response(JSON.stringify(healthData, null, 2), {
-      status: statusCode,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "X-Request-Id": requestId,
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
-    });
+    return createHealthResponse(healthData, statusCode, requestId);
   } catch (error) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
@@ -178,24 +169,16 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       requestId,
     });
 
-    return new Response(
-      JSON.stringify({
+    return createHealthResponse(
+      {
         status: "unhealthy",
         error: "Health check failed",
         message: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
         requestId,
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Request-Id": requestId,
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
+      },
+      500,
+      requestId
     );
   }
 }
@@ -227,32 +210,16 @@ export function handleTelemetryHealth(): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return new Response(JSON.stringify(responseData, null, 2), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
-    });
+    return createHealthResponse(responseData, 200, crypto.randomUUID());
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return createHealthResponse(
+      {
         error: "Failed to get telemetry status",
         message: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
+      },
+      500,
+      crypto.randomUUID()
     );
   }
 }
@@ -275,32 +242,16 @@ export function handleMetricsHealth(): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return new Response(JSON.stringify(responseData, null, 2), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
-    });
+    return createHealthResponse(responseData, 200, crypto.randomUUID());
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return createHealthResponse(
+      {
         error: "Failed to get metrics status",
         message: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
+      },
+      500,
+      crypto.randomUUID()
     );
   }
 }

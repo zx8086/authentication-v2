@@ -12,6 +12,11 @@ import {
 } from "../telemetry/metrics";
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
+import {
+  createInternalErrorResponse,
+  createTokenResponse,
+  createUnauthorizedResponse,
+} from "../utils/response";
 
 const config = loadConfig();
 
@@ -31,6 +36,53 @@ function validateKongHeaders(
   }
 
   return { consumerId, username };
+}
+
+async function lookupConsumerSecret(
+  consumerId: string,
+  _username: string,
+  kongService: IKongService
+): Promise<{ key: string; secret: string } | null> {
+  const secretStartTime = Bun.nanoseconds();
+  const secretResult = await telemetryTracer.createKongSpan(
+    "getConsumerSecret",
+    `${config.kong.adminUrl}/consumers/${consumerId}/jwt`,
+    "GET",
+    () => kongService.getConsumerSecret(consumerId)
+  );
+  const secretDuration = (Bun.nanoseconds() - secretStartTime) / 1_000_000;
+  recordOperationDuration("kong_get_consumer_secret", secretDuration, true);
+
+  return secretResult;
+}
+
+async function generateJWTToken(
+  username: string,
+  key: string,
+  secret: string
+): Promise<{ access_token: string; expires_in: number }> {
+  const jwtStartTime = Bun.nanoseconds();
+  const tokenResponse = await telemetryTracer.createJWTSpan(
+    "createToken",
+    () =>
+      NativeBunJWT.createToken(
+        username,
+        key,
+        secret,
+        config.jwt.authority,
+        config.jwt.audience,
+        config.jwt.issuer
+      ),
+    username
+  );
+  const jwtDuration = (Bun.nanoseconds() - jwtStartTime) / 1_000_000;
+  recordOperationDuration("jwt_generation", jwtDuration, true);
+  recordJwtTokenIssued(username, jwtDuration);
+
+  return {
+    access_token: tokenResponse.access_token,
+    expires_in: config.jwt.expirationMinutes * 60,
+  };
 }
 
 export async function handleTokenRequest(
@@ -77,39 +129,13 @@ export async function handleTokenRequest(
         error: headerValidation.error,
       });
 
-      return new Response(
-        JSON.stringify({
-          error: "Unauthorized",
-          message: headerValidation.error,
-          statusCode: 401,
-          timestamp: new Date().toISOString(),
-          requestId,
-        }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Request-Id": requestId,
-            "Access-Control-Allow-Origin": config.apiInfo.cors,
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createUnauthorizedResponse(headerValidation.error, requestId);
     }
 
     try {
       const { consumerId, username } = headerValidation;
 
-      const secretStartTime = Bun.nanoseconds();
-      const secretResult = await telemetryTracer.createKongSpan(
-        "getConsumerSecret",
-        `${config.kong.adminUrl}/consumers/${consumerId}/jwt`,
-        "GET",
-        () => kongService.getConsumerSecret(consumerId)
-      );
-      const secretDuration = (Bun.nanoseconds() - secretStartTime) / 1_000_000;
-      recordOperationDuration("kong_get_consumer_secret", secretDuration, true);
+      const secretResult = await lookupConsumerSecret(consumerId, username, kongService);
 
       if (!secretResult) {
         const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -136,44 +162,10 @@ export async function handleTokenRequest(
           error: "Invalid consumer credentials",
         });
 
-        return new Response(
-          JSON.stringify({
-            error: "Unauthorized",
-            message: "Invalid consumer credentials",
-            statusCode: 401,
-            timestamp: new Date().toISOString(),
-            requestId,
-          }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Request-Id": requestId,
-              "Access-Control-Allow-Origin": config.apiInfo.cors,
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            },
-          }
-        );
+        return createUnauthorizedResponse("Invalid consumer credentials", requestId);
       }
 
-      const jwtStartTime = Bun.nanoseconds();
-      const tokenResponse = await telemetryTracer.createJWTSpan(
-        "createToken",
-        () =>
-          NativeBunJWT.createToken(
-            username,
-            secretResult.key,
-            secretResult.secret,
-            config.jwt.authority,
-            config.jwt.audience,
-            config.jwt.issuer
-          ),
-        username
-      );
-      const jwtDuration = (Bun.nanoseconds() - jwtStartTime) / 1_000_000;
-      recordOperationDuration("jwt_generation", jwtDuration, true);
-      recordJwtTokenIssued(username, jwtDuration);
+      const tokenData = await generateJWTToken(username, secretResult.key, secretResult.secret);
 
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("success", true, username);
@@ -181,7 +173,6 @@ export async function handleTokenRequest(
       log("JWT token generated successfully", {
         consumerId,
         username,
-        jwtDuration,
         totalDuration: duration,
         requestId,
       });
@@ -194,24 +185,7 @@ export async function handleTokenRequest(
         requestId,
       });
 
-      return new Response(
-        JSON.stringify({
-          access_token: tokenResponse.access_token,
-          expires_in: config.jwt.expirationMinutes * 60,
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-            Pragma: "no-cache",
-            "X-Request-Id": requestId,
-            "Access-Control-Allow-Origin": config.apiInfo.cors,
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createTokenResponse(tokenData.access_token, tokenData.expires_in, requestId);
     } catch (err) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("exception", false, headerValidation.username);
@@ -234,24 +208,9 @@ export async function handleTokenRequest(
         error: "Unexpected error",
       });
 
-      return new Response(
-        JSON.stringify({
-          error: "Internal Server Error",
-          message: "An unexpected error occurred during token generation",
-          statusCode: 500,
-          timestamp: new Date().toISOString(),
-          requestId,
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Request-Id": requestId,
-            "Access-Control-Allow-Origin": config.apiInfo.cors,
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
+      return createInternalErrorResponse(
+        "An unexpected error occurred during token generation",
+        requestId
       );
     }
   });

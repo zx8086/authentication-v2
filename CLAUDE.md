@@ -41,11 +41,22 @@ git commit -m "Update Docker configuration for multi-stage builds"
 - Easy navigation between Linear and GitHub
 
 ### Linear Issue Status Management
-**IMPORTANT RULE**: Claude Code can only create new issues and move them to "In Progress" status. **ONLY THE USER** can set issues to "Done" status.
+**CRITICAL RULE - NEVER VIOLATE**: Claude Code can ONLY create new issues and move them to "In Progress" status. **ABSOLUTELY NEVER** set issues to "Done" status without explicit user approval.
 
-- ✅ **Claude CAN do**: Create new Linear issues, move issues to "In Progress"
-- ❌ **Claude CANNOT do**: Set issues to "Done" or "Completed" - this requires user confirmation
-- 📋 **Process**: When work is completed, Claude should summarize the implementation and ask user to confirm closure
+- ✅ **Claude CAN do**:
+  - Create new Linear issues
+  - Move issues to "In Progress" when starting work
+- ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
+  - Set issues to "Done" or "Completed"
+  - Close issues without explicit user instruction
+  - Mark work as complete even if implementation is finished
+- 📋 **MANDATORY Process**:
+  1. When work is completed, Claude MUST summarize the implementation
+  2. Claude MUST ask user to explicitly confirm closure
+  3. Claude MUST wait for user approval before touching issue status
+  4. User often commits code first to verify CI/CD passes before marking Done
+
+**REMINDER**: Committing code ≠ work completion. User needs to verify CI/CD, testing, and approve closure.
 
 ## Architecture Overview
 
