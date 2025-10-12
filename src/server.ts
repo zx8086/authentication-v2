@@ -4,7 +4,7 @@ import pkg from "../package.json" with { type: "json" };
 import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
 import { apiDocGenerator } from "./openapi-generator";
-import { createRoutes, handleRoute } from "./routes/router";
+import { createRoutesAPI } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
 import {
@@ -70,7 +70,7 @@ if (!startupKongHealth.healthy) {
   });
 }
 
-const routes = createRoutes(kongService);
+const { routes, fallbackFetch } = createRoutesAPI(kongService);
 let server: any;
 
 try {
@@ -78,11 +78,13 @@ try {
     port: config.server.port,
     hostname: "0.0.0.0",
 
-    async fetch(req) {
-      const url = new URL(req.url);
+    // Modern Routes API
+    routes,
 
+    // Fallback fetch for OPTIONS and 404s
+    async fetch(req) {
       try {
-        return await handleRoute(req, url, routes);
+        return await fallbackFetch(req);
       } catch (error) {
         return handleServerError(error as Error);
       }

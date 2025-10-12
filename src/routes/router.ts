@@ -80,3 +80,79 @@ export async function handleRoute(
 
   return handleNotFound(url);
 }
+
+// New Routes API implementation
+export function createRoutesAPI(kongService: IKongService) {
+  const routes = {
+    "/": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/", 200, () =>
+          handleOpenAPISpec(req.headers.get("Accept") || undefined)
+        ),
+    },
+
+    "/health": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/health", 200, () =>
+          handleHealthCheck(kongService)
+        ),
+    },
+
+    "/health/telemetry": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/health/telemetry", 200, () =>
+          handleTelemetryHealth()
+        ),
+    },
+
+    "/health/metrics": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/health/metrics", 200, () =>
+          handleMetricsHealth()
+        ),
+    },
+
+    "/metrics": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/metrics", 200, () =>
+          handleMetrics(kongService)
+        ),
+    },
+
+    "/tokens": {
+      GET: (req: Request) => handleTokenRequest(req, kongService),
+    },
+
+    "/debug/metrics/test": {
+      POST: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/metrics/test", 200, () =>
+          handleDebugMetricsTest()
+        ),
+    },
+
+    "/debug/metrics/export": {
+      POST: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/metrics/export", 200, () =>
+          handleDebugMetricsExport()
+        ),
+    },
+
+    "/debug/metrics/stats": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/metrics/stats", 200, () =>
+          handleDebugMetricsStats()
+        ),
+    },
+  };
+
+  const fallbackFetch = async (req: Request): Promise<Response> => {
+    if (req.method === "OPTIONS") {
+      return handleOptionsRequest();
+    }
+
+    const url = new URL(req.url);
+    return handleNotFound(url);
+  };
+
+  return { routes, fallbackFetch };
+}

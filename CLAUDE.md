@@ -15,7 +15,7 @@ This service has a dedicated Linear project for tracking all development and mai
 **IMPORTANT**: When making git commits, use the appropriate format based on whether the work is tied to a Linear issue:
 
 ```bash
-# IF working on a specific Linear issue:
+# IF working on a specific Linear issue, commit with the issue prefix, and description e.g. replace XX with issue number:
 git commit -m "SIO-XX: Your commit message here"
 
 # IF NOT tied to a specific Linear issue:
@@ -39,75 +39,6 @@ git commit -m "Update Docker configuration for multi-stage builds"
 - Full traceability between code changes and issues
 - Git branch names auto-generated from Linear issues
 - Easy navigation between Linear and GitHub
-
-## CRITICAL: THIS IS A BUN PROJECT - NOT NPM/NODE
-
-**ALWAYS REMEMBER: This project uses BUN as its runtime and package manager**
-- **NEVER use npm commands** - use `bun` instead
-- **NEVER use `npm install` or `npm ls`** - use `bun install` or `bun pm ls`
-- **NEVER use `npx`** - use `bunx` instead
-- **NEVER use node** - use `bun` instead
-- Package management: `bun install`, `bun add`, `bun remove`, `bun pm ls`
-- Running scripts: `bun run <script>` or just `bun <script>`
-- Direct execution: `bun src/server.ts` (not `node src/server.ts`)
-- The lockfile is `bun.lockb` (NOT package-lock.json or yarn.lock)
-
-## Quick Reference Commands
-
-### Development
-```bash
-bun run dev              # Development server with hot reload
-bun run start            # Production server
-bun run build            # Build for production
-bun run typecheck        # TypeScript type checking
-bun run biome:check      # Code quality (see biome-config agent)
-bun run health-check     # Health check endpoint
-bun run generate-docs    # Generate OpenAPI documentation
-bun run test:clean       # Clean test results and artifacts
-```
-
-### Testing
-For detailed testing configuration and patterns, see specialized agents:
-- **Unit & Integration Tests**: Use `bun-test-specialist` agent
-- **E2E Browser Tests**: Use `playwright-specialist` agent
-- **Performance Testing**: Use `k6-specialist` agent
-- **Test Orchestration**: Use `test-orchestrator` agent
-
-```bash
-bun run bun:test         # Run all unit tests
-bun run bun:test:watch   # Watch mode for TDD
-bun run bun:test:coverage # Coverage reports
-
-bun run playwright:test  # E2E tests
-bun run playwright:ui    # Interactive E2E testing UI
-
-bun run k6:smoke:health  # Performance smoke tests
-bun run k6:load          # Production load simulation
-bun run k6:stress        # System breaking point tests
-bun run k6:info          # Display all K6 test options
-
-# K6 Convenience Scripts
-bun run k6:quick         # Quick smoke tests (health + tokens)
-bun run k6:full          # Full test suite (all smoke, load, stress, spike)
-
-# Individual K6 Test Categories
-bun run k6:smoke:metrics    # Metrics endpoint smoke test
-bun run k6:smoke:openapi    # OpenAPI endpoint smoke test
-bun run k6:smoke:tokens     # Token generation smoke test
-bun run k6:smoke:all-endpoints # All endpoints smoke test
-bun run k6:spike            # Traffic spike testing
-```
-
-### Test Consumer Management
-**Automatic Setup**: Test consumers are automatically provisioned during test execution. No manual setup required.
-
-#### Recent Updates (October 2025)
-**Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6):
-- Centralized consumer configuration in `test/shared/test-consumers.ts`
-- Automatic setup hooks provision consumers before tests
-- Idempotent operations (safe to run multiple times)
-- Intelligent dependencies (only tests needing Kong consumers perform setup)
-- Consistent test data across all frameworks (5 test consumers + 1 anonymous)
 
 ## Architecture Overview
 
@@ -152,6 +83,75 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - Rejects anonymous consumers (`x-anonymous-consumer: true`)
 - Creates and caches JWT credentials for Kong consumers
 - Health checks Kong Admin API connectivity
+
+## CRITICAL: THIS IS A BUN PROJECT - NOT NPM/NODE
+
+**ALWAYS REMEMBER: This project uses BUN as its runtime and package manager**
+- **NEVER use npm commands** - use `bun` instead
+- **NEVER use `npm install` or `npm ls`** - use `bun install` or `bun pm ls`
+- **NEVER use `npx`** - use `bunx` instead
+- **NEVER use node** - use `bun` instead
+- Package management: `bun install`, `bun add`, `bun remove`, `bun pm ls`
+- Running scripts: `bun run <script>` or just `bun <script>`
+- Direct execution: `bun src/server.ts` (not `node src/server.ts`)
+- The lockfile is `bun.lockb` (NOT package-lock.json or yarn.lock)
+
+## Quick Reference Commands
+
+### Development
+```bash
+bun run dev              # Development server with hot reload
+bun run start            # Production server
+bun run build            # Build for production
+bun run typecheck        # TypeScript type checking
+bun run biome:check      # Code quality (see biome-config agent)
+bun run health-check     # Health check endpoint
+bun run generate-docs    # Generate OpenAPI documentation
+bun run test:clean       # Clean test results and artifacts
+```
+
+### Testing
+For detailed testing configuration and patterns, see specialized agents:
+- **Test Orchestration**: Use `test-orchestrator` agent
+- **Unit & Integration Tests**: Use `bun-test-specialist` agent
+- **E2E Browser Tests**: Use `playwright-specialist` agent
+- **Performance Testing**: Use `k6-specialist` agent
+
+```bash
+bun run bun:test         # Run all unit tests
+bun run bun:test:watch   # Watch mode for TDD
+bun run bun:test:coverage # Coverage reports
+
+bun run playwright:test  # E2E tests
+bun run playwright:ui    # Interactive E2E testing UI
+
+bun run k6:smoke:health  # Performance smoke tests
+bun run k6:load          # Production load simulation
+bun run k6:stress        # System breaking point tests
+bun run k6:info          # Display all K6 test options
+
+# K6 Convenience Scripts
+bun run k6:quick         # Quick smoke tests (health + tokens)
+bun run k6:full          # Full test suite (all smoke, load, stress, spike)
+
+# Individual K6 Test Categories
+bun run k6:smoke:metrics    # Metrics endpoint smoke test
+bun run k6:smoke:openapi    # OpenAPI endpoint smoke test
+bun run k6:smoke:tokens     # Token generation smoke test
+bun run k6:smoke:all-endpoints # All endpoints smoke test
+bun run k6:spike            # Traffic spike testing
+```
+
+### Test Consumer Management
+**Automatic Setup**: Test consumers are automatically provisioned during test execution. No manual setup required.
+
+#### Recent Updates (October 2025)
+**Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6):
+- Centralized consumer configuration in `test/shared/test-consumers.ts`
+- Automatic setup hooks provision consumers before tests
+- Idempotent operations (safe to run multiple times)
+- Intelligent dependencies (only tests needing Kong consumers perform setup)
+- Consistent test data across all frameworks (5 test consumers + 1 anonymous)
 
 ## Environment Configuration
 
