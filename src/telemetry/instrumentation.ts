@@ -1,6 +1,5 @@
 /* src/telemetry/instrumentation.ts */
 
-import { metrics } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
@@ -181,7 +180,6 @@ export async function initializeTelemetry(): Promise<void> {
   hostMetrics = new HostMetrics({});
   hostMetrics.start();
 
-  initializeElasticCompatibleMetrics();
   initializeMetrics();
 }
 
@@ -237,65 +235,5 @@ export const initializeBunFullTelemetry = initializeTelemetry;
 export const initializeSimpleTelemetry = initializeTelemetry;
 export const getBunTelemetryStatus = getTelemetryStatus;
 export const getSimpleTelemetryStatus = getTelemetryStatus;
-
-function initializeElasticCompatibleMetrics(): void {
-  const meter = metrics.getMeter("authentication-service", telemetryConfig.serviceVersion);
-
-  const eventLoopDelayHistogram = meter.createHistogram("nodejs.eventloop.delay", {
-    description: "Node.js event loop delay in milliseconds",
-    unit: "ms",
-  });
-
-  const memoryGauge = meter.createGauge("process.memory.usage", {
-    description: "Process memory usage",
-    unit: "By",
-  });
-
-  const cpuGauge = meter.createGauge("process.cpu.usage", {
-    description: "Process CPU usage",
-    unit: "percent",
-  });
-
-  const activeHandlesGauge = meter.createGauge("nodejs.active_handles", {
-    description: "Active handles in Node.js",
-    unit: "1",
-  });
-
-  const activeRequestsGauge = meter.createGauge("nodejs.active_requests", {
-    description: "Active requests in Node.js",
-    unit: "1",
-  });
-
-  let previousCpuUsage = process.cpuUsage();
-  let previousTime = Date.now();
-
-  setInterval(() => {
-    const memUsage = process.memoryUsage();
-    memoryGauge.record(memUsage.heapUsed, { type: "heap_used" });
-    memoryGauge.record(memUsage.heapTotal, { type: "heap_total" });
-    memoryGauge.record(memUsage.rss, { type: "rss" });
-    memoryGauge.record(memUsage.external, { type: "external" });
-
-    const currentCpuUsage = process.cpuUsage(previousCpuUsage);
-    const currentTime = Date.now();
-    const timeDiff = currentTime - previousTime;
-    const cpuPercent = ((currentCpuUsage.user + currentCpuUsage.system) / 1000 / timeDiff) * 100;
-    cpuGauge.record(cpuPercent);
-    previousCpuUsage = process.cpuUsage();
-    previousTime = currentTime;
-
-    const activeHandles = (process as any)._getActiveHandles()?.length || 0;
-    const activeRequests = (process as any)._getActiveRequests()?.length || 0;
-    activeHandlesGauge.record(activeHandles);
-    activeRequestsGauge.record(activeRequests);
-  }, 10000);
-
-  if ((performance as any)?.eventLoopUtilization) {
-    setInterval(() => {
-      const elu = (performance as any).eventLoopUtilization();
-      eventLoopDelayHistogram.record(elu.utilization * 100);
-    }, 10000);
-  }
-}
 
 export const shutdownSimpleTelemetry = shutdownTelemetry;

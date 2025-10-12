@@ -3,6 +3,13 @@
 import { type Attributes, metrics, type ObservableResult } from "@opentelemetry/api";
 import pkg from "../../package.json" with { type: "json" };
 import { error, warn } from "../utils/logger";
+import {
+  getMemoryStats,
+  shouldDropNonCriticalMetrics,
+  shouldDropTelemetry,
+  startMemoryPressureMonitoring,
+  stopMemoryPressureMonitoring,
+} from "../utils/memory-pressure";
 
 let isInitialized = false;
 
@@ -179,6 +186,7 @@ export function initializeMetrics(): void {
   });
 
   setupSystemMetricsCollection();
+  startMemoryPressureMonitoring();
 
   isInitialized = true;
 }
@@ -468,6 +476,8 @@ function setupSystemMetricsCollection(): void {
   // Set up callbacks once during initialization
   processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
     try {
+      if (shouldDropTelemetry()) return;
+
       const memUsage = process.memoryUsage();
       observableResult.observe(memUsage.rss, { type: "rss" });
       observableResult.observe(memUsage.external, { type: "external" });
@@ -479,6 +489,8 @@ function setupSystemMetricsCollection(): void {
 
   processHeapUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
     try {
+      if (shouldDropTelemetry()) return;
+
       const memUsage = process.memoryUsage();
       observableResult.observe(memUsage.heapUsed, { type: "used" });
       observableResult.observe(memUsage.heapTotal, { type: "total" });
@@ -492,6 +504,8 @@ function setupSystemMetricsCollection(): void {
 
   processCpuUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
     try {
+      if (shouldDropNonCriticalMetrics()) return;
+
       const currentCpuUsage = process.cpuUsage(previousCpuUsage);
       const currentTime = Date.now();
       const timeDiff = currentTime - previousTime;
@@ -519,6 +533,8 @@ function setupSystemMetricsCollection(): void {
 
   processActiveHandlesGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
     try {
+      if (shouldDropNonCriticalMetrics()) return;
+
       if (typeof (process as any)._getActiveHandles === "function") {
         const activeHandles = (process as any)._getActiveHandles().length;
         observableResult.observe(activeHandles);
@@ -636,6 +652,12 @@ export function getMetricsStatus() {
       ],
     },
     totalInstruments: 23,
+    memoryPressure: getMemoryStats(),
+    optimizations: {
+      memoryPressureEnabled: true,
+      duplicateMetricsRemoved: true,
+      elasticCompatibilityLayerRemoved: true,
+    },
   };
 }
 
@@ -645,5 +667,6 @@ export function shutdownMetrics(): void {
     systemMetricsInterval = null;
   }
 
+  stopMemoryPressureMonitoring();
   isInitialized = false;
 }

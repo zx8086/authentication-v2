@@ -25,8 +25,8 @@ function getWinstonLogger() {
     try {
       const { winstonTelemetryLogger } = require("../telemetry/winston-logger");
       winstonLogger = winstonTelemetryLogger;
-    } catch (error) {
-      console.error("ERROR: Could not load winston logger, falling back to console:", error);
+    } catch (_error) {
+      console.error("ERROR: Could not load winston logger, falling back to console:", _error);
       const config = getConfig();
       winstonLogger = {
         info: (msg: string, ctx: any) =>
