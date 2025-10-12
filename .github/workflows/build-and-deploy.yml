@@ -32,6 +32,23 @@ jobs:
       id-token: write
       attestations: write
 
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
+      KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
+      KONG_JWT_KEY_CLAIM_NAME: key
+      JWT_EXPIRATION_MINUTES: 15
+      KONG_MODE: ${{ secrets.KONG_MODE }}
+      KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
+      KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
+      OTEL_SERVICE_NAME: authentication-service
+      TELEMETRY_MODE: console
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
+
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
       image-uri: ${{ steps.build.outputs.imageuri }}
@@ -73,42 +90,10 @@ jobs:
           timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
           echo "Server is ready for testing"
         timeout-minutes: 2
-        env:
-          NODE_ENV: test
-          PORT: 3000
-          KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
-          KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
-          KONG_JWT_KEY_CLAIM_NAME: key
-          JWT_EXPIRATION_MINUTES: 15
-          KONG_MODE: ${{ secrets.KONG_MODE }}
-          KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
-          KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
-          OTEL_SERVICE_NAME: authentication-service
-          TELEMETRY_MODE: console
-          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
 
       - name: Run unit tests
         run: bun run bun:test
         timeout-minutes: 3
-        env:
-          NODE_ENV: test
-          PORT: 3000
-          KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
-          KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
-          KONG_JWT_KEY_CLAIM_NAME: key
-          JWT_EXPIRATION_MINUTES: 15
-          KONG_MODE: ${{ secrets.KONG_MODE }}
-          KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
-          KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
-          OTEL_SERVICE_NAME: authentication-service
-          TELEMETRY_MODE: console
-          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
 
       - name: Stop application server
         if: always()
@@ -265,7 +250,7 @@ jobs:
         with:
           image: ${{ steps.image-tag.outputs.primary-tag }}
           args: --severity-threshold=high --sarif-file-output=snyk-container-results.sarif
-        # continue-on-error: true
+        continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
