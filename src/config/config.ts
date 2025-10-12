@@ -187,6 +187,12 @@ const defaultConfig: AppConfig = {
     maxQueueSize: 10000,
     enableOpenTelemetry: true,
     enabled: true,
+    infrastructure: {
+      isKubernetes: false,
+      isEcs: false,
+      podName: undefined,
+      namespace: undefined,
+    },
   } as any,
   apiInfo: {
     title: pkg.name || "Authentication Service API",
@@ -201,6 +207,21 @@ const defaultConfig: AppConfig = {
     cors: "*",
   },
 };
+
+// Infrastructure Detection Helper (4-Pillar Compliant)
+function detectInfrastructure() {
+  const envSource = typeof Bun !== "undefined" ? Bun.env : process.env;
+
+  const isKubernetes = !!envSource.KUBERNETES_SERVICE_HOST;
+  const isEcs = !!envSource.ECS_CONTAINER_METADATA_URI_V4;
+
+  return {
+    isKubernetes,
+    isEcs,
+    podName: isKubernetes ? envSource.HOSTNAME : undefined,
+    namespace: isKubernetes ? envSource.NAMESPACE : undefined,
+  };
+}
 
 // Pillar 3: Type-Safe Environment Configuration Loading
 function loadConfigFromEnv() {
@@ -228,70 +249,57 @@ function loadConfigFromEnv() {
 function initializeConfig(): AppConfig {
   const envConfig = loadConfigFromEnv();
 
-  // Convert environment config to structured format for merging
+  // Convert environment config to structured format for merging (simplified with proper filtering)
   const structuredEnvConfig = {
-    server: {
-      ...(envConfig.PORT !== undefined && { port: envConfig.PORT }),
-      ...(envConfig.NODE_ENV !== undefined && { nodeEnv: envConfig.NODE_ENV }),
-    },
-    jwt: {
-      ...(envConfig.KONG_JWT_AUTHORITY !== undefined && {
+    server: Object.fromEntries(
+      Object.entries({
+        port: envConfig.PORT,
+        nodeEnv: envConfig.NODE_ENV,
+      }).filter(([, value]) => value !== undefined)
+    ),
+    jwt: Object.fromEntries(
+      Object.entries({
         authority: envConfig.KONG_JWT_AUTHORITY,
-      }),
-      ...(envConfig.KONG_JWT_AUDIENCE !== undefined && { audience: envConfig.KONG_JWT_AUDIENCE }),
-      ...(envConfig.KONG_JWT_ISSUER !== undefined && { issuer: envConfig.KONG_JWT_ISSUER }),
-      ...(envConfig.KONG_JWT_KEY_CLAIM_NAME !== undefined && {
+        audience: envConfig.KONG_JWT_AUDIENCE,
+        issuer: envConfig.KONG_JWT_ISSUER,
         keyClaimName: envConfig.KONG_JWT_KEY_CLAIM_NAME,
-      }),
-      ...(envConfig.JWT_EXPIRATION_MINUTES !== undefined && {
         expirationMinutes: envConfig.JWT_EXPIRATION_MINUTES,
-      }),
-    },
-    kong: {
-      ...(envConfig.KONG_MODE !== undefined && { mode: envConfig.KONG_MODE }),
-      ...(envConfig.KONG_ADMIN_URL !== undefined && { adminUrl: envConfig.KONG_ADMIN_URL }),
-      ...(envConfig.KONG_ADMIN_TOKEN !== undefined && { adminToken: envConfig.KONG_ADMIN_TOKEN }),
-    },
+      }).filter(([, value]) => value !== undefined)
+    ),
+    kong: Object.fromEntries(
+      Object.entries({
+        mode: envConfig.KONG_MODE,
+        adminUrl: envConfig.KONG_ADMIN_URL,
+        adminToken: envConfig.KONG_ADMIN_TOKEN,
+      }).filter(([, value]) => value !== undefined)
+    ),
     telemetry: {
-      ...(envConfig.OTEL_SERVICE_NAME !== undefined && {
-        serviceName: envConfig.OTEL_SERVICE_NAME,
-      }),
-      ...(envConfig.OTEL_SERVICE_VERSION !== undefined && {
-        serviceVersion: envConfig.OTEL_SERVICE_VERSION,
-      }),
-      ...(envConfig.NODE_ENV !== undefined && { environment: envConfig.NODE_ENV }),
-      ...(envConfig.TELEMETRY_MODE !== undefined && { mode: envConfig.TELEMETRY_MODE }),
-      ...(envConfig.OTEL_EXPORTER_OTLP_ENDPOINT !== undefined && {
-        endpoint: envConfig.OTEL_EXPORTER_OTLP_ENDPOINT,
-      }),
-      ...(envConfig.OTEL_EXPORTER_OTLP_TIMEOUT !== undefined && {
-        exportTimeout: envConfig.OTEL_EXPORTER_OTLP_TIMEOUT,
-      }),
-      ...(envConfig.OTEL_BSP_MAX_EXPORT_BATCH_SIZE !== undefined && {
-        batchSize: envConfig.OTEL_BSP_MAX_EXPORT_BATCH_SIZE,
-      }),
-      ...(envConfig.OTEL_BSP_MAX_QUEUE_SIZE !== undefined && {
-        maxQueueSize: envConfig.OTEL_BSP_MAX_QUEUE_SIZE,
-      }),
+      ...Object.fromEntries(
+        Object.entries({
+          serviceName: envConfig.OTEL_SERVICE_NAME,
+          serviceVersion: envConfig.OTEL_SERVICE_VERSION,
+          environment: envConfig.NODE_ENV,
+          mode: envConfig.TELEMETRY_MODE,
+          endpoint: envConfig.OTEL_EXPORTER_OTLP_ENDPOINT,
+          exportTimeout: envConfig.OTEL_EXPORTER_OTLP_TIMEOUT,
+          batchSize: envConfig.OTEL_BSP_MAX_EXPORT_BATCH_SIZE,
+          maxQueueSize: envConfig.OTEL_BSP_MAX_QUEUE_SIZE,
+        }).filter(([, value]) => value !== undefined)
+      ),
+      infrastructure: detectInfrastructure(),
     },
-    apiInfo: {
-      ...(envConfig.API_TITLE !== undefined && { title: envConfig.API_TITLE }),
-      ...(envConfig.API_DESCRIPTION !== undefined && { description: envConfig.API_DESCRIPTION }),
-      ...(envConfig.API_VERSION !== undefined && { version: envConfig.API_VERSION }),
-      ...(envConfig.API_CONTACT_NAME !== undefined && {
+    apiInfo: Object.fromEntries(
+      Object.entries({
+        title: envConfig.API_TITLE,
+        description: envConfig.API_DESCRIPTION,
+        version: envConfig.API_VERSION,
         contactName: envConfig.API_CONTACT_NAME,
-      }),
-      ...(envConfig.API_CONTACT_EMAIL !== undefined && {
         contactEmail: envConfig.API_CONTACT_EMAIL,
-      }),
-      ...(envConfig.API_LICENSE_NAME !== undefined && {
         licenseName: envConfig.API_LICENSE_NAME,
-      }),
-      ...(envConfig.API_LICENSE_IDENTIFIER !== undefined && {
         licenseIdentifier: envConfig.API_LICENSE_IDENTIFIER,
-      }),
-      ...(envConfig.API_CORS !== undefined && { cors: envConfig.API_CORS }),
-    },
+        cors: envConfig.API_CORS,
+      }).filter(([, value]) => value !== undefined)
+    ),
   };
 
   // Merge environment variables with defaults using object spreading (original 4-pillar pattern)
@@ -302,8 +310,8 @@ function initializeConfig(): AppConfig {
       ...structuredEnvConfig.jwt,
       // Special handling for issuer fallback to authority
       issuer:
-        structuredEnvConfig.jwt.issuer ||
-        structuredEnvConfig.jwt.authority ||
+        (structuredEnvConfig.jwt.issuer as string) ||
+        (structuredEnvConfig.jwt.authority as string) ||
         defaultConfig.jwt.issuer,
     },
     kong: { ...defaultConfig.kong, ...structuredEnvConfig.kong },
@@ -312,27 +320,27 @@ function initializeConfig(): AppConfig {
       ...structuredEnvConfig.telemetry,
       // Handle derived OTLP endpoints
       logsEndpoint: deriveOtlpEndpoint(
-        structuredEnvConfig.telemetry.endpoint,
+        (structuredEnvConfig.telemetry as any).endpoint,
         envConfig.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
         "/v1/logs"
       ),
       tracesEndpoint: deriveOtlpEndpoint(
-        structuredEnvConfig.telemetry.endpoint,
+        (structuredEnvConfig.telemetry as any).endpoint,
         envConfig.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
         "/v1/traces"
       ),
       metricsEndpoint: deriveOtlpEndpoint(
-        structuredEnvConfig.telemetry.endpoint,
+        (structuredEnvConfig.telemetry as any).endpoint,
         envConfig.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
         "/v1/metrics"
       ),
       // Handle computed properties - ensure boolean values
       enabled:
-        ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
-        "console",
+        (((structuredEnvConfig.telemetry as any).mode ??
+          defaultConfig.telemetry.mode) as string) !== "console",
       enableOpenTelemetry:
-        ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
-        "console",
+        (((structuredEnvConfig.telemetry as any).mode ??
+          defaultConfig.telemetry.mode) as string) !== "console",
     },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
   };

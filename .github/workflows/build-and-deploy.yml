@@ -91,7 +91,7 @@ jobs:
           echo "Server is ready for testing"
         timeout-minutes: 2
 
-      - name: Run unit tests
+      - name: Run unit & integration tests
         run: bun run bun:test
         timeout-minutes: 3
 
@@ -198,7 +198,6 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-
 
       - name: License compliance check
         if: github.event_name != 'pull_request'

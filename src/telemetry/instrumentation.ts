@@ -81,11 +81,11 @@ export async function initializeTelemetry(): Promise<void> {
     [ATTR_TELEMETRY_SDK_VERSION]: "1.26.0",
     [ATTR_TELEMETRY_SDK_LANGUAGE]: "nodejs",
 
-    ...(process.env.KUBERNETES_SERVICE_HOST && {
-      "k8s.pod.name": process.env.HOSTNAME,
-      "k8s.namespace.name": process.env.NAMESPACE,
+    ...(telemetryConfig.infrastructure.isKubernetes && {
+      "k8s.pod.name": telemetryConfig.infrastructure.podName,
+      "k8s.namespace.name": telemetryConfig.infrastructure.namespace,
     }),
-    ...(process.env.ECS_CONTAINER_METADATA_URI_V4 && {
+    ...(telemetryConfig.infrastructure.isEcs && {
       "cloud.provider": "aws",
       "cloud.platform": "aws_ecs",
     }),

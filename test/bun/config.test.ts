@@ -81,7 +81,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(validTelemetryConfig);
@@ -149,7 +155,13 @@ describe('Configuration System', () => {
         tracesEndpoint: 'https://secure.example.com/traces',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -165,7 +177,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -181,7 +199,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -197,7 +221,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -266,7 +296,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 70000,  // Too high (max 60000)
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
@@ -282,7 +318,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 6000,  // Too high (max 5000)
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
@@ -337,7 +379,13 @@ describe('Configuration System', () => {
           enabled: expected,
           exportTimeout: 30000,
           batchSize: 2048,
-          maxQueueSize: 10000
+          maxQueueSize: 10000,
+          infrastructure: {
+            isKubernetes: false,
+            isEcs: false,
+            podName: undefined,
+            namespace: undefined
+          }
         });
         expect(result.success).toBe(true);
       });
@@ -367,7 +415,13 @@ describe('Configuration System', () => {
         logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
-        maxQueueSize: 10000
+        maxQueueSize: 10000,
+        infrastructure: {
+          isKubernetes: false,
+          isEcs: false,
+          podName: undefined,
+          namespace: undefined
+        }
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);

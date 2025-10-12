@@ -200,6 +200,12 @@ export const TelemetryConfigSchema = z
     maxQueueSize: z.int32().min(1).max(50000),
     enabled: z.boolean().optional(),
     enableOpenTelemetry: z.boolean().optional(),
+    infrastructure: z.object({
+      isKubernetes: z.boolean(),
+      isEcs: z.boolean(),
+      podName: z.string().optional(),
+      namespace: z.string().optional(),
+    }),
   })
   .superRefine((data, ctx) => {
     addProductionSecurityValidation(data, ctx, {
