@@ -12,16 +12,26 @@ This service has a dedicated Linear project for tracking all development and mai
 - **Status**: In Progress
 
 ### Git Commit Integration with Linear
-**IMPORTANT**: When making git commits, always link them to Linear issues using the issue identifier in the commit message:
+**IMPORTANT**: When making git commits, use the appropriate format based on whether the work is tied to a Linear issue:
 
 ```bash
-# Format: Include the Linear issue ID in your commit message
+# IF working on a specific Linear issue:
 git commit -m "SIO-XX: Your commit message here"
 
-# Examples:
+# IF NOT tied to a specific Linear issue:
+git commit -m "Descriptive commit message without issue prefix"
+```
+
+**Examples:**
+```bash
+# With Linear issue (if you created/assigned a ticket for this work):
 git commit -m "SIO-5: Add telemetry endpoint tests"
-git commit -m "SIO-6: Fix 401 status for invalid consumers"
-git commit -m "SIO-7: Implement CORS security tests"
+git commit -m "SIO-31: Implement GitHub Actions concurrency controls"
+
+# Without Linear issue (general improvements, maintenance, etc.):
+git commit -m "Consolidate duplicated environment variables in GitHub Actions workflow"
+git commit -m "Fix TypeScript import paths for better modularity"
+git commit -m "Update Docker configuration for multi-stage builds"
 ```
 
 **Benefits of linking commits:**
@@ -29,15 +39,6 @@ git commit -m "SIO-7: Implement CORS security tests"
 - Full traceability between code changes and issues
 - Git branch names auto-generated from Linear issues
 - Easy navigation between Linear and GitHub
-
-### Completed E2E Testing Issues
-- ✅ **SIO-5**: Telemetry & Monitoring Endpoints
-- ✅ **SIO-6**: Error Scenarios & Resilience (includes 500→401 status fix)
-- ✅ **SIO-7**: Security & Compliance
-- ✅ **SIO-8**: Performance & Resilience
-- ✅ **SIO-9**: Core Functionality Enhancement
-
-All issues completed with 100% test coverage (32 tests passing).
 
 ## CRITICAL: THIS IS A BUN PROJECT - NOT NPM/NODE
 
