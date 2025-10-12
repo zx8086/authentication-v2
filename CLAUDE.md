@@ -40,6 +40,13 @@ git commit -m "Update Docker configuration for multi-stage builds"
 - Git branch names auto-generated from Linear issues
 - Easy navigation between Linear and GitHub
 
+### Linear Issue Status Management
+**IMPORTANT RULE**: Claude Code can only create new issues and move them to "In Progress" status. **ONLY THE USER** can set issues to "Done" status.
+
+- ✅ **Claude CAN do**: Create new Linear issues, move issues to "In Progress"
+- ❌ **Claude CANNOT do**: Set issues to "Done" or "Completed" - this requires user confirmation
+- 📋 **Process**: When work is completed, Claude should summarize the implementation and ask user to confirm closure
+
 ## Architecture Overview
 
 This is a high-performance authentication service migrated from .NET Core to Bun runtime, maintaining 100% API compatibility while achieving significant performance improvements.

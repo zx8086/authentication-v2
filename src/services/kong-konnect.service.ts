@@ -11,6 +11,7 @@ import type {
 } from "../config";
 import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { withRetry } from "../utils/retry";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
@@ -62,15 +63,19 @@ export class KongKonnectService implements IKongService {
 
       const keysUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
 
-      const response = await fetch(keysUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "Authentication-Service/1.0",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
+      const response = await withRetry(
+        () =>
+          fetch(keysUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${this.adminToken}`,
+              "Content-Type": "application/json",
+              "User-Agent": "Authentication-Service/1.0",
+            },
+            signal: AbortSignal.timeout(5000),
+          }),
+        { maxAttempts: 2, baseDelayMs: 100 }
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -284,14 +289,18 @@ export class KongKonnectService implements IKongService {
     const startTime = Bun.nanoseconds();
 
     try {
-      const response = await fetch(`${this.gatewayAdminUrl}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "User-Agent": "Authentication-Service/1.0",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
+      const response = await withRetry(
+        () =>
+          fetch(`${this.gatewayAdminUrl}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${this.adminToken}`,
+              "User-Agent": "Authentication-Service/1.0",
+            },
+            signal: AbortSignal.timeout(5000),
+          }),
+        { maxAttempts: 2, baseDelayMs: 50 }
+      );
 
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 

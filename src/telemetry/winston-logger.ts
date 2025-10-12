@@ -32,7 +32,7 @@ export class WinstonTelemetryLogger {
     }
 
     this.logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || "info",
+      level: config.logLevel || "info",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),

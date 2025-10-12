@@ -5,7 +5,7 @@
   "description": "High-performance JWT authentication service built with Bun",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "bun run generate-docs && bun src/server.ts",
+    "dev": "bun run generate-docs && bun --hot src/server.ts",
     "dev:development": "bun run generate-docs && cp .env.dev .env.development && NODE_ENV=development bun src/server.ts; rm .env.development",
     "dev:staging": "bun run generate-docs && cp .env.stg .env.staging && NODE_ENV=staging bun src/server.ts; rm .env.staging",
     "dev:production": "bun run generate-docs && cp .env.prod .env.production && NODE_ENV=production bun src/server.ts; rm .env.production",
@@ -31,6 +31,7 @@
     "playwright:test": "playwright test",
     "playwright:ui": "playwright test --ui",
     "test:clean": "rm -rf test/results/k6/* test/results/playwright/* test/results/bun/* test-results/ playwright-report/",
+    "test:suite": "bun run bun:test && bun run playwright:test && bun run k6:quick",
     "k6:smoke:health": "test/k6/run-k6.sh test/k6/smoke/health-only-smoke.ts test/results/k6/smoke-health-only-results.json false",
     "k6:smoke:metrics": "test/k6/run-k6.sh test/k6/smoke/metrics-only-smoke.ts test/results/k6/smoke-metrics-only-results.json false",
     "k6:smoke:openapi": "test/k6/run-k6.sh test/k6/smoke/openapi-only-smoke.ts test/results/k6/smoke-openapi-only-results.json false",

@@ -78,6 +78,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'development',
         mode: 'console',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
         maxQueueSize: 10000
@@ -127,6 +128,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'production',
         mode: 'otlp',
+        logLevel: 'info',
         tracesEndpoint: 'http://insecure.example.com/traces',
         exportTimeout: 30000,
         batchSize: 2048,
@@ -143,6 +145,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'production',
         mode: 'otlp',
+        logLevel: 'info',
         tracesEndpoint: 'https://secure.example.com/traces',
         exportTimeout: 30000,
         batchSize: 2048,
@@ -159,6 +162,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'production',
         mode: 'otlp',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
         maxQueueSize: 10000
@@ -174,6 +178,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'production',
         mode: 'otlp',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
         maxQueueSize: 10000
@@ -189,6 +194,7 @@ describe('Configuration System', () => {
         serviceVersion: 'latest',
         environment: 'production',
         mode: 'otlp',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
         maxQueueSize: 10000
@@ -257,6 +263,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'development',
         mode: 'console',
+        logLevel: 'info',
         exportTimeout: 70000,  // Too high (max 60000)
         batchSize: 2048,
         maxQueueSize: 10000
@@ -272,6 +279,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'development',
         mode: 'console',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 6000,  // Too high (max 5000)
         maxQueueSize: 10000
@@ -325,6 +333,7 @@ describe('Configuration System', () => {
           serviceVersion: '1.0.0',
           environment: 'development',
           mode: 'console',
+          logLevel: 'info',
           enabled: expected,
           exportTimeout: 30000,
           batchSize: 2048,
@@ -355,6 +364,7 @@ describe('Configuration System', () => {
         serviceVersion: '1.0.0',
         environment: 'invalid-env',  // Not in enum
         mode: 'console',
+        logLevel: 'info',
         exportTimeout: 30000,
         batchSize: 2048,
         maxQueueSize: 10000

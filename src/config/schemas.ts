@@ -190,6 +190,7 @@ export const TelemetryConfigSchema = z
     serviceVersion: NonEmptyString.describe("Service version for telemetry"),
     environment: EnvironmentType.describe("Deployment environment"),
     mode: TelemetryMode,
+    logLevel: z.enum(["error", "warn", "info", "debug"]).describe("Winston log level"),
     endpoint: HttpsUrl.optional(),
     logsEndpoint: HttpsUrl.optional(),
     tracesEndpoint: HttpsUrl.optional(),

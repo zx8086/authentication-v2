@@ -1,6 +1,24 @@
 /* src/utils/logger.ts */
 
 let winstonLogger: any = null;
+let configInstance: any = null;
+
+function getConfig() {
+  if (!configInstance) {
+    try {
+      const { loadConfig } = require("../config/index");
+      configInstance = loadConfig();
+    } catch (_error) {
+      configInstance = {
+        telemetry: {
+          serviceName: "authentication-service",
+          environment: "development",
+        },
+      };
+    }
+  }
+  return configInstance;
+}
 
 function getWinstonLogger() {
   if (!winstonLogger) {
@@ -9,6 +27,7 @@ function getWinstonLogger() {
       winstonLogger = winstonTelemetryLogger;
     } catch (error) {
       console.error("ERROR: Could not load winston logger, falling back to console:", error);
+      const config = getConfig();
       winstonLogger = {
         info: (msg: string, ctx: any) =>
           console.log(
@@ -17,8 +36,8 @@ function getWinstonLogger() {
               "log.level": "INFO",
               message: msg,
               service: {
-                name: "authentication-service",
-                environment: process.env.NODE_ENV || "development",
+                name: config.telemetry.serviceName,
+                environment: config.telemetry.environment,
               },
               ...ctx,
             })
@@ -30,8 +49,8 @@ function getWinstonLogger() {
               "log.level": "WARN",
               message: msg,
               service: {
-                name: "authentication-service",
-                environment: process.env.NODE_ENV || "development",
+                name: config.telemetry.serviceName,
+                environment: config.telemetry.environment,
               },
               ...ctx,
             })
@@ -43,8 +62,8 @@ function getWinstonLogger() {
               "log.level": "ERROR",
               message: msg,
               service: {
-                name: "authentication-service",
-                environment: process.env.NODE_ENV || "development",
+                name: config.telemetry.serviceName,
+                environment: config.telemetry.environment,
               },
               ...ctx,
             })
@@ -56,30 +75,33 @@ function getWinstonLogger() {
 }
 
 export function log(message: string, context: Record<string, any> = {}) {
+  const config = getConfig();
   getWinstonLogger().info(message, {
     service: {
-      name: "authentication-service",
-      environment: process.env.NODE_ENV || "development",
+      name: config.telemetry.serviceName,
+      environment: config.telemetry.environment,
     },
     ...context,
   });
 }
 
 export function warn(message: string, context: Record<string, any> = {}) {
+  const config = getConfig();
   getWinstonLogger().warn(message, {
     service: {
-      name: "authentication-service",
-      environment: process.env.NODE_ENV || "development",
+      name: config.telemetry.serviceName,
+      environment: config.telemetry.environment,
     },
     ...context,
   });
 }
 
 export function error(message: string, context: Record<string, any> = {}) {
+  const config = getConfig();
   getWinstonLogger().error(message, {
     service: {
-      name: "authentication-service",
-      environment: process.env.NODE_ENV || "development",
+      name: config.telemetry.serviceName,
+      environment: config.telemetry.environment,
     },
     ...context,
   });
