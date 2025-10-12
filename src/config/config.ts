@@ -26,7 +26,7 @@ import {
 const envSchema = z
   .object({
     // Server Configuration
-    PORT: z.coerce.number().int().min(1024).max(65535).optional(),
+    PORT: z.int32().min(1024).max(65535).optional(),
     NODE_ENV: EnvironmentType.optional(),
 
     // JWT Configuration (required fields for security)
@@ -49,9 +49,9 @@ const envSchema = z
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: HttpsUrl.optional(),
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: HttpsUrl.optional(),
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: HttpsUrl.optional(),
-    OTEL_EXPORTER_OTLP_TIMEOUT: z.coerce.number().int().min(1000).max(60000).optional(),
-    OTEL_BSP_MAX_EXPORT_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).optional(),
-    OTEL_BSP_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(50000).optional(),
+    OTEL_EXPORTER_OTLP_TIMEOUT: z.int32().min(1000).max(60000).optional(),
+    OTEL_BSP_MAX_EXPORT_BATCH_SIZE: z.int32().min(1).max(5000).optional(),
+    OTEL_BSP_MAX_QUEUE_SIZE: z.int32().min(1).max(50000).optional(),
 
     // API Info Configuration
     API_TITLE: NonEmptyString.optional(),

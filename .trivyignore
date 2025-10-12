@@ -6,6 +6,15 @@
 # Reason: Example JWT tokens for API documentation, contains dummy data
 jwt-token
 
+# Development and test configuration files with example credentials
+# Files: .env.example, .env.*.example
+# Reason: Template files with dummy credentials for development setup
+generic-api-key:.env.example
+generic-api-key:.env.dev.example
+generic-api-key:.env.stg.example
+generic-api-key:.env.prod.example
+generic-api-key:.env.test.example
+
 # Alternative: More specific ignore with file paths (if needed)
 # jwt-token:public/openapi-generated.yaml
 # jwt-token:public/openapi.json

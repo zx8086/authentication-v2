@@ -29,8 +29,16 @@ echo "Build Date: ${BUILD_DATE}"
 echo "Git Commit: ${VCS_REF}"
 echo "----------------------------------------"
 
-# Build the Docker image with all metadata as build args
-docker build \
+# Build target selection for optimization
+BUILD_TARGET=${BUILD_TARGET:-production}
+
+echo "Build target: ${BUILD_TARGET}"
+echo "BuildKit enabled: $(docker buildx version >/dev/null 2>&1 && echo 'Yes' || echo 'No')"
+echo "----------------------------------------"
+
+# Build the Docker image with BuildKit optimization
+DOCKER_BUILDKIT=1 docker build \
+  --target "${BUILD_TARGET}" \
   --build-arg SERVICE_NAME="${SERVICE_NAME}" \
   --build-arg SERVICE_VERSION="${SERVICE_VERSION}" \
   --build-arg SERVICE_DESCRIPTION="${SERVICE_DESCRIPTION}" \
@@ -38,6 +46,8 @@ docker build \
   --build-arg SERVICE_LICENSE="${SERVICE_LICENSE}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VCS_REF="${VCS_REF}" \
+  --cache-from "${IMAGE_NAME}:cache" \
+  --cache-to "type=inline" \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
   -t "${IMAGE_NAME}:latest" \
   .
@@ -45,3 +55,9 @@ docker build \
 echo "----------------------------------------"
 echo "Successfully built: ${IMAGE_NAME}:${IMAGE_TAG}"
 echo "Also tagged as: ${IMAGE_NAME}:latest"
+echo ""
+echo "For CI/CD integration with security scanning, metadata extraction,"
+echo "and multi-platform builds, coordinate with github-deployment-specialist"
+echo ""
+echo "Image optimization metrics:"
+docker images "${IMAGE_NAME}:${IMAGE_TAG}" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null || echo "Image size information not available"

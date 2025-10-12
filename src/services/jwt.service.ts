@@ -2,6 +2,7 @@
 
 import { trace } from "@opentelemetry/api";
 import type { JWTPayload, TokenResponse } from "../config";
+import { calculateDuration, getHighResTime } from "../utils/performance";
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
@@ -14,7 +15,7 @@ export class NativeBunJWT {
     audience: string,
     issuer?: string
   ): Promise<TokenResponse> {
-    const startTime = Bun.nanoseconds();
+    const startTime = getHighResTime();
 
     const tracer = trace.getTracer("authentication-service");
     const span = tracer.startSpan("jwt_create", {
@@ -67,7 +68,7 @@ export class NativeBunJWT {
       );
 
       const token = `${message}.${signatureB64}`;
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
 
       span.setAttributes({
         "jwt.token_id": payload.jti,
@@ -82,7 +83,7 @@ export class NativeBunJWT {
         expires_in: 900,
       };
     } catch (error) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
 
       span.setAttributes({
         "error.type": "jwt_creation_error",

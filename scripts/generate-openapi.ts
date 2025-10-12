@@ -2,9 +2,9 @@
 
 /* scripts/generate-openapi.ts */
 
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { apiDocGenerator } from "../src/openapi-generator.js";
 
 async function ensureDirectoryExists(dirPath: string): Promise<void> {

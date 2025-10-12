@@ -95,20 +95,22 @@ export function addProductionSecurityValidation<
   if (options.serviceName) {
     if (options.serviceName.includes("localhost") || options.serviceName.includes("test")) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production service name cannot contain localhost or test references",
         path: ["serviceName"],
       });
+      return;
     }
   }
 
   if (options.serviceVersion) {
     if (options.serviceVersion === "dev" || options.serviceVersion === "latest") {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production requires specific version, not dev or latest",
         path: ["serviceVersion"],
       });
+      return;
     }
   }
 
@@ -116,10 +118,11 @@ export function addProductionSecurityValidation<
     for (const endpoint of options.endpoints) {
       if (endpoint.value && !endpoint.value.startsWith("https://")) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Production telemetry endpoints must use HTTPS",
           path: endpoint.path,
         });
+        return;
       }
     }
   }
@@ -127,28 +130,35 @@ export function addProductionSecurityValidation<
   if (options.adminUrl) {
     if (options.adminUrl.includes("localhost")) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Kong Admin URL cannot use localhost in production",
         path: ["kong", "adminUrl"],
       });
+      return;
     }
   }
 
   if (options.adminToken) {
     if (options.adminToken === "test" || options.adminToken.length < 32) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production Kong admin token must be secure (32+ characters)",
         path: ["kong", "adminToken"],
       });
+      return;
     }
   }
 }
 
 export const HttpsUrl = z.url();
-export const EmailAddress = z.email();
-export const PositiveInt = z.coerce.number().int().min(1);
-export const PortNumber = z.coerce.number().int().min(1).max(65535);
+export const EmailAddress = z.string().email();
+export const ProductionHttpsUrl = z.url().refine((url) => url.startsWith("https://"), {
+  message: "Production URLs must use HTTPS",
+});
+export const SecureTimeout = z.int32().min(1000).max(60000);
+export const SecureToken = z.string().min(32);
+export const PositiveInt = z.int32().min(1);
+export const PortNumber = z.int32().min(1).max(65535);
 export const NonEmptyString = z.string().min(1);
 
 export const ServerConfigSchema = z.strictObject({
@@ -228,8 +238,37 @@ export const AppConfigSchema = z
   });
 
 export const SchemaRegistry = {
+  // V4 Primitive Types
+  Primitives: {
+    HttpsUrl,
+    EmailAddress,
+    ProductionHttpsUrl,
+    SecureTimeout,
+    SecureToken,
+    PositiveInt,
+    PortNumber,
+    NonEmptyString,
+  },
+  // Configuration Schemas
+  Config: {
+    Server: ServerConfigSchema,
+    Jwt: JwtConfigSchema,
+    Kong: KongConfigSchema,
+    Telemetry: TelemetryConfigSchema,
+    ApiInfo: ApiInfoConfigSchema,
+    App: AppConfigSchema,
+  },
+  // API Schemas
+  Api: {
+    TokenResponse: TokenResponseSchema,
+    JWTPayload: JWTPayloadSchema,
+    RouteDefinition: RouteDefinitionSchema,
+  },
+  // Legacy flat access (deprecated - use nested structure)
   Server: ServerConfigSchema,
   Jwt: JwtConfigSchema,
+  // Business Domain Schemas
+
   Kong: KongConfigSchema,
   Telemetry: TelemetryConfigSchema,
   ApiInfo: ApiInfoConfigSchema,

@@ -104,6 +104,15 @@ desktop.ini
 *.crt
 .ssh/
 secrets/
+*.p12
+*.pfx
+*.keystore
+*.truststore
+.aws/
+.azure/
+.gcp/
+kubectl/
+.kube/
 
 # CI/CD and Docker Files (not needed in container)
 # ------------------------------------------------

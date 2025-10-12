@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**/*", "*.ts", "*.js", "*.json"]
+    "includes": ["src/**/*", "scripts/**/*", "*.ts", "*.js", "*.json"]
   },
   "formatter": {
     "enabled": true,
@@ -97,12 +97,14 @@
         "noUnsafeNegation": "error",
         "useGetterReturn": "error",
         "noImplicitAnyLet": "warn",
-        "useIterableCallbackReturn": "warn"
+        "useIterableCallbackReturn": "warn",
+        "noArrayIndexKey": "warn",
+        "noThenProperty": "error"
       }
     }
   },
   "javascript": {
-    "globals": ["Bun", "Timer", "process", "Buffer"],
+    "globals": ["Bun", "Timer", "process", "Buffer", "NodeJS", "console"],
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",

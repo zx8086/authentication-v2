@@ -4,6 +4,7 @@ import pkg from "../package.json" with { type: "json" };
 import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
 import { apiDocGenerator } from "./openapi-generator";
+import { createModernRoutes } from "./routes/modern-router";
 import { createRoutes, handleRoute } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
@@ -71,23 +72,32 @@ if (!startupKongHealth.healthy) {
 }
 
 const routes = createRoutes(kongService);
+const modernRoutes = createModernRoutes(kongService);
 let server: any;
 
+const isBun = () => typeof Bun !== "undefined";
+
 try {
-  server = Bun.serve({
-    port: config.server.port,
-    hostname: "0.0.0.0",
-
-    async fetch(req) {
-      const url = new URL(req.url);
-
-      try {
-        return await handleRoute(req, url, routes);
-      } catch (error) {
-        return handleServerError(error as Error);
-      }
-    },
-  });
+  if (isBun()) {
+    server = Bun.serve({
+      port: config.server.port,
+      hostname: "0.0.0.0",
+      routes: modernRoutes,
+    });
+  } else {
+    server = Bun.serve({
+      port: config.server.port,
+      hostname: "0.0.0.0",
+      async fetch(req) {
+        const url = new URL(req.url);
+        try {
+          return await handleRoute(req, url, routes);
+        } catch (error) {
+          return handleServerError(error as Error);
+        }
+      },
+    });
+  }
 } catch (err) {
   if (err instanceof Error && err.message.includes("EADDRINUSE")) {
     error("Server failed to start - port already in use", {
