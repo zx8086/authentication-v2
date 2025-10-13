@@ -39,6 +39,7 @@ test-results/
 # ------------------------------------------------
 dist/
 build/
+public/
 .next/
 .nuxt/
 out/

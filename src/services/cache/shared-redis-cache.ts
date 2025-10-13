@@ -2,6 +2,11 @@
 
 import { RedisClient } from "bun";
 import type { ConsumerSecret, IKongCacheService, KongCacheStats } from "../../config/schemas";
+import { recordRedisConnection } from "../../telemetry/metrics";
+import {
+  instrumentRedisOperation,
+  type RedisOperationContext,
+} from "../../telemetry/redis-instrumentation";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 
 export class SharedRedisCache implements IKongCacheService {
@@ -23,7 +28,13 @@ export class SharedRedisCache implements IKongCacheService {
   ) {}
 
   async connect(): Promise<void> {
-    try {
+    const context: RedisOperationContext = {
+      operation: "CONNECT",
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
+    return instrumentRedisOperation(context, async () => {
       const redisUrl = this.config.password
         ? this.config.url.replace("redis://", `redis://:${this.config.password}@`)
         : this.config.url;
@@ -42,6 +53,7 @@ export class SharedRedisCache implements IKongCacheService {
       }
 
       await this.client.send("PING", []);
+      recordRedisConnection(true);
       winstonTelemetryLogger.info("Connected to Redis using Bun native client", {
         redisUrl: this.config.url,
         redisDb: this.config.db,
@@ -50,7 +62,7 @@ export class SharedRedisCache implements IKongCacheService {
         strategy: "shared-redis",
         client: "bun-native",
       });
-    } catch (error) {
+    }).catch((error) => {
       winstonTelemetryLogger.warn("Failed to connect to Redis, will use graceful fallback", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -59,13 +71,20 @@ export class SharedRedisCache implements IKongCacheService {
         client: "bun-native",
       });
       throw error;
-    }
+    });
   }
 
   async get(key: string): Promise<ConsumerSecret | null> {
+    const context: RedisOperationContext = {
+      operation: "GET",
+      key,
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
     const start = performance.now();
 
-    try {
+    return instrumentRedisOperation(context, async () => {
       const cached = await this.client.get(key);
       if (cached) {
         this.recordHit(performance.now() - start);
@@ -74,7 +93,7 @@ export class SharedRedisCache implements IKongCacheService {
 
       this.recordMiss(performance.now() - start);
       return null;
-    } catch (error) {
+    }).catch((error) => {
       winstonTelemetryLogger.warn("Redis get operation failed, falling back to null", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -84,15 +103,22 @@ export class SharedRedisCache implements IKongCacheService {
       });
       this.recordMiss(performance.now() - start);
       return null;
-    }
+    });
   }
 
   async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
-    try {
+    const context: RedisOperationContext = {
+      operation: "SET",
+      key,
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
+    return instrumentRedisOperation(context, async () => {
       const ttl = ttlSeconds || this.config.ttlSeconds;
       await this.client.set(key, JSON.stringify(value));
       await this.client.expire(key, ttl);
-    } catch (error) {
+    }).catch((error) => {
       winstonTelemetryLogger.warn("Redis set operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -100,13 +126,20 @@ export class SharedRedisCache implements IKongCacheService {
         key,
         client: "bun-native",
       });
-    }
+    });
   }
 
   async delete(key: string): Promise<void> {
-    try {
+    const context: RedisOperationContext = {
+      operation: "DELETE",
+      key,
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
+    return instrumentRedisOperation(context, async () => {
       await this.client.del(key);
-    } catch (error) {
+    }).catch((error) => {
       winstonTelemetryLogger.warn("Redis delete operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -114,7 +147,7 @@ export class SharedRedisCache implements IKongCacheService {
         key,
         client: "bun-native",
       });
-    }
+    });
   }
 
   async clear(): Promise<void> {
@@ -181,6 +214,7 @@ export class SharedRedisCache implements IKongCacheService {
   async disconnect(): Promise<void> {
     if (this.client) {
       await this.client.close();
+      recordRedisConnection(false);
       winstonTelemetryLogger.info("Disconnected from Redis", {
         component: "cache",
         operation: "disconnection",

@@ -5,6 +5,7 @@ import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HostMetrics } from "@opentelemetry/host-metrics";
+import { RedisInstrumentation } from "@opentelemetry/instrumentation-redis";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { type MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
@@ -138,7 +139,7 @@ export async function initializeTelemetry(): Promise<void> {
 
   const logProcessor = new BatchLogRecordProcessor(otlpLogExporter);
 
-  const instrumentations = getNodeAutoInstrumentations({
+  const baseInstrumentations = getNodeAutoInstrumentations({
     "@opentelemetry/instrumentation-http": {
       enabled: true,
       requestHook: (span: any, request: any) => {
@@ -166,6 +167,28 @@ export async function initializeTelemetry(): Promise<void> {
       enabled: false,
     },
   });
+
+  const redisInstrumentation = new RedisInstrumentation({
+    enabled: true,
+    dbStatementSerializer: (cmdName: string, cmdArgs: (string | Buffer)[]) => {
+      // Sanitize sensitive data in commands
+      const sanitizedArgs = cmdArgs.map((arg, index) => {
+        const argStr = arg instanceof Buffer ? arg.toString() : arg;
+        // For SET commands, mask the value (second argument)
+        if (cmdName.toUpperCase() === "SET" && index === 1) {
+          return "***";
+        }
+        // For GET commands with consumer_secret keys, mask the key pattern
+        if (cmdName.toUpperCase() === "GET" && argStr.includes("consumer_secret")) {
+          return "consumer_secret:***";
+        }
+        return argStr;
+      });
+      return [cmdName, ...sanitizedArgs].join(" ");
+    },
+  });
+
+  const instrumentations = [...baseInstrumentations, redisInstrumentation];
 
   sdk = new NodeSDK({
     resource,

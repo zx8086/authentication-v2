@@ -36,6 +36,13 @@ let kongResponseTimeHistogram: any;
 let kongCacheHitCounter: any;
 let kongCacheMissCounter: any;
 
+let redisOperationsCounter: any;
+let redisOperationDurationHistogram: any;
+let redisConnectionsGauge: any;
+let redisCacheHitCounter: any;
+let redisCacheMissCounter: any;
+let redisErrorsCounter: any;
+
 let errorRateCounter: any;
 let exceptionCounter: any;
 let telemetryExportCounter: any;
@@ -152,6 +159,39 @@ export function initializeMetrics(): void {
 
   kongCacheMissCounter = meter.createCounter("kong_cache_misses_total", {
     description: "Number of Kong cache misses",
+    unit: "1",
+  });
+
+  redisOperationsCounter = meter.createCounter("redis_operations_total", {
+    description: "Total number of Redis operations",
+    unit: "1",
+  });
+
+  redisOperationDurationHistogram = meter.createHistogram("redis_operation_duration_seconds", {
+    description: "Redis operation response time in seconds",
+    unit: "s",
+    advice: {
+      explicitBucketBoundaries: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2],
+    },
+  });
+
+  redisConnectionsGauge = meter.createUpDownCounter("redis_connections_active", {
+    description: "Number of active Redis connections",
+    unit: "1",
+  });
+
+  redisCacheHitCounter = meter.createCounter("redis_cache_hits_total", {
+    description: "Total number of Redis cache hits",
+    unit: "1",
+  });
+
+  redisCacheMissCounter = meter.createCounter("redis_cache_misses_total", {
+    description: "Total number of Redis cache misses",
+    unit: "1",
+  });
+
+  redisErrorsCounter = meter.createCounter("redis_errors_total", {
+    description: "Total number of Redis operation errors",
     unit: "1",
   });
 
@@ -350,6 +390,62 @@ export function recordKongOperation(
   } catch (err) {
     error("Failed to record Kong operation metrics", {
       error: (err as Error).message,
+    });
+  }
+}
+
+export function recordRedisOperation(
+  operation: string,
+  durationMs: number,
+  success: boolean,
+  cacheResult?: "hit" | "miss",
+  connectionInfo?: { url?: string; database?: number }
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation: operation.toUpperCase(),
+    success: success.toString(),
+    ...(connectionInfo?.database !== undefined && { database: connectionInfo.database.toString() }),
+  };
+
+  const durationSeconds = durationMs / 1000;
+
+  try {
+    redisOperationsCounter.add(1, attributes);
+    redisOperationDurationHistogram.record(durationSeconds, attributes);
+
+    if (cacheResult) {
+      const cacheAttributes = { operation: operation.toUpperCase() };
+      if (cacheResult === "hit") {
+        redisCacheHitCounter.add(1, cacheAttributes);
+      } else {
+        redisCacheMissCounter.add(1, cacheAttributes);
+      }
+    }
+
+    if (!success) {
+      redisErrorsCounter.add(1, { operation: operation.toUpperCase() });
+    }
+  } catch (err) {
+    error("Failed to record Redis operation metrics", {
+      error: (err as Error).message,
+      operation,
+      success,
+      durationMs,
+    });
+  }
+}
+
+export function recordRedisConnection(increment: boolean): void {
+  if (!isInitialized) return;
+
+  try {
+    redisConnectionsGauge.add(increment ? 1 : -1);
+  } catch (err) {
+    error("Failed to record Redis connection metric", {
+      error: (err as Error).message,
+      increment,
     });
   }
 }
@@ -563,6 +659,13 @@ export function testMetricRecording(): void {
   recordKongOperation("get_consumer_secret", 89, true, false);
   recordKongOperation("health_check", 23, true, true);
 
+  recordRedisOperation("GET", 12, true, "hit", { database: 0 });
+  recordRedisOperation("SET", 8, true, undefined, { database: 0 });
+  recordRedisOperation("DEL", 5, true, undefined, { database: 0 });
+  recordRedisOperation("GET", 15, true, "miss", { database: 0 });
+  recordRedisOperation("CONNECT", 45, false, undefined, { database: 0 });
+  recordRedisConnection(true);
+
   recordError("validation_error", { field: "username", reason: "missing" });
   recordException(new Error("Test exception"), { component: "test" });
   recordOperationDuration("database_query", 156, true, {
@@ -599,6 +702,13 @@ export function getMetricsStatus() {
       kongResponseTimeHistogram: !!kongResponseTimeHistogram,
       kongCacheHitCounter: !!kongCacheHitCounter,
       kongCacheMissCounter: !!kongCacheMissCounter,
+
+      redisOperationsCounter: !!redisOperationsCounter,
+      redisOperationDurationHistogram: !!redisOperationDurationHistogram,
+      redisConnectionsGauge: !!redisConnectionsGauge,
+      redisCacheHitCounter: !!redisCacheHitCounter,
+      redisCacheMissCounter: !!redisCacheMissCounter,
+      redisErrorsCounter: !!redisErrorsCounter,
 
       errorRateCounter: !!errorRateCounter,
       exceptionCounter: !!exceptionCounter,
@@ -642,6 +752,14 @@ export function getMetricsStatus() {
         "kong_cache_hits_total",
         "kong_cache_misses_total",
       ],
+      redis: [
+        "redis_operations_total",
+        "redis_operation_duration_seconds",
+        "redis_connections_active",
+        "redis_cache_hits_total",
+        "redis_cache_misses_total",
+        "redis_errors_total",
+      ],
       errors: [
         "application_errors_total",
         "application_exceptions_total",
@@ -651,7 +769,7 @@ export function getMetricsStatus() {
         "operation_duration_seconds",
       ],
     },
-    totalInstruments: 23,
+    totalInstruments: 29,
     memoryPressure: getMemoryStats(),
     optimizations: {
       memoryPressureEnabled: true,
