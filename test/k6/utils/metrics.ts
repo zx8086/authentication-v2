@@ -17,8 +17,8 @@ export const businessMetrics = {
 
   // Kong integration metrics
   kongResponseTime: new Trend('kong_response_time'),
-  kongCacheHits: new Rate('kong_cache_hits'),
-  kongCacheMisses: new Rate('kong_cache_misses'),
+  kongProxyCacheHits: new Rate('kong_proxy_cache_hits'),
+  kongProxyCacheMisses: new Rate('kong_proxy_cache_misses'),
 
   // Rate limiting metrics
   rateLimitExceeded: new Counter('rate_limit_exceeded'),
@@ -54,7 +54,7 @@ export interface TokenMetadata {
   success: boolean;
   duration: number;
   tokenValid?: boolean;
-  cacheHit?: boolean;
+  proxyCacheHit?: boolean;
   rateLimited?: boolean;
 }
 
@@ -63,7 +63,7 @@ export const recordTokenGeneration = (metadata: TokenMetadata) => {
     consumer_id: metadata.consumerId,
     username: metadata.username,
     endpoint: metadata.endpoint,
-    cache_status: metadata.cacheHit ? 'hit' : 'miss'
+    proxy_cache_status: metadata.proxyCacheHit ? 'hit' : 'miss'
   };
 
   // Record core metrics
@@ -80,10 +80,10 @@ export const recordTokenGeneration = (metadata: TokenMetadata) => {
       businessMetrics.responseCompleteness.add(1, tags);
     }
 
-    if (metadata.cacheHit) {
-      businessMetrics.kongCacheHits.add(1, tags);
+    if (metadata.proxyCacheHit) {
+      businessMetrics.kongProxyCacheHits.add(1, tags);
     } else {
-      businessMetrics.kongCacheMisses.add(1, tags);
+      businessMetrics.kongProxyCacheMisses.add(1, tags);
     }
   } else {
     businessMetrics.authenticationFailures.add(1, tags);
@@ -165,7 +165,7 @@ export const recordPerformanceBudgetViolation = (operation: string, actualDurati
 
 export const getPerformanceBudget = (operation: string): number => {
   const budgets: { [key: string]: number } = {
-    'token_generation': 50,   // 50ms budget for token generation
+    'token_generation': 200,  // 200ms budget for token generation (no app cache)
     'health_check': 30,       // 30ms budget for health checks
     'metrics_endpoint': 20,   // 20ms budget for metrics
     'openapi_spec': 10        // 10ms budget for OpenAPI spec

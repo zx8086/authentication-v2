@@ -179,57 +179,52 @@ test.describe('Core Business Requirements', () => {
     });
   });
 
-  test.describe('Caching Behavior', () => {
-    test('Caches consumer secrets to reduce Kong API calls', async ({ request }) => {
+  test.describe('Performance & Reliability', () => {
+    test('Handles multiple consecutive requests efficiently', async ({ request }) => {
       const consumer = getTestConsumer(0);
       const headers = {
         'X-Consumer-Id': consumer.id,
         'X-Consumer-Username': consumer.username
       };
 
-      // First request - may hit Kong API
-      const firstResponse = await request.get('/tokens', { headers });
-      expect(firstResponse.status()).toBe(200);
-
-      // Get initial cache stats
-      const metricsBeforeResponse = await request.get('/metrics');
-      const metricsBefore = await metricsBeforeResponse.json();
-      const cacheSizeBefore = metricsBefore.cache.size || 0;
-
-      // Multiple subsequent requests - should use cache
-      for (let i = 0; i < 3; i++) {
+      // Multiple requests should all succeed
+      for (let i = 0; i < 5; i++) {
         const response = await request.get('/tokens', { headers });
         expect(response.status()).toBe(200);
+
+        const data = await response.json();
+        expect(data.access_token).toBeTruthy();
+        expect(data.expires_in).toBe(900);
       }
-
-      // Check cache is being used
-      const metricsAfterResponse = await request.get('/metrics');
-      const metricsAfter = await metricsAfterResponse.json();
-
-      // Cache should have at least one entry
-      expect(metricsAfter.cache.size).toBeGreaterThanOrEqual(1);
     });
 
-    test('Different consumers have separate cache entries', async ({ request }) => {
-      const consumers = getBasicTestConsumers().slice(0, 2);
+    test('Different consumers can request tokens concurrently', async ({ request }) => {
+      const consumers = getBasicTestConsumers().slice(0, 3);
 
-      // Request tokens for two different consumers
-      for (const consumer of consumers) {
-        const response = await request.get('/tokens', {
+      // Concurrent requests for different consumers
+      const requests = consumers.map(consumer =>
+        request.get('/tokens', {
           headers: {
             'X-Consumer-Id': consumer.id,
             'X-Consumer-Username': consumer.username
           }
-        });
+        })
+      );
+
+      const responses = await Promise.all(requests);
+
+      // All should succeed
+      for (const response of responses) {
         expect(response.status()).toBe(200);
       }
 
-      // Check cache has entries for both
-      const metricsResponse = await request.get('/metrics');
-      const metrics = await metricsResponse.json();
-
-      // Should have cache entries
-      expect(metrics.cache.size).toBeGreaterThanOrEqual(1);
+      // All tokens should be unique
+      const tokens = new Set();
+      for (const response of responses) {
+        const data = await response.json();
+        tokens.add(data.access_token);
+      }
+      expect(tokens.size).toBe(consumers.length);
     });
   });
 });

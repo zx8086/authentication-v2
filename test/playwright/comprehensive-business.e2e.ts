@@ -29,7 +29,6 @@ test.describe('Comprehensive Business Requirements', () => {
       const data = await response.json();
       expect(data).toHaveProperty('memory');
       expect(data).toHaveProperty('uptime');
-      expect(data).toHaveProperty('cache');
       expect(data).toHaveProperty('telemetry');
     });
 
@@ -182,40 +181,28 @@ test.describe('Comprehensive Business Requirements', () => {
     });
   });
 
-  test.describe('Cache Management', () => {
-    test('Caches consumer secrets to optimize Kong API calls', async ({ request }) => {
+  test.describe('Service Performance', () => {
+    test('Handles multiple requests efficiently without caching', async ({ request }) => {
       const consumer = getTestConsumer(0);
       const headers = {
         'X-Consumer-Id': consumer.id,
         'X-Consumer-Username': consumer.username
       };
 
-      // First request - might create/fetch from Kong
-      await request.get('/tokens', { headers });
-
-      // Get metrics before subsequent requests
-      const metricsBefore = await request.get('/metrics');
-      const cacheBefore = (await metricsBefore.json()).cache;
-
-      // Multiple requests - should use cache
-      for (let i = 0; i < 3; i++) {
+      // Multiple requests should all succeed - service relies on Kong Gateway proxy caching
+      const startTime = Date.now();
+      for (let i = 0; i < 5; i++) {
         const response = await request.get('/tokens', { headers });
         expect(response.status()).toBe(200);
+
+        const data = await response.json();
+        expect(data.access_token).toBeTruthy();
+        expect(data.expires_in).toBe(900);
       }
+      const endTime = Date.now();
 
-      // Verify cache is being used
-      const metricsAfter = await request.get('/metrics');
-      const cacheAfter = (await metricsAfter.json()).cache;
-
-      expect(cacheAfter.size).toBeGreaterThanOrEqual(1);
-
-      // Check hit rate if available
-      if (cacheAfter.hitRate && cacheAfter.hitRate !== 'N/A') {
-        const hitRate = parseFloat(cacheAfter.hitRate);
-        if (!isNaN(hitRate)) {
-          expect(hitRate).toBeGreaterThan(0); // Should have some cache hits
-        }
-      }
+      // Should complete reasonably quickly (within 10 seconds for 5 requests)
+      expect(endTime - startTime).toBeLessThan(10000);
     });
   });
 

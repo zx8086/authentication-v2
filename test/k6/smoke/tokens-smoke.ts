@@ -38,7 +38,7 @@ export default function() {
   const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
   check(tokenResponse, {
     'token status is 200': (r) => r.status === 200,
-    'token response time < 100ms': (r) => r.timings.duration < 100,
+    'token response time < 800ms': (r) => r.timings.duration < 800,
     'token has access_token': (r) => {
       const body = typeof r.body === 'string' ? r.body : '';
       return body.includes('"access_token"');

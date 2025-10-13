@@ -5,7 +5,6 @@ export type {
   ConsumerResponse,
   ConsumerSecret,
   IKongService,
-  KongCacheStats,
   KongHealthCheckResult,
   KongMode,
 } from "../config";

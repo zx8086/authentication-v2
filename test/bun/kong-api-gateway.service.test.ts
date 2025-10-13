@@ -111,45 +111,7 @@ describe("KongApiGatewayService", () => {
       expect(result).toBeNull();
     });
 
-    it("should use cache on subsequent requests", async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockConsumerResponse),
-      });
 
-      const result1 = await service.getConsumerSecret("cached-consumer");
-      const result2 = await service.getConsumerSecret("cached-consumer");
-
-      expect(result1).toEqual(mockConsumerSecret);
-      expect(result2).toEqual(mockConsumerSecret);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it("should return stale cache when fetch fails", async () => {
-      const expiredCacheService = new KongApiGatewayService("http://kong:8001", "test-token");
-
-      fetchSpy
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockConsumerResponse),
-        })
-        .mockRejectedValueOnce(new Error("Network error"));
-
-      await expiredCacheService.getConsumerSecret("stale-cache-consumer");
-
-      expiredCacheService.clearCache();
-      (expiredCacheService as any).cache.set("stale-cache-consumer", {
-        data: mockConsumerSecret,
-        expires: Date.now() - 1000
-      });
-
-      const result = await expiredCacheService.getConsumerSecret("stale-cache-consumer");
-
-      expect(result).toEqual(mockConsumerSecret);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-    });
 
     it("should handle timeout gracefully", async () => {
       fetchSpy.mockRejectedValue(new Error("TimeoutError"));
@@ -211,21 +173,6 @@ describe("KongApiGatewayService", () => {
       expect(result).toBeNull();
     });
 
-    it("should cache created secret", async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 201,
-        json: () => Promise.resolve(mockConsumerSecret),
-      });
-
-      await service.createConsumerSecret("cache-consumer");
-
-      fetchSpy.mockClear();
-      const cachedResult = await service.getConsumerSecret("cache-consumer");
-
-      expect(cachedResult).toEqual(mockConsumerSecret);
-      expect(fetchSpy).not.toHaveBeenCalled();
-    });
 
     it("should handle network errors during creation", async () => {
       fetchSpy.mockRejectedValue(new Error("Network error"));
@@ -250,62 +197,7 @@ describe("KongApiGatewayService", () => {
     });
   });
 
-  describe("clearCache", () => {
-    beforeEach(async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockConsumerResponse),
-      });
 
-      await service.getConsumerSecret("consumer1");
-      await service.getConsumerSecret("consumer2");
-    });
-
-    it("should clear cache for specific consumer", () => {
-      service.clearCache("consumer1");
-
-      const stats = service.getCacheStats();
-      expect(stats.size).toBe(1);
-    });
-
-    it("should clear entire cache when no consumer specified", () => {
-      service.clearCache();
-
-      const stats = service.getCacheStats();
-      expect(stats.size).toBe(0);
-    });
-  });
-
-  describe("getCacheStats", () => {
-    it("should return empty stats for empty cache", () => {
-      const stats = service.getCacheStats();
-
-      expect(stats.size).toBe(0);
-      expect(stats.entries).toEqual([]);
-      expect(stats.activeEntries).toBe(0);
-      expect(stats.hitRate).toBe("0%");
-    });
-
-    it("should return cache statistics", async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockConsumerResponse),
-      });
-
-      await service.getConsumerSecret("stats-consumer");
-
-      const stats = service.getCacheStats();
-
-      expect(stats.size).toBe(1);
-      expect(stats.activeEntries).toBe(1);
-      expect(stats.entries).toHaveLength(1);
-      expect(stats.entries[0].consumerId).toBe("stats-consumer");
-      expect(stats.entries[0].isActive).toBe(true);
-      expect(stats.hitRate).toBe("100.00%");
-    });
-  });
 
   describe("healthCheck", () => {
     it("should return healthy status when Kong is accessible", async () => {

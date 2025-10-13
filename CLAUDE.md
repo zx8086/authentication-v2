@@ -45,7 +45,9 @@ git commit -m "Update Docker configuration for multi-stage builds"
 
 - ✅ **Claude CAN do**:
   - Create new Linear issues
+  - **ALWAYS assign new issues to "Authentication Service" project**
   - Move issues to "In Progress" when starting work
+  - Update issue descriptions with additional findings
 - ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
   - Set issues to "Done" or "Completed"
   - Close issues without explicit user instruction
@@ -57,6 +59,37 @@ git commit -m "Update Docker configuration for multi-stage builds"
   4. User often commits code first to verify CI/CD passes before marking Done
 
 **REMINDER**: Committing code ≠ work completion. User needs to verify CI/CD, testing, and approve closure.
+
+### Linear Issue Content Management
+**CRITICAL RULE - PRESERVE ANALYSIS**: When updating Linear issue descriptions, Claude MUST preserve existing analysis and approach sections.
+
+- ✅ **Claude CAN do**:
+  - Add new findings to existing analysis
+  - Append implementation details and progress updates
+  - Enhance descriptions with additional context
+  - Correct factual errors while preserving original approach
+- ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
+  - Overwrite or replace existing analysis sections
+  - Remove original problem assessment or approach suggestions
+  - Delete user-provided context or requirements
+  - Replace the original issue scope or methodology
+- 📋 **MANDATORY Process for Updates**:
+  1. Read the current issue description completely
+  2. Identify existing analysis, approach, and requirements sections
+  3. ADD TO (do not replace) the existing content
+  4. Clearly mark new additions with timestamps or "UPDATE:" labels
+  5. Preserve all original context and user-provided information
+
+**EXAMPLE UPDATE FORMAT**:
+```
+[Original analysis and approach preserved]
+
+---
+**UPDATE [Date]**: Additional findings during implementation:
+- [New discovery 1]
+- [New discovery 2]
+[Additional details while keeping original intact]
+```
 
 ## Architecture Overview
 

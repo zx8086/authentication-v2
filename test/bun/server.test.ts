@@ -82,13 +82,11 @@ describe("Authentication Server Integration", () => {
       expect(metrics).toHaveProperty("timestamp");
       expect(metrics).toHaveProperty("uptime");
       expect(metrics).toHaveProperty("memory");
-      expect(metrics).toHaveProperty("cache");
       expect(metrics).toHaveProperty("telemetry");
 
       expect(typeof metrics.memory.used).toBe("number");
       expect(typeof metrics.memory.total).toBe("number");
       expect(typeof metrics.memory.rss).toBe("number");
-      expect(typeof metrics.cache).toBe("object");
     });
   });
 

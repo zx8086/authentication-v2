@@ -84,7 +84,7 @@ export default function () {
     "GET /metrics response time < 50ms": (r) => r.timings.duration < 50,
     "GET /metrics has metrics data": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"performance"') || body.includes('"cache"');
+      return body.includes('"memory"') || body.includes('"telemetry"');
     },
   });
 

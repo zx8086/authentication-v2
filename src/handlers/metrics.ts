@@ -8,7 +8,7 @@ import { log } from "../utils/logger";
 
 const config = loadConfig();
 
-export function handleMetrics(kongService: IKongService): Response {
+export function handleMetrics(_kongService: IKongService): Response {
   try {
     log("Processing metrics request", {
       component: "metrics",
@@ -16,7 +16,6 @@ export function handleMetrics(kongService: IKongService): Response {
       endpoint: "/metrics",
     });
 
-    const cacheStats = kongService.getCacheStats();
     const timestamp = new Date().toISOString();
 
     const metricsData = {
@@ -28,7 +27,6 @@ export function handleMetrics(kongService: IKongService): Response {
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
         external: Math.round(process.memoryUsage().external / 1024 / 1024),
       },
-      cache: cacheStats,
       telemetry: {
         mode: config.telemetry.mode,
         exportStats: getMetricsExportStats(),

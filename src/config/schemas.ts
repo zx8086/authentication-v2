@@ -30,13 +30,6 @@ export const KongHealthCheckResultSchema = z.strictObject({
   error: z.string().optional(),
 });
 
-export const KongCacheStatsSchema = z.strictObject({
-  size: z.number(),
-  entries: z.array(z.any()),
-  activeEntries: z.number(),
-  hitRate: z.string(),
-});
-
 export const TokenResponseSchema = z.strictObject({
   access_token: z.string(),
   expires_in: z.number(),
@@ -64,11 +57,6 @@ export const RouteDefinitionSchema = z.strictObject({
   parameters: z.any().optional(),
   requestBody: z.any().optional(),
   responses: z.any().optional(),
-});
-
-export const CacheEntrySchema = z.strictObject({
-  data: ConsumerSecretSchema,
-  expires: z.number(),
 });
 
 export const EnvironmentType = z.enum(["local", "development", "staging", "production", "test"]);
@@ -245,22 +233,18 @@ export const SchemaRegistry = {
   ConsumerResponse: ConsumerResponseSchema,
   Consumer: ConsumerSchema,
   KongHealthCheckResult: KongHealthCheckResultSchema,
-  KongCacheStats: KongCacheStatsSchema,
   TokenResponse: TokenResponseSchema,
   JWTPayload: JWTPayloadSchema,
   RouteDefinition: RouteDefinitionSchema,
-  CacheEntry: CacheEntrySchema,
 } as const;
 
 export type ConsumerSecret = z.infer<typeof ConsumerSecretSchema>;
 export type ConsumerResponse = z.infer<typeof ConsumerResponseSchema>;
 export type Consumer = z.infer<typeof ConsumerSchema>;
 export type KongHealthCheckResult = z.infer<typeof KongHealthCheckResultSchema>;
-export type KongCacheStats = z.infer<typeof KongCacheStatsSchema>;
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 export type RouteDefinition = z.infer<typeof RouteDefinitionSchema>;
-export type CacheEntry = z.infer<typeof CacheEntrySchema>;
 export type KongModeType = "API_GATEWAY" | "KONNECT";
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {
@@ -277,8 +261,6 @@ export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
   createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
-  clearCache(consumerId?: string): void;
-  getCacheStats(): KongCacheStats;
   healthCheck(): Promise<KongHealthCheckResult>;
 }
 

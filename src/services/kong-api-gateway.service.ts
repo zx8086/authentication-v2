@@ -1,11 +1,9 @@
 /* src/services/kong-api-gateway.service.ts */
 
 import type {
-  CacheEntry,
   ConsumerResponse,
   ConsumerSecret,
   IKongService,
-  KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
 import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
@@ -14,8 +12,6 @@ import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 export class KongApiGatewayService implements IKongService {
   private readonly baseUrl: string;
   private readonly adminToken: string;
-  private readonly cache = new Map<string, CacheEntry>();
-  private readonly cacheTimeoutMs = 300000;
 
   constructor(adminUrl: string, adminToken: string) {
     this.baseUrl = adminUrl.replace(/\/$/, "");
@@ -23,11 +19,6 @@ export class KongApiGatewayService implements IKongService {
   }
 
   async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
-    const cached = this.cache.get(consumerId);
-    if (cached && Date.now() < cached.expires) {
-      return cached.data;
-    }
-
     try {
       const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
@@ -58,20 +49,8 @@ export class KongApiGatewayService implements IKongService {
 
       const secret = data.data[0];
 
-      this.cache.set(consumerId, {
-        data: secret,
-        expires: Date.now() + this.cacheTimeoutMs,
-      });
-
       return secret;
-    } catch (error) {
-      if (error instanceof Error) {
-        const staleCache = this.cache.get(consumerId);
-        if (staleCache) {
-          return staleCache.data;
-        }
-      }
-
+    } catch (_error) {
       return null;
     }
   }
@@ -120,11 +99,6 @@ export class KongApiGatewayService implements IKongService {
 
       const createdSecret = (await response.json()) as ConsumerSecret;
 
-      this.cache.set(consumerId, {
-        data: createdSecret,
-        expires: Date.now() + this.cacheTimeoutMs,
-      });
-
       return createdSecret;
     } catch (err) {
       winstonTelemetryLogger.error("Error creating consumer secret", {
@@ -140,33 +114,6 @@ export class KongApiGatewayService implements IKongService {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-
-  clearCache(consumerId?: string): void {
-    if (consumerId) {
-      this.cache.delete(consumerId);
-    } else {
-      this.cache.clear();
-    }
-  }
-
-  getCacheStats(): KongCacheStats {
-    const totalEntries = this.cache.size;
-    const entries = Array.from(this.cache.entries()).map(([key, entry]) => ({
-      consumerId: key,
-      expires: new Date(entry.expires).toISOString(),
-      expiresIn: Math.max(0, entry.expires - Date.now()),
-      isActive: Date.now() < entry.expires,
-    }));
-
-    const activeEntries = entries.filter((entry) => entry.isActive).length;
-
-    return {
-      size: totalEntries,
-      entries: entries,
-      activeEntries,
-      hitRate: totalEntries > 0 ? `${((activeEntries / totalEntries) * 100).toFixed(2)}%` : "0%",
-    };
   }
 
   async healthCheck(): Promise<KongHealthCheckResult> {

@@ -53,7 +53,7 @@ export const executeTokenRequest = (consumer: ConsumerConfig, options: Validatio
     success,
     duration,
     tokenValid: success && options.validateJWT,
-    cacheHit: typeof response.headers['X-Cache-Status'] === 'string' && response.headers['X-Cache-Status'] === 'HIT',
+    proxyCacheHit: typeof response.headers['X-Cache-Status'] === 'string' && response.headers['X-Cache-Status'] === 'HIT',
     rateLimited: response.status === 429
   });
 

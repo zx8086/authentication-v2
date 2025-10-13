@@ -37,10 +37,6 @@ export default function() {
       const body = typeof r.body === 'string' ? r.body : '';
       return body.includes('"memory"');
     },
-    'metrics has cache info': (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
-      return body.includes('"cache"');
-    },
     'metrics has telemetry info': (r) => {
       const body = typeof r.body === 'string' ? r.body : '';
       return body.includes('"telemetry"');
