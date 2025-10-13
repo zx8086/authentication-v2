@@ -10,7 +10,6 @@ bun.lockb
 # Build outputs
 dist/
 build/
-public/
 
 # Test coverage
 coverage/

@@ -1,0 +1,1021 @@
+{
+  "openapi": "3.1.1",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "authentication-service",
+    "description": "High-performance JWT authentication service built with Bun",
+    "version": "2.4.0",
+    "contact": {
+      "name": "Simon Owusu",
+      "email": "simonowusu@pvh.com"
+    },
+    "license": {
+      "name": "Proprietary",
+      "identifier": "UNLICENSED"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server (current)",
+      "environment": "local"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server",
+      "environment": "development"
+    },
+    {
+      "url": "https://auth-staging.example.com",
+      "description": "Staging server",
+      "environment": "staging"
+    },
+    {
+      "url": "https://auth.example.com",
+      "description": "Production server",
+      "environment": "production"
+    }
+  ],
+  "security": [
+    {
+      "KongAdminToken": []
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Get Open A P I Spec",
+        "description": "Returns the OpenAPI 3.0.3 specification in JSON or YAML format",
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenAPI 3.0.3 specification object"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "type": "string",
+                  "description": "OpenAPI 3.0.3 specification in YAML format"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens": {
+      "get": {
+        "summary": "Issue Token",
+        "description": "Generate JWT access token for authenticated Kong consumers",
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "getTokens",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Kong consumer headers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Anonymous consumers are not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-consumer-id",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer ID",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-consumer-username",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer username",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-anonymous-consumer",
+            "in": "header",
+            "required": false,
+            "description": "Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "example": "false"
+            }
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Get comprehensive system health status including dependency checks",
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/telemetry": {
+      "get": {
+        "summary": "Get Telemetry Health",
+        "description": "Get OpenTelemetry configuration and initialization status",
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealthTelemetry",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/metrics": {
+      "get": {
+        "summary": "Get Metrics Health",
+        "description": "Get metrics system health including export statistics",
+        "tags": [
+          "Health",
+          "Metrics"
+        ],
+        "operationId": "getHealthMetrics",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsHealth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Get Metrics",
+        "description": "Get service performance metrics and operational statistics",
+        "tags": [
+          "Metrics"
+        ],
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerformanceMetrics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/metrics/test": {
+      "post": {
+        "summary": "Record Test Metrics",
+        "description": "Manually record test metrics for debugging purposes",
+        "tags": [
+          "Debug",
+          "Metrics"
+        ],
+        "operationId": "createDebugMetricsTest",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/metrics/export": {
+      "post": {
+        "summary": "Force Metrics Export",
+        "description": "Trigger immediate metrics export to OTLP endpoint",
+        "tags": [
+          "Debug",
+          "Metrics"
+        ],
+        "operationId": "createDebugMetricsExport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/metrics/stats": {
+      "get": {
+        "summary": "Get Export Stats",
+        "description": "Get detailed metrics export statistics and timing information",
+        "tags": [
+          "Debug",
+          "Metrics"
+        ],
+        "operationId": "getDebugMetricsStats",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjAzOTc3MTYsImlhdCI6MTc2MDM5NjgxNiwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token expiration time in seconds",
+            "example": 900,
+            "minimum": 1
+          }
+        },
+        "description": "JWT token response"
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp",
+          "version",
+          "uptime",
+          "environment",
+          "dependencies"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "description": "Overall system health status",
+            "example": "healthy"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Health check timestamp",
+            "example": "2025-10-13T23:06:56.057Z"
+          },
+          "version": {
+            "type": "string",
+            "description": "Service version",
+            "example": "2.4.0"
+          },
+          "uptime": {
+            "type": "integer",
+            "description": "Service uptime in seconds",
+            "example": 3600,
+            "minimum": 0
+          },
+          "environment": {
+            "type": "string",
+            "description": "Deployment environment",
+            "example": "local"
+          },
+          "dependencies": {
+            "type": "object",
+            "properties": {
+              "kong": {
+                "type": "object",
+                "required": [
+                  "status",
+                  "response_time",
+                  "url"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "healthy",
+                      "unhealthy"
+                    ],
+                    "description": "Kong Admin API status",
+                    "example": "healthy"
+                  },
+                  "response_time": {
+                    "type": "integer",
+                    "description": "Kong response time in milliseconds",
+                    "example": 45,
+                    "minimum": 0
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Kong Admin API URL",
+                    "example": "https://kong-admin.example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "System health status with dependency information"
+      },
+      "TelemetryStatus": {
+        "type": "object",
+        "required": [
+          "initialized",
+          "config"
+        ],
+        "properties": {
+          "initialized": {
+            "type": "boolean",
+            "description": "Whether OpenTelemetry is initialized",
+            "example": true
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "serviceName": {
+                "type": "string",
+                "description": "OpenTelemetry service name",
+                "example": "authentication-service"
+              },
+              "serviceVersion": {
+                "type": "string",
+                "description": "Service version for telemetry",
+                "example": "2.4.0"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "development",
+                  "staging",
+                  "production"
+                ],
+                "description": "Deployment environment",
+                "example": "local"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "otlp",
+                  "both"
+                ],
+                "description": "Telemetry output mode",
+                "example": "both"
+              },
+              "tracesEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP traces endpoint",
+                "example": "https://otel-http.example.com/v1/traces"
+              },
+              "metricsEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP metrics endpoint",
+                "example": "https://otel-http.example.com/v1/metrics"
+              },
+              "logsEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP logs endpoint",
+                "example": "https://otel-http.example.com/v1/logs"
+              }
+            }
+          }
+        },
+        "description": "OpenTelemetry configuration and status"
+      },
+      "MetricsHealth": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "telemetry",
+          "metrics",
+          "export_statistics"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Metrics health check timestamp",
+            "example": "2025-10-13T23:06:56.057Z"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryStatus"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "total_instruments": {
+                "type": "integer",
+                "description": "Total number of metric instruments",
+                "example": 23,
+                "minimum": 0
+              }
+            }
+          },
+          "export_statistics": {
+            "type": "object",
+            "properties": {
+              "totalExports": {
+                "type": "integer",
+                "description": "Total number of metric exports",
+                "example": 145,
+                "minimum": 0
+              },
+              "successCount": {
+                "type": "integer",
+                "description": "Number of successful exports",
+                "example": 143,
+                "minimum": 0
+              },
+              "failureCount": {
+                "type": "integer",
+                "description": "Number of failed exports",
+                "example": 2,
+                "minimum": 0
+              },
+              "successRate": {
+                "type": "number",
+                "description": "Export success rate percentage",
+                "example": 98.62,
+                "minimum": 0,
+                "maximum": 100
+              },
+              "lastExportTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last successful export timestamp",
+                "example": "2025-10-13T23:06:41.057Z"
+              }
+            }
+          }
+        },
+        "description": "Comprehensive metrics system health information"
+      },
+      "PerformanceMetrics": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "uptime",
+          "metrics"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Metrics collection timestamp",
+            "example": "2025-10-13T23:06:56.057Z"
+          },
+          "uptime": {
+            "type": "integer",
+            "description": "Service uptime in seconds",
+            "example": 3600,
+            "minimum": 0
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "description": "Total requests processed",
+                    "example": 15420,
+                    "minimum": 0
+                  },
+                  "rate": {
+                    "type": "number",
+                    "description": "Requests per second",
+                    "example": 4.28,
+                    "minimum": 0
+                  }
+                }
+              },
+              "response_time": {
+                "type": "object",
+                "properties": {
+                  "avg": {
+                    "type": "number",
+                    "description": "Average response time in milliseconds",
+                    "example": 12.5,
+                    "minimum": 0
+                  },
+                  "p95": {
+                    "type": "number",
+                    "description": "95th percentile response time in milliseconds",
+                    "example": 45.2,
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Service performance metrics and statistics"
+      },
+      "MetricsStats": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "export_statistics",
+          "metrics_status"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Statistics retrieval timestamp",
+            "example": "2025-10-13T23:06:56.057Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Status message",
+            "example": "Metrics statistics retrieved successfully"
+          },
+          "export_statistics": {
+            "type": "object",
+            "properties": {
+              "totalExports": {
+                "type": "integer",
+                "description": "Total number of metric exports",
+                "example": 145,
+                "minimum": 0
+              },
+              "successCount": {
+                "type": "integer",
+                "description": "Number of successful exports",
+                "example": 143,
+                "minimum": 0
+              },
+              "failureCount": {
+                "type": "integer",
+                "description": "Number of failed exports",
+                "example": 2,
+                "minimum": 0
+              },
+              "successRate": {
+                "type": "number",
+                "description": "Export success rate percentage",
+                "example": 98.62,
+                "minimum": 0,
+                "maximum": 100
+              },
+              "lastExportTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last successful export timestamp",
+                "example": "2025-10-13T23:06:41.057Z"
+              }
+            }
+          },
+          "metrics_status": {
+            "type": "object",
+            "properties": {
+              "total_instruments": {
+                "type": "integer",
+                "description": "Total number of metric instruments",
+                "example": 23,
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "description": "Detailed metrics export statistics and status"
+      },
+      "DebugResponse": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "success"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Operation timestamp",
+            "example": "2025-10-13T23:06:56.056Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Operation result message",
+            "example": "Test metrics recorded successfully"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status",
+            "example": true
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional operation details",
+            "additionalProperties": true
+          }
+        },
+        "description": "Debug operation response"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error",
+          "message",
+          "statusCode",
+          "timestamp"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error type or code",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "Missing required Kong consumer headers"
+          },
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "example": 400,
+            "minimum": 400,
+            "maximum": 599
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Error occurrence timestamp",
+            "example": "2025-10-13T23:06:56.056Z"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique request identifier for tracing",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error context",
+            "additionalProperties": true
+          }
+        },
+        "description": "Standard error response format"
+      }
+    },
+    "securitySchemes": {
+      "KongAdminToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Kong-Admin-Token",
+        "description": "Kong Admin API authentication token"
+      }
+    },
+    "parameters": {
+      "ConsumerIdHeader": {
+        "name": "x-consumer-id",
+        "in": "header",
+        "required": true,
+        "description": "Kong consumer ID",
+        "schema": {
+          "type": "string",
+          "example": "demo_user"
+        }
+      },
+      "ConsumerUsernameHeader": {
+        "name": "x-consumer-username",
+        "in": "header",
+        "required": true,
+        "description": "Kong consumer username",
+        "schema": {
+          "type": "string",
+          "example": "demo_user"
+        }
+      },
+      "AnonymousConsumerHeader": {
+        "name": "x-anonymous-consumer",
+        "in": "header",
+        "required": false,
+        "description": "Indicates if the request is from an anonymous consumer",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "example": "false"
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Documentation",
+      "description": "API documentation and specification endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "JWT token issuance and authentication operations"
+    },
+    {
+      "name": "Health",
+      "description": "System health and dependency status monitoring"
+    },
+    {
+      "name": "Metrics",
+      "description": "Performance metrics and operational statistics"
+    },
+    {
+      "name": "Debug",
+      "description": "Debug endpoints for development and troubleshooting"
+    }
+  ]
+}
