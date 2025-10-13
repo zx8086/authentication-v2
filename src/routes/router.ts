@@ -37,8 +37,11 @@ export function createRoutes(kongService: IKongService) {
       ),
 
     "GET /metrics": async (req: Request, url: URL) =>
-      await telemetryTracer.createHttpSpan(req.method, url.pathname, 200, () =>
-        handleMetrics(kongService)
+      await telemetryTracer.createHttpSpan(
+        req.method,
+        url.pathname,
+        200,
+        async () => await handleMetrics(kongService)
       ),
 
     "GET /tokens": (req: Request, _url: URL) => handleTokenRequest(req, kongService),
@@ -114,8 +117,11 @@ export function createRoutesAPI(kongService: IKongService) {
 
     "/metrics": {
       GET: async (req: Request) =>
-        await telemetryTracer.createHttpSpan(req.method, "/metrics", 200, () =>
-          handleMetrics(kongService)
+        await telemetryTracer.createHttpSpan(
+          req.method,
+          "/metrics",
+          200,
+          async () => await handleMetrics(kongService)
         ),
     },
 

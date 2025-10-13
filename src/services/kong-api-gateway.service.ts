@@ -3,22 +3,38 @@
 import type {
   ConsumerResponse,
   ConsumerSecret,
+  IKongCacheService,
   IKongService,
+  KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
 import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { CacheFactory } from "./cache/cache-factory";
 
 export class KongApiGatewayService implements IKongService {
   private readonly baseUrl: string;
   private readonly adminToken: string;
+  private cache: IKongCacheService;
 
   constructor(adminUrl: string, adminToken: string) {
     this.baseUrl = adminUrl.replace(/\/$/, "");
     this.adminToken = adminToken;
+    this.cache = CacheFactory.createKongCache();
+
+    if (this.cache.connect) {
+      this.cache.connect().catch(console.error);
+    }
   }
 
   async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
+    const cacheKey = `consumer_secret:${consumerId}`;
+
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
@@ -48,6 +64,8 @@ export class KongApiGatewayService implements IKongService {
       }
 
       const secret = data.data[0];
+
+      await this.cache.set(cacheKey, secret);
 
       return secret;
     } catch (_error) {
@@ -98,6 +116,9 @@ export class KongApiGatewayService implements IKongService {
       }
 
       const createdSecret = (await response.json()) as ConsumerSecret;
+
+      const cacheKey = `consumer_secret:${consumerId}`;
+      await this.cache.set(cacheKey, createdSecret);
 
       return createdSecret;
     } catch (err) {
@@ -212,5 +233,18 @@ export class KongApiGatewayService implements IKongService {
         error: err instanceof Error ? err.message : "Unknown error",
       };
     }
+  }
+
+  async clearCache(consumerId?: string): Promise<void> {
+    if (consumerId) {
+      const cacheKey = `consumer_secret:${consumerId}`;
+      await this.cache.delete(cacheKey);
+    } else {
+      await this.cache.clear();
+    }
+  }
+
+  async getCacheStats(): Promise<KongCacheStats> {
+    return await this.cache.getStats();
   }
 }

@@ -4,12 +4,15 @@ import type {
   Consumer,
   ConsumerResponse,
   ConsumerSecret,
+  IKongCacheService,
   IKongService,
+  KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
 import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import { withRetry } from "../utils/retry";
+import { CacheFactory } from "./cache/cache-factory";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
@@ -17,6 +20,7 @@ export class KongKonnectService implements IKongService {
   private readonly adminToken: string;
   private readonly controlPlaneId: string;
   private readonly realmId: string;
+  private cache: IKongCacheService;
 
   constructor(adminUrl: string, adminToken: string) {
     const url = new URL(adminUrl);
@@ -41,9 +45,21 @@ export class KongKonnectService implements IKongService {
     }
 
     this.adminToken = adminToken;
+    this.cache = CacheFactory.createKongCache();
+
+    if (this.cache.connect) {
+      this.cache.connect().catch(console.error);
+    }
   }
 
   async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
+    const cacheKey = `consumer_secret:${consumerId}`;
+
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       await this.ensureRealmExists();
       const consumerUuid = await this.getConsumerId(consumerId);
@@ -84,6 +100,8 @@ export class KongKonnectService implements IKongService {
       }
 
       const secret = data.data[0];
+
+      await this.cache.set(cacheKey, secret);
 
       return secret;
     } catch (_error) {
@@ -131,6 +149,9 @@ export class KongKonnectService implements IKongService {
       }
 
       const createdSecret = (await response.json()) as ConsumerSecret;
+
+      const cacheKey = `consumer_secret:${consumerId}`;
+      await this.cache.set(cacheKey, createdSecret);
 
       return createdSecret;
     } catch (err) {
@@ -332,5 +353,18 @@ export class KongKonnectService implements IKongService {
         error: err instanceof Error ? err.message : "Unknown error",
       };
     }
+  }
+
+  async clearCache(consumerId?: string): Promise<void> {
+    if (consumerId) {
+      const cacheKey = `consumer_secret:${consumerId}`;
+      await this.cache.delete(cacheKey);
+    } else {
+      await this.cache.clear();
+    }
+  }
+
+  async getCacheStats(): Promise<KongCacheStats> {
+    return await this.cache.getStats();
   }
 }

@@ -8,7 +8,7 @@ import { log } from "../utils/logger";
 
 const config = loadConfig();
 
-export function handleMetrics(_kongService: IKongService): Response {
+export async function handleMetrics(kongService: IKongService): Promise<Response> {
   try {
     log("Processing metrics request", {
       component: "metrics",
@@ -17,6 +17,7 @@ export function handleMetrics(_kongService: IKongService): Response {
     });
 
     const timestamp = new Date().toISOString();
+    const cacheStats = await kongService.getCacheStats();
 
     const metricsData = {
       timestamp,
@@ -27,6 +28,7 @@ export function handleMetrics(_kongService: IKongService): Response {
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
         external: Math.round(process.memoryUsage().external / 1024 / 1024),
       },
+      cache: cacheStats,
       telemetry: {
         mode: config.telemetry.mode,
         exportStats: getMetricsExportStats(),
@@ -48,6 +50,12 @@ export function handleMetrics(_kongService: IKongService): Response {
       },
     });
   } catch (error) {
+    log("Failed to get cache stats, generating metrics without cache data", {
+      component: "metrics",
+      operation: "get_cache_stats",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return new Response(
       JSON.stringify({
         error: "Failed to generate metrics",

@@ -26,8 +26,12 @@ describe("KongApiGatewayService", () => {
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     fetchSpy.mockRestore();
+    // Clear Redis cache between tests to prevent pollution
+    if (service?.clearCache) {
+      await service.clearCache();
+    }
   });
 
   describe("constructor", () => {

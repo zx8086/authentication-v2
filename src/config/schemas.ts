@@ -63,6 +63,38 @@ export const EnvironmentType = z.enum(["local", "development", "staging", "produ
 export const TelemetryMode = z.enum(["console", "otlp", "both"]);
 export const KongMode = z.enum(["API_GATEWAY", "KONNECT"]);
 
+export const KongCacheStatsSchema = z.strictObject({
+  strategy: z.enum(["local-memory", "shared-redis"]),
+  size: z.number(),
+  entries: z.array(z.any()),
+  activeEntries: z.number(),
+  hitRate: z.string(),
+  memoryUsageMB: z.number().optional(),
+  redisConnected: z.boolean().optional(),
+  averageLatencyMs: z.number(),
+});
+
+export const CacheEntrySchema = z.strictObject({
+  data: ConsumerSecretSchema,
+  expires: z.number(),
+  createdAt: z.number(),
+});
+
+export const GenericCacheEntrySchema = <T>(dataSchema: z.ZodSchema<T>) =>
+  z.strictObject({
+    data: dataSchema,
+    expires: z.number(),
+    createdAt: z.number(),
+  });
+
+export const CachingConfigSchema = z.strictObject({
+  highAvailability: z.boolean(),
+  redisUrl: z.string().optional(),
+  redisPassword: z.string().optional(),
+  redisDb: z.number().int().min(0).max(15),
+  ttlSeconds: z.number().int().min(60).max(3600),
+});
+
 export function addProductionSecurityValidation<
   T extends { environment?: string; nodeEnv?: string },
 >(
@@ -212,6 +244,7 @@ export const AppConfigSchema = z
     server: ServerConfigSchema,
     jwt: JwtConfigSchema,
     kong: KongConfigSchema,
+    caching: CachingConfigSchema,
     telemetry: TelemetryConfigSchema,
     apiInfo: ApiInfoConfigSchema,
   })
@@ -226,6 +259,7 @@ export const SchemaRegistry = {
   Server: ServerConfigSchema,
   Jwt: JwtConfigSchema,
   Kong: KongConfigSchema,
+  Caching: CachingConfigSchema,
   Telemetry: TelemetryConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
   AppConfig: AppConfigSchema,
@@ -233,6 +267,8 @@ export const SchemaRegistry = {
   ConsumerResponse: ConsumerResponseSchema,
   Consumer: ConsumerSchema,
   KongHealthCheckResult: KongHealthCheckResultSchema,
+  KongCacheStats: KongCacheStatsSchema,
+  CacheEntry: CacheEntrySchema,
   TokenResponse: TokenResponseSchema,
   JWTPayload: JWTPayloadSchema,
   RouteDefinition: RouteDefinitionSchema,
@@ -246,6 +282,15 @@ export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 export type RouteDefinition = z.infer<typeof RouteDefinitionSchema>;
 export type KongModeType = "API_GATEWAY" | "KONNECT";
+export type KongCacheStats = z.infer<typeof KongCacheStatsSchema>;
+export type CacheEntry = z.infer<typeof CacheEntrySchema>;
+
+export interface GenericCacheEntry<T> {
+  data: T;
+  expires: number;
+  createdAt: number;
+}
+export type CachingConfig = z.infer<typeof CachingConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {
     enabled: boolean;
@@ -261,7 +306,19 @@ export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
   createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
+  clearCache(consumerId?: string): Promise<void>;
+  getCacheStats(): Promise<KongCacheStats>;
   healthCheck(): Promise<KongHealthCheckResult>;
+}
+
+export interface IKongCacheService {
+  get(key: string): Promise<ConsumerSecret | null>;
+  set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  getStats(): Promise<KongCacheStats>;
+  connect?(): Promise<void>;
+  disconnect?(): Promise<void>;
 }
 
 export type { OtlpEndpointConfig, OtlpEndpoints } from "./helpers";

@@ -61,8 +61,11 @@ export function createModernRoutes(kongService: IKongService) {
     "/metrics": {
       GET: async (req: Request) => {
         const url = new URL(req.url);
-        return await telemetryTracer.createHttpSpan(req.method, url.pathname, 200, () =>
-          handleMetrics(kongService)
+        return await telemetryTracer.createHttpSpan(
+          req.method,
+          url.pathname,
+          200,
+          async () => await handleMetrics(kongService)
         );
       },
     },

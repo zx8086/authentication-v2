@@ -1,0 +1,214 @@
+/* src/services/cache/shared-redis-cache.ts */
+
+import { RedisClient } from "bun";
+import type { ConsumerSecret, IKongCacheService, KongCacheStats } from "../../config/schemas";
+import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+
+export class SharedRedisCache implements IKongCacheService {
+  private client!: RedisClient;
+  private stats = {
+    hits: 0,
+    misses: 0,
+    totalLatency: 0,
+    operations: 0,
+  };
+
+  constructor(
+    private config: {
+      url: string;
+      password?: string;
+      db: number;
+      ttlSeconds: number;
+    }
+  ) {}
+
+  async connect(): Promise<void> {
+    try {
+      const redisUrl = this.config.password
+        ? this.config.url.replace("redis://", `redis://:${this.config.password}@`)
+        : this.config.url;
+
+      this.client = new RedisClient(redisUrl, {
+        connectionTimeout: 5000,
+        autoReconnect: true,
+        maxRetries: 3,
+        enableOfflineQueue: true,
+      });
+
+      await this.client.connect();
+
+      if (this.config.db > 0) {
+        await this.client.send("SELECT", [this.config.db.toString()]);
+      }
+
+      await this.client.send("PING", []);
+      winstonTelemetryLogger.info("Connected to Redis using Bun native client", {
+        redisUrl: this.config.url,
+        redisDb: this.config.db,
+        component: "cache",
+        operation: "connection",
+        strategy: "shared-redis",
+        client: "bun-native",
+      });
+    } catch (error) {
+      winstonTelemetryLogger.warn("Failed to connect to Redis, will use graceful fallback", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "connection_failed",
+        strategy: "shared-redis",
+        client: "bun-native",
+      });
+      throw error;
+    }
+  }
+
+  async get(key: string): Promise<ConsumerSecret | null> {
+    const start = performance.now();
+
+    try {
+      const cached = await this.client.get(key);
+      if (cached) {
+        this.recordHit(performance.now() - start);
+        return JSON.parse(cached);
+      }
+
+      this.recordMiss(performance.now() - start);
+      return null;
+    } catch (error) {
+      winstonTelemetryLogger.warn("Redis get operation failed, falling back to null", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "get_failed",
+        key,
+        client: "bun-native",
+      });
+      this.recordMiss(performance.now() - start);
+      return null;
+    }
+  }
+
+  async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+    try {
+      const ttl = ttlSeconds || this.config.ttlSeconds;
+      await this.client.set(key, JSON.stringify(value));
+      await this.client.expire(key, ttl);
+    } catch (error) {
+      winstonTelemetryLogger.warn("Redis set operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "set_failed",
+        key,
+        client: "bun-native",
+      });
+    }
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      winstonTelemetryLogger.warn("Redis delete operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "delete_failed",
+        key,
+        client: "bun-native",
+      });
+    }
+  }
+
+  async clear(): Promise<void> {
+    try {
+      const keys = await this.client.send("KEYS", ["consumer_secret:*"]) as string[];
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+      }
+    } catch (error) {
+      winstonTelemetryLogger.warn("Redis clear operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "clear_failed",
+        client: "bun-native",
+      });
+    }
+  }
+
+  async getStats(): Promise<KongCacheStats> {
+    try {
+      const keys = await this.client.send("KEYS", ["consumer_secret:*"]) as string[];
+      const totalEntries = keys.length;
+
+      const sampleSize = Math.min(10, totalEntries);
+      const sampleKeys = keys.slice(0, sampleSize);
+      let activeCount = 0;
+
+      for (const key of sampleKeys) {
+        const ttl = await this.client.send("TTL", [key]) as number;
+        if (ttl > 0) activeCount++;
+      }
+
+      const activeRatio = totalEntries > 0 ? activeCount / sampleSize : 0;
+      const estimatedActive = Math.round(totalEntries * activeRatio);
+
+      return {
+        strategy: "shared-redis",
+        size: totalEntries,
+        entries: keys,
+        activeEntries: estimatedActive,
+        hitRate: this.calculateHitRate(),
+        redisConnected: true,
+        averageLatencyMs: this.calculateAverageLatency(),
+      };
+    } catch (error) {
+      winstonTelemetryLogger.warn("Failed to get Redis stats", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "stats_failed",
+        client: "bun-native",
+      });
+      return {
+        strategy: "shared-redis",
+        size: 0,
+        entries: [],
+        activeEntries: 0,
+        hitRate: "0.00",
+        redisConnected: false,
+        averageLatencyMs: 0,
+      };
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.client) {
+      await this.client.close();
+      winstonTelemetryLogger.info("Disconnected from Redis", {
+        component: "cache",
+        operation: "disconnection",
+        strategy: "shared-redis",
+        client: "bun-native",
+      });
+    }
+  }
+
+  private recordHit(latency: number): void {
+    this.stats.hits++;
+    this.stats.totalLatency += latency;
+    this.stats.operations++;
+  }
+
+  private recordMiss(latency: number): void {
+    this.stats.misses++;
+    this.stats.totalLatency += latency;
+    this.stats.operations++;
+  }
+
+  private calculateHitRate(): string {
+    const total = this.stats.hits + this.stats.misses;
+    if (total === 0) return "0.00";
+    return ((this.stats.hits / total) * 100).toFixed(2);
+  }
+
+  private calculateAverageLatency(): number {
+    return this.stats.operations > 0 ? this.stats.totalLatency / this.stats.operations : 0;
+  }
+}

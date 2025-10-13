@@ -8,6 +8,7 @@ import {
   type AppConfig,
   AppConfigSchema,
   addProductionSecurityValidation,
+  type CachingConfig,
   EmailAddress,
   EnvironmentType,
   HttpsUrl,
@@ -51,6 +52,15 @@ const envSchema = z
     OTEL_EXPORTER_OTLP_TIMEOUT: z.coerce.number().int().min(1000).max(60000).optional(),
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).optional(),
     OTEL_BSP_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(50000).optional(),
+
+    // Caching Configuration
+    HIGH_AVAILABILITY: z
+      .string()
+      .optional()
+      .transform((val) => val === "true"),
+    REDIS_URL: z.string().url().optional(),
+    REDIS_PASSWORD: z.string().optional(),
+    REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
 
     // API Info Configuration
     API_TITLE: NonEmptyString.optional(),
@@ -126,6 +136,12 @@ const envVarMapping = {
     adminUrl: "KONG_ADMIN_URL",
     adminToken: "KONG_ADMIN_TOKEN",
   },
+  caching: {
+    highAvailability: "HIGH_AVAILABILITY",
+    redisUrl: "REDIS_URL",
+    redisPassword: "REDIS_PASSWORD",
+    redisDb: "REDIS_DB",
+  },
   telemetry: {
     serviceName: "OTEL_SERVICE_NAME",
     serviceVersion: "OTEL_SERVICE_VERSION",
@@ -172,6 +188,13 @@ const defaultConfig: AppConfig = {
     consumerIdHeader: "x-consumer-id",
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",
+  },
+  caching: {
+    highAvailability: false,
+    redisUrl: "",
+    redisPassword: "",
+    redisDb: 0,
+    ttlSeconds: 300,
   },
   telemetry: {
     serviceName: pkg.name || "authentication-service",
@@ -273,6 +296,14 @@ function initializeConfig(): AppConfig {
         adminToken: envConfig.KONG_ADMIN_TOKEN,
       }).filter(([, value]) => value !== undefined)
     ),
+    caching: Object.fromEntries(
+      Object.entries({
+        highAvailability: envConfig.HIGH_AVAILABILITY,
+        redisUrl: envConfig.REDIS_URL,
+        redisPassword: envConfig.REDIS_PASSWORD,
+        redisDb: envConfig.REDIS_DB,
+      }).filter(([, value]) => value !== undefined)
+    ),
     telemetry: {
       ...Object.fromEntries(
         Object.entries({
@@ -315,6 +346,7 @@ function initializeConfig(): AppConfig {
         defaultConfig.jwt.issuer,
     },
     kong: { ...defaultConfig.kong, ...structuredEnvConfig.kong },
+    caching: { ...defaultConfig.caching, ...structuredEnvConfig.caching },
     telemetry: {
       ...defaultConfig.telemetry,
       ...structuredEnvConfig.telemetry,
@@ -460,12 +492,21 @@ export function loadConfig(): AppConfig {
 }
 
 export { SchemaRegistry };
-export type { AppConfig, ServerConfig, JwtConfig, KongConfig, TelemetryConfig, ApiInfoConfig };
+export type {
+  AppConfig,
+  ServerConfig,
+  JwtConfig,
+  KongConfig,
+  CachingConfig,
+  TelemetryConfig,
+  ApiInfoConfig,
+};
 
 // Getter functions for component configurations
 export const getServerConfig = () => getConfig().server;
 export const getJwtConfig = () => getConfig().jwt;
 export const getKongConfig = () => getConfig().kong;
+export const getCachingConfig = () => getConfig().caching;
 export const getTelemetryConfig = () => getConfig().telemetry;
 export const getApiInfoConfig = () => getConfig().apiInfo;
 
@@ -488,6 +529,11 @@ export const kongConfig = new Proxy({} as KongConfig, {
 export const telemetryConfig = new Proxy({} as TelemetryConfig, {
   get(_target, prop) {
     return getConfig().telemetry[prop as keyof TelemetryConfig];
+  },
+});
+export const cachingConfig = new Proxy({} as CachingConfig, {
+  get(_target, prop) {
+    return getConfig().caching[prop as keyof CachingConfig];
   },
 });
 export const apiInfoConfig = new Proxy({} as ApiInfoConfig, {

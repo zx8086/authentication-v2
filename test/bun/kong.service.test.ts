@@ -1,7 +1,7 @@
 /* test/bun/kong.service.test.ts */
 
 // Tests for Kong service integration
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { KongService } from '../../src/services/kong.service';
 import { getTestConsumer } from '../shared/test-consumers';
 
@@ -17,6 +17,13 @@ describe('KongService', () => {
 
   beforeEach(() => {
     kongService = new KongService(mockAdminUrl, mockAdminToken);
+  });
+
+  afterEach(async () => {
+    // Clear Redis cache between tests to prevent pollution
+    if (kongService?.clearCache) {
+      await kongService.clearCache();
+    }
   });
 
   describe('constructor', () => {

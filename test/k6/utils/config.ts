@@ -89,10 +89,10 @@ export const getHeaders = (consumer: ConsumerConfig, additionalHeaders: Record<s
 };
 
 export const getPerformanceThresholds = () => {
-  const healthP95 = parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || '400', 10);
-  const healthP99 = parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || '500', 10);
-  const tokensP95 = parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || '800', 10);
-  const tokensP99 = parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || '1200', 10);
+  const healthP95 = parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || '300', 10);
+  const healthP99 = parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || '600', 10);
+  const tokensP95 = parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || '50', 10);
+  const tokensP99 = parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || '100', 10);
   const metricsP95 = parseInt(__ENV.K6_METRICS_P95_THRESHOLD || '30', 10);
   const metricsP99 = parseInt(__ENV.K6_METRICS_P99_THRESHOLD || '50', 10);
   const errorRate = parseFloat(__ENV.K6_ERROR_RATE_THRESHOLD || '0.01');
