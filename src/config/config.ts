@@ -3,22 +3,24 @@
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
 import { deriveOtlpEndpoint } from "./helpers";
+import type {
+  ApiInfoConfig,
+  AppConfig,
+  CachingConfig,
+  JwtConfig,
+  KongConfig,
+  ServerConfig,
+  TelemetryConfig,
+} from "./schemas";
 import {
-  type ApiInfoConfig,
-  type AppConfig,
   AppConfigSchema,
   addProductionSecurityValidation,
-  type CachingConfig,
   EmailAddress,
   EnvironmentType,
   HttpsUrl,
-  type JwtConfig,
-  type KongConfig,
   KongMode,
   NonEmptyString,
   SchemaRegistry,
-  type ServerConfig,
-  type TelemetryConfig,
   TelemetryMode,
 } from "./schemas";
 
@@ -58,7 +60,8 @@ const envSchema = z
       .string()
       .optional()
       .transform((val) => val === "true"),
-    REDIS_URL: z.string().url().optional(),
+    // Redis URL - accepts redis:// or rediss:// protocols for flexibility
+    REDIS_URL: z.url().optional(),
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
 
@@ -261,7 +264,7 @@ function loadConfigFromEnv() {
       .join("\n");
 
     throw new Error(
-      `Invalid environment configuration:\n${issues}\n\nPlease check your environment variables.`
+      `Invalid environment configuration:\n${issues}\n\nHelp: Check .env.example for correct format and ensure all required variables are set.`
     );
   }
 
@@ -377,6 +380,12 @@ function initializeConfig(): AppConfig {
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
   };
 
+  // Check validation cache first for performance
+  const cached = _validationCache.get(mergedConfig);
+  if (cached) {
+    return cached;
+  }
+
   // Final validation of the merged configuration
   const result = AppConfigSchema.safeParse(mergedConfig);
 
@@ -389,7 +398,7 @@ function initializeConfig(): AppConfig {
       .join("\n");
 
     throw new Error(
-      `Invalid configuration after merging:\n${issues}\n\nPlease check your environment variables.`
+      `Invalid configuration after merging:\n${issues}\n\nHelp: Configuration validation failed. Check .env.example for reference and ensure environment-specific values are correct.`
     );
   }
 
@@ -405,13 +414,29 @@ function initializeConfig(): AppConfig {
 
   if (missingVars.length > 0) {
     const missing = missingVars.map(({ key }) => key).join(", ");
-    throw new Error(`Missing required environment variables: ${missing}`);
+    throw new Error(
+      `Missing required environment variables: ${missing}\n\nHelp: These variables are required for service operation. Check .env.example and ensure all critical configuration is set.`
+    );
   }
 
-  return mergedConfig;
+  // Ensure telemetry computed properties are properly set
+  const finalConfig: AppConfig = {
+    ...result.data,
+    telemetry: {
+      ...result.data.telemetry,
+      enabled: result.data.telemetry.enabled ?? false,
+      enableOpenTelemetry: result.data.telemetry.enableOpenTelemetry ?? false,
+    },
+  };
+
+  // Cache the validated configuration for future use
+  _validationCache.set(mergedConfig, finalConfig);
+
+  return finalConfig;
 }
 
-// Lazy initialization cache
+// Performance optimization caches
+let _validationCache = new WeakMap<object, AppConfig>();
 let cachedConfig: AppConfig | null = null;
 
 function getConfig(): AppConfig {
@@ -425,6 +450,7 @@ function getConfig(): AppConfig {
 export function resetConfigCache(): void {
   cachedConfig = null;
   _config = null;
+  _validationCache = new WeakMap();
 }
 
 // Export config - lazy initialization to support testing
@@ -543,7 +569,7 @@ export const apiInfoConfig = new Proxy({} as ApiInfoConfig, {
 });
 
 export const configMetadata = {
-  version: "3.0.0",
+  version: "3.1.0",
   get loadedAt() {
     return new Date().toISOString();
   },
@@ -558,6 +584,12 @@ export const configMetadata = {
   },
   pattern: "4-pillar",
   zodVersion: "v4",
+  optimizations: ["type-only-imports", "schema-memoization", "enhanced-errors"],
+  performance: {
+    cacheEnabled: true,
+    lazyInitialization: true,
+    proxyPattern: true,
+  },
   get envVarMapping() {
     return envVarMapping;
   },

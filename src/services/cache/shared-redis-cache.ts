@@ -119,7 +119,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clear(): Promise<void> {
     try {
-      const keys = await this.client.send("KEYS", ["consumer_secret:*"]) as string[];
+      const keys = (await this.client.send("KEYS", ["consumer_secret:*"])) as string[];
       if (keys.length > 0) {
         await this.client.del(...keys);
       }
@@ -135,7 +135,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     try {
-      const keys = await this.client.send("KEYS", ["consumer_secret:*"]) as string[];
+      const keys = (await this.client.send("KEYS", ["consumer_secret:*"])) as string[];
       const totalEntries = keys.length;
 
       const sampleSize = Math.min(10, totalEntries);
@@ -143,7 +143,7 @@ export class SharedRedisCache implements IKongCacheService {
       let activeCount = 0;
 
       for (const key of sampleKeys) {
-        const ttl = await this.client.send("TTL", [key]) as number;
+        const ttl = (await this.client.send("TTL", [key])) as number;
         if (ttl > 0) activeCount++;
       }
 

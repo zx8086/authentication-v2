@@ -107,7 +107,7 @@ export function addProductionSecurityValidation<
     adminToken?: string;
     endpoints?: Array<{ path: string[]; value?: string }>;
   } = {}
-): void {
+) {
   const isProduction = data.environment === "production" || data.nodeEnv === "production";
 
   if (!isProduction) return;
@@ -115,20 +115,22 @@ export function addProductionSecurityValidation<
   if (options.serviceName) {
     if (options.serviceName.includes("localhost") || options.serviceName.includes("test")) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production service name cannot contain localhost or test references",
         path: ["serviceName"],
       });
+      return;
     }
   }
 
   if (options.serviceVersion) {
     if (options.serviceVersion === "dev" || options.serviceVersion === "latest") {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production requires specific version, not dev or latest",
         path: ["serviceVersion"],
       });
+      return;
     }
   }
 
@@ -136,10 +138,11 @@ export function addProductionSecurityValidation<
     for (const endpoint of options.endpoints) {
       if (endpoint.value && !endpoint.value.startsWith("https://")) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Production telemetry endpoints must use HTTPS",
           path: endpoint.path,
         });
+        return;
       }
     }
   }
@@ -147,28 +150,30 @@ export function addProductionSecurityValidation<
   if (options.adminUrl) {
     if (options.adminUrl.includes("localhost")) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Kong Admin URL cannot use localhost in production",
         path: ["kong", "adminUrl"],
       });
+      return;
     }
   }
 
   if (options.adminToken) {
     if (options.adminToken === "test" || options.adminToken.length < 32) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Production Kong admin token must be secure (32+ characters)",
         path: ["kong", "adminToken"],
       });
+      return;
     }
   }
 }
 
 export const HttpsUrl = z.url();
-export const EmailAddress = z.string().email();
-export const PositiveInt = z.coerce.number().int().min(1);
-export const PortNumber = z.coerce.number().int().min(1).max(65535);
+export const EmailAddress = z.email();
+export const PositiveInt = z.int32().min(1);
+export const PortNumber = z.int32().min(1).max(65535);
 export const NonEmptyString = z.string().min(1);
 
 export const ServerConfigSchema = z.strictObject({
