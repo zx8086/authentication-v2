@@ -27,13 +27,14 @@ RUN bun install --frozen-lockfile --production
 FROM deps-dev AS builder
 COPY . .
 
-# Build the application (OpenAPI docs will be generated at runtime)
+# Build the application and generate OpenAPI docs
 RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files to reduce layer size
     rm -rf .git node_modules/.cache test/ tests/ *.test.* *.spec.* && \
     # Verify build output
-    ls -la dist/
+    ls -la dist/ public/
 
 # Final production stage - minimal footprint
 FROM oven/bun:1.3.0-alpine AS production
