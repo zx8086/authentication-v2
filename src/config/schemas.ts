@@ -182,8 +182,8 @@ export const ServerConfigSchema = z.strictObject({
 });
 
 export const JwtConfigSchema = z.strictObject({
-  authority: NonEmptyString,
-  audience: NonEmptyString,
+  authority: NonEmptyString.optional(),
+  audience: NonEmptyString.optional(),
   issuer: NonEmptyString.optional(),
   keyClaimName: NonEmptyString,
   expirationMinutes: PositiveInt,
@@ -191,8 +191,8 @@ export const JwtConfigSchema = z.strictObject({
 
 export const KongConfigSchema = z.strictObject({
   mode: KongMode,
-  adminUrl: HttpsUrl,
-  adminToken: NonEmptyString,
+  adminUrl: HttpsUrl.optional(),
+  adminToken: NonEmptyString.optional(),
   consumerIdHeader: NonEmptyString,
   consumerUsernameHeader: NonEmptyString,
   anonymousHeader: NonEmptyString,

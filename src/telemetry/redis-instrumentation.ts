@@ -2,7 +2,7 @@
 
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
-import { recordRedisConnection, recordRedisOperation } from "./metrics";
+import { recordRedisOperation } from "./metrics";
 
 const tracer = trace.getTracer("redis-bun-instrumentation", "1.0.0");
 

@@ -32,16 +32,16 @@ const envSchema = z
     NODE_ENV: EnvironmentType.optional(),
 
     // JWT Configuration (required fields for security)
-    KONG_JWT_AUTHORITY: NonEmptyString,
-    KONG_JWT_AUDIENCE: NonEmptyString,
+    KONG_JWT_AUTHORITY: NonEmptyString.optional(),
+    KONG_JWT_AUDIENCE: NonEmptyString.optional(),
     KONG_JWT_ISSUER: NonEmptyString.optional(),
     KONG_JWT_KEY_CLAIM_NAME: NonEmptyString.optional(),
     JWT_EXPIRATION_MINUTES: z.coerce.number().int().min(1).max(60).optional(),
 
     // Kong Configuration (required fields for connectivity)
     KONG_MODE: KongMode.optional(),
-    KONG_ADMIN_URL: HttpsUrl,
-    KONG_ADMIN_TOKEN: NonEmptyString,
+    KONG_ADMIN_URL: HttpsUrl.optional(),
+    KONG_ADMIN_TOKEN: NonEmptyString.optional(),
 
     // Telemetry Configuration
     OTEL_SERVICE_NAME: NonEmptyString.optional(),
@@ -178,16 +178,16 @@ const defaultConfig: AppConfig = {
     nodeEnv: "development",
   },
   jwt: {
-    authority: "",
-    audience: "",
-    issuer: "",
+    authority: "https://api.example.com",
+    audience: "example-api",
+    issuer: "https://api.example.com",
     keyClaimName: "key",
     expirationMinutes: 15,
   },
   kong: {
     mode: "API_GATEWAY",
-    adminUrl: "",
-    adminToken: "",
+    adminUrl: "http://localhost:8001",
+    adminToken: "example-token",
     consumerIdHeader: "x-consumer-id",
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",

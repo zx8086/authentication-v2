@@ -21,8 +21,8 @@ apiDocGenerator.registerAllRoutes();
 
 const kongService: IKongService = KongServiceFactory.create(
   config.kong.mode,
-  config.kong.adminUrl,
-  config.kong.adminToken
+  config.kong.adminUrl ?? "http://localhost:8001",
+  config.kong.adminToken ?? "example-token"
 );
 
 try {
