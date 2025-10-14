@@ -318,6 +318,74 @@ export function recordHttpResponseTime(
   }
 }
 
+export function recordHttpRequestSize(
+  size: number,
+  method: string,
+  route: string,
+  statusCode?: number
+): void {
+  if (!isInitialized) {
+    warn("Metrics not initialized - cannot record HTTP request size", {
+      initialized: isInitialized,
+    });
+    return;
+  }
+
+  const attributes = {
+    method: method.toUpperCase(),
+    route,
+    ...(statusCode && { status_code: statusCode.toString() }),
+  };
+
+  try {
+    httpRequestSizeHistogram.record(size, attributes);
+  } catch (err) {
+    error("Failed to record HTTP request size metric", {
+      error: (err as Error).message,
+      attributes,
+      size,
+    });
+    recordError("metrics_recording_error", {
+      operation: "recordHttpRequestSize",
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+}
+
+export function recordHttpResponseSize(
+  size: number,
+  method: string,
+  route: string,
+  statusCode?: number
+): void {
+  if (!isInitialized) {
+    warn("Metrics not initialized - cannot record HTTP response size", {
+      initialized: isInitialized,
+    });
+    return;
+  }
+
+  const attributes = {
+    method: method.toUpperCase(),
+    route,
+    ...(statusCode && { status_code: statusCode.toString() }),
+  };
+
+  try {
+    httpResponseSizeHistogram.record(size, attributes);
+  } catch (err) {
+    error("Failed to record HTTP response size metric", {
+      error: (err as Error).message,
+      attributes,
+      size,
+    });
+    recordError("metrics_recording_error", {
+      operation: "recordHttpResponseSize",
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+}
+
 export function recordJwtTokenIssued(username: string, creationTimeMs: number): void {
   if (!isInitialized) return;
 
@@ -361,24 +429,61 @@ export function recordAuthenticationAttempt(
   }
 }
 
+export function recordAuthenticationSuccess(username?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    ...(username && { username }),
+  };
+
+  try {
+    authenticationSuccessCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record authentication success metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordAuthenticationFailure(username?: string, reason?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    ...(username && { username }),
+    ...(reason && { reason }),
+  };
+
+  try {
+    authenticationFailureCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record authentication failure metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
 export function recordKongOperation(
   operation: string,
-  durationMs: number,
-  success: boolean,
+  status?: string,
+  durationMs?: number,
+  success?: boolean,
   cached?: boolean
 ): void {
   if (!isInitialized) return;
 
   const attributes = {
     operation,
-    success: success.toString(),
+    ...(status && { status }),
+    ...(success !== undefined && { success: success.toString() }),
   };
-
-  const durationSeconds = durationMs / 1000;
 
   try {
     kongOperationsCounter.add(1, attributes);
-    kongResponseTimeHistogram.record(durationSeconds, attributes);
+
+    if (durationMs !== undefined) {
+      const durationSeconds = durationMs / 1000;
+      kongResponseTimeHistogram.record(durationSeconds, attributes);
+    }
 
     if (cached !== undefined) {
       if (cached) {
@@ -389,6 +494,57 @@ export function recordKongOperation(
     }
   } catch (err) {
     error("Failed to record Kong operation metrics", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordKongResponseTime(
+  durationMs: number,
+  operation: string,
+  status?: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation,
+    ...(status && { status }),
+  };
+
+  const durationSeconds = durationMs / 1000;
+
+  try {
+    kongResponseTimeHistogram.record(durationSeconds, attributes);
+  } catch (err) {
+    error("Failed to record Kong response time metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordKongCacheHit(consumerId: string, operation: string): void {
+  if (!isInitialized) return;
+
+  const attributes = { operation, consumer_id: consumerId };
+
+  try {
+    kongCacheHitCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record Kong cache hit metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordKongCacheMiss(consumerId: string, operation: string): void {
+  if (!isInitialized) return;
+
+  const attributes = { operation, consumer_id: consumerId };
+
+  try {
+    kongCacheMissCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record Kong cache miss metric", {
       error: (err as Error).message,
     });
   }
@@ -514,14 +670,14 @@ export function recordException(exception: Error, context?: Record<string, any>)
 export function recordOperationDuration(
   operation: string,
   durationMs: number,
-  success: boolean,
+  success?: boolean,
   context?: Record<string, any>
 ): void {
   if (!isInitialized) return;
 
   const attributes = {
     operation,
-    success: success.toString(),
+    ...(success !== undefined && { success: success.toString() }),
     ...(context &&
       Object.keys(context).reduce(
         (acc, key) => {
@@ -543,26 +699,32 @@ export function recordOperationDuration(
   }
 }
 
-export function recordTelemetryExport(
-  success: boolean,
-  exportType: string,
-  errorType?: string
-): void {
+export function recordTelemetryExport(exportType: string): void {
   if (!isInitialized) return;
 
   const attributes = { export_type: exportType };
 
   try {
     telemetryExportCounter.add(1, attributes);
-
-    if (!success) {
-      telemetryExportErrorCounter.add(1, {
-        ...attributes,
-        ...(errorType && { error_type: errorType }),
-      });
-    }
   } catch (err) {
     error("Failed to record telemetry export metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordTelemetryExportError(exportType: string, errorType?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    export_type: exportType,
+    ...(errorType && { error_type: errorType }),
+  };
+
+  try {
+    telemetryExportErrorCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record telemetry export error metric", {
       error: (err as Error).message,
     });
   }
@@ -656,8 +818,8 @@ export function testMetricRecording(): void {
   recordJwtTokenIssued("test-user", 45);
   recordAuthenticationAttempt("kong_header", true, "test-user");
   recordAuthenticationAttempt("jwt", false);
-  recordKongOperation("get_consumer_secret", 89, true, false);
-  recordKongOperation("health_check", 23, true, true);
+  recordKongOperation("get_consumer_secret", "success", 89, true, false);
+  recordKongOperation("health_check", "success", 23, true, true);
 
   recordRedisOperation("GET", 12, true, "hit", { database: 0 });
   recordRedisOperation("SET", 8, true, undefined, { database: 0 });
@@ -672,8 +834,8 @@ export function testMetricRecording(): void {
     query: "SELECT users",
   });
 
-  recordTelemetryExport(true, "metrics");
-  recordTelemetryExport(false, "traces", "connection_timeout");
+  recordTelemetryExport("metrics");
+  recordTelemetryExportError("traces", "connection_timeout");
 }
 
 export function getMetricsStatus() {
@@ -779,12 +941,24 @@ export function getMetricsStatus() {
   };
 }
 
-export function shutdownMetrics(): void {
+export function startSystemMetricsCollection(): void {
+  if (systemMetricsInterval) return;
+
+  systemMetricsInterval = setInterval(() => {
+    // Metrics are collected via callbacks during initialization
+    // This interval exists for potential future use
+  }, 10000);
+}
+
+export function stopSystemMetricsCollection(): void {
   if (systemMetricsInterval) {
     clearInterval(systemMetricsInterval);
     systemMetricsInterval = null;
   }
+}
 
+export function shutdownMetrics(): void {
+  stopSystemMetricsCollection();
   stopMemoryPressureMonitoring();
   isInitialized = false;
 }

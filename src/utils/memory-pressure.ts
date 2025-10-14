@@ -53,11 +53,13 @@ class MemoryPressureMonitor {
 
   private checkMemoryPressure(): void {
     const memUsage = process.memoryUsage();
-    const heapRatio = memUsage.heapUsed / memUsage.heapTotal;
+    // Use RSS (Resident Set Size) as the total memory baseline instead of heapTotal
+    // heapTotal can be misleading as it's just the heap size, not total available
+    const heapRatio = memUsage.heapUsed / memUsage.rss;
 
     this.state = {
-      isUnderPressure: heapRatio > this.config.warningThreshold,
-      isCritical: heapRatio > this.config.criticalThreshold,
+      isUnderPressure: heapRatio >= this.config.warningThreshold,
+      isCritical: heapRatio >= this.config.criticalThreshold,
       heapRatio,
       lastCheck: Date.now(),
     };
@@ -77,19 +79,21 @@ class MemoryPressureMonitor {
 
   getMemoryStats() {
     const memUsage = process.memoryUsage();
+    const currentHeapRatio = memUsage.heapUsed / memUsage.rss;
+
     return {
-      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-      rss: Math.round(memUsage.rss / 1024 / 1024),
-      external: Math.round(memUsage.external / 1024 / 1024),
-      heapRatio: this.state.heapRatio,
+      heapUsed: memUsage.heapUsed,
+      heapTotal: memUsage.heapTotal,
+      rss: memUsage.rss,
+      external: memUsage.external,
+      heapRatio: currentHeapRatio,
       isUnderPressure: this.state.isUnderPressure,
       isCritical: this.state.isCritical,
     };
   }
 }
 
-export const memoryPressureMonitor = new MemoryPressureMonitor();
+let memoryPressureMonitor = new MemoryPressureMonitor();
 
 export function shouldDropTelemetry(): boolean {
   return memoryPressureMonitor.shouldDropTelemetry();
@@ -107,7 +111,11 @@ export function getMemoryStats() {
   return memoryPressureMonitor.getMemoryStats();
 }
 
-export function startMemoryPressureMonitoring(): void {
+export function startMemoryPressureMonitoring(config?: Partial<MemoryPressureConfig>): void {
+  if (config) {
+    memoryPressureMonitor.stop();
+    memoryPressureMonitor = new MemoryPressureMonitor(config);
+  }
   memoryPressureMonitor.start();
 }
 

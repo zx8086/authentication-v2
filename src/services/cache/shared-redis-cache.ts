@@ -11,6 +11,7 @@ import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 
 export class SharedRedisCache implements IKongCacheService {
   private client!: RedisClient;
+  private keyPrefix = "auth_service:";
   private stats = {
     hits: 0,
     misses: 0,
@@ -75,9 +76,10 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async get(key: string): Promise<ConsumerSecret | null> {
+    const redisKey = this.keyPrefix + key;
     const context: RedisOperationContext = {
       operation: "GET",
-      key,
+      key: redisKey,
       connectionUrl: this.config.url,
       database: this.config.db,
     };
@@ -85,7 +87,7 @@ export class SharedRedisCache implements IKongCacheService {
     const start = performance.now();
 
     return instrumentRedisOperation(context, async () => {
-      const cached = await this.client.get(key);
+      const cached = await this.client.get(redisKey);
       if (cached) {
         this.recordHit(performance.now() - start);
         return JSON.parse(cached);
@@ -107,17 +109,18 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+    const redisKey = this.keyPrefix + key;
     const context: RedisOperationContext = {
       operation: "SET",
-      key,
+      key: redisKey,
       connectionUrl: this.config.url,
       database: this.config.db,
     };
 
     return instrumentRedisOperation(context, async () => {
       const ttl = ttlSeconds || this.config.ttlSeconds;
-      await this.client.set(key, JSON.stringify(value));
-      await this.client.expire(key, ttl);
+      await this.client.set(redisKey, JSON.stringify(value));
+      await this.client.expire(redisKey, ttl);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis set operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -130,15 +133,16 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async delete(key: string): Promise<void> {
+    const redisKey = this.keyPrefix + key;
     const context: RedisOperationContext = {
       operation: "DELETE",
-      key,
+      key: redisKey,
       connectionUrl: this.config.url,
       database: this.config.db,
     };
 
     return instrumentRedisOperation(context, async () => {
-      await this.client.del(key);
+      await this.client.del(redisKey);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis delete operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -152,10 +156,17 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clear(): Promise<void> {
     try {
-      const keys = (await this.client.send("KEYS", ["consumer_secret:*"])) as string[];
-      if (keys.length > 0) {
-        await this.client.del(...keys);
-      }
+      // Use SCAN instead of KEYS for better performance and reliability
+      let cursor = "0";
+      do {
+        const result = (await this.client.send("SCAN", [cursor, "MATCH", `${this.keyPrefix}*`, "COUNT", "100"])) as [string, string[]];
+        cursor = result[0];
+        const keys = result[1];
+
+        if (keys.length > 0) {
+          await this.client.del(...keys);
+        }
+      } while (cursor !== "0");
     } catch (error) {
       winstonTelemetryLogger.warn("Redis clear operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -168,16 +179,28 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     try {
-      const keys = (await this.client.send("KEYS", ["consumer_secret:*"])) as string[];
-      const totalEntries = keys.length;
+      // Use SCAN instead of KEYS for better performance
+      const keys: string[] = [];
+      let cursor = "0";
+      do {
+        const result = (await this.client.send("SCAN", [cursor, "MATCH", `${this.keyPrefix}*`, "COUNT", "100"])) as [string, string[]];
+        cursor = result[0];
+        keys.push(...result[1]);
+      } while (cursor !== "0");
 
+      const totalEntries = keys.length;
       const sampleSize = Math.min(10, totalEntries);
       const sampleKeys = keys.slice(0, sampleSize);
       let activeCount = 0;
 
       for (const key of sampleKeys) {
-        const ttl = (await this.client.send("TTL", [key])) as number;
-        if (ttl > 0) activeCount++;
+        try {
+          const ttl = (await this.client.send("TTL", [key])) as number;
+          if (ttl > 0) activeCount++;
+        } catch (error) {
+          // Skip this key if TTL check fails
+          continue;
+        }
       }
 
       const activeRatio = totalEntries > 0 ? activeCount / sampleSize : 0;
@@ -186,7 +209,7 @@ export class SharedRedisCache implements IKongCacheService {
       return {
         strategy: "shared-redis",
         size: totalEntries,
-        entries: keys,
+        entries: keys.map((key) => key.replace(this.keyPrefix, "")), // Strip prefix for cleaner interface
         activeEntries: estimatedActive,
         hitRate: this.calculateHitRate(),
         redisConnected: true,

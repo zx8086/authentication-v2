@@ -162,7 +162,7 @@ export class KongApiGatewayService implements IKongService {
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       if (response.ok) {
-        recordKongOperation("health_check", responseTime, true);
+        recordKongOperation("health_check", "success", responseTime, true);
         winstonTelemetryLogger.debug("Kong health check successful", {
           responseTime,
           operation: "health_check",
@@ -202,7 +202,7 @@ export class KongApiGatewayService implements IKongService {
           });
         }
 
-        recordKongOperation("health_check", responseTime, false);
+        recordKongOperation("health_check", "failure", responseTime, false);
         recordError("kong_health_check_failed", {
           status: response.status,
           statusText: response.statusText || "Unknown",
@@ -231,7 +231,7 @@ export class KongApiGatewayService implements IKongService {
         });
       }
 
-      recordKongOperation("health_check", responseTime, false);
+      recordKongOperation("health_check", "failure", responseTime, false);
       recordException(err as Error, {
         operation: "kong_health_check",
       });

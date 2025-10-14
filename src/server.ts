@@ -47,6 +47,7 @@ log("Checking Kong connectivity...", {
 const startupKongHealth = await kongService.healthCheck();
 recordKongOperation(
   "startup_health_check",
+  startupKongHealth.healthy ? "success" : "failure",
   startupKongHealth.responseTime,
   startupKongHealth.healthy
 );

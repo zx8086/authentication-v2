@@ -71,6 +71,25 @@ export async function initializeTelemetry(): Promise<void> {
 
   // Skip OTLP setup only if explicitly disabled or in console-only mode
   if (!telemetryConfig.enableOpenTelemetry || telemetryConfig.mode === "console") {
+    // Still initialize export tracking for console mode
+    const noOpExporter = {
+      export: (metrics: any, resultCallback: any) => {
+        metricExportStats.recordExportAttempt();
+        // Simulate successful export for console mode
+        metricExportStats.recordExportSuccess();
+        resultCallback({ code: 0 }); // ExportResultCode.SUCCESS
+      },
+      forceFlush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    };
+    metricExporter = noOpExporter as any;
+
+    // Create no-op metric reader for console mode
+    const noOpReader = {
+      forceFlush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    };
+    metricReader = noOpReader as any;
     return;
   }
 
@@ -235,7 +254,14 @@ export async function forceMetricsFlush(): Promise<void> {
   await metricReader.forceFlush();
 
   if (metricExporter) {
-    await metricExporter.forceFlush();
+    // For console mode, simulate metric export to trigger tracking
+    if (telemetryConfig.mode === "console") {
+      metricExporter.export([], (result: any) => {
+        // No-op callback, tracking already happened in export method
+      });
+    } else {
+      await metricExporter.forceFlush();
+    }
   }
 }
 

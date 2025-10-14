@@ -170,6 +170,8 @@ For detailed testing configuration and patterns, see specialized agents:
 - **E2E Browser Tests**: Use `playwright-specialist` agent
 - **Performance Testing**: Use `k6-specialist` agent
 
+**CRITICAL RULE - NEVER APPLY TIMEOUTS TO TESTS**: Claude Code must NEVER apply artificial timeouts to test commands, especially K6 performance tests which are designed to run for their full duration (typically 3+ minutes). Tests must be allowed to complete naturally without time restrictions.
+
 ```bash
 bun run bun:test         # Run all unit tests
 bun run bun:test:watch   # Watch mode for TDD

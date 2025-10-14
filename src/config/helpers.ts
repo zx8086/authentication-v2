@@ -27,8 +27,14 @@ export function deriveEndpoint(
   specificEndpoint: string | undefined,
   pathSuffix: string
 ): string | undefined {
-  if (specificEndpoint) {
+  // Only use specificEndpoint if it's not empty
+  if (specificEndpoint && specificEndpoint.trim() !== "") {
     return specificEndpoint;
+  }
+
+  // Handle empty string baseEndpoint as a special case - return just the path
+  if (baseEndpoint !== undefined && baseEndpoint.trim() === "") {
+    return pathSuffix.startsWith("/") ? pathSuffix : `/${pathSuffix}`;
   }
 
   if (!baseEndpoint) {
@@ -93,7 +99,7 @@ export function validateOtlpEndpoints(
       continue;
     }
 
-    if (isProduction && !value.startsWith("https://")) {
+    if (isProduction && !value.toLowerCase().startsWith("https://")) {
       errors.push({ endpoint: key, error: "Production endpoints must use HTTPS" });
     }
   }
