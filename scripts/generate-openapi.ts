@@ -5,6 +5,27 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+// Set required environment variables for OpenAPI generation if missing
+// This allows Docker builds to work without breaking runtime validation
+// IMPORTANT: Must be set before importing the generator
+if (!Bun.env.KONG_JWT_AUTHORITY) {
+  Bun.env.KONG_JWT_AUTHORITY = "https://api.example.com";
+}
+if (!Bun.env.KONG_JWT_AUDIENCE) {
+  Bun.env.KONG_JWT_AUDIENCE = "example-api";
+}
+if (!Bun.env.KONG_JWT_ISSUER) {
+  Bun.env.KONG_JWT_ISSUER = "https://api.example.com";
+}
+if (!Bun.env.KONG_ADMIN_URL) {
+  Bun.env.KONG_ADMIN_URL = "http://localhost:8001";
+}
+if (!Bun.env.KONG_ADMIN_TOKEN) {
+  Bun.env.KONG_ADMIN_TOKEN = "example-token";
+}
+
+// Import after environment variables are set
 import { apiDocGenerator } from "../src/openapi-generator.js";
 
 async function ensureDirectoryExists(dirPath: string): Promise<void> {
@@ -17,24 +38,6 @@ async function main(): Promise<void> {
   try {
     const outputDir = "public";
     await ensureDirectoryExists(outputDir);
-
-    // Set required environment variables for OpenAPI generation if missing
-    // This allows Docker builds to work without breaking runtime validation
-    if (!Bun.env.KONG_JWT_AUTHORITY) {
-      Bun.env.KONG_JWT_AUTHORITY = "https://api.example.com";
-    }
-    if (!Bun.env.KONG_JWT_AUDIENCE) {
-      Bun.env.KONG_JWT_AUDIENCE = "example-api";
-    }
-    if (!Bun.env.KONG_JWT_ISSUER) {
-      Bun.env.KONG_JWT_ISSUER = "https://api.example.com";
-    }
-    if (!Bun.env.KONG_ADMIN_URL) {
-      Bun.env.KONG_ADMIN_URL = "http://localhost:8001";
-    }
-    if (!Bun.env.KONG_ADMIN_TOKEN) {
-      Bun.env.KONG_ADMIN_TOKEN = "example-token";
-    }
 
     // Register all routes (config loaded automatically from 4-pillar system)
     apiDocGenerator.registerAllRoutes();
