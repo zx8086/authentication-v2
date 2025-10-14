@@ -20,7 +20,7 @@ export class KongKonnectService implements IKongService {
   private readonly adminToken: string;
   private readonly controlPlaneId: string;
   private readonly realmId: string;
-  private cache: IKongCacheService;
+  private cache: IKongCacheService | null = null;
 
   constructor(adminUrl: string, adminToken: string) {
     const url = new URL(adminUrl);
@@ -45,14 +45,21 @@ export class KongKonnectService implements IKongService {
     }
 
     this.adminToken = adminToken;
-    this.cache = CacheFactory.createKongCache();
 
-    if (this.cache.connect) {
-      this.cache.connect().catch(console.error);
-    }
+    // Initialize cache asynchronously - cache operations will handle connection automatically
+    CacheFactory.createKongCache()
+      .then((cache) => {
+        this.cache = cache;
+      })
+      .catch(console.error);
   }
 
   async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
+    // Ensure cache is initialized
+    if (!this.cache) {
+      this.cache = await CacheFactory.createKongCache();
+    }
+
     const cacheKey = `consumer_secret:${consumerId}`;
 
     const cached = await this.cache.get(cacheKey);
@@ -151,7 +158,9 @@ export class KongKonnectService implements IKongService {
       const createdSecret = (await response.json()) as ConsumerSecret;
 
       const cacheKey = `consumer_secret:${consumerId}`;
-      await this.cache.set(cacheKey, createdSecret);
+      if (this.cache) {
+        await this.cache.set(cacheKey, createdSecret);
+      }
 
       return createdSecret;
     } catch (err) {
@@ -356,6 +365,11 @@ export class KongKonnectService implements IKongService {
   }
 
   async clearCache(consumerId?: string): Promise<void> {
+    // Ensure cache is initialized before clearing
+    if (!this.cache) {
+      this.cache = await CacheFactory.createKongCache();
+    }
+
     if (consumerId) {
       const cacheKey = `consumer_secret:${consumerId}`;
       await this.cache.delete(cacheKey);
@@ -365,6 +379,10 @@ export class KongKonnectService implements IKongService {
   }
 
   async getCacheStats(): Promise<KongCacheStats> {
+    // Ensure cache is initialized before getting stats
+    if (!this.cache) {
+      this.cache = await CacheFactory.createKongCache();
+    }
     return await this.cache.getStats();
   }
 }

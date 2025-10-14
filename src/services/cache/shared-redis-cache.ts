@@ -245,4 +245,8 @@ export class SharedRedisCache implements IKongCacheService {
   private calculateAverageLatency(): number {
     return this.stats.operations > 0 ? this.stats.totalLatency / this.stats.operations : 0;
   }
+
+  getClientForHealthCheck(): RedisClient | null {
+    return this.client || null;
+  }
 }

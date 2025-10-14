@@ -2,6 +2,8 @@
 
 import pkg from "../../package.json" with { type: "json" };
 import { loadConfig } from "../config/index";
+import { CacheFactory } from "../services/cache/cache-factory";
+import { CacheHealthService } from "../services/cache-health.service";
 import type { IKongService } from "../services/kong.service";
 import {
   getMetricsExportStats,
@@ -57,10 +59,36 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
   const startTime = Bun.nanoseconds();
 
   try {
+    // Perform Kong health check
     const kongHealthStartTime = Bun.nanoseconds();
     const kongHealth = await kongService.healthCheck();
     const kongHealthDuration = (Bun.nanoseconds() - kongHealthStartTime) / 1_000_000;
 
+    // Perform cache health check
+    const cacheHealthService = CacheHealthService.getInstance();
+    const cacheService = await CacheFactory.createKongCache();
+    let cacheHealth: {
+      status: "healthy" | "unhealthy" | "degraded";
+      type: "redis" | "memory";
+      responseTime: number;
+    };
+
+    try {
+      cacheHealth = await cacheHealthService.checkCacheHealth(cacheService);
+    } catch (error) {
+      log("Cache health check failed", {
+        component: "health",
+        operation: "cache_health_check",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      cacheHealth = {
+        status: "unhealthy" as const,
+        type: config.caching.highAvailability ? ("redis" as const) : ("memory" as const),
+        responseTime: 0,
+      };
+    }
+
+    // Perform telemetry health checks
     const telemetryConfig = config.telemetry;
     const otlpChecks = await Promise.all([
       telemetryConfig.tracesEndpoint
@@ -76,8 +104,13 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
     const [tracesHealth, metricsHealth, logsHealth] = otlpChecks;
 
+    const cacheHealthy = cacheHealth.status === "healthy";
     const allHealthy =
-      kongHealth.healthy && tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
+      kongHealth.healthy &&
+      tracesHealth.healthy &&
+      metricsHealth.healthy &&
+      logsHealth.healthy &&
+      cacheHealthy;
 
     const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
 
@@ -87,7 +120,10 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     let healthStatus: string;
     if (allHealthy) {
       healthStatus = "healthy";
-    } else if (!kongHealth.healthy && telemetryHealthy) {
+    } else if (
+      cacheHealth.status === "degraded" ||
+      (!kongHealth.healthy && telemetryHealthy && cacheHealthy)
+    ) {
       healthStatus = "degraded";
     } else {
       healthStatus = "unhealthy";
@@ -99,6 +135,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       version: pkg.version || "1.0.0",
       environment: config.server.nodeEnv,
       uptime: Math.floor(process.uptime()),
+      highAvailability: config.caching.highAvailability,
       dependencies: {
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",
@@ -108,6 +145,11 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
             mode: config.kong.mode,
             ...(kongHealth.error && { error: kongHealth.error }),
           },
+        },
+        cache: {
+          status: cacheHealth.status,
+          type: cacheHealth.type,
+          responseTime: cacheHealth.responseTime,
         },
         telemetry: {
           traces: {
@@ -138,6 +180,8 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       duration,
       status: healthStatus,
       kongHealthy: kongHealth.healthy,
+      cacheHealthy: cacheHealthy,
+      cacheType: cacheHealth.type,
       telemetryHealthy: telemetryHealthy,
       requestId,
     });
