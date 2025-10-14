@@ -1,0 +1,138 @@
+# Dependencies
+node_modules/
+bun.lockb
+.bun/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+*.tsbuildinfo
+.tscache/
+
+# Test coverage and results
+coverage/
+.nyc_output/
+test/results/
+test-results/
+playwright-report/
+test/coverage/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files (except examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+.pnp.*
+.yarn-integrity
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.history/
+.ionide/
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Security Sensitive Files
+*.key
+*.pem
+*.cert
+*.crt
+.ssh/
+secrets/
+*.p12
+*.pfx
+*.keystore
+*.truststore
+.aws/
+.azure/
+.gcp/
+kubectl/
+.kube/
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*
+
+# Documentation
+*.md
+README*
+CHANGELOG*
+LICENSE*
+CLAUDE.md
+docs/
+
+# Development Configuration
+.eslintrc*
+.prettierrc*
+.biome*
+biome.json
+tsconfig*
+jest.config*
+vitest.config*
+playwright.config*
+
+# Performance Testing
+k6/
+perf/
+benchmark/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD and Misc
+.github/
+.gitlab-ci.yml
+*.tgz
+.grunt
+old/
+
+# Package manager lock files (keep bun.lockb excluded above)
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+.pnpm-store/

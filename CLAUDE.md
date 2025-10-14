@@ -123,10 +123,12 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 
 ### Key Design Patterns
 - **Error Handling**: Comprehensive error handling with request IDs for tracing
-- **Rate Limiting**: Built-in rate limiting and performance monitoring
+- **Rate Limiting**: Handled by Kong API Gateway at infrastructure level (not application-level)
 - **Caching**: Kong consumer secret caching to reduce Admin API calls
 - **Performance Monitoring**: Built-in metrics collection and reporting
 - **CORS Support**: Configurable CORS with origin validation
+- **Circuit Breaker**: Resilience pattern for Kong Admin API protection (SIO-45)
+- **Telemetry Sampling**: Performed at collector level, not application level
 
 ### Kong Integration Details
 - **Kong Mode Selection**: Supports both Kong API Gateway and Kong Konnect via `KONG_MODE` environment variable
@@ -452,6 +454,21 @@ curl -X POST http://localhost:3000/debug/metrics/export
 watch 'curl -s http://localhost:3000/debug/metrics/stats | jq .successRate'
 ```
 
+### Architecture Decisions
+
+#### Rate Limiting Strategy
+**IMPORTANT**: Rate limiting is handled by Kong API Gateway at the infrastructure level, not within the authentication service. This follows microservices best practices by:
+- **Separation of Concerns**: Kong handles traffic shaping, authentication service focuses on JWT generation
+- **Performance**: Avoids duplicating rate limiting logic in application code
+- **Scalability**: Centralized rate limiting across all services
+
+#### Telemetry Sampling Strategy
+**IMPORTANT**: Telemetry sampling is performed at the collector level, not at the application level. This approach:
+- **Simplifies Application Logic**: Service focuses on generating complete telemetry data
+- **Centralized Control**: Sampling policies managed at infrastructure level
+- **Flexibility**: Different sampling strategies can be applied without code changes
+- **Memory Pressure Handling**: Application-level memory pressure management handles volume reduction when needed
+
 #### Performance Testing
 ```bash
 # Basic load test
@@ -489,3 +506,76 @@ This project uses specialized agents for technical domains:
 - **CI/CD pipelines**: `github-deployment-specialist` agent - GitHub Actions workflows
 
 When working on these specific areas, invoke the relevant specialist agent for detailed guidance and best practices.
+
+## Agent Directory
+
+When working on this authentication service, use these specialized agents for optimal results:
+
+### Primary Agents for This Project
+
+- **Configuration management**: `config-reviewer` - 4-pillar pattern orchestrator (already implemented in `src/config/`)
+- **Schema validation**: `zod-validator` - Zod v4 validation expert (extensive schemas in `src/config/schemas.ts`)
+- **Bun optimization**: `bun-reviewer` - Critical for native `Bun.serve()` performance and API usage
+- **Performance testing**: `k6-specialist` - Essential for validating 100k+ req/sec capability
+- **Unit testing**: `bun-test-specialist` - Bun test framework patterns and TypeScript testing
+- **Observability**: `observability-engineer` - OpenTelemetry integration and APM monitoring
+- **Code quality**: `biome-config` - Pre-commit validation and linting standards
+
+### Secondary Agents (invoke as needed)
+
+- **API design**: `api-designer` - For endpoint expansion and OpenAPI specification
+- **Docker containers**: `docker-reviewer` - Container optimization and multi-stage builds
+- **CI/CD pipelines**: `github-deployment-specialist` - GitHub Actions workflow improvements
+- **Architecture review**: `architect-reviewer` - System design validation and scalability
+- **E2E testing**: `playwright-specialist` - Browser automation for authentication flows
+- **Test orchestration**: `test-orchestrator` - Coordinate comprehensive testing strategies
+- **Code refactoring**: `refactoring-specialist` - Safe code transformation and complexity reduction
+
+### Kong Integration Specialists
+
+- **Kong gateway**: `kong-konnect-engineer` - Kong Konnect configuration and deck deployment
+- **API gateway**: `api-designer` - Kong plugin orchestration and authentication patterns
+
+### Project-Specific Agent Usage
+
+**For performance optimization**:
+1. `bun-reviewer` - Optimize native Bun APIs and `Bun.serve()` patterns
+2. `k6-specialist` - Validate performance under load
+3. `observability-engineer` - Monitor metrics and telemetry
+
+**For testing comprehensive coverage**:
+1. `test-orchestrator` - Plan testing strategy
+2. `bun-test-specialist` - Unit and integration tests
+3. `playwright-specialist` - E2E authentication flows
+4. `k6-specialist` - Performance and load testing
+
+**For configuration changes**:
+1. `config-reviewer` - Maintain 4-pillar pattern compliance
+2. `zod-validator` - Update validation schemas
+3. `biome-config` - Ensure code quality standards
+
+**For deployment and infrastructure**:
+1. `docker-reviewer` - Optimize container builds
+2. `github-deployment-specialist` - Improve CI/CD workflows
+3. `observability-engineer` - Enhance monitoring and alerting
+
+### Quick Agent Reference
+
+| Task | Primary Agent | Supporting Agents |
+|------|---------------|-------------------|
+| Add new endpoint | `api-designer` | `kong-konnect-engineer`, `bun-reviewer` |
+| Optimize performance | `bun-reviewer` | `k6-specialist`, `observability-engineer` |
+| Update configuration | `config-reviewer` | `zod-validator`, `biome-config` |
+| Add comprehensive tests | `test-orchestrator` | `bun-test-specialist`, `playwright-specialist`, `k6-specialist` |
+| Deploy changes | `docker-reviewer` | `github-deployment-specialist`, `observability-engineer` |
+| Refactor code | `refactoring-specialist` | `biome-config`, `architect-reviewer` |
+
+### Notes for Agent Usage
+
+- **Always invoke `config-reviewer`** for any configuration changes to maintain the 4-pillar pattern
+- **Use `bun-reviewer` proactively** for any Bun runtime optimizations or native API usage
+- **Coordinate with `test-orchestrator`** when adding comprehensive testing across frameworks
+- **Invoke `observability-engineer`** for any telemetry, monitoring, or APM-related changes
+- **Use `k6-specialist`** for validating performance requirements (100k+ req/sec capability)
+
+For complete agent capabilities and cross-project usage patterns, see the comprehensive Agent Directory in your user-level CLAUDE.md configuration.
