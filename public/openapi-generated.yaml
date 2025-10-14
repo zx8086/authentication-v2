@@ -1,5 +1,5 @@
 # OpenAPI 3.1.1 specification for Authentication Service
-# Generated on: 2025-10-14T00:22:43.847Z
+# Generated on: 2025-10-14T00:28:34.959Z
 # This file is auto-generated. Do not edit manually.
 # Compliant with JSON Schema Draft 2020-12
 
@@ -51,7 +51,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2025-10-14T00:22:43.843Z"
+          example: "2025-10-14T00:28:34.955Z"
           format: date-time
       description: Debug operation response
     ErrorResponse:
@@ -84,7 +84,7 @@ components:
         timestamp:
           type: string
           description: Error occurrence timestamp
-          example: "2025-10-14T00:22:43.843Z"
+          example: "2025-10-14T00:28:34.955Z"
           format: date-time
       description: Standard error response format
     HealthResponse:
@@ -131,7 +131,7 @@ components:
         timestamp:
           type: string
           description: Health check timestamp
-          example: "2025-10-14T00:22:43.844Z"
+          example: "2025-10-14T00:28:34.956Z"
           format: date-time
         uptime:
           type: integer
@@ -158,7 +158,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-14T00:22:28.844Z"
+              example: "2025-10-14T00:28:19.956Z"
               format: date-time
             successCount:
               type: integer
@@ -189,7 +189,7 @@ components:
         timestamp:
           type: string
           description: Metrics health check timestamp
-          example: "2025-10-14T00:22:43.844Z"
+          example: "2025-10-14T00:28:34.956Z"
           format: date-time
       description: Comprehensive metrics system health information
     MetricsStats:
@@ -207,7 +207,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-14T00:22:28.844Z"
+              example: "2025-10-14T00:28:19.956Z"
               format: date-time
             successCount:
               type: integer
@@ -240,7 +240,7 @@ components:
         timestamp:
           type: string
           description: Statistics retrieval timestamp
-          example: "2025-10-14T00:22:43.844Z"
+          example: "2025-10-14T00:28:34.956Z"
           format: date-time
       description: Detailed metrics export statistics and status
     PerformanceMetrics:
@@ -279,7 +279,7 @@ components:
         timestamp:
           type: string
           description: Metrics collection timestamp
-          example: "2025-10-14T00:22:43.844Z"
+          example: "2025-10-14T00:28:34.956Z"
           format: date-time
         uptime:
           type: integer
@@ -339,7 +339,7 @@ components:
         access_token:
           type: string
           description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA0MDIyNjMsImlhdCI6MTc2MDQwMTM2MywiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA0MDI2MTQsImlhdCI6MTc2MDQwMTcxNCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
         expires_in:
           type: integer
           description: Token expiration time in seconds
