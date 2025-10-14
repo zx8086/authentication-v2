@@ -12,6 +12,7 @@ import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 export class SharedRedisCache implements IKongCacheService {
   private client!: RedisClient;
   private keyPrefix = "auth_service:";
+  private staleKeyPrefix = "auth_service_stale:";
   private stats = {
     hits: 0,
     misses: 0,
@@ -110,6 +111,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
     const redisKey = this.keyPrefix + key;
+    const staleRedisKey = this.staleKeyPrefix + key;
     const context: RedisOperationContext = {
       operation: "SET",
       key: redisKey,
@@ -119,8 +121,14 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const ttl = ttlSeconds || this.config.ttlSeconds;
+      const staleTtl = ttl * 24; // Keep stale data 24x longer
+
       await this.client.set(redisKey, JSON.stringify(value));
       await this.client.expire(redisKey, ttl);
+
+      // Also store in stale cache with longer TTL
+      await this.client.set(staleRedisKey, JSON.stringify(value));
+      await this.client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis set operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -282,5 +290,104 @@ export class SharedRedisCache implements IKongCacheService {
 
   getClientForHealthCheck(): RedisClient | null {
     return this.client || null;
+  }
+
+  async getStale(key: string): Promise<ConsumerSecret | null> {
+    const staleRedisKey = this.staleKeyPrefix + key;
+    const context: RedisOperationContext = {
+      operation: "GET_STALE",
+      key: staleRedisKey,
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
+    const start = performance.now();
+
+    return instrumentRedisOperation(context, async () => {
+      const cached = await this.client.get(staleRedisKey);
+      if (cached) {
+        this.recordHit(performance.now() - start);
+        winstonTelemetryLogger.info("Retrieved stale cache data", {
+          key,
+          component: "cache",
+          operation: "get_stale_success",
+          client: "bun-native",
+        });
+        return JSON.parse(cached);
+      }
+
+      this.recordMiss(performance.now() - start);
+      return null;
+    }).catch((error) => {
+      winstonTelemetryLogger.warn("Redis get stale operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "get_stale_failed",
+        key,
+        client: "bun-native",
+      });
+      this.recordMiss(performance.now() - start);
+      return null;
+    });
+  }
+
+  async setStale(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+    const staleRedisKey = this.staleKeyPrefix + key;
+    const context: RedisOperationContext = {
+      operation: "SET_STALE",
+      key: staleRedisKey,
+      connectionUrl: this.config.url,
+      database: this.config.db,
+    };
+
+    return instrumentRedisOperation(context, async () => {
+      const baseTtl = ttlSeconds || this.config.ttlSeconds;
+      const staleTtl = baseTtl * 24; // Keep stale data 24x longer
+
+      await this.client.set(staleRedisKey, JSON.stringify(value));
+      await this.client.expire(staleRedisKey, staleTtl);
+    }).catch((error) => {
+      winstonTelemetryLogger.warn("Redis set stale operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "set_stale_failed",
+        key,
+        client: "bun-native",
+      });
+    });
+  }
+
+  async clearStale(): Promise<void> {
+    try {
+      let cursor = "0";
+      do {
+        const result = (await this.client.send("SCAN", [
+          cursor,
+          "MATCH",
+          `${this.staleKeyPrefix}*`,
+          "COUNT",
+          "100",
+        ])) as [string, string[]];
+        cursor = result[0];
+        const keys = result[1];
+
+        if (keys.length > 0) {
+          await this.client.del(...keys);
+        }
+      } while (cursor !== "0");
+
+      winstonTelemetryLogger.info("Cleared stale cache", {
+        component: "cache",
+        operation: "clear_stale_success",
+        client: "bun-native",
+      });
+    } catch (error) {
+      winstonTelemetryLogger.warn("Redis clear stale operation failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        component: "cache",
+        operation: "clear_stale_failed",
+        client: "bun-native",
+      });
+    }
   }
 }

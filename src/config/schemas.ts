@@ -95,6 +95,46 @@ export const CachingConfigSchema = z.strictObject({
   ttlSeconds: z.number().int().min(60).max(3600),
 });
 
+export const CircuitBreakerConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable circuit breaker protection"),
+  timeout: z.number().int().min(100).max(10000).describe("Request timeout in milliseconds"),
+  errorThresholdPercentage: z
+    .number()
+    .min(1)
+    .max(100)
+    .describe("Failure rate threshold percentage"),
+  resetTimeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(300000)
+    .describe("Circuit reset timeout in milliseconds"),
+  rollingCountTimeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(60000)
+    .describe("Rolling window duration in milliseconds"),
+  rollingCountBuckets: z
+    .number()
+    .int()
+    .min(2)
+    .max(50)
+    .describe("Number of buckets for rolling window"),
+  volumeThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .describe("Minimum requests before circuit can trip"),
+  staleDataToleranceMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(120)
+    .describe("Tolerance for serving stale cache data in minutes"),
+});
+
 export function addProductionSecurityValidation<
   T extends { environment?: string; nodeEnv?: string },
 >(
@@ -196,6 +236,7 @@ export const KongConfigSchema = z.strictObject({
   consumerIdHeader: NonEmptyString,
   consumerUsernameHeader: NonEmptyString,
   anonymousHeader: NonEmptyString,
+  circuitBreaker: CircuitBreakerConfigSchema,
 });
 
 export const ApiInfoConfigSchema = z.strictObject({
@@ -265,6 +306,7 @@ export const SchemaRegistry = {
   Jwt: JwtConfigSchema,
   Kong: KongConfigSchema,
   Caching: CachingConfigSchema,
+  CircuitBreaker: CircuitBreakerConfigSchema,
   Telemetry: TelemetryConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
   AppConfig: AppConfigSchema,
@@ -296,6 +338,7 @@ export interface GenericCacheEntry<T> {
   createdAt: number;
 }
 export type CachingConfig = z.infer<typeof CachingConfigSchema>;
+export type CircuitBreakerConfig = z.infer<typeof CircuitBreakerConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {
     enabled: boolean;
@@ -324,6 +367,9 @@ export interface IKongCacheService {
   getStats(): Promise<KongCacheStats>;
   connect?(): Promise<void>;
   disconnect?(): Promise<void>;
+  getStale?(key: string): Promise<ConsumerSecret | null>;
+  setStale?(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void>;
+  clearStale?(): Promise<void>;
 }
 
 export type { OtlpEndpointConfig, OtlpEndpoints } from "./helpers";

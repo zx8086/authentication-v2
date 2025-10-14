@@ -9,6 +9,7 @@ import type {
 
 export class LocalMemoryCache implements IKongCacheService {
   private cache = new Map<string, GenericCacheEntry<ConsumerSecret>>();
+  private staleCache = new Map<string, GenericCacheEntry<ConsumerSecret>>();
   private stats = {
     hits: 0,
     misses: 0,
@@ -37,13 +38,24 @@ export class LocalMemoryCache implements IKongCacheService {
 
   async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
     const ttl = ttlSeconds || this.config.ttlSeconds;
+    const now = Date.now();
     const entry: GenericCacheEntry<ConsumerSecret> = {
       data: value,
-      expires: Date.now() + ttl * 1000,
-      createdAt: Date.now(),
+      expires: now + ttl * 1000,
+      createdAt: now,
     };
 
+    // Store in both regular and stale cache
     this.cache.set(key, entry);
+
+    // Stale cache keeps data 24x longer
+    const staleEntry: GenericCacheEntry<ConsumerSecret> = {
+      data: value,
+      expires: now + ttl * 1000 * 24,
+      createdAt: now,
+    };
+    this.staleCache.set(key, staleEntry);
+
     this.enforceMaxEntries();
   }
 
@@ -115,5 +127,52 @@ export class LocalMemoryCache implements IKongCacheService {
         this.cache.delete(key);
       }
     }
+
+    // Also enforce for stale cache (allow 2x the normal limit)
+    const staleMaxEntries = this.config.maxEntries * 2;
+    if (this.staleCache.size > staleMaxEntries) {
+      const staleEntries = Array.from(this.staleCache.entries()).sort(
+        ([, a], [, b]) => a.createdAt - b.createdAt
+      );
+
+      const staleToRemove = staleEntries.slice(0, this.staleCache.size - staleMaxEntries);
+      for (const [key] of staleToRemove) {
+        this.staleCache.delete(key);
+      }
+    }
+  }
+
+  async getStale(key: string): Promise<ConsumerSecret | null> {
+    const start = performance.now();
+
+    const entry = this.staleCache.get(key);
+    if (entry && Date.now() < entry.expires) {
+      this.recordHit(performance.now() - start);
+      return entry.data;
+    }
+
+    if (entry) {
+      this.staleCache.delete(key);
+    }
+
+    this.recordMiss(performance.now() - start);
+    return null;
+  }
+
+  async setStale(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+    const ttl = ttlSeconds || this.config.ttlSeconds;
+    const now = Date.now();
+
+    // Stale cache keeps data 24x longer
+    const staleEntry: GenericCacheEntry<ConsumerSecret> = {
+      data: value,
+      expires: now + ttl * 1000 * 24,
+      createdAt: now,
+    };
+    this.staleCache.set(key, staleEntry);
+  }
+
+  async clearStale(): Promise<void> {
+    this.staleCache.clear();
   }
 }

@@ -48,6 +48,10 @@ let exceptionCounter: any;
 let telemetryExportCounter: any;
 let telemetryExportErrorCounter: any;
 let circuitBreakerStateGauge: any;
+let circuitBreakerRequestsCounter: any;
+let circuitBreakerRejectedCounter: any;
+let circuitBreakerFallbackCounter: any;
+let circuitBreakerStateTransitionCounter: any;
 let operationDurationHistogram: any;
 
 let systemMetricsInterval: Timer | null = null;
@@ -219,6 +223,29 @@ export function initializeMetrics(): void {
     description: "Circuit breaker state (0=closed, 1=open, 2=half-open)",
     unit: "1",
   });
+
+  circuitBreakerRequestsCounter = meter.createCounter("circuit_breaker_requests_total", {
+    description: "Total number of requests through circuit breaker",
+    unit: "1",
+  });
+
+  circuitBreakerRejectedCounter = meter.createCounter("circuit_breaker_rejected_total", {
+    description: "Total number of requests rejected by circuit breaker",
+    unit: "1",
+  });
+
+  circuitBreakerFallbackCounter = meter.createCounter("circuit_breaker_fallback_total", {
+    description: "Total number of fallback executions",
+    unit: "1",
+  });
+
+  circuitBreakerStateTransitionCounter = meter.createCounter(
+    "circuit_breaker_state_transitions_total",
+    {
+      description: "Total number of circuit breaker state transitions",
+      unit: "1",
+    }
+  );
 
   operationDurationHistogram = meter.createHistogram("operation_duration_seconds", {
     description: "Duration of various operations",
@@ -730,6 +757,87 @@ export function recordTelemetryExportError(exportType: string, errorType?: strin
   }
 }
 
+export function recordCircuitBreakerRequest(
+  operation: string,
+  success: boolean,
+  fallback?: boolean
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation,
+    success: success.toString(),
+  };
+
+  try {
+    circuitBreakerRequestsCounter.add(1, attributes);
+
+    if (fallback) {
+      circuitBreakerFallbackCounter.add(1, { operation });
+    }
+  } catch (err) {
+    error("Failed to record circuit breaker request metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCircuitBreakerRejection(operation: string, reason?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation,
+    ...(reason && { reason }),
+  };
+
+  try {
+    circuitBreakerRejectedCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record circuit breaker rejection metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCircuitBreakerStateTransition(
+  operation: string,
+  fromState: string,
+  toState: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation,
+    from_state: fromState,
+    to_state: toState,
+  };
+
+  try {
+    circuitBreakerStateTransitionCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record circuit breaker state transition metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCircuitBreakerFallback(operation: string, reason?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    operation,
+    ...(reason && { reason }),
+  };
+
+  try {
+    circuitBreakerFallbackCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record circuit breaker fallback metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
 function setupSystemMetricsCollection(): void {
   // Set up callbacks once during initialization
   processMemoryUsageGauge.addCallback((observableResult: ObservableResult<Attributes>) => {
@@ -877,6 +985,10 @@ export function getMetricsStatus() {
       telemetryExportCounter: !!telemetryExportCounter,
       telemetryExportErrorCounter: !!telemetryExportErrorCounter,
       circuitBreakerStateGauge: !!circuitBreakerStateGauge,
+      circuitBreakerRequestsCounter: !!circuitBreakerRequestsCounter,
+      circuitBreakerRejectedCounter: !!circuitBreakerRejectedCounter,
+      circuitBreakerFallbackCounter: !!circuitBreakerFallbackCounter,
+      circuitBreakerStateTransitionCounter: !!circuitBreakerStateTransitionCounter,
       operationDurationHistogram: !!operationDurationHistogram,
     },
     meterInfo: {
@@ -927,11 +1039,17 @@ export function getMetricsStatus() {
         "application_exceptions_total",
         "telemetry_exports_total",
         "telemetry_export_errors_total",
-        "circuit_breaker_state",
         "operation_duration_seconds",
       ],
+      circuitBreaker: [
+        "circuit_breaker_state",
+        "circuit_breaker_requests_total",
+        "circuit_breaker_rejected_total",
+        "circuit_breaker_fallback_total",
+        "circuit_breaker_state_transitions_total",
+      ],
     },
-    totalInstruments: 29,
+    totalInstruments: 33,
     memoryPressure: getMemoryStats(),
     optimizations: {
       memoryPressureEnabled: true,

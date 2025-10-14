@@ -43,6 +43,16 @@ const envSchema = z
     KONG_ADMIN_URL: HttpsUrl,
     KONG_ADMIN_TOKEN: NonEmptyString,
 
+    // Circuit Breaker Configuration (optional with sensible defaults)
+    CIRCUIT_BREAKER_ENABLED: z
+      .string()
+      .optional()
+      .transform((val) => val === "true"),
+    CIRCUIT_BREAKER_TIMEOUT: z.coerce.number().int().min(100).max(10000).optional(),
+    CIRCUIT_BREAKER_ERROR_THRESHOLD: z.coerce.number().min(1).max(100).optional(),
+    CIRCUIT_BREAKER_RESET_TIMEOUT: z.coerce.number().int().min(1000).max(300000).optional(),
+    STALE_DATA_TOLERANCE_MINUTES: z.coerce.number().int().min(1).max(120).optional(),
+
     // Telemetry Configuration
     OTEL_SERVICE_NAME: NonEmptyString.optional(),
     OTEL_SERVICE_VERSION: NonEmptyString.optional(),
@@ -138,6 +148,11 @@ const envVarMapping = {
     mode: "KONG_MODE",
     adminUrl: "KONG_ADMIN_URL",
     adminToken: "KONG_ADMIN_TOKEN",
+    circuitBreakerEnabled: "CIRCUIT_BREAKER_ENABLED",
+    circuitBreakerTimeout: "CIRCUIT_BREAKER_TIMEOUT",
+    circuitBreakerErrorThreshold: "CIRCUIT_BREAKER_ERROR_THRESHOLD",
+    circuitBreakerResetTimeout: "CIRCUIT_BREAKER_RESET_TIMEOUT",
+    staleDataToleranceMinutes: "STALE_DATA_TOLERANCE_MINUTES",
   },
   caching: {
     highAvailability: "HIGH_AVAILABILITY",
@@ -191,6 +206,16 @@ const defaultConfig: AppConfig = {
     consumerIdHeader: "x-consumer-id",
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",
+    circuitBreaker: {
+      enabled: false,
+      timeout: 5000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 60000,
+      rollingCountTimeout: 10000,
+      rollingCountBuckets: 10,
+      volumeThreshold: 10,
+      staleDataToleranceMinutes: 30,
+    },
   },
   caching: {
     highAvailability: false,
@@ -292,13 +317,24 @@ function initializeConfig(): AppConfig {
         expirationMinutes: envConfig.JWT_EXPIRATION_MINUTES,
       }).filter(([, value]) => value !== undefined)
     ),
-    kong: Object.fromEntries(
-      Object.entries({
-        mode: envConfig.KONG_MODE,
-        adminUrl: envConfig.KONG_ADMIN_URL,
-        adminToken: envConfig.KONG_ADMIN_TOKEN,
-      }).filter(([, value]) => value !== undefined)
-    ),
+    kong: {
+      ...Object.fromEntries(
+        Object.entries({
+          mode: envConfig.KONG_MODE,
+          adminUrl: envConfig.KONG_ADMIN_URL,
+          adminToken: envConfig.KONG_ADMIN_TOKEN,
+        }).filter(([, value]) => value !== undefined)
+      ),
+      circuitBreaker: Object.fromEntries(
+        Object.entries({
+          enabled: envConfig.CIRCUIT_BREAKER_ENABLED,
+          timeout: envConfig.CIRCUIT_BREAKER_TIMEOUT,
+          errorThresholdPercentage: envConfig.CIRCUIT_BREAKER_ERROR_THRESHOLD,
+          resetTimeout: envConfig.CIRCUIT_BREAKER_RESET_TIMEOUT,
+          staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
+        }).filter(([, value]) => value !== undefined)
+      ),
+    },
     caching: Object.fromEntries(
       Object.entries({
         highAvailability: envConfig.HIGH_AVAILABILITY,
@@ -348,7 +384,14 @@ function initializeConfig(): AppConfig {
         (structuredEnvConfig.jwt.authority as string) ||
         defaultConfig.jwt.issuer,
     },
-    kong: { ...defaultConfig.kong, ...structuredEnvConfig.kong },
+    kong: {
+      ...defaultConfig.kong,
+      ...structuredEnvConfig.kong,
+      circuitBreaker: {
+        ...defaultConfig.kong.circuitBreaker,
+        ...(structuredEnvConfig.kong as any)?.circuitBreaker,
+      },
+    },
     caching: { ...defaultConfig.caching, ...structuredEnvConfig.caching },
     telemetry: {
       ...defaultConfig.telemetry,

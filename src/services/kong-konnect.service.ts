@@ -9,10 +9,12 @@ import type {
   KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
-import { recordError, recordException, recordKongOperation } from "../telemetry/metrics";
+import { getKongConfig } from "../config";
+import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import { withRetry } from "../utils/retry";
 import { CacheFactory } from "./cache/cache-factory";
+import { KongCircuitBreakerService } from "./circuit-breaker.service";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
@@ -21,6 +23,7 @@ export class KongKonnectService implements IKongService {
   private readonly controlPlaneId: string;
   private readonly realmId: string;
   private cache: IKongCacheService | null = null;
+  private circuitBreaker: KongCircuitBreakerService;
 
   constructor(adminUrl: string, adminToken: string) {
     const url = new URL(adminUrl);
@@ -46,6 +49,10 @@ export class KongKonnectService implements IKongService {
 
     this.adminToken = adminToken;
 
+    // Initialize circuit breaker with configuration
+    const kongConfig = getKongConfig();
+    this.circuitBreaker = new KongCircuitBreakerService(kongConfig.circuitBreaker);
+
     // Initialize cache asynchronously - cache operations will handle connection automatically
     CacheFactory.createKongCache()
       .then((cache) => {
@@ -67,110 +74,114 @@ export class KongKonnectService implements IKongService {
       return cached;
     }
 
-    try {
-      await this.ensureRealmExists();
-      const consumerUuid = await this.getConsumerId(consumerId);
+    // Wrap Kong API operation with circuit breaker
+    return await this.circuitBreaker.wrapKongConsumerOperation(
+      "getConsumerSecret",
+      consumerId,
+      async () => {
+        await this.ensureRealmExists();
+        const consumerUuid = await this.getConsumerId(consumerId);
 
-      if (!consumerUuid) {
-        return null;
-      }
-
-      const keysUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
-
-      const response = await withRetry(
-        () =>
-          fetch(keysUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${this.adminToken}`,
-              "Content-Type": "application/json",
-              "User-Agent": "Authentication-Service/1.0",
-            },
-            signal: AbortSignal.timeout(5000),
-          }),
-        { maxAttempts: 2, baseDelayMs: 100 }
-      );
-
-      if (!response.ok) {
-        if (response.status === 404) {
+        if (!consumerUuid) {
           return null;
         }
 
-        const _errorText = await response.text();
-        throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+        const keysUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
+
+        const response = await withRetry(
+          () =>
+            fetch(keysUrl, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${this.adminToken}`,
+                "Content-Type": "application/json",
+                "User-Agent": "Authentication-Service/1.0",
+              },
+              signal: AbortSignal.timeout(5000),
+            }),
+          { maxAttempts: 2, baseDelayMs: 100 }
+        );
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            return null;
+          }
+
+          const _errorText = await response.text();
+          throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = (await response.json()) as ConsumerResponse;
+
+        if (!data.data || data.data.length === 0) {
+          return null;
+        }
+
+        const secret = data.data[0];
+
+        // Store in cache after successful retrieval
+        if (this.cache) {
+          await this.cache.set(cacheKey, secret);
+        }
+
+        return secret;
       }
-
-      const data = (await response.json()) as ConsumerResponse;
-
-      if (!data.data || data.data.length === 0) {
-        return null;
-      }
-
-      const secret = data.data[0];
-
-      await this.cache.set(cacheKey, secret);
-
-      return secret;
-    } catch (_error) {
-      return null;
-    }
+    );
   }
 
   async createConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
-    try {
-      const consumerUuid = await this.getConsumerId(consumerId);
+    return await this.circuitBreaker.wrapKongConsumerOperation(
+      "createConsumerSecret",
+      consumerId,
+      async () => {
+        const consumerUuid = await this.getConsumerId(consumerId);
 
-      if (!consumerUuid) {
-        return null;
-      }
+        if (!consumerUuid) {
+          return null;
+        }
 
-      const key = crypto.randomUUID().replace(/-/g, "");
-      const secret = this.generateSecureSecret();
+        const key = crypto.randomUUID().replace(/-/g, "");
+        const secret = this.generateSecureSecret();
 
-      const url = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
+        const url = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "Authentication-Service/1.0",
-        },
-        body: JSON.stringify({
-          key: key,
-          secret: secret,
-        }),
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
-          consumerId,
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-          operation: "create_jwt_credentials",
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.adminToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "Authentication-Service/1.0",
+          },
+          body: JSON.stringify({
+            key: key,
+            secret: secret,
+          }),
+          signal: AbortSignal.timeout(10000),
         });
-        throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
+            consumerId,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            operation: "create_jwt_credentials",
+          });
+          throw new Error(`Kong API error: ${response.status} ${response.statusText}`);
+        }
+
+        const createdSecret = (await response.json()) as ConsumerSecret;
+
+        // Store in cache after successful creation
+        const cacheKey = `consumer_secret:${consumerId}`;
+        if (this.cache) {
+          await this.cache.set(cacheKey, createdSecret);
+        }
+
+        return createdSecret;
       }
-
-      const createdSecret = (await response.json()) as ConsumerSecret;
-
-      const cacheKey = `consumer_secret:${consumerId}`;
-      if (this.cache) {
-        await this.cache.set(cacheKey, createdSecret);
-      }
-
-      return createdSecret;
-    } catch (err) {
-      winstonTelemetryLogger.error("Error creating consumer secret", {
-        consumerId,
-        error: err instanceof Error ? err.message : "Unknown error",
-        operation: "create_consumer_secret",
-      });
-      return null;
-    }
+    );
   }
 
   private async ensureRealmExists(): Promise<void> {
@@ -265,103 +276,99 @@ export class KongKonnectService implements IKongService {
   async healthCheck(): Promise<KongHealthCheckResult> {
     const startTime = Bun.nanoseconds();
 
-    try {
-      const response = await withRetry(
-        () =>
-          fetch(`${this.gatewayAdminUrl}`, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${this.adminToken}`,
-              "User-Agent": "Authentication-Service/1.0",
-            },
-            signal: AbortSignal.timeout(5000),
-          }),
-        { maxAttempts: 2, baseDelayMs: 50 }
-      );
+    const result = await this.circuitBreaker.wrapKongOperation<KongHealthCheckResult>(
+      "healthCheck",
+      async () => {
+        const response = await withRetry(
+          () =>
+            fetch(`${this.gatewayAdminUrl}`, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${this.adminToken}`,
+                "User-Agent": "Authentication-Service/1.0",
+              },
+              signal: AbortSignal.timeout(5000),
+            }),
+          { maxAttempts: 2, baseDelayMs: 50 }
+        );
 
-      const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
-      if (response.ok) {
-        recordKongOperation("health_check", "success", responseTime, true);
-        winstonTelemetryLogger.debug("Kong health check successful", {
-          responseTime,
-          operation: "health_check",
-        });
-        return { healthy: true, responseTime };
-      } else {
-        const errorMsg = `HTTP ${response.status}`;
-        let detailedError = errorMsg;
-
-        if (response.status === 401) {
-          detailedError = "Authentication failed - invalid Kong admin token";
-          winstonTelemetryLogger.error("Kong authentication failed", {
-            status: response.status,
-            message: "Invalid or expired Kong admin token",
+        if (response.ok) {
+          recordKongOperation("health_check", "success", responseTime, true);
+          winstonTelemetryLogger.debug("Kong health check successful", {
+            responseTime,
             operation: "health_check",
           });
-        } else if (response.status === 403) {
-          detailedError = "Permission denied - insufficient Kong admin privileges";
-          winstonTelemetryLogger.error("Kong permission denied", {
-            status: response.status,
-            message: "Admin token lacks necessary permissions",
-            operation: "health_check",
-          });
-        } else if (response.status === 404) {
-          detailedError = "Kong admin API endpoint not found - check URL configuration";
-          winstonTelemetryLogger.error("Kong endpoint not found", {
-            status: response.status,
-            url: this.gatewayAdminUrl,
-            message: "Kong admin URL may be incorrect",
-            operation: "health_check",
-          });
+          return { healthy: true, responseTime };
         } else {
-          winstonTelemetryLogger.error("Kong health check failed", {
+          const errorMsg = `HTTP ${response.status}`;
+          let detailedError = errorMsg;
+
+          if (response.status === 401) {
+            detailedError = "Authentication failed - invalid Kong admin token";
+            winstonTelemetryLogger.error("Kong authentication failed", {
+              status: response.status,
+              message: "Invalid or expired Kong admin token",
+              operation: "health_check",
+            });
+          } else if (response.status === 403) {
+            detailedError = "Permission denied - insufficient Kong admin privileges";
+            winstonTelemetryLogger.error("Kong permission denied", {
+              status: response.status,
+              message: "Admin token lacks necessary permissions",
+              operation: "health_check",
+            });
+          } else if (response.status === 404) {
+            detailedError = "Kong admin API endpoint not found - check URL configuration";
+            winstonTelemetryLogger.error("Kong endpoint not found", {
+              status: response.status,
+              url: this.gatewayAdminUrl,
+              message: "Kong admin URL may be incorrect",
+              operation: "health_check",
+            });
+          } else {
+            winstonTelemetryLogger.error("Kong health check failed", {
+              status: response.status,
+              statusText: response.statusText || "Unknown",
+              operation: "health_check",
+            });
+          }
+
+          recordKongOperation("health_check", "failure", responseTime, false);
+          recordError("kong_health_check_failed", {
             status: response.status,
             statusText: response.statusText || "Unknown",
-            operation: "health_check",
           });
+
+          throw new Error(detailedError);
         }
-
-        recordKongOperation("health_check", "failure", responseTime, false);
-        recordError("kong_health_check_failed", {
-          status: response.status,
-          statusText: response.statusText || "Unknown",
-        });
-
-        return {
-          healthy: false,
-          responseTime,
-          error: detailedError,
-        };
+      },
+      // Fallback for health check - return degraded status
+      {
+        healthy: false,
+        responseTime: (Bun.nanoseconds() - startTime) / 1_000_000,
+        error: "Circuit breaker open - Kong Admin API unavailable",
       }
-    } catch (err) {
+    );
+
+    if (result === null) {
+      // Circuit breaker handled the error but no fallback was provided
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
-
-      if (err instanceof Error && err.message.includes("fetch failed")) {
-        winstonTelemetryLogger.error("Kong connection failed", {
-          url: this.gatewayAdminUrl,
-          error: err.message,
-          message: "Unable to connect to Kong admin API - check network and URL",
-          operation: "health_check",
-        });
-      } else {
-        winstonTelemetryLogger.error("Kong health check error", {
-          error: err instanceof Error ? err.message : "Unknown error",
-          operation: "health_check",
-        });
-      }
-
       recordKongOperation("health_check", "failure", responseTime, false);
-      recordException(err as Error, {
-        operation: "kong_health_check",
+      recordError("kong_health_check_circuit_breaker", {
+        status: "circuit_open",
+        message: "Circuit breaker rejected request",
       });
 
       return {
         healthy: false,
         responseTime,
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: "Circuit breaker open - Kong Admin API unavailable",
       };
     }
+
+    return result;
   }
 
   async clearCache(consumerId?: string): Promise<void> {

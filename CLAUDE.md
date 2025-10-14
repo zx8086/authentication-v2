@@ -55,10 +55,11 @@ git commit -m "Update Docker configuration for multi-stage builds"
   - Decide when implementation work is complete
 - 📋 **MANDATORY Process**:
   1. When implementation plan is executed, Claude MUST summarize what was implemented
-  2. Claude MUST ask user to explicitly confirm if the work is complete and ready for closure
-  3. Claude MUST wait for user approval before touching issue status
-  4. **THE USER DECIDES** when implementation work is complete and satisfactory
-  5. User often commits code first to verify CI/CD passes before marking Done
+  2. After committing and pushing code to git, move issue to "In Review" status
+  3. Claude MUST ask user to explicitly confirm if the work is complete and ready for closure
+  4. Claude MUST wait for user approval before touching issue status beyond "In Review"
+  5. **THE USER DECIDES** when implementation work is complete and satisfactory
+  6. User often verifies CI/CD passes and validates implementation before marking Done
 
 **REMINDER**: Implementation completion ≠ work completion. User needs to verify CI/CD, testing, quality, and explicitly approve closure. Only the user can determine if the implementation meets their requirements and standards.
 

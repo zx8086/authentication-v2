@@ -51,7 +51,17 @@ describe('Configuration System', () => {
         adminToken: process.env.TEST_KONG_TOKEN || Buffer.from('mock-token').toString('base64'),
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
-        anonymousHeader: 'x-anonymous-consumer'
+        anonymousHeader: 'x-anonymous-consumer',
+        circuitBreaker: {
+          enabled: true,
+          timeout: 5000,
+          errorThresholdPercentage: 50,
+          resetTimeout: 60000,
+          rollingCountTimeout: 10000,
+          rollingCountBuckets: 10,
+          volumeThreshold: 20,
+          staleDataToleranceMinutes: 10
+        }
       };
 
       const result = SchemaRegistry.Kong.safeParse(validKongConfig);
@@ -241,7 +251,17 @@ describe('Configuration System', () => {
         adminToken: process.env.TEST_KONG_TOKEN_LONG || Array(41).fill('x').join(''),  // Mock 40-char token
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
-        anonymousHeader: 'x-anonymous-consumer'
+        anonymousHeader: 'x-anonymous-consumer',
+        circuitBreaker: {
+          enabled: true,
+          timeout: 5000,
+          errorThresholdPercentage: 50,
+          resetTimeout: 60000,
+          rollingCountTimeout: 10000,
+          rollingCountBuckets: 10,
+          volumeThreshold: 20,
+          staleDataToleranceMinutes: 10
+        }
       };
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
@@ -255,7 +275,17 @@ describe('Configuration System', () => {
         adminToken: process.env.TEST_KONG_TOKEN_PROD || Array(61).fill('y').join(''),  // Mock 60-char token
         consumerIdHeader: 'x-consumer-id',
         consumerUsernameHeader: 'x-consumer-username',
-        anonymousHeader: 'x-anonymous-consumer'
+        anonymousHeader: 'x-anonymous-consumer',
+        circuitBreaker: {
+          enabled: true,
+          timeout: 5000,
+          errorThresholdPercentage: 50,
+          resetTimeout: 60000,
+          rollingCountTimeout: 10000,
+          rollingCountBuckets: 10,
+          volumeThreshold: 20,
+          staleDataToleranceMinutes: 10
+        }
       };
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
