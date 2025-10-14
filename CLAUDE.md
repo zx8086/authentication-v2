@@ -47,18 +47,20 @@ git commit -m "Update Docker configuration for multi-stage builds"
   - Create new Linear issues
   - **ALWAYS assign new issues to "Authentication Service" project**
   - Move issues to "In Progress" when starting work
-  - Update issue descriptions with additional findings
+  - Update issue descriptions with additional findings and implementation progress
 - ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
   - Set issues to "Done" or "Completed"
   - Close issues without explicit user instruction
   - Mark work as complete even if implementation is finished
+  - Decide when implementation work is complete
 - 📋 **MANDATORY Process**:
-  1. When work is completed, Claude MUST summarize the implementation
-  2. Claude MUST ask user to explicitly confirm closure
+  1. When implementation plan is executed, Claude MUST summarize what was implemented
+  2. Claude MUST ask user to explicitly confirm if the work is complete and ready for closure
   3. Claude MUST wait for user approval before touching issue status
-  4. User often commits code first to verify CI/CD passes before marking Done
+  4. **THE USER DECIDES** when implementation work is complete and satisfactory
+  5. User often commits code first to verify CI/CD passes before marking Done
 
-**REMINDER**: Committing code ≠ work completion. User needs to verify CI/CD, testing, and approve closure.
+**REMINDER**: Implementation completion ≠ work completion. User needs to verify CI/CD, testing, quality, and explicitly approve closure. Only the user can determine if the implementation meets their requirements and standards.
 
 ### Linear Issue Content Management
 **CRITICAL RULE - PRESERVE ANALYSIS**: When updating Linear issue descriptions, Claude MUST preserve existing analysis and approach sections.

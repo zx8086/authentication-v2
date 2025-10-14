@@ -217,13 +217,14 @@ test.describe('Comprehensive Business Requirements', () => {
       expect(data.telemetry).toHaveProperty('status');
     });
 
-    test('Metrics health endpoint provides metrics info', async ({ request }) => {
-      const response = await request.get('/health/metrics');
+    test('Unified metrics endpoint provides infrastructure view', async ({ request }) => {
+      const response = await request.get('/metrics?view=infrastructure');
       expect(response.status()).toBe(200);
 
       const data = await response.json();
-      expect(data).toHaveProperty('metrics');
-      expect(data.metrics).toHaveProperty('status');
+      expect(data).toHaveProperty('infrastructure');
+      expect(data.infrastructure).toHaveProperty('metrics');
+      expect(data.infrastructure.metrics).toHaveProperty('status');
     });
 
     test('Debug metrics test endpoint records test metrics', async ({ request }) => {

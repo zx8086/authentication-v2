@@ -64,41 +64,44 @@ export default function () {
 
   sleep(0.3);
 
-  // Test metrics health endpoint
-  const metricsHealthResponse = http.get(`${baseUrl}/health/metrics`);
-  check(metricsHealthResponse, {
-    "GET /health/metrics status is 200": (r) => r.status === 200,
-    "GET /health/metrics response time < 50ms": (r) => r.timings.duration < 50,
-    "GET /health/metrics has metrics data": (r) => {
-      const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"metrics"') && body.includes('"status"');
-    },
-  });
-
-  sleep(0.3);
-
-  // Test metrics endpoint
+  // Test unified metrics endpoint (default operational view)
   const metricsResponse = http.get(`${baseUrl}/metrics`);
   check(metricsResponse, {
     "GET /metrics status is 200": (r) => r.status === 200,
     "GET /metrics response time < 50ms": (r) => r.timings.duration < 50,
-    "GET /metrics has metrics data": (r) => {
+    "GET /metrics has timestamp": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"memory"') || body.includes('"telemetry"');
+      return body.includes('"timestamp"');
+    },
+    "GET /metrics has operational data": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"memory"') && body.includes('"uptime"');
     },
   });
 
   sleep(0.3);
 
-  // Test debug metrics stats endpoint
-  const debugStatsResponse = http.get(`${baseUrl}/debug/metrics/stats`);
-  check(debugStatsResponse, {
-    "GET /debug/metrics/stats status is 200": (r) => r.status === 200,
-    "GET /debug/metrics/stats response time < 50ms": (r) =>
-      r.timings.duration < 50,
-    "GET /debug/metrics/stats has export stats": (r) => {
+  // Test metrics with infrastructure view
+  const metricsInfraResponse = http.get(`${baseUrl}/metrics?view=infrastructure`);
+  check(metricsInfraResponse, {
+    "GET /metrics?view=infrastructure status is 200": (r) => r.status === 200,
+    "GET /metrics?view=infrastructure response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /metrics?view=infrastructure has infrastructure data": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"totalExports"');
+      return body.includes('"infrastructure"') && body.includes('"metrics"');
+    },
+  });
+
+  sleep(0.3);
+
+  // Test metrics with exports view
+  const metricsExportsResponse = http.get(`${baseUrl}/metrics?view=exports`);
+  check(metricsExportsResponse, {
+    "GET /metrics?view=exports status is 200": (r) => r.status === 200,
+    "GET /metrics?view=exports response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /metrics?view=exports has export data": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"exports"') && body.includes('"configuration"');
     },
   });
 

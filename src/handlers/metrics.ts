@@ -2,78 +2,15 @@
 
 import { loadConfig } from "../config/index";
 import type { IKongService } from "../services/kong.service";
-import { forceMetricsFlush, getMetricsExportStats } from "../telemetry/instrumentation";
-import { testMetricRecording } from "../telemetry/metrics";
+import {
+  forceMetricsFlush,
+  getMetricsExportStats,
+  getTelemetryStatus,
+} from "../telemetry/instrumentation";
+import { getMetricsStatus, testMetricRecording } from "../telemetry/metrics";
 import { log } from "../utils/logger";
 
 const config = loadConfig();
-
-export async function handleMetrics(kongService: IKongService): Promise<Response> {
-  try {
-    log("Processing metrics request", {
-      component: "metrics",
-      operation: "handle_metrics",
-      endpoint: "/metrics",
-    });
-
-    const timestamp = new Date().toISOString();
-    const cacheStats = await kongService.getCacheStats();
-
-    const metricsData = {
-      timestamp,
-      uptime: Math.floor(process.uptime()),
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-        external: Math.round(process.memoryUsage().external / 1024 / 1024),
-      },
-      cache: cacheStats,
-      telemetry: {
-        mode: config.telemetry.mode,
-        exportStats: getMetricsExportStats(),
-      },
-      kong: {
-        adminUrl: config.kong.adminUrl,
-        mode: config.kong.mode,
-      },
-    };
-
-    return new Response(JSON.stringify(metricsData, null, 2), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
-    });
-  } catch (error) {
-    log("Failed to get cache stats, generating metrics without cache data", {
-      component: "metrics",
-      operation: "get_cache_stats",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-
-    return new Response(
-      JSON.stringify({
-        error: "Failed to generate metrics",
-        message: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
-    );
-  }
-}
 
 export function handleDebugMetricsTest(): Response {
   try {
@@ -187,22 +124,165 @@ export async function handleDebugMetricsExport(): Promise<Response> {
   }
 }
 
-export function handleDebugMetricsStats(): Response {
-  try {
-    const exportStats = getMetricsExportStats();
+type MetricsView = "operational" | "infrastructure" | "telemetry" | "exports" | "config" | "full";
 
-    const statsData = {
-      exports: exportStats,
-      timestamp: new Date().toISOString(),
-      configuration: {
-        exportInterval: "10 seconds",
-        batchTimeout: `${config.telemetry.exportTimeout}ms`,
-        endpoint: config.telemetry.metricsEndpoint || "not configured",
-        telemetryMode: config.telemetry.mode,
+async function collectOperationalData(kongService: IKongService) {
+  const timestamp = new Date().toISOString();
+  const cacheStats = await kongService.getCacheStats();
+
+  return {
+    timestamp,
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      external: Math.round(process.memoryUsage().external / 1024 / 1024),
+    },
+    cache: cacheStats,
+  };
+}
+
+function collectInfrastructureData() {
+  const metricsStatus = getMetricsStatus();
+
+  return {
+    metrics: {
+      status: metricsStatus,
+    },
+  };
+}
+
+function collectTelemetryData() {
+  const telemetryStatus = getTelemetryStatus();
+
+  return {
+    mode: config.telemetry.mode,
+    initialized: telemetryStatus.initialized,
+    exportStats: telemetryStatus.metricsExportStats,
+  };
+}
+
+function collectExportsData() {
+  const exportStats = getMetricsExportStats();
+
+  return {
+    exports: exportStats,
+  };
+}
+
+function collectConfigData() {
+  const telemetryStatus = getTelemetryStatus();
+
+  return {
+    kong: {
+      adminUrl: config.kong.adminUrl,
+      mode: config.kong.mode,
+    },
+    telemetry: {
+      mode: config.telemetry.mode,
+      initialized: telemetryStatus.initialized,
+      serviceName: config.telemetry.serviceName,
+      serviceVersion: config.telemetry.serviceVersion,
+      environment: config.telemetry.environment,
+      endpoints: {
+        traces: config.telemetry.tracesEndpoint || "not configured",
+        metrics: config.telemetry.metricsEndpoint || "not configured",
+        logs: config.telemetry.logsEndpoint || "not configured",
       },
-    };
+      timeout: config.telemetry.exportTimeout,
+      batchSize: config.telemetry.batchSize,
+      queueSize: config.telemetry.maxQueueSize,
+    },
+  };
+}
 
-    return new Response(JSON.stringify(statsData, null, 2), {
+export async function handleMetricsUnified(kongService: IKongService, url: URL): Promise<Response> {
+  try {
+    const view = (url.searchParams.get("view") as MetricsView) || "operational";
+    const timestamp = new Date().toISOString();
+
+    let responseData: any = { timestamp };
+
+    switch (view) {
+      case "operational": {
+        const operationalData = await collectOperationalData(kongService);
+        responseData = {
+          ...operationalData,
+          telemetry: {
+            mode: config.telemetry.mode,
+            exportStats: getMetricsExportStats(),
+          },
+          kong: {
+            adminUrl: config.kong.adminUrl,
+            mode: config.kong.mode,
+          },
+        };
+        break;
+      }
+
+      case "infrastructure": {
+        responseData.infrastructure = collectInfrastructureData();
+        break;
+      }
+
+      case "telemetry": {
+        responseData.telemetry = collectTelemetryData();
+        break;
+      }
+
+      case "exports": {
+        responseData = { timestamp, ...collectExportsData() };
+        break;
+      }
+
+      case "config": {
+        responseData.configuration = collectConfigData();
+        break;
+      }
+
+      case "full": {
+        const operationalData = await collectOperationalData(kongService);
+        const infraData = collectInfrastructureData();
+        const exportsData = collectExportsData();
+        const configData = collectConfigData();
+
+        responseData = {
+          ...operationalData,
+          infrastructure: infraData,
+          exports: exportsData.exports,
+          configuration: configData,
+        };
+        break;
+      }
+
+      default:
+        return new Response(
+          JSON.stringify({
+            error: "Invalid view parameter",
+            message: `Valid views: operational, infrastructure, telemetry, exports, config, full`,
+            timestamp,
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": config.apiInfo.cors,
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            },
+          }
+        );
+    }
+
+    log(`Processing unified metrics request`, {
+      component: "metrics",
+      operation: "handle_unified_metrics",
+      endpoint: "/metrics",
+      view,
+    });
+
+    return new Response(JSON.stringify(responseData, null, 2), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -213,9 +293,15 @@ export function handleDebugMetricsStats(): Response {
       },
     });
   } catch (error) {
+    log("Failed to generate unified metrics", {
+      component: "metrics",
+      operation: "unified_metrics",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return new Response(
       JSON.stringify({
-        error: "Failed to get export statistics",
+        error: "Failed to generate metrics",
         message: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       }),

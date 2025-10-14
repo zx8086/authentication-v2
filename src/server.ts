@@ -4,7 +4,7 @@ import pkg from "../package.json" with { type: "json" };
 import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
 import { getApiDocGenerator } from "./openapi-generator";
-import { createRoutesAPI } from "./routes/router";
+import { createRoutes } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
 import {
@@ -70,7 +70,7 @@ if (!startupKongHealth.healthy) {
   });
 }
 
-const { routes, fallbackFetch } = createRoutesAPI(kongService);
+const { routes, fallbackFetch } = createRoutes(kongService);
 let server: any;
 
 try {
@@ -136,12 +136,10 @@ log("Server endpoints configured", {
     "GET / - OpenAPI specification (JSON/YAML based on Accept header)",
     "GET /health - Health check",
     "GET /health/telemetry - Telemetry health status",
-    "GET /health/metrics - Metrics health and debugging",
-    "GET /metrics - Performance metrics",
+    "GET /metrics - Unified metrics endpoint (operational, infrastructure, telemetry, exports, config, full views)",
     "GET /tokens - Issue JWT token (requires Kong headers)",
     "POST /debug/metrics/test - Record test metrics",
     "POST /debug/metrics/export - Force metrics export",
-    "GET /debug/metrics/stats - Export statistics",
   ],
 });
 
@@ -151,14 +149,15 @@ log("Metrics debugging endpoints available", {
   endpoints: {
     test: "POST /debug/metrics/test",
     export: "POST /debug/metrics/export",
-    stats: "GET /debug/metrics/stats",
-    health: "GET /health/metrics",
+    unified: "GET /metrics (with ?view= parameter)",
   },
   usage: {
     test_and_check:
-      "curl -X POST http://localhost:3000/debug/metrics/test && sleep 15 && curl http://localhost:3000/debug/metrics/stats",
+      "curl -X POST http://localhost:3000/debug/metrics/test && sleep 15 && curl http://localhost:3000/metrics?view=exports",
     manual_export: "curl -X POST http://localhost:3000/debug/metrics/export",
-    view_stats: "curl http://localhost:3000/debug/metrics/stats",
+    view_stats: "curl http://localhost:3000/metrics?view=exports",
+    view_full: "curl http://localhost:3000/metrics?view=full",
+    view_operational: "curl http://localhost:3000/metrics",
   },
 });
 
