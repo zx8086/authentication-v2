@@ -69,9 +69,9 @@ async function generateJWTToken(
         username,
         key,
         secret,
-        config.jwt.authority ?? "https://api.example.com",
-        config.jwt.audience ?? "example-api",
-        config.jwt.issuer ?? "https://api.example.com"
+        config.jwt.authority,
+        config.jwt.audience,
+        config.jwt.issuer
       ),
     username
   );

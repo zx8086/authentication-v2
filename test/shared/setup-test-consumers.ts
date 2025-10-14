@@ -19,8 +19,8 @@ class TestConsumerSetup {
   private adminToken: string;
 
   constructor() {
-    this.adminUrl = this.config.kong.adminUrl ?? "http://localhost:8001";
-    this.adminToken = this.config.kong.adminToken ?? "example-token";
+    this.adminUrl = this.config.kong.adminUrl;
+    this.adminToken = this.config.kong.adminToken;
 
     if (!this.adminUrl || !this.adminToken) {
       throw new Error('Kong admin URL and token must be configured in environment variables');

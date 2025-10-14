@@ -18,6 +18,24 @@ async function main(): Promise<void> {
     const outputDir = "public";
     await ensureDirectoryExists(outputDir);
 
+    // Set required environment variables for OpenAPI generation if missing
+    // This allows Docker builds to work without breaking runtime validation
+    if (!Bun.env.KONG_JWT_AUTHORITY) {
+      Bun.env.KONG_JWT_AUTHORITY = "https://api.example.com";
+    }
+    if (!Bun.env.KONG_JWT_AUDIENCE) {
+      Bun.env.KONG_JWT_AUDIENCE = "example-api";
+    }
+    if (!Bun.env.KONG_JWT_ISSUER) {
+      Bun.env.KONG_JWT_ISSUER = "https://api.example.com";
+    }
+    if (!Bun.env.KONG_ADMIN_URL) {
+      Bun.env.KONG_ADMIN_URL = "http://localhost:8001";
+    }
+    if (!Bun.env.KONG_ADMIN_TOKEN) {
+      Bun.env.KONG_ADMIN_TOKEN = "example-token";
+    }
+
     // Register all routes (config loaded automatically from 4-pillar system)
     apiDocGenerator.registerAllRoutes();
 
