@@ -73,7 +73,7 @@ export async function initializeTelemetry(): Promise<void> {
   if (!telemetryConfig.enableOpenTelemetry || telemetryConfig.mode === "console") {
     // Still initialize export tracking for console mode
     const noOpExporter = {
-      export: (metrics: any, resultCallback: any) => {
+      export: (_metrics: any, resultCallback: any) => {
         metricExportStats.recordExportAttempt();
         // Simulate successful export for console mode
         metricExportStats.recordExportSuccess();
@@ -256,7 +256,7 @@ export async function forceMetricsFlush(): Promise<void> {
   if (metricExporter) {
     // For console mode, simulate metric export to trigger tracking
     if (telemetryConfig.mode === "console") {
-      metricExporter.export([], (result: any) => {
+      metricExporter.export({ resource: {}, scopeMetrics: [] } as any, (_result: any) => {
         // No-op callback, tracking already happened in export method
       });
     } else {

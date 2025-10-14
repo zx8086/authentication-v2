@@ -20,11 +20,12 @@ describe("LocalMemoryCache", () => {
     it("should store and retrieve values", async () => {
       const key = "test-consumer-1";
       const secret: ConsumerSecret = {
-        consumerId: "test-consumer-1",
-        consumerUsername: "test-user",
-        jwtKey: "test-jwt-key",
-        jwtSecret: "test-jwt-secret",
-        algorithm: "HS256",
+        id: "test-jwt-credential-1",
+        key: "test-jwt-key",
+        secret: "test-jwt-secret",
+        consumer: {
+          id: "test-consumer-1"
+        },
       };
 
       await cache.set(key, secret);

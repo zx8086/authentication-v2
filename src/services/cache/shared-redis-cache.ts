@@ -159,7 +159,13 @@ export class SharedRedisCache implements IKongCacheService {
       // Use SCAN instead of KEYS for better performance and reliability
       let cursor = "0";
       do {
-        const result = (await this.client.send("SCAN", [cursor, "MATCH", `${this.keyPrefix}*`, "COUNT", "100"])) as [string, string[]];
+        const result = (await this.client.send("SCAN", [
+          cursor,
+          "MATCH",
+          `${this.keyPrefix}*`,
+          "COUNT",
+          "100",
+        ])) as [string, string[]];
         cursor = result[0];
         const keys = result[1];
 
@@ -183,7 +189,13 @@ export class SharedRedisCache implements IKongCacheService {
       const keys: string[] = [];
       let cursor = "0";
       do {
-        const result = (await this.client.send("SCAN", [cursor, "MATCH", `${this.keyPrefix}*`, "COUNT", "100"])) as [string, string[]];
+        const result = (await this.client.send("SCAN", [
+          cursor,
+          "MATCH",
+          `${this.keyPrefix}*`,
+          "COUNT",
+          "100",
+        ])) as [string, string[]];
         cursor = result[0];
         keys.push(...result[1]);
       } while (cursor !== "0");
@@ -197,9 +209,8 @@ export class SharedRedisCache implements IKongCacheService {
         try {
           const ttl = (await this.client.send("TTL", [key])) as number;
           if (ttl > 0) activeCount++;
-        } catch (error) {
+        } catch (_error) {
           // Skip this key if TTL check fails
-          continue;
         }
       }
 
