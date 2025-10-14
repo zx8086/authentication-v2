@@ -3,7 +3,7 @@
 import pkg from "../package.json" with { type: "json" };
 import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
-import { apiDocGenerator } from "./openapi-generator";
+import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutesAPI } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
@@ -17,7 +17,7 @@ import { error, log, warn } from "./utils/logger";
 
 const config = loadConfig();
 
-apiDocGenerator.registerAllRoutes();
+getApiDocGenerator().registerAllRoutes();
 
 const kongService: IKongService = KongServiceFactory.create(
   config.kong.mode,

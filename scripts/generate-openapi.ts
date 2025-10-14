@@ -25,8 +25,8 @@ if (!Bun.env.KONG_ADMIN_TOKEN) {
   Bun.env.KONG_ADMIN_TOKEN = "example-token";
 }
 
-// Import after environment variables are set
-import { apiDocGenerator } from "../src/openapi-generator.js";
+// Import factory function after environment variables are set
+import { createApiDocGenerator } from "../src/openapi-generator.js";
 
 async function ensureDirectoryExists(dirPath: string): Promise<void> {
   if (!existsSync(dirPath)) {
@@ -38,6 +38,9 @@ async function main(): Promise<void> {
   try {
     const outputDir = "public";
     await ensureDirectoryExists(outputDir);
+
+    // Create generator instance AFTER environment variables are set
+    const apiDocGenerator = createApiDocGenerator();
 
     // Register all routes (config loaded automatically from 4-pillar system)
     apiDocGenerator.registerAllRoutes();

@@ -1,7 +1,7 @@
 /* src/handlers/openapi.ts */
 
 import { loadConfig } from "../config/index";
-import { apiDocGenerator } from "../openapi-generator";
+import { getApiDocGenerator } from "../openapi-generator";
 import { log } from "../utils/logger";
 
 const config = loadConfig();
@@ -45,7 +45,7 @@ export function handleOpenAPISpec(acceptHeader?: string): Response {
   });
 
   try {
-    const spec = apiDocGenerator.generateSpec();
+    const spec = getApiDocGenerator().generateSpec();
 
     const preferYaml =
       acceptHeader?.includes("application/yaml") ||

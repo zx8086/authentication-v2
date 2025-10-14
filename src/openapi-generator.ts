@@ -1213,4 +1213,15 @@ class OpenAPIGenerator {
   }
 }
 
-export const apiDocGenerator = new OpenAPIGenerator();
+export function createApiDocGenerator(): OpenAPIGenerator {
+  return new OpenAPIGenerator();
+}
+
+// For backward compatibility, create instance only when explicitly requested
+let _instance: OpenAPIGenerator | null = null;
+export function getApiDocGenerator(): OpenAPIGenerator {
+  if (!_instance) {
+    _instance = new OpenAPIGenerator();
+  }
+  return _instance;
+}
