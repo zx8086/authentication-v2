@@ -42,6 +42,8 @@ jobs:
       KONG_MODE: ${{ secrets.KONG_MODE }}
       KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
       KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
+      CIRCUIT_BREAKER_ENABLED: false
+      HIGH_AVAILABILITY: false
       OTEL_SERVICE_NAME: authentication-service
       TELEMETRY_MODE: console
       OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
