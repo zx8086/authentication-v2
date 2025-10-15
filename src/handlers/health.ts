@@ -59,9 +59,23 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
   const startTime = Bun.nanoseconds();
 
   try {
-    // Perform Kong health check
+    // Perform Kong health check with error handling
     const kongHealthStartTime = Bun.nanoseconds();
-    const kongHealth = await kongService.healthCheck();
+    let kongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
+    try {
+      kongHealth = await kongService.healthCheck();
+    } catch (kongError) {
+      log("Kong health check failed with exception during health endpoint check", {
+        component: "health",
+        operation: "kong_health_check",
+        error: kongError instanceof Error ? kongError.message : "Unknown error",
+      });
+      kongHealth = {
+        healthy: false,
+        responseTime: 0,
+        error: kongError instanceof Error ? kongError.message : "Connection failed",
+      };
+    }
     const kongHealthDuration = (Bun.nanoseconds() - kongHealthStartTime) / 1_000_000;
 
     // Perform cache health check
@@ -71,10 +85,42 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       status: "healthy" | "unhealthy" | "degraded";
       type: "redis" | "memory";
       responseTime: number;
+      staleCache?: {
+        available: boolean;
+        responseTime?: number;
+        error?: string;
+      };
     };
 
     try {
-      cacheHealth = await cacheHealthService.checkCacheHealth(cacheService);
+      const basicCacheHealth = await cacheHealthService.checkCacheHealth(cacheService);
+      cacheHealth = { ...basicCacheHealth };
+
+      // Check stale cache availability in HA mode
+      if (config.caching.highAvailability && cacheService.getStale) {
+        const staleCacheStartTime = Bun.nanoseconds();
+        try {
+          // Test stale cache access with a non-existent key to verify connectivity
+          await cacheService.getStale("health_check_stale_test");
+          const staleCacheResponseTime = (Bun.nanoseconds() - staleCacheStartTime) / 1_000_000;
+          cacheHealth.staleCache = {
+            available: true,
+            responseTime: Math.round(staleCacheResponseTime),
+          };
+        } catch (staleCacheError) {
+          const staleCacheResponseTime = (Bun.nanoseconds() - staleCacheStartTime) / 1_000_000;
+          cacheHealth.staleCache = {
+            available: false,
+            responseTime: Math.round(staleCacheResponseTime),
+            error: staleCacheError instanceof Error ? staleCacheError.message : "Unknown error",
+          };
+        }
+      } else if (!config.caching.highAvailability) {
+        // In non-HA mode, stale cache is always available via in-memory circuit breaker cache
+        cacheHealth.staleCache = {
+          available: true,
+        };
+      }
     } catch (error) {
       log("Cache health check failed", {
         component: "health",
@@ -85,6 +131,10 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         status: "unhealthy" as const,
         type: config.caching.highAvailability ? ("redis" as const) : ("memory" as const),
         responseTime: 0,
+        staleCache: {
+          available: false,
+          error: "Cache service unavailable",
+        },
       };
     }
 
@@ -150,6 +200,9 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           status: cacheHealth.status,
           type: cacheHealth.type,
           responseTime: cacheHealth.responseTime,
+          ...(cacheHealth.staleCache && {
+            staleCache: cacheHealth.staleCache,
+          }),
         },
         telemetry: {
           traces: {
@@ -268,10 +321,51 @@ export function handleTelemetryHealth(): Response {
   }
 }
 
-export function handleMetricsHealth(): Response {
+export function handleMetricsHealth(kongService: IKongService): Response {
   try {
     const metricsStatus = getMetricsStatus();
     const exportStats = getMetricsExportStats();
+
+    let circuitBreakerStats: Record<
+      string,
+      import("../services/circuit-breaker.service").CircuitBreakerStats
+    >;
+    try {
+      circuitBreakerStats = kongService.getCircuitBreakerStats();
+    } catch (error) {
+      log("Failed to get circuit breaker stats during metrics health check", {
+        component: "health",
+        operation: "circuit_breaker_stats",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      circuitBreakerStats = {};
+    }
+
+    // Calculate circuit breaker summary
+    const circuitBreakerSummary = {
+      enabled: config.kong.circuitBreaker.enabled,
+      totalBreakers: Object.keys(circuitBreakerStats).length,
+      states: {
+        closed: 0,
+        open: 0,
+        halfOpen: 0,
+      },
+    };
+
+    for (const breakerName in circuitBreakerStats) {
+      const breakerStat = circuitBreakerStats[breakerName];
+      switch (breakerStat.state) {
+        case "closed":
+          circuitBreakerSummary.states.closed++;
+          break;
+        case "open":
+          circuitBreakerSummary.states.open++;
+          break;
+        case "half-open":
+          circuitBreakerSummary.states.halfOpen++;
+          break;
+      }
+    }
 
     const responseData = {
       metrics: {
@@ -283,6 +377,7 @@ export function handleMetricsHealth(): Response {
           endpoint: config.telemetry.metricsEndpoint || "not configured",
         },
       },
+      circuitBreakers: circuitBreakerSummary,
       timestamp: new Date().toISOString(),
     };
 

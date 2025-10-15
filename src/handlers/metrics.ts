@@ -128,7 +128,40 @@ type MetricsView = "operational" | "infrastructure" | "telemetry" | "exports" | 
 
 async function collectOperationalData(kongService: IKongService) {
   const timestamp = new Date().toISOString();
-  const cacheStats = await kongService.getCacheStats();
+
+  let cacheStats: Awaited<ReturnType<IKongService["getCacheStats"]>>;
+  try {
+    cacheStats = await kongService.getCacheStats();
+  } catch (error) {
+    log("Failed to collect cache stats during metrics collection", {
+      component: "metrics",
+      operation: "cache_stats",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    cacheStats = {
+      strategy: "local-memory" as const,
+      size: 0,
+      entries: [],
+      activeEntries: 0,
+      hitRate: "0.00",
+      averageLatencyMs: 0,
+    };
+  }
+
+  let circuitBreakerStats: Record<
+    string,
+    import("../services/circuit-breaker.service").CircuitBreakerStats
+  >;
+  try {
+    circuitBreakerStats = kongService.getCircuitBreakerStats();
+  } catch (error) {
+    log("Failed to collect circuit breaker stats during metrics collection", {
+      component: "metrics",
+      operation: "circuit_breaker_stats",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    circuitBreakerStats = {};
+  }
 
   return {
     timestamp,
@@ -140,6 +173,7 @@ async function collectOperationalData(kongService: IKongService) {
       external: Math.round(process.memoryUsage().external / 1024 / 1024),
     },
     cache: cacheStats,
+    circuitBreakers: circuitBreakerStats,
   };
 }
 

@@ -9,12 +9,13 @@ import type {
   KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
-import { getKongConfig } from "../config";
+import { getCachingConfig, getKongConfig } from "../config";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import { withRetry } from "../utils/retry";
 import { CacheFactory } from "./cache/cache-factory";
-import { KongCircuitBreakerService } from "./circuit-breaker.service";
+import type { CircuitBreakerStats } from "./shared-circuit-breaker.service";
+import { SharedCircuitBreakerService } from "./shared-circuit-breaker.service";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
@@ -23,7 +24,7 @@ export class KongKonnectService implements IKongService {
   private readonly controlPlaneId: string;
   private readonly realmId: string;
   private cache: IKongCacheService | null = null;
-  private circuitBreaker: KongCircuitBreakerService;
+  private circuitBreaker: SharedCircuitBreakerService;
 
   constructor(adminUrl: string, adminToken: string) {
     const url = new URL(adminUrl);
@@ -49,14 +50,27 @@ export class KongKonnectService implements IKongService {
 
     this.adminToken = adminToken;
 
-    // Initialize circuit breaker with configuration
+    // Initialize shared circuit breaker with configuration
     const kongConfig = getKongConfig();
-    this.circuitBreaker = new KongCircuitBreakerService(kongConfig.circuitBreaker);
+    const cachingConfig = getCachingConfig();
+    const circuitBreakerConfig = {
+      ...kongConfig.circuitBreaker,
+      highAvailability: kongConfig.highAvailability,
+    };
+    this.circuitBreaker = SharedCircuitBreakerService.getInstance(
+      circuitBreakerConfig,
+      cachingConfig,
+      undefined
+    );
 
     // Initialize cache asynchronously - cache operations will handle connection automatically
     CacheFactory.createKongCache()
       .then((cache) => {
         this.cache = cache;
+        // Update circuit breaker with cache service for HA mode if needed
+        if (kongConfig.highAvailability) {
+          SharedCircuitBreakerService.updateCacheService(cache);
+        }
       })
       .catch(console.error);
   }
@@ -74,15 +88,18 @@ export class KongKonnectService implements IKongService {
       return cached;
     }
 
-    // Wrap Kong API operation with circuit breaker
+    // Wrap ALL Kong operations in circuit breaker to enable stale cache fallback
+    // when any Kong operation fails (including prerequisite calls)
     return await this.circuitBreaker.wrapKongConsumerOperation(
       "getConsumerSecret",
       consumerId,
       async () => {
+        // ALL Kong operations inside circuit breaker for consistent fallback behavior
         await this.ensureRealmExists();
         const consumerUuid = await this.getConsumerId(consumerId);
 
         if (!consumerUuid) {
+          // Consumer doesn't exist - this is a legitimate business case, not a circuit breaker scenario
           return null;
         }
 
@@ -134,6 +151,8 @@ export class KongKonnectService implements IKongService {
       "createConsumerSecret",
       consumerId,
       async () => {
+        // ALL Kong operations inside circuit breaker for consistent fallback behavior
+        await this.ensureRealmExists();
         const consumerUuid = await this.getConsumerId(consumerId);
 
         if (!consumerUuid) {
@@ -343,17 +362,11 @@ export class KongKonnectService implements IKongService {
 
           throw new Error(detailedError);
         }
-      },
-      // Fallback for health check - return degraded status
-      {
-        healthy: false,
-        responseTime: (Bun.nanoseconds() - startTime) / 1_000_000,
-        error: "Circuit breaker open - Kong Admin API unavailable",
       }
     );
 
     if (result === null) {
-      // Circuit breaker handled the error but no fallback was provided
+      // Circuit breaker is open and rejected the request
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordKongOperation("health_check", "failure", responseTime, false);
       recordError("kong_health_check_circuit_breaker", {
@@ -391,5 +404,9 @@ export class KongKonnectService implements IKongService {
       this.cache = await CacheFactory.createKongCache();
     }
     return await this.cache.getStats();
+  }
+
+  getCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
+    return this.circuitBreaker.getStats();
   }
 }

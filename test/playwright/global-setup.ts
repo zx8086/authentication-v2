@@ -73,7 +73,8 @@ class PlaywrightTestSetup {
       const exists = await this.checkConsumerExists(consumer);
       if (exists) {
         console.log(`[Playwright Setup] Consumer already exists: ${consumer.username}`);
-        return true;
+        // Still need to ensure JWT credentials exist
+        return await this.ensureJWTCredentials(consumer);
       }
 
       console.log(`[Playwright Setup] Creating consumer: ${consumer.id}`);
@@ -94,10 +95,12 @@ class PlaywrightTestSetup {
       if (response.ok) {
         const created = await response.json() as KongConsumer;
         console.log(`[Playwright Setup] Consumer created: ${created.username}`);
-        return true;
+        // Create JWT credentials for the new consumer
+        return await this.ensureJWTCredentials(consumer);
       } else if (response.status === 409 || response.status === 400) {
         console.log(`[Playwright Setup] Consumer already exists: ${consumer.username}`);
-        return true;
+        // Still need to ensure JWT credentials exist
+        return await this.ensureJWTCredentials(consumer);
       } else {
         const errorText = await response.text();
         console.error(`[Playwright Setup] Failed to create consumer ${consumer.username}: ${response.status} ${errorText}`);
@@ -107,6 +110,98 @@ class PlaywrightTestSetup {
       console.error(`[Playwright Setup] Error creating consumer ${consumer.username}:`, error);
       return false;
     }
+  }
+
+  private async ensureJWTCredentials(consumer: TestConsumer): Promise<boolean> {
+    try {
+      // Get consumer UUID first
+      const consumerResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.adminToken}`,
+          'User-Agent': 'Playwright-Test-Setup/1.0'
+        }
+      });
+
+      if (!consumerResponse.ok) {
+        console.error(`[Playwright Setup] Failed to get consumer UUID for ${consumer.username}`);
+        return false;
+      }
+
+      const consumerData = await consumerResponse.json() as KongConsumer;
+      const consumerUuid = consumerData.id;
+
+      // Force delete existing JWT credentials to ensure unique credentials for each consumer
+      const jwtResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.adminToken}`,
+          'User-Agent': 'Playwright-Test-Setup/1.0'
+        }
+      });
+
+      if (jwtResponse.ok) {
+        const jwtData = await jwtResponse.json();
+        if (jwtData.data && jwtData.data.length > 0) {
+          // Delete existing JWT credentials to force unique credential creation
+          for (const credential of jwtData.data) {
+            console.log(`[Playwright Setup] Deleting existing JWT credential for ${consumer.username}: ${credential.id}`);
+
+            const deleteResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${this.adminToken}`,
+                'User-Agent': 'Playwright-Test-Setup/1.0'
+              }
+            });
+
+            if (!deleteResponse.ok) {
+              console.warn(`[Playwright Setup] Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`);
+            } else {
+              console.log(`[Playwright Setup] Deleted JWT credential ${credential.id} for ${consumer.username}`);
+            }
+          }
+        }
+      }
+
+      // Create new JWT credentials with unique key and secret
+      console.log(`[Playwright Setup] Creating new unique JWT credentials for: ${consumer.username}`);
+
+      const key = `test-key-${consumer.id}-${Date.now()}`;
+      const secret = this.generateSecureSecret();
+
+      const createJwtResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.adminToken}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'Playwright-Test-Setup/1.0'
+        },
+        body: JSON.stringify({
+          key: key,
+          secret: secret
+        })
+      });
+
+      if (createJwtResponse.ok) {
+        const createdCredential = await createJwtResponse.json();
+        console.log(`[Playwright Setup] New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`);
+        return true;
+      } else {
+        const errorText = await createJwtResponse.text();
+        console.error(`[Playwright Setup] Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`[Playwright Setup] Error ensuring JWT credentials for ${consumer.username}:`, error);
+      return false;
+    }
+  }
+
+  private generateSecureSecret(): string {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
   private async checkKongHealth(): Promise<boolean> {

@@ -102,17 +102,13 @@ describe("KongApiGatewayService", () => {
         text: () => Promise.resolve("Kong error"),
       });
 
-      const result = await service.getConsumerSecret("error-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.getConsumerSecret("error-consumer")).rejects.toThrow("Kong API error: 500 Internal Server Error");
     });
 
     it("should handle network errors gracefully", async () => {
       fetchSpy.mockRejectedValue(new Error("Network error"));
 
-      const result = await service.getConsumerSecret("network-error-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.getConsumerSecret("network-error-consumer")).rejects.toThrow("Network error");
     });
 
 
@@ -120,9 +116,7 @@ describe("KongApiGatewayService", () => {
     it("should handle timeout gracefully", async () => {
       fetchSpy.mockRejectedValue(new Error("TimeoutError"));
 
-      const result = await service.getConsumerSecret("timeout-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.getConsumerSecret("timeout-consumer")).rejects.toThrow("TimeoutError");
     });
   });
 
@@ -172,18 +166,14 @@ describe("KongApiGatewayService", () => {
         text: () => Promise.resolve("Kong error"),
       });
 
-      const result = await service.createConsumerSecret("error-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.createConsumerSecret("error-consumer")).rejects.toThrow("Kong API error: 500 Internal Server Error");
     });
 
 
     it("should handle network errors during creation", async () => {
       fetchSpy.mockRejectedValue(new Error("Network error"));
 
-      const result = await service.createConsumerSecret("network-error-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.createConsumerSecret("network-error-consumer")).rejects.toThrow("Network error");
     });
 
     it("should generate secure random key and secret", async () => {
@@ -354,9 +344,7 @@ describe("KongApiGatewayService", () => {
         json: () => Promise.reject(new Error("Invalid JSON")),
       });
 
-      const result = await service.getConsumerSecret("malformed-json-consumer");
-
-      expect(result).toBeNull();
+      await expect(service.getConsumerSecret("malformed-json-consumer")).rejects.toThrow("Invalid JSON");
     });
 
     it("should handle missing response data", async () => {

@@ -52,6 +52,9 @@ let circuitBreakerRequestsCounter: any;
 let circuitBreakerRejectedCounter: any;
 let circuitBreakerFallbackCounter: any;
 let circuitBreakerStateTransitionCounter: any;
+let cacheTierUsageCounter: any;
+let cacheTierLatencyHistogram: any;
+let cacheTierErrorCounter: any;
 let operationDurationHistogram: any;
 
 let systemMetricsInterval: Timer | null = null;
@@ -246,6 +249,24 @@ export function initializeMetrics(): void {
       unit: "1",
     }
   );
+
+  cacheTierUsageCounter = meter.createCounter("cache_tier_usage_total", {
+    description: "Total number of cache tier usages by tier type",
+    unit: "1",
+  });
+
+  cacheTierLatencyHistogram = meter.createHistogram("cache_tier_latency_seconds", {
+    description: "Cache tier access latency in seconds",
+    unit: "s",
+    advice: {
+      explicitBucketBoundaries: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+    },
+  });
+
+  cacheTierErrorCounter = meter.createCounter("cache_tier_errors_total", {
+    description: "Total number of cache tier errors",
+    unit: "1",
+  });
 
   operationDurationHistogram = meter.createHistogram("operation_duration_seconds", {
     description: "Duration of various operations",
@@ -833,6 +854,58 @@ export function recordCircuitBreakerFallback(operation: string, reason?: string)
     circuitBreakerFallbackCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record circuit breaker fallback metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCacheTierUsage(tier: string, operation: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    tier,
+    operation,
+  };
+
+  try {
+    cacheTierUsageCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record cache tier usage metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCacheTierLatency(tier: string, operation: string, latencyMs: number): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    tier,
+    operation,
+  };
+
+  try {
+    cacheTierLatencyHistogram.record(latencyMs / 1000, attributes);
+  } catch (err) {
+    error("Failed to record cache tier latency metric", {
+      error: (err as Error).message,
+    });
+  }
+}
+
+export function recordCacheTierError(tier: string, operation: string, errorType?: string): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    tier,
+    operation,
+    ...(errorType && { error_type: errorType }),
+  };
+
+  try {
+    cacheTierErrorCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record cache tier error metric", {
       error: (err as Error).message,
     });
   }

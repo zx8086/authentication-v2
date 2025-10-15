@@ -1,6 +1,7 @@
 /* src/config/schemas.ts */
 
 import { z } from "zod";
+import type { CircuitBreakerStats } from "../services/circuit-breaker.service";
 
 export const ConsumerSecretSchema = z.strictObject({
   id: z.string(),
@@ -93,6 +94,12 @@ export const CachingConfigSchema = z.strictObject({
   redisPassword: z.string().optional(),
   redisDb: z.number().int().min(0).max(15),
   ttlSeconds: z.number().int().min(60).max(3600),
+  staleDataToleranceMinutes: z
+    .number()
+    .int()
+    .min(5)
+    .max(240)
+    .describe("Tolerance for serving stale cache data in minutes"),
 });
 
 export const CircuitBreakerConfigSchema = z.strictObject({
@@ -127,12 +134,6 @@ export const CircuitBreakerConfigSchema = z.strictObject({
     .min(1)
     .max(1000)
     .describe("Minimum requests before circuit can trip"),
-  staleDataToleranceMinutes: z
-    .number()
-    .int()
-    .min(1)
-    .max(120)
-    .describe("Tolerance for serving stale cache data in minutes"),
 });
 
 export function addProductionSecurityValidation<
@@ -237,6 +238,7 @@ export const KongConfigSchema = z.strictObject({
   consumerUsernameHeader: NonEmptyString,
   anonymousHeader: NonEmptyString,
   circuitBreaker: CircuitBreakerConfigSchema,
+  highAvailability: z.boolean().optional(),
 });
 
 export const ApiInfoConfigSchema = z.strictObject({
@@ -357,6 +359,7 @@ export interface IKongService {
   clearCache(consumerId?: string): Promise<void>;
   getCacheStats(): Promise<KongCacheStats>;
   healthCheck(): Promise<KongHealthCheckResult>;
+  getCircuitBreakerStats(): Record<string, CircuitBreakerStats>;
 }
 
 export interface IKongCacheService {

@@ -885,7 +885,13 @@ class OpenAPIGenerator {
     const schemas = Object.freeze({
       MetricsHealth: Object.freeze({
         type: "object",
-        required: Object.freeze(["timestamp", "telemetry", "metrics", "export_statistics"]),
+        required: Object.freeze([
+          "timestamp",
+          "telemetry",
+          "metrics",
+          "export_statistics",
+          "circuitBreakers",
+        ]),
         properties: Object.freeze({
           timestamp: Object.freeze({
             type: "string",
@@ -908,12 +914,13 @@ class OpenAPIGenerator {
             }),
           }),
           export_statistics: this._generateExportStatisticsSchemaImmutable(),
+          circuitBreakers: this._generateCircuitBreakerSummarySchemaImmutable(),
         }),
         description: "Comprehensive metrics system health information",
       }),
       PerformanceMetrics: Object.freeze({
         type: "object",
-        required: Object.freeze(["timestamp", "uptime", "metrics"]),
+        required: Object.freeze(["timestamp", "uptime", "metrics", "circuitBreakers"]),
         properties: Object.freeze({
           timestamp: Object.freeze({
             type: "string",
@@ -966,6 +973,7 @@ class OpenAPIGenerator {
               }),
             }),
           }),
+          circuitBreakers: this._generateCircuitBreakerDetailsSchemaImmutable(),
         }),
         description: "Service performance metrics and statistics",
       }),
@@ -1210,6 +1218,133 @@ class OpenAPIGenerator {
       ) &&
       JSON.stringify(arr).length <= 80
     );
+  }
+
+  private _generateCircuitBreakerSummarySchemaImmutable(): any {
+    const cacheKey = "circuitBreakerSummarySchema";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schema = Object.freeze({
+      type: "object",
+      required: Object.freeze(["enabled", "totalBreakers", "states"]),
+      properties: Object.freeze({
+        enabled: Object.freeze({
+          type: "boolean",
+          description: "Whether circuit breaker protection is enabled",
+          example: true,
+        }),
+        totalBreakers: Object.freeze({
+          type: "integer",
+          description: "Total number of circuit breakers configured",
+          example: 3,
+          minimum: 0,
+        }),
+        states: Object.freeze({
+          type: "object",
+          required: Object.freeze(["closed", "open", "halfOpen"]),
+          properties: Object.freeze({
+            closed: Object.freeze({
+              type: "integer",
+              description: "Number of circuit breakers in closed state (healthy)",
+              example: 2,
+              minimum: 0,
+            }),
+            open: Object.freeze({
+              type: "integer",
+              description: "Number of circuit breakers in open state (failing)",
+              example: 0,
+              minimum: 0,
+            }),
+            halfOpen: Object.freeze({
+              type: "integer",
+              description: "Number of circuit breakers in half-open state (testing)",
+              example: 1,
+              minimum: 0,
+            }),
+          }),
+          description: "Circuit breaker state distribution",
+        }),
+      }),
+      description: "Circuit breaker configuration and state summary",
+    });
+
+    this._immutableCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private _generateCircuitBreakerDetailsSchemaImmutable(): any {
+    const cacheKey = "circuitBreakerDetailsSchema";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schema = Object.freeze({
+      type: "object",
+      additionalProperties: Object.freeze({
+        type: "object",
+        required: Object.freeze([
+          "state",
+          "failures",
+          "successes",
+          "timeout",
+          "errorThreshold",
+          "resetTimeout",
+        ]),
+        properties: Object.freeze({
+          state: Object.freeze({
+            type: "string",
+            enum: Object.freeze(["closed", "open", "half-open"]),
+            description: "Current circuit breaker state",
+            example: "closed",
+          }),
+          failures: Object.freeze({
+            type: "integer",
+            description: "Number of consecutive failures",
+            example: 0,
+            minimum: 0,
+          }),
+          successes: Object.freeze({
+            type: "integer",
+            description: "Number of consecutive successes",
+            example: 15,
+            minimum: 0,
+          }),
+          timeout: Object.freeze({
+            type: "integer",
+            description: "Operation timeout in milliseconds",
+            example: 5000,
+            minimum: 0,
+          }),
+          errorThreshold: Object.freeze({
+            type: "integer",
+            description: "Failure threshold before opening circuit",
+            example: 5,
+            minimum: 1,
+          }),
+          resetTimeout: Object.freeze({
+            type: "integer",
+            description: "Time before attempting reset in milliseconds",
+            example: 30000,
+            minimum: 0,
+          }),
+          nextAttempt: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Next attempt time when circuit is open",
+            example: new Date(Date.now() + 30000).toISOString(),
+          }),
+        }),
+        description: "Individual circuit breaker statistics and configuration",
+      }),
+      description: "Detailed circuit breaker statistics by operation name",
+    });
+
+    this._immutableCache.set(cacheKey, schema);
+    return schema;
   }
 }
 

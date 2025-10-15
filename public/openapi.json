@@ -510,7 +510,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA0Njc1NDgsImlhdCI6MTc2MDQ2NjY0OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA1NjQzODksImlhdCI6MTc2MDU2MzQ4OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -546,7 +546,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2025-10-14T18:30:48.983Z"
+            "example": "2025-10-15T21:24:49.710Z"
           },
           "version": {
             "type": "string",
@@ -678,14 +678,15 @@
           "timestamp",
           "telemetry",
           "metrics",
-          "export_statistics"
+          "export_statistics",
+          "circuitBreakers"
         ],
         "properties": {
           "timestamp": {
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2025-10-14T18:30:48.983Z"
+            "example": "2025-10-15T21:24:49.710Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -733,9 +734,60 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-14T18:30:33.983Z"
+                "example": "2025-10-15T21:24:34.710Z"
               }
             }
+          },
+          "circuitBreakers": {
+            "type": "object",
+            "required": [
+              "enabled",
+              "totalBreakers",
+              "states"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether circuit breaker protection is enabled",
+                "example": true
+              },
+              "totalBreakers": {
+                "type": "integer",
+                "description": "Total number of circuit breakers configured",
+                "example": 3,
+                "minimum": 0
+              },
+              "states": {
+                "type": "object",
+                "required": [
+                  "closed",
+                  "open",
+                  "halfOpen"
+                ],
+                "properties": {
+                  "closed": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in closed state (healthy)",
+                    "example": 2,
+                    "minimum": 0
+                  },
+                  "open": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in open state (failing)",
+                    "example": 0,
+                    "minimum": 0
+                  },
+                  "halfOpen": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in half-open state (testing)",
+                    "example": 1,
+                    "minimum": 0
+                  }
+                },
+                "description": "Circuit breaker state distribution"
+              }
+            },
+            "description": "Circuit breaker configuration and state summary"
           }
         },
         "description": "Comprehensive metrics system health information"
@@ -745,14 +797,15 @@
         "required": [
           "timestamp",
           "uptime",
-          "metrics"
+          "metrics",
+          "circuitBreakers"
         ],
         "properties": {
           "timestamp": {
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2025-10-14T18:30:48.983Z"
+            "example": "2025-10-15T21:24:49.710Z"
           },
           "uptime": {
             "type": "integer",
@@ -798,6 +851,70 @@
                 }
               }
             }
+          },
+          "circuitBreakers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "state",
+                "failures",
+                "successes",
+                "timeout",
+                "errorThreshold",
+                "resetTimeout"
+              ],
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "closed",
+                    "open",
+                    "half-open"
+                  ],
+                  "description": "Current circuit breaker state",
+                  "example": "closed"
+                },
+                "failures": {
+                  "type": "integer",
+                  "description": "Number of consecutive failures",
+                  "example": 0,
+                  "minimum": 0
+                },
+                "successes": {
+                  "type": "integer",
+                  "description": "Number of consecutive successes",
+                  "example": 15,
+                  "minimum": 0
+                },
+                "timeout": {
+                  "type": "integer",
+                  "description": "Operation timeout in milliseconds",
+                  "example": 5000,
+                  "minimum": 0
+                },
+                "errorThreshold": {
+                  "type": "integer",
+                  "description": "Failure threshold before opening circuit",
+                  "example": 5,
+                  "minimum": 1
+                },
+                "resetTimeout": {
+                  "type": "integer",
+                  "description": "Time before attempting reset in milliseconds",
+                  "example": 30000,
+                  "minimum": 0
+                },
+                "nextAttempt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Next attempt time when circuit is open",
+                  "example": "2025-10-15T21:25:19.710Z"
+                }
+              },
+              "description": "Individual circuit breaker statistics and configuration"
+            },
+            "description": "Detailed circuit breaker statistics by operation name"
           }
         },
         "description": "Service performance metrics and statistics"
@@ -815,7 +932,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2025-10-14T18:30:48.983Z"
+            "example": "2025-10-15T21:24:49.710Z"
           },
           "message": {
             "type": "string",
@@ -854,7 +971,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-14T18:30:33.983Z"
+                "example": "2025-10-15T21:24:34.710Z"
               }
             }
           },
@@ -884,7 +1001,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2025-10-14T18:30:48.982Z"
+            "example": "2025-10-15T21:24:49.709Z"
           },
           "message": {
             "type": "string",
@@ -934,7 +1051,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Error occurrence timestamp",
-            "example": "2025-10-14T18:30:48.982Z"
+            "example": "2025-10-15T21:24:49.709Z"
           },
           "requestId": {
             "type": "string",

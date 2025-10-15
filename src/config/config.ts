@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
-import { deriveOtlpEndpoint } from "./helpers";
+import { deriveOtlpEndpoint, toBool } from "./helpers";
 import type {
   ApiInfoConfig,
   AppConfig,
@@ -44,13 +44,13 @@ const envSchema = z
     KONG_ADMIN_TOKEN: NonEmptyString,
 
     // Circuit Breaker Configuration (optional with sensible defaults)
-    CIRCUIT_BREAKER_ENABLED: z
-      .string()
-      .optional()
-      .transform((val) => val === "true"),
+    CIRCUIT_BREAKER_ENABLED: z.string().optional(),
     CIRCUIT_BREAKER_TIMEOUT: z.coerce.number().int().min(100).max(10000).optional(),
     CIRCUIT_BREAKER_ERROR_THRESHOLD: z.coerce.number().min(1).max(100).optional(),
     CIRCUIT_BREAKER_RESET_TIMEOUT: z.coerce.number().int().min(1000).max(300000).optional(),
+    CIRCUIT_BREAKER_VOLUME_THRESHOLD: z.coerce.number().int().min(1).max(100).optional(),
+    CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT: z.coerce.number().int().min(1000).max(60000).optional(),
+    CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS: z.coerce.number().int().min(1).max(20).optional(),
     STALE_DATA_TOLERANCE_MINUTES: z.coerce.number().int().min(1).max(120).optional(),
 
     // Telemetry Configuration
@@ -148,17 +148,21 @@ const envVarMapping = {
     mode: "KONG_MODE",
     adminUrl: "KONG_ADMIN_URL",
     adminToken: "KONG_ADMIN_TOKEN",
+    highAvailability: "HIGH_AVAILABILITY",
     circuitBreakerEnabled: "CIRCUIT_BREAKER_ENABLED",
     circuitBreakerTimeout: "CIRCUIT_BREAKER_TIMEOUT",
     circuitBreakerErrorThreshold: "CIRCUIT_BREAKER_ERROR_THRESHOLD",
     circuitBreakerResetTimeout: "CIRCUIT_BREAKER_RESET_TIMEOUT",
-    staleDataToleranceMinutes: "STALE_DATA_TOLERANCE_MINUTES",
+    circuitBreakerVolumeThreshold: "CIRCUIT_BREAKER_VOLUME_THRESHOLD",
+    circuitBreakerRollingCountTimeout: "CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT",
+    circuitBreakerRollingCountBuckets: "CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS",
   },
   caching: {
     highAvailability: "HIGH_AVAILABILITY",
     redisUrl: "REDIS_URL",
     redisPassword: "REDIS_PASSWORD",
     redisDb: "REDIS_DB",
+    staleDataToleranceMinutes: "STALE_DATA_TOLERANCE_MINUTES",
   },
   telemetry: {
     serviceName: "OTEL_SERVICE_NAME",
@@ -207,14 +211,13 @@ const defaultConfig: AppConfig = {
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",
     circuitBreaker: {
-      enabled: false,
+      enabled: true,
       timeout: 5000,
       errorThresholdPercentage: 50,
       resetTimeout: 60000,
       rollingCountTimeout: 10000,
       rollingCountBuckets: 10,
-      volumeThreshold: 10,
-      staleDataToleranceMinutes: 30,
+      volumeThreshold: 3,
     },
   },
   caching: {
@@ -223,6 +226,7 @@ const defaultConfig: AppConfig = {
     redisPassword: "",
     redisDb: 0,
     ttlSeconds: 300,
+    staleDataToleranceMinutes: 30,
   },
   telemetry: {
     serviceName: pkg.name || "authentication-service",
@@ -323,15 +327,21 @@ function initializeConfig(): AppConfig {
           mode: envConfig.KONG_MODE,
           adminUrl: envConfig.KONG_ADMIN_URL,
           adminToken: envConfig.KONG_ADMIN_TOKEN,
+          consumerIdHeader: "x-consumer-id",
+          consumerUsernameHeader: "x-consumer-username",
+          anonymousHeader: "x-anonymous-consumer",
+          highAvailability: toBool(envConfig.HIGH_AVAILABILITY, false),
         }).filter(([, value]) => value !== undefined)
       ),
       circuitBreaker: Object.fromEntries(
         Object.entries({
-          enabled: envConfig.CIRCUIT_BREAKER_ENABLED,
+          enabled: toBool(envConfig.CIRCUIT_BREAKER_ENABLED, true),
           timeout: envConfig.CIRCUIT_BREAKER_TIMEOUT,
           errorThresholdPercentage: envConfig.CIRCUIT_BREAKER_ERROR_THRESHOLD,
           resetTimeout: envConfig.CIRCUIT_BREAKER_RESET_TIMEOUT,
-          staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
+          volumeThreshold: envConfig.CIRCUIT_BREAKER_VOLUME_THRESHOLD,
+          rollingCountTimeout: envConfig.CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT,
+          rollingCountBuckets: envConfig.CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS,
         }).filter(([, value]) => value !== undefined)
       ),
     },
@@ -341,6 +351,7 @@ function initializeConfig(): AppConfig {
         redisUrl: envConfig.REDIS_URL,
         redisPassword: envConfig.REDIS_PASSWORD,
         redisDb: envConfig.REDIS_DB,
+        staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
       }).filter(([, value]) => value !== undefined)
     ),
     telemetry: {

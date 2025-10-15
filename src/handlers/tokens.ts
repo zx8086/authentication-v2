@@ -135,7 +135,51 @@ export async function handleTokenRequest(
     try {
       const { consumerId, username } = headerValidation;
 
-      const secretResult = await lookupConsumerSecret(consumerId, username, kongService);
+      let secretResult: { key: string; secret: string } | null;
+      try {
+        secretResult = await lookupConsumerSecret(consumerId, username, kongService);
+      } catch (kongError) {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        recordAuthenticationAttempt("kong_unavailable", false, username);
+        recordError("kong_service_unavailable", {
+          consumerId,
+          username,
+          error: kongError instanceof Error ? kongError.message : "Kong service unavailable",
+        });
+
+        error("Kong service unavailable during token request", {
+          consumerId,
+          username,
+          error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
+          requestId,
+        });
+
+        log("HTTP request processed", {
+          method: req.method,
+          url: url.pathname,
+          statusCode: 503,
+          duration,
+          requestId,
+          error: "Service temporarily unavailable",
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: "Service Unavailable",
+            message: "Authentication service is temporarily unavailable. Please try again later.",
+            details: "Kong gateway connectivity issues",
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            status: 503,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-Id": requestId,
+              "Retry-After": "30",
+            },
+          }
+        );
+      }
 
       if (!secretResult) {
         const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -165,7 +209,14 @@ export async function handleTokenRequest(
         return createUnauthorizedResponse("Invalid consumer credentials", requestId);
       }
 
-      const tokenData = await generateJWTToken(username, secretResult.key, secretResult.secret);
+      // Use original username for JWT claims
+      const effectiveUsername = username;
+
+      const tokenData = await generateJWTToken(
+        effectiveUsername,
+        secretResult.key,
+        secretResult.secret
+      );
 
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("success", true, username);

@@ -44,30 +44,47 @@ log("Checking Kong connectivity...", {
   event: "connectivity_check",
 });
 
-const startupKongHealth = await kongService.healthCheck();
-recordKongOperation(
-  "startup_health_check",
-  startupKongHealth.healthy ? "success" : "failure",
-  startupKongHealth.responseTime,
-  startupKongHealth.healthy
-);
+let startupKongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
+try {
+  startupKongHealth = await kongService.healthCheck();
+  recordKongOperation(
+    "startup_health_check",
+    startupKongHealth.healthy ? "success" : "failure",
+    startupKongHealth.responseTime,
+    startupKongHealth.healthy
+  );
 
-if (!startupKongHealth.healthy) {
-  log("Kong health check failed during startup", {
-    operation: "health_check",
-    duration: startupKongHealth.responseTime,
-    success: false,
-    error: startupKongHealth.error,
-  });
-  warn("Server will start but Kong integration may not work", {
+  if (!startupKongHealth.healthy) {
+    warn("Kong health check failed during startup - entering degraded mode", {
+      component: "kong",
+      operation: "health_check",
+      duration: startupKongHealth.responseTime,
+      success: false,
+      error: startupKongHealth.error,
+      status: "degraded",
+    });
+  } else {
+    log("Kong connectivity verified", {
+      component: "kong",
+      event: "connectivity_verified",
+      duration: startupKongHealth.responseTime,
+    });
+  }
+} catch (startupError) {
+  error("Kong health check failed during startup with exception - entering degraded mode", {
     component: "kong",
+    operation: "health_check",
+    success: false,
+    error: startupError instanceof Error ? startupError.message : "Unknown error",
     status: "degraded",
   });
-} else {
-  log("Kong connectivity verified", {
+
+  recordKongOperation("startup_health_check", "failure", 0, false);
+
+  warn("Server will start in degraded mode - Kong integration unavailable", {
     component: "kong",
-    event: "connectivity_verified",
-    duration: startupKongHealth.responseTime,
+    status: "degraded",
+    impact: "JWT token issuance will not work until Kong connectivity is restored",
   });
 }
 

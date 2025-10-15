@@ -700,6 +700,15 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 | `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for exports | `2048` | Range: 1-5000 | No |
 | `OTEL_BSP_MAX_QUEUE_SIZE` | Maximum queue size | `10000` | Range: 1-50000 | No |
 
+#### Circuit Breaker Configuration
+| Variable | Description | Example | Security Notes | Required |
+|----------|-------------|---------|----------------|----------|
+| ~~`CIRCUIT_BREAKER_ENABLED`~~ | ~~Enable circuit breaker protection~~ | ~~`true`~~ | **Always enabled (KISS principle)** | ~~No~~ |
+| `CIRCUIT_BREAKER_TIMEOUT` | Request timeout in milliseconds | `500` | Range: 100-10000ms | No (default: `500`) |
+| `CIRCUIT_BREAKER_ERROR_THRESHOLD` | Error threshold percentage | `50` | Range: 1-100% | No (default: `50`) |
+| `CIRCUIT_BREAKER_RESET_TIMEOUT` | Circuit reset timeout in milliseconds | `30000` | Range: 1000-300000ms | No (default: `30000`) |
+| `STALE_DATA_TOLERANCE_MINUTES` | Stale cache tolerance in minutes | `60` | Range: 1-120 minutes | No (default: `60`) |
+
 #### API Documentation Configuration
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
@@ -1171,6 +1180,11 @@ The service implements cost-optimized observability using vendor-neutral OpenTel
 | `jwt_tokens_generated` | Counter | JWT generation count |
 | `kong_operations` | Counter | Kong API operations with circuit breaker status |
 | `hybrid_cache_operations` | Counter | Memory and Redis cache statistics |
+| `circuit_breaker_state` | Gauge | Circuit breaker state (0=closed, 1=open, 2=half-open) |
+| `circuit_breaker_requests_total` | Counter | Circuit breaker requests by operation and result |
+| `circuit_breaker_rejected_total` | Counter | Circuit breaker rejections by operation |
+| `circuit_breaker_fallback_total` | Counter | Circuit breaker fallback usage by operation |
+| `circuit_breaker_state_transitions_total` | Counter | Circuit breaker state transitions |
 | `unified_metrics_collection` | Counter | Consolidated metrics endpoint usage |
 
 ### Telemetry Modes
@@ -1212,6 +1226,9 @@ curl http://localhost:3000/metrics
 - Cache miss rate >50%
 - OTLP export failures >10%
 - JWT generation p99 latency >50ms
+- Circuit breaker state transitions to "open"
+- Circuit breaker rejection rate >10%
+- Stale data fallback usage >5%
 
 #### Dashboard Metrics
 - Request throughput (req/sec)
@@ -1221,6 +1238,9 @@ curl http://localhost:3000/metrics
 - Cache hit ratio
 - Memory and CPU utilization
 - Active connections
+- Circuit breaker state and transitions
+- Circuit breaker rejection and fallback rates
+- Kong API operation success/failure rates
 
 ---
 
@@ -1452,6 +1472,12 @@ CACHE_MAX_SIZE=1000
 # Rate limiting
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=1000
+
+# Circuit breaker settings (always enabled by default)
+CIRCUIT_BREAKER_TIMEOUT=500
+CIRCUIT_BREAKER_ERROR_THRESHOLD=50
+CIRCUIT_BREAKER_RESET_TIMEOUT=30000
+STALE_DATA_TOLERANCE_MINUTES=60
 ```
 
 #### Scaling Recommendations
@@ -1577,7 +1603,10 @@ The authentication service implements a comprehensive testing strategy with auto
 #### Test Coverage Achievements
 - **Overall Coverage**: 80.78% line coverage (+16.21% improvement)
 - **Integration Tests**: 124 tests executing in CI with live server validation
-- **Kong API Gateway Service**: 100% coverage (33 comprehensive test cases)
+- **Kong Service Test Suite**: 83 comprehensive test cases across 4 service files (100% coverage)
+  - **Kong API Gateway Service**: 33 test cases (100% coverage)
+  - **Kong Konnect Service**: 24 test cases covering cloud and self-hosted environments
+  - **Circuit Breaker Service**: 26 test cases for Kong Admin API resilience
 - **Kong Factory Pattern**: 100% coverage with mode validation
 - **Logger Utility**: 46.58% coverage with error-free execution validation
 - **Server Integration**: Complete HTTP endpoint testing with proper mock isolation
@@ -1595,6 +1624,8 @@ bun test test/bun/config.test.ts
 bun test test/bun/jwt.service.test.ts
 bun test test/bun/kong.service.test.ts
 bun test test/bun/kong-api-gateway.service.test.ts
+bun test test/bun/kong-konnect.service.test.ts
+bun test test/bun/circuit-breaker.service.test.ts
 bun test test/bun/kong.factory.test.ts
 bun test test/bun/logger.test.ts
 bun test test/bun/server.test.ts
@@ -1611,6 +1642,8 @@ Test Coverage Areas:
 - **JWT token generation and signing**: Native crypto.subtle validation (`jwt.service.test.ts`)
 - **Kong API integration**: Complete mocking with factory pattern testing (`kong.service.test.ts`)
 - **Kong API Gateway Service**: 100% coverage with 33 test cases (`kong-api-gateway.service.test.ts`)
+- **Kong Konnect Service**: Comprehensive 24 test cases covering cloud and self-hosted environments (`kong-konnect.service.test.ts`)
+- **Circuit Breaker Service**: Complete 26 test cases for Kong Admin API resilience (`circuit-breaker.service.test.ts`)
 - **Kong Factory Pattern**: 100% coverage with mode validation (`kong.factory.test.ts`)
 - **Logger Utility**: Error-free execution validation (`logger.test.ts`)
 - **HTTP endpoint behavior**: Modular handler testing with proper isolation (`server.test.ts`)
@@ -1711,6 +1744,8 @@ All K6 tests now use a standardized shell script wrapper (`scripts/run-k6.sh`) t
   - `jwt.service.test.ts` - JWT generation and validation
   - `kong.service.test.ts` - Kong service integration testing
   - `kong-api-gateway.service.test.ts` - Kong API Gateway service (100% coverage)
+  - `kong-konnect.service.test.ts` - Kong Konnect service (24 comprehensive test cases)
+  - `circuit-breaker.service.test.ts` - Circuit breaker service (26 test cases for Kong API resilience)
   - `kong.factory.test.ts` - Kong factory pattern (100% coverage)
   - `logger.test.ts` - Logger utility testing
   - `server.test.ts` - HTTP server integration testing

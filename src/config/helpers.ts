@@ -133,3 +133,15 @@ export function createOtlpConfig(env: {
     ...derivedEndpoints,
   };
 }
+
+// Helper function to convert string environment variables to boolean
+export function toBool(
+  value: string | boolean | undefined,
+  defaultValue: boolean = false
+): boolean {
+  if (value === undefined) return defaultValue;
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return defaultValue;
+  const normalized = value.toLowerCase().trim();
+  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+}

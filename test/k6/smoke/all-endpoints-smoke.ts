@@ -64,6 +64,24 @@ export default function () {
 
   sleep(0.3);
 
+  // Test metrics health endpoint
+  const metricsHealthResponse = http.get(`${baseUrl}/health/metrics`);
+  check(metricsHealthResponse, {
+    "GET /health/metrics status is 200": (r) => r.status === 200,
+    "GET /health/metrics response time < 50ms": (r) =>
+      r.timings.duration < 50,
+    "GET /health/metrics has circuit breaker data": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"circuitBreakers"') && body.includes('"enabled"');
+    },
+    "GET /health/metrics has export statistics": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"exports"') && body.includes('"metrics"');
+    },
+  });
+
+  sleep(0.3);
+
   // Test unified metrics endpoint (default operational view)
   const metricsResponse = http.get(`${baseUrl}/metrics`);
   check(metricsResponse, {
@@ -76,6 +94,10 @@ export default function () {
     "GET /metrics has operational data": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"memory"') && body.includes('"uptime"');
+    },
+    "GET /metrics has circuit breaker data": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"circuitBreakers"');
     },
   });
 

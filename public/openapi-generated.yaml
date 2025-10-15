@@ -1,5 +1,5 @@
 # OpenAPI 3.1.1 specification for Authentication Service
-# Generated on: 2025-10-14T18:30:48.987Z
+# Generated on: 2025-10-15T21:24:49.712Z
 # This file is auto-generated. Do not edit manually.
 # Compliant with JSON Schema Draft 2020-12
 
@@ -51,7 +51,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2025-10-14T18:30:48.982Z"
+          example: "2025-10-15T21:24:49.709Z"
           format: date-time
       description: Debug operation response
     ErrorResponse:
@@ -84,7 +84,7 @@ components:
         timestamp:
           type: string
           description: Error occurrence timestamp
-          example: "2025-10-14T18:30:48.982Z"
+          example: "2025-10-15T21:24:49.709Z"
           format: date-time
       description: Standard error response format
     HealthResponse:
@@ -131,7 +131,7 @@ components:
         timestamp:
           type: string
           description: Health check timestamp
-          example: "2025-10-14T18:30:48.983Z"
+          example: "2025-10-15T21:24:49.710Z"
           format: date-time
         uptime:
           type: integer
@@ -145,8 +145,42 @@ components:
       description: System health status with dependency information
     MetricsHealth:
       type: object
-      required: [timestamp, telemetry, metrics, export_statistics]
+      required: [timestamp, telemetry, metrics, export_statistics, circuitBreakers]
       properties:
+        circuitBreakers:
+          type: object
+          required: [enabled, totalBreakers, states]
+          properties:
+            enabled:
+              type: boolean
+              description: Whether circuit breaker protection is enabled
+              example: true
+            states:
+              type: object
+              required: [closed, open, halfOpen]
+              properties:
+                closed:
+                  type: integer
+                  description: Number of circuit breakers in closed state (healthy)
+                  example: 2
+                  minimum: 0
+                halfOpen:
+                  type: integer
+                  description: Number of circuit breakers in half-open state (testing)
+                  example: 1
+                  minimum: 0
+                open:
+                  type: integer
+                  description: Number of circuit breakers in open state (failing)
+                  example: 0
+                  minimum: 0
+              description: Circuit breaker state distribution
+            totalBreakers:
+              type: integer
+              description: Total number of circuit breakers configured
+              example: 3
+              minimum: 0
+          description: Circuit breaker configuration and state summary
         export_statistics:
           type: object
           properties:
@@ -158,7 +192,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-14T18:30:33.983Z"
+              example: "2025-10-15T21:24:34.710Z"
               format: date-time
             successCount:
               type: integer
@@ -189,7 +223,7 @@ components:
         timestamp:
           type: string
           description: Metrics health check timestamp
-          example: "2025-10-14T18:30:48.983Z"
+          example: "2025-10-15T21:24:49.710Z"
           format: date-time
       description: Comprehensive metrics system health information
     MetricsStats:
@@ -207,7 +241,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-14T18:30:33.983Z"
+              example: "2025-10-15T21:24:34.710Z"
               format: date-time
             successCount:
               type: integer
@@ -240,13 +274,62 @@ components:
         timestamp:
           type: string
           description: Statistics retrieval timestamp
-          example: "2025-10-14T18:30:48.983Z"
+          example: "2025-10-15T21:24:49.710Z"
           format: date-time
       description: Detailed metrics export statistics and status
     PerformanceMetrics:
       type: object
-      required: [timestamp, uptime, metrics]
+      required: [timestamp, uptime, metrics, circuitBreakers]
       properties:
+        circuitBreakers:
+          type: object
+          description: Detailed circuit breaker statistics by operation name
+          additionalProperties:
+            type: object
+            required: 
+              - state
+              - failures
+              - successes
+              - timeout
+              - errorThreshold
+              - resetTimeout
+            properties:
+              errorThreshold:
+                type: integer
+                description: Failure threshold before opening circuit
+                example: 5
+                minimum: 1
+              failures:
+                type: integer
+                description: Number of consecutive failures
+                example: 0
+                minimum: 0
+              nextAttempt:
+                type: string
+                description: Next attempt time when circuit is open
+                example: "2025-10-15T21:25:19.710Z"
+                format: date-time
+              resetTimeout:
+                type: integer
+                description: Time before attempting reset in milliseconds
+                example: 30000
+                minimum: 0
+              state:
+                type: string
+                description: Current circuit breaker state
+                enum: [closed, open, half-open]
+                example: closed
+              successes:
+                type: integer
+                description: Number of consecutive successes
+                example: 15
+                minimum: 0
+              timeout:
+                type: integer
+                description: Operation timeout in milliseconds
+                example: 5000
+                minimum: 0
+            description: Individual circuit breaker statistics and configuration
         metrics:
           type: object
           properties:
@@ -279,7 +362,7 @@ components:
         timestamp:
           type: string
           description: Metrics collection timestamp
-          example: "2025-10-14T18:30:48.983Z"
+          example: "2025-10-15T21:24:49.710Z"
           format: date-time
         uptime:
           type: integer
@@ -339,7 +422,7 @@ components:
         access_token:
           type: string
           description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA0Njc1NDgsImlhdCI6MTc2MDQ2NjY0OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA1NjQzODksImlhdCI6MTc2MDU2MzQ4OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
         expires_in:
           type: integer
           description: Token expiration time in seconds

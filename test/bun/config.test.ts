@@ -59,8 +59,7 @@ describe('Configuration System', () => {
           resetTimeout: 60000,
           rollingCountTimeout: 10000,
           rollingCountBuckets: 10,
-          volumeThreshold: 20,
-          staleDataToleranceMinutes: 10
+          volumeThreshold: 20
         }
       };
 
@@ -259,8 +258,7 @@ describe('Configuration System', () => {
           resetTimeout: 60000,
           rollingCountTimeout: 10000,
           rollingCountBuckets: 10,
-          volumeThreshold: 20,
-          staleDataToleranceMinutes: 10
+          volumeThreshold: 20
         }
       };
 
@@ -283,8 +281,7 @@ describe('Configuration System', () => {
           resetTimeout: 60000,
           rollingCountTimeout: 10000,
           rollingCountBuckets: 10,
-          volumeThreshold: 20,
-          staleDataToleranceMinutes: 10
+          volumeThreshold: 20
         }
       };
 

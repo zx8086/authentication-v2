@@ -11,15 +11,16 @@ import {
 } from "bun:test";
 import { getTestConsumer } from '../shared/test-consumers';
 
-// Mock environment variables for new configuration system
+// Mock environment variables for testing - Use API_GATEWAY mode for simpler testing
 process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
 process.env.KONG_JWT_AUDIENCE = "example-api";
 process.env.KONG_ADMIN_URL = "http://test-kong:8001";
 process.env.KONG_ADMIN_TOKEN = "test-admin-token-123456789012345678901234567890";
-process.env.KONG_MODE = "KONNECT";
+process.env.KONG_MODE = "API_GATEWAY"; // Use API_GATEWAY for integration tests
 process.env.NODE_ENV = "test";
 process.env.TELEMETRY_MODE = "console";
 process.env.PORT = "3000";
+process.env.KONG_CIRCUIT_BREAKER_ENABLED = "false"; // Disable circuit breaker for tests
 
 describe("Authentication Server Integration", () => {
   const serverUrl = "http://localhost:3000";
@@ -87,6 +88,76 @@ describe("Authentication Server Integration", () => {
       expect(typeof metrics.memory.used).toBe("number");
       expect(typeof metrics.memory.total).toBe("number");
       expect(typeof metrics.memory.rss).toBe("number");
+    });
+
+    it("should include circuit breaker information in operational metrics", async () => {
+      const response = await fetch(`${serverUrl}/metrics`);
+      expect(response.status).toBe(200);
+
+      const metrics = await response.json();
+      expect(metrics).toHaveProperty("circuitBreakers");
+      expect(typeof metrics.circuitBreakers).toBe("object");
+    });
+
+    it("should return metrics with various view parameters", async () => {
+      const views = ["operational", "infrastructure", "telemetry", "exports", "config", "full"];
+
+      for (const view of views) {
+        const response = await fetch(`${serverUrl}/metrics?view=${view}`);
+        expect(response.status).toBe(200);
+
+        const metrics = await response.json();
+        expect(metrics).toHaveProperty("timestamp");
+
+        if (view === "operational" || view === "full") {
+          expect(metrics).toHaveProperty("circuitBreakers");
+        }
+      }
+    });
+  });
+
+  describe("Health Metrics Endpoint", () => {
+    it("should return metrics health information", async () => {
+      const response = await fetch(`${serverUrl}/health/metrics`);
+      expect(response.status).toBe(200);
+
+      const metricsHealth = await response.json();
+      expect(metricsHealth).toHaveProperty("timestamp");
+      expect(metricsHealth).toHaveProperty("metrics");
+      expect(metricsHealth).toHaveProperty("circuitBreakers");
+      expect(metricsHealth.metrics).toHaveProperty("exports");
+    });
+
+    it("should include circuit breaker summary in metrics health", async () => {
+      const response = await fetch(`${serverUrl}/health/metrics`);
+      expect(response.status).toBe(200);
+
+      const metricsHealth = await response.json();
+      expect(metricsHealth).toHaveProperty("circuitBreakers");
+
+      const circuitBreakers = metricsHealth.circuitBreakers;
+      expect(circuitBreakers).toHaveProperty("enabled");
+      expect(circuitBreakers).toHaveProperty("totalBreakers");
+      expect(circuitBreakers).toHaveProperty("states");
+
+      expect(typeof circuitBreakers.enabled).toBe("boolean");
+      expect(typeof circuitBreakers.totalBreakers).toBe("number");
+      expect(circuitBreakers.states).toHaveProperty("closed");
+      expect(circuitBreakers.states).toHaveProperty("open");
+      expect(circuitBreakers.states).toHaveProperty("halfOpen");
+
+      expect(typeof circuitBreakers.states.closed).toBe("number");
+      expect(typeof circuitBreakers.states.open).toBe("number");
+      expect(typeof circuitBreakers.states.halfOpen).toBe("number");
+    });
+
+    it("should respond quickly for metrics health checks", async () => {
+      const start = Bun.nanoseconds();
+      const response = await fetch(`${serverUrl}/health/metrics`);
+      const duration = (Bun.nanoseconds() - start) / 1_000_000;
+
+      expect(response.status).toBe(200);
+      expect(duration).toBeLessThan(100); // Should respond within 100ms
     });
   });
 

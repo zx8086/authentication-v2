@@ -1,9 +1,9 @@
-/* test/playwright/comprehensive-business.e2e.ts */
+/* test/playwright/consolidated-business.e2e.ts */
 
 import { test, expect } from '@playwright/test';
 import { getTestConsumer, getBasicTestConsumers, ANONYMOUS_CONSUMER } from '../shared/test-consumers';
 
-test.describe('Comprehensive Business Requirements', () => {
+test.describe('Authentication Service - Complete Business Requirements', () => {
 
   test.describe('Service Health & Dependencies', () => {
     test('Health endpoint reports service and Kong status', async ({ request }) => {
@@ -15,7 +15,6 @@ test.describe('Comprehensive Business Requirements', () => {
       expect(data).toHaveProperty('version');
       expect(data).toHaveProperty('uptime');
 
-      // Kong dependency status
       expect(data.dependencies).toHaveProperty('kong');
       expect(data.dependencies.kong).toHaveProperty('status');
       expect(['healthy', 'unhealthy']).toContain(data.dependencies.kong.status);
@@ -57,21 +56,18 @@ test.describe('Comprehensive Business Requirements', () => {
 
       const data = await response.json();
 
-      // Token structure
       expect(data.access_token).toBeTruthy();
       expect(data.expires_in).toBe(900); // 15 minutes
 
-      // JWT format validation (header.payload.signature)
       const parts = data.access_token.split('.');
       expect(parts).toHaveLength(3);
 
-      // Decode and validate JWT claims
       const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
       expect(payload.sub).toBe(consumer.username);
-      expect(payload.iss).toBeTruthy(); // Issuer
-      expect(payload.aud).toBeTruthy(); // Audience
-      expect(payload.key).toBeTruthy(); // Kong key claim
-      expect(payload.exp - payload.iat).toBe(900); // 15 minute expiration
+      expect(payload.iss).toBeTruthy();
+      expect(payload.aud).toBeTruthy();
+      expect(payload.key).toBeTruthy();
+      expect(payload.exp - payload.iat).toBe(900);
     });
 
     test('Same consumer gets consistent tokens (same secret)', async ({ request }) => {
@@ -81,7 +77,6 @@ test.describe('Comprehensive Business Requirements', () => {
         'X-Consumer-Username': consumer.username
       };
 
-      // Get two tokens
       const response1 = await request.get('/tokens', { headers });
       const response2 = await request.get('/tokens', { headers });
 
@@ -91,11 +86,9 @@ test.describe('Comprehensive Business Requirements', () => {
       const token1 = (await response1.json()).access_token;
       const token2 = (await response2.json()).access_token;
 
-      // Decode payloads
       const payload1 = JSON.parse(Buffer.from(token1.split('.')[1], 'base64url').toString());
       const payload2 = JSON.parse(Buffer.from(token2.split('.')[1], 'base64url').toString());
 
-      // Same consumer should have same 'key' claim (uses same secret)
       expect(payload1.key).toBe(payload2.key);
       expect(payload1.sub).toBe(payload2.sub);
       expect(payload1.iss).toBe(payload2.iss);
@@ -103,8 +96,8 @@ test.describe('Comprehensive Business Requirements', () => {
     });
 
     test('Different consumers get different tokens', async ({ request }) => {
-      const consumers = getBasicTestConsumers().slice(0, 2);
-      const tokens = [];
+      const consumers = getBasicTestConsumers().slice(0, 3);
+      const tokens = new Set();
 
       for (const consumer of consumers) {
         const response = await request.get('/tokens', {
@@ -116,18 +109,17 @@ test.describe('Comprehensive Business Requirements', () => {
         expect(response.status()).toBe(200);
 
         const data = await response.json();
-        tokens.push(data.access_token);
+        tokens.add(data.access_token);
       }
 
-      // Tokens should be unique
-      expect(tokens[0]).not.toBe(tokens[1]);
+      expect(tokens.size).toBe(3);
 
-      // Decode and verify different subjects
-      const payload1 = JSON.parse(Buffer.from(tokens[0].split('.')[1], 'base64url').toString());
-      const payload2 = JSON.parse(Buffer.from(tokens[1].split('.')[1], 'base64url').toString());
+      const tokenArray = Array.from(tokens) as string[];
+      const payload1 = JSON.parse(Buffer.from(tokenArray[0].split('.')[1], 'base64url').toString());
+      const payload2 = JSON.parse(Buffer.from(tokenArray[1].split('.')[1], 'base64url').toString());
 
       expect(payload1.sub).not.toBe(payload2.sub);
-      expect(payload1.key).not.toBe(payload2.key); // Different secrets
+      expect(payload1.key).not.toBe(payload2.key);
     });
   });
 
@@ -148,17 +140,14 @@ test.describe('Comprehensive Business Requirements', () => {
     });
 
     test('Requires both consumer headers', async ({ request }) => {
-      // Missing both headers
       let response = await request.get('/tokens');
       expect(response.status()).toBe(401);
 
-      // Only consumer ID
       response = await request.get('/tokens', {
         headers: { 'X-Consumer-Id': 'test-id' }
       });
       expect(response.status()).toBe(401);
 
-      // Only consumer username
       response = await request.get('/tokens', {
         headers: { 'X-Consumer-Username': 'test-user' }
       });
@@ -181,15 +170,14 @@ test.describe('Comprehensive Business Requirements', () => {
     });
   });
 
-  test.describe('Service Performance', () => {
-    test('Handles multiple requests efficiently without caching', async ({ request }) => {
+  test.describe('Service Performance & Reliability', () => {
+    test('Handles multiple requests efficiently', async ({ request }) => {
       const consumer = getTestConsumer(0);
       const headers = {
         'X-Consumer-Id': consumer.id,
         'X-Consumer-Username': consumer.username
       };
 
-      // Multiple requests should all succeed - service relies on Kong Gateway proxy caching
       const startTime = Date.now();
       for (let i = 0; i < 5; i++) {
         const response = await request.get('/tokens', { headers });
@@ -201,8 +189,33 @@ test.describe('Comprehensive Business Requirements', () => {
       }
       const endTime = Date.now();
 
-      // Should complete reasonably quickly (within 10 seconds for 5 requests)
       expect(endTime - startTime).toBeLessThan(10000);
+    });
+
+    test('Different consumers can request tokens concurrently', async ({ request }) => {
+      const consumers = getBasicTestConsumers().slice(0, 3);
+
+      const requests = consumers.map(consumer =>
+        request.get('/tokens', {
+          headers: {
+            'X-Consumer-Id': consumer.id,
+            'X-Consumer-Username': consumer.username
+          }
+        })
+      );
+
+      const responses = await Promise.all(requests);
+
+      for (const response of responses) {
+        expect(response.status()).toBe(200);
+      }
+
+      const tokens = new Set();
+      for (const response of responses) {
+        const data = await response.json();
+        tokens.add(data.access_token);
+      }
+      expect(tokens.size).toBe(consumers.length);
     });
   });
 
@@ -262,8 +275,6 @@ test.describe('Comprehensive Business Requirements', () => {
         expect(data).toHaveProperty('error');
         expect(data).toHaveProperty('message');
 
-        // 404 responses only have error and message
-        // 401 responses have timestamp and requestId
         if (expectedStatus === 401) {
           expect(data).toHaveProperty('timestamp');
           expect(data).toHaveProperty('requestId');

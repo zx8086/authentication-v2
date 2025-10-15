@@ -26,6 +26,7 @@ export class SharedRedisCache implements IKongCacheService {
       password?: string;
       db: number;
       ttlSeconds: number;
+      staleDataToleranceMinutes?: number;
     }
   ) {}
 
@@ -121,12 +122,13 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const ttl = ttlSeconds || this.config.ttlSeconds;
-      const staleTtl = ttl * 24; // Keep stale data 24x longer
+      const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
+      const staleTtl = staleTtlMinutes * 60; // Convert minutes to seconds
 
       await this.client.set(redisKey, JSON.stringify(value));
       await this.client.expire(redisKey, ttl);
 
-      // Also store in stale cache with longer TTL
+      // Also store in stale cache with consistent tolerance
       await this.client.set(staleRedisKey, JSON.stringify(value));
       await this.client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
@@ -331,7 +333,7 @@ export class SharedRedisCache implements IKongCacheService {
     });
   }
 
-  async setStale(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+  async setStale(key: string, value: ConsumerSecret, _ttlSeconds?: number): Promise<void> {
     const staleRedisKey = this.staleKeyPrefix + key;
     const context: RedisOperationContext = {
       operation: "SET_STALE",
@@ -341,8 +343,8 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
-      const baseTtl = ttlSeconds || this.config.ttlSeconds;
-      const staleTtl = baseTtl * 24; // Keep stale data 24x longer
+      const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
+      const staleTtl = staleTtlMinutes * 60; // Convert minutes to seconds
 
       await this.client.set(staleRedisKey, JSON.stringify(value));
       await this.client.expire(staleRedisKey, staleTtl);
