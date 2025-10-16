@@ -7,6 +7,7 @@ import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutes } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
+import { profilingService } from "./services/profiling.service";
 import {
   getSimpleTelemetryStatus,
   initializeTelemetry,
@@ -158,6 +159,11 @@ log("Server endpoints configured", {
     "GET /tokens - Issue JWT token (requires Kong headers)",
     "POST /debug/metrics/test - Record test metrics",
     "POST /debug/metrics/export - Force metrics export",
+    "POST /debug/profiling/start - Start profiling session (dev/staging only)",
+    "POST /debug/profiling/stop - Stop profiling session (dev/staging only)",
+    "GET /debug/profiling/status - Profiling status (dev/staging only)",
+    "GET /debug/profiling/reports - List profiling reports (dev/staging only)",
+    "POST /debug/profiling/cleanup - Clean profiling artifacts (dev/staging only)",
   ],
 });
 
@@ -194,6 +200,24 @@ log("OpenTelemetry configuration loaded", {
   "otel.batch.size": getSimpleTelemetryStatus().config.batchSize,
   "otel.queue.max_size": getSimpleTelemetryStatus().config.maxQueueSize,
   "otel.enabled": getSimpleTelemetryStatus().config.enableOpenTelemetry,
+});
+
+const profilingStatus = profilingService.getStatus();
+log("Profiling service status", {
+  component: "profiling",
+  event: "service_status",
+  enabled: profilingStatus.enabled,
+  environment: config.server.nodeEnv,
+  integration: "Chrome DevTools Protocol",
+  instructions: "Use Chrome DevTools at chrome://inspect for profiling",
+  endpoints: profilingStatus.enabled
+    ? [
+        "POST /debug/profiling/start",
+        "POST /debug/profiling/stop",
+        "GET /debug/profiling/status",
+        "POST /debug/profiling/cleanup",
+      ]
+    : ["Profiling disabled for this environment"],
 });
 
 log("Server ready to serve requests", {
@@ -245,7 +269,12 @@ const gracefulShutdown = async (signal: string) => {
       event: "shutdown_telemetry",
     });
 
-    await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry()]);
+    log("Shutting down profiling service...", {
+      component: "profiling",
+      event: "shutdown_profiling",
+    });
+
+    await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
 
     clearTimeout(shutdownTimeout);
 

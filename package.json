@@ -37,6 +37,7 @@
     "k6:smoke:openapi": "test/k6/run-k6.sh test/k6/smoke/openapi-only-smoke.ts test/results/k6/smoke-openapi-only-results.json false",
     "k6:smoke:tokens": "test/k6/run-k6.sh test/k6/smoke/tokens-smoke.ts test/results/k6/smoke-tokens-results.json true",
     "k6:smoke:all-endpoints": "test/k6/run-k6.sh test/k6/smoke/all-endpoints-smoke.ts test/results/k6/smoke-all-endpoints-results.json false",
+    "k6:smoke:profiling": "test/k6/run-k6.sh test/k6/smoke/profiling-smoke.ts test/results/k6/smoke-profiling-results.json false",
     "k6:load": "test/k6/run-k6.sh test/k6/load/auth-load.ts test/results/k6/load-auth-results.json true",
     "k6:stress": "test/k6/run-k6.sh test/k6/stress/system-stress.ts test/results/k6/stress-system-results.json true",
     "k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
@@ -67,7 +68,18 @@
     "redis:bigkeys": "docker exec -it auth-redis redis-cli --bigkeys",
     "redis:memkeys": "docker exec -it auth-redis redis-cli --memkeys",
     "redis:scan": "docker exec -it auth-redis redis-cli --scan | head -10",
-    "redis:scan:auth": "docker exec -it auth-redis redis-cli --scan --pattern '*auth_service*'"
+    "redis:scan:auth": "docker exec -it auth-redis redis-cli --scan --pattern '*auth_service*'",
+    "profile:start": "PROFILING_ENABLED=true bun --inspect src/server.ts",
+    "profile:status": "curl -s http://localhost:3000/debug/profiling/status",
+    "profile:start-session": "curl -X POST http://localhost:3000/debug/profiling/start",
+    "profile:stop-session": "curl -X POST http://localhost:3000/debug/profiling/stop",
+    "profile:reports": "curl -s http://localhost:3000/debug/profiling/reports",
+    "profile:clean": "curl -X POST http://localhost:3000/debug/profiling/cleanup",
+    "profile:dev": "NODE_ENV=development PROFILING_ENABLED=true bun --inspect src/server.ts",
+    "profile:k6:load-test": "PROFILING_ENABLED=true bun src/server.ts & sleep 5 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:load && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
+    "profile:k6:smoke": "PROFILING_ENABLED=true bun src/server.ts & sleep 3 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:smoke:profiling && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
+    "profile:k6:stress": "PROFILING_ENABLED=true bun src/server.ts & sleep 5 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:stress && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
+    "profile:help": "echo 'Profiling Commands:' && echo '  bun run profile:start          - Start server with profiling enabled and Chrome DevTools' && echo '  bun run profile:dev            - Start development server with profiling and Chrome DevTools' && echo '  bun run profile:status         - Check profiling status' && echo '  bun run profile:start-session  - Start profiling session' && echo '  bun run profile:stop-session   - Stop profiling session' && echo '  bun run profile:reports        - List available reports' && echo '  bun run profile:clean          - Clean profiling artifacts' && echo '  bun run profile:k6:smoke       - Profile K6 smoke tests' && echo '  bun run profile:k6:load-test   - Profile K6 load tests' && echo '  bun run profile:k6:stress      - Profile K6 stress tests' && echo 'Chrome DevTools: Navigate to chrome://inspect or use the Bun Inspector URL shown at startup'"
   },
   "keywords": [
     "authentication",

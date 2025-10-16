@@ -111,6 +111,13 @@ k6/
 perf/
 benchmark/
 
+# Profiling Artifacts
+*.pb
+*.html
+flame-*
+profiling/
+*.pprof
+
 # Temporary files
 tmp/
 temp/

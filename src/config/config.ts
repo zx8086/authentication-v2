@@ -9,6 +9,7 @@ import type {
   CachingConfig,
   JwtConfig,
   KongConfig,
+  ProfilingConfig,
   ServerConfig,
   TelemetryConfig,
 } from "./schemas";
@@ -74,6 +75,9 @@ const envSchema = z
     REDIS_URL: z.url().optional(),
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
+
+    // Profiling Configuration
+    PROFILING_ENABLED: z.string().optional(),
 
     // API Info Configuration
     API_TITLE: NonEmptyString.optional(),
@@ -178,6 +182,9 @@ const envVarMapping = {
     batchSize: "OTEL_BSP_MAX_EXPORT_BATCH_SIZE",
     maxQueueSize: "OTEL_BSP_MAX_QUEUE_SIZE",
   },
+  profiling: {
+    enabled: "PROFILING_ENABLED",
+  },
   apiInfo: {
     title: "API_TITLE",
     description: "API_DESCRIPTION",
@@ -249,6 +256,9 @@ const defaultConfig: AppConfig = {
       namespace: undefined,
     },
   } as any,
+  profiling: {
+    enabled: false,
+  },
   apiInfo: {
     title: pkg.name || "Authentication Service API",
     description:
@@ -369,6 +379,11 @@ function initializeConfig(): AppConfig {
       ),
       infrastructure: detectInfrastructure(),
     },
+    profiling: Object.fromEntries(
+      Object.entries({
+        enabled: toBool(envConfig.PROFILING_ENABLED, false),
+      }).filter(([, value]) => value !== undefined)
+    ),
     apiInfo: Object.fromEntries(
       Object.entries({
         title: envConfig.API_TITLE,
@@ -431,6 +446,7 @@ function initializeConfig(): AppConfig {
         (((structuredEnvConfig.telemetry as any).mode ??
           defaultConfig.telemetry.mode) as string) !== "console",
     },
+    profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
   };
 
@@ -579,6 +595,7 @@ export type {
   KongConfig,
   CachingConfig,
   TelemetryConfig,
+  ProfilingConfig,
   ApiInfoConfig,
 };
 
@@ -588,6 +605,7 @@ export const getJwtConfig = () => getConfig().jwt;
 export const getKongConfig = () => getConfig().kong;
 export const getCachingConfig = () => getConfig().caching;
 export const getTelemetryConfig = () => getConfig().telemetry;
+export const getProfilingConfig = () => getConfig().profiling;
 export const getApiInfoConfig = () => getConfig().apiInfo;
 
 // Legacy exports (use getter functions in new code) - Now lazy for testing compatibility
@@ -614,6 +632,11 @@ export const telemetryConfig = new Proxy({} as TelemetryConfig, {
 export const cachingConfig = new Proxy({} as CachingConfig, {
   get(_target, prop) {
     return getConfig().caching[prop as keyof CachingConfig];
+  },
+});
+export const profilingConfig = new Proxy({} as ProfilingConfig, {
+  get(_target, prop) {
+    return getConfig().profiling[prop as keyof ProfilingConfig];
   },
 });
 export const apiInfoConfig = new Proxy({} as ApiInfoConfig, {

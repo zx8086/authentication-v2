@@ -241,6 +241,10 @@ export const KongConfigSchema = z.strictObject({
   highAvailability: z.boolean().optional(),
 });
 
+export const ProfilingConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable profiling service"),
+});
+
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -294,6 +298,7 @@ export const AppConfigSchema = z
     kong: KongConfigSchema,
     caching: CachingConfigSchema,
     telemetry: TelemetryConfigSchema,
+    profiling: ProfilingConfigSchema,
     apiInfo: ApiInfoConfigSchema,
   })
   .superRefine((data, ctx) => {
@@ -310,6 +315,7 @@ export const SchemaRegistry = {
   Caching: CachingConfigSchema,
   CircuitBreaker: CircuitBreakerConfigSchema,
   Telemetry: TelemetryConfigSchema,
+  Profiling: ProfilingConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
   AppConfig: AppConfigSchema,
   ConsumerSecret: ConsumerSecretSchema,
@@ -341,6 +347,7 @@ export interface GenericCacheEntry<T> {
 }
 export type CachingConfig = z.infer<typeof CachingConfigSchema>;
 export type CircuitBreakerConfig = z.infer<typeof CircuitBreakerConfigSchema>;
+export type ProfilingConfig = z.infer<typeof ProfilingConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {
     enabled: boolean;

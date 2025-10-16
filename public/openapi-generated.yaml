@@ -1,5 +1,5 @@
 # OpenAPI 3.1.1 specification for Authentication Service
-# Generated on: 2025-10-15T21:24:49.712Z
+# Generated on: 2025-10-16T13:26:38.701Z
 # This file is auto-generated. Do not edit manually.
 # Compliant with JSON Schema Draft 2020-12
 
@@ -51,7 +51,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2025-10-15T21:24:49.709Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
       description: Debug operation response
     ErrorResponse:
@@ -84,7 +84,7 @@ components:
         timestamp:
           type: string
           description: Error occurrence timestamp
-          example: "2025-10-15T21:24:49.709Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
       description: Standard error response format
     HealthResponse:
@@ -131,7 +131,7 @@ components:
         timestamp:
           type: string
           description: Health check timestamp
-          example: "2025-10-15T21:24:49.710Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
         uptime:
           type: integer
@@ -192,7 +192,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-15T21:24:34.710Z"
+              example: "2025-10-16T13:26:23.696Z"
               format: date-time
             successCount:
               type: integer
@@ -223,7 +223,7 @@ components:
         timestamp:
           type: string
           description: Metrics health check timestamp
-          example: "2025-10-15T21:24:49.710Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
       description: Comprehensive metrics system health information
     MetricsStats:
@@ -241,7 +241,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2025-10-15T21:24:34.710Z"
+              example: "2025-10-16T13:26:23.696Z"
               format: date-time
             successCount:
               type: integer
@@ -274,7 +274,7 @@ components:
         timestamp:
           type: string
           description: Statistics retrieval timestamp
-          example: "2025-10-15T21:24:49.710Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
       description: Detailed metrics export statistics and status
     PerformanceMetrics:
@@ -307,7 +307,7 @@ components:
               nextAttempt:
                 type: string
                 description: Next attempt time when circuit is open
-                example: "2025-10-15T21:25:19.710Z"
+                example: "2025-10-16T13:27:08.696Z"
                 format: date-time
               resetTimeout:
                 type: integer
@@ -362,7 +362,7 @@ components:
         timestamp:
           type: string
           description: Metrics collection timestamp
-          example: "2025-10-15T21:24:49.710Z"
+          example: "2025-10-16T13:26:38.696Z"
           format: date-time
         uptime:
           type: integer
@@ -370,6 +370,117 @@ components:
           example: 3600
           minimum: 0
       description: Service performance metrics and statistics
+    ProfilingReports:
+      type: object
+      required: [timestamp, reports]
+      properties:
+        count:
+          type: integer
+          description: Number of available reports
+          example: 3
+          minimum: 0
+        reports:
+          type: array
+          description: List of available profiling report file paths
+          example: 
+            - profiling/profile-report-1697463842234.html
+            - profiling/profile-report-1697463734521.txt
+            - profiling/profile-cpu-1697463642123.cpuprofile
+          items:
+            type: string
+        timestamp:
+          type: string
+          description: Report retrieval timestamp
+          example: "2025-10-16T13:26:38.697Z"
+          format: date-time
+      description: List of available profiling reports and analysis files
+    ProfilingResponse:
+      type: object
+      required: [timestamp, message, success]
+      properties:
+        details:
+          type: object
+          description: Additional profiling operation details
+          additionalProperties: true
+        message:
+          type: string
+          description: Profiling operation result message
+          example: Profiling session started successfully
+        sessionId:
+          type: string
+          description: Profiling session identifier
+          example: profile-1697463842234-abc123def
+        success:
+          type: boolean
+          description: Operation success status
+          example: true
+        timestamp:
+          type: string
+          description: Operation timestamp
+          example: "2025-10-16T13:26:38.697Z"
+          format: date-time
+      description: Profiling operation response
+    ProfilingStatus:
+      type: object
+      required: [enabled, sessions, outputDirectory, autoGenerate]
+      properties:
+        autoGenerate:
+          type: boolean
+          description: Whether reports are auto-generated
+          example: false
+        enabled:
+          type: boolean
+          description: Whether profiling service is enabled
+          example: true
+        outputDirectory:
+          type: string
+          description: Directory where profiling outputs are stored
+          example: profiling
+        sessions:
+          type: array
+          description: List of profiling sessions
+          items:
+            type: object
+            required: [id, type, startTime, status]
+            properties:
+              type:
+                type: string
+                description: Profiling type
+                enum: [cpu, heap]
+                example: cpu
+              endTime:
+                type: string
+                description: Session end timestamp (if completed)
+                example: "2025-10-16T13:26:38.697Z"
+                format: date-time
+              htmlFile:
+                type: string
+                description: HTML report file path (if available)
+                example: profiling/profile-report-1697463842234.html
+              id:
+                type: string
+                description: Session identifier
+                example: profile-1697463842234-abc123def
+              outputFile:
+                type: string
+                description: Output file path (if available)
+                example: profiling/profile-report-1697463842234.txt
+              pid:
+                type: integer
+                description: Process ID of profiled session
+                example: 12345
+                minimum: 1
+              startTime:
+                type: string
+                description: Session start timestamp
+                example: "2025-10-16T13:26:38.697Z"
+                format: date-time
+              status:
+                type: string
+                description: Session status
+                enum: [running, stopped, completed, failed]
+                example: running
+      description: Profiling service status and session information
     TelemetryStatus:
       type: object
       required: [initialized, config]
@@ -422,7 +533,7 @@ components:
         access_token:
           type: string
           description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA1NjQzODksImlhdCI6MTc2MDU2MzQ4OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA2MjIwOTgsImlhdCI6MTc2MDYyMTE5OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
         expires_in:
           type: integer
           description: Token expiration time in seconds
@@ -553,6 +664,131 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Record Test Metrics
       tags: [Debug, Metrics]
+  /debug/profiling/cleanup:
+    post:
+      description: Clean up profiling artifacts and session data
+      operationId: createDebugProfilingCleanup
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Cleanup Profiling
+      tags: [Debug, Profiling]
+  /debug/profiling/reports:
+    get:
+      description: List available profiling reports and analysis files
+      operationId: getDebugProfilingReports
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingReports"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Profiling Reports
+      tags: [Debug, Profiling]
+  /debug/profiling/start:
+    post:
+      description: Start CPU and memory profiling session for performance analysis
+      operationId: createDebugProfilingStart
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Start Profiling
+      tags: [Debug, Profiling]
+  /debug/profiling/status:
+    get:
+      description: Get current profiling service status and active sessions
+      operationId: getDebugProfilingStatus
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingStatus"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Profiling Status
+      tags: [Debug, Profiling]
+  /debug/profiling/stop:
+    post:
+      description: Stop active profiling session and generate reports
+      operationId: createDebugProfilingStop
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Stop Profiling
+      tags: [Debug, Profiling]
   /health:
     get:
       description: Get comprehensive system health status including dependency checks
@@ -758,3 +994,6 @@ tags:
   -
      description: Debug endpoints for development and troubleshooting
     name: Debug
+  -
+     description: CPU and memory profiling for performance analysis
+    name: Profiling

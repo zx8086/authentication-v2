@@ -1645,6 +1645,245 @@ STALE_DATA_TOLERANCE_MINUTES=60
 
 ---
 
+## CPU and Memory Profiling
+
+The authentication service includes comprehensive CPU and memory profiling capabilities using Bun's native profiling infrastructure with Chrome DevTools integration for performance analysis and debugging.
+
+### Profiling Implementation Overview
+
+The service implements a **native Bun profiling solution** that leverages Bun's built-in `--inspect` functionality with Chrome DevTools integration, providing enterprise-grade performance analysis without external dependencies.
+
+**Key Features:**
+- **Native Bun Integration**: Uses Bun's native profiling capabilities with `--inspect` flags
+- **Chrome DevTools Integration**: Interactive profiling through Chrome's Performance and Memory tabs
+- **Current Process Profiling**: Profiles the running service process for real-world performance data
+- **Zero External Dependencies**: No additional libraries required for core profiling functionality
+- **Environment-Based Security**: Production disabled with comprehensive safety controls
+- **API Control**: RESTful endpoints for programmatic profiling session management
+
+### Architecture and Design
+
+#### Security-First Design
+- **Production Safety**: Profiling NEVER enabled in production environment
+- **Environment Checks**: Only works in development, staging, and local environments
+- **Safe Defaults**: Disabled by default, must be explicitly enabled via environment variables
+- **Clean Shutdown**: Automatic cleanup on server shutdown and graceful session management
+
+#### Implementation Approach
+The service originally planned to use `@platformatic/flame` but encountered fundamental compatibility issues with Bun's TypeScript runtime. The implementation was successfully pivoted to use **Bun's native profiling capabilities**, providing superior integration with the existing runtime.
+
+**What Changed:**
+- **Before (Non-Working)**: `@platformatic/flame` external dependency with module resolution errors
+- **After (Working Solution)**: Native Bun profiling using `--inspect` flags with Chrome DevTools integration
+
+### Available Profiling Scripts
+
+```bash
+# Core profiling commands
+bun run profile:start         # Start server with profiling enabled
+bun run profile:status        # Check profiling status
+bun run profile:start-session # Start profiling session
+bun run profile:stop-session  # Stop profiling session
+bun run profile:reports       # List available reports
+bun run profile:clean         # Clean profiling artifacts
+bun run profile:dev           # Development server with profiling
+bun run profile:load-test     # Profile during K6 load testing
+bun run profile:k6            # Quick K6 + profiling
+bun run profile:help          # Display all profiling commands
+```
+
+### Available API Endpoints
+
+All profiling endpoints are restricted to development and staging environments only:
+
+```bash
+POST /debug/profiling/start    # Start profiling session
+POST /debug/profiling/stop     # Stop profiling session
+GET  /debug/profiling/status   # Current profiling status
+GET  /debug/profiling/reports  # List available reports
+POST /debug/profiling/cleanup  # Clean profiling artifacts
+```
+
+### How to Use the Profiling System
+
+#### 1. Basic Profiling Session
+
+**Step 1: Start server with profiling enabled**
+```bash
+PROFILING_ENABLED=true NODE_ENV=development bun src/server.ts
+```
+
+**Step 2: Start a profiling session**
+```bash
+curl -X POST http://localhost:3000/debug/profiling/start
+```
+
+**Step 3: Generate load on your service**
+```bash
+# Make API calls to generate performance data
+curl http://localhost:3000/health
+curl http://localhost:3000/tokens -H "x-consumer-id: test-consumer" -H "x-consumer-username: test-user"
+```
+
+**Step 4: Stop profiling session**
+```bash
+curl -X POST http://localhost:3000/debug/profiling/stop
+```
+
+**Step 5: Check status and available reports**
+```bash
+curl http://localhost:3000/debug/profiling/status
+curl http://localhost:3000/debug/profiling/reports
+```
+
+#### 2. Chrome DevTools Interactive Profiling
+
+**Most Powerful Method for Interactive Analysis:**
+
+```bash
+# Start server with profiling
+bun run profile:start
+
+# Open Chrome and navigate to: chrome://inspect
+# Click "Open dedicated DevTools for Node"
+# Use the Performance and Memory tabs for interactive profiling
+```
+
+**Chrome DevTools Workflow:**
+1. **Start profiling-enabled server**: `PROFILING_ENABLED=true bun src/server.ts`
+2. **Open Chrome**: Navigate to `chrome://inspect`
+3. **Connect to Node**: Click "Open dedicated DevTools for Node"
+4. **Use Performance tab**: Record CPU profiles during load
+5. **Use Memory tab**: Take heap snapshots and analyze memory usage
+6. **Use API endpoints**: Start/stop sessions programmatically
+
+#### 3. Automated Load Testing with Profiling
+
+```bash
+# Profile during K6 load testing
+bun run profile:load-test
+
+# Quick smoke test with profiling
+bun run profile:k6
+```
+
+### Environment Configuration
+
+Add to your `.env` file to enable profiling:
+
+```bash
+PROFILING_ENABLED=true                      # Enable profiling (dev/staging only)
+PROFILING_OUTPUT_DIR=profiling             # Output directory for artifacts
+PROFILING_AUTO_GENERATE=false             # Auto-generate reports
+```
+
+### Performance Impact and Characteristics
+
+#### When Disabled (Default State)
+- **Zero Performance Impact**: Profiling checks are performed only at startup
+- **No Memory Overhead**: No profiling infrastructure loaded
+- **Production Safe**: Multiple environment checks prevent accidental activation
+
+#### When Enabled (Development/Staging)
+- **Minimal Overhead**: Uses Bun's native `--inspect` with minimal performance impact
+- **Current Process Profiling**: Profile data collected in the running service process
+- **Automatic Cleanup**: Artifact management and cleanup procedures handle disk usage
+
+### Integration Status
+
+All profiling integrations are working and tested:
+
+- ✅ **Server startup/shutdown integration**: Profiling service initializes with the main server
+- ✅ **OpenTelemetry tracing**: All profiling endpoints include distributed tracing
+- ✅ **Environment-based security controls**: Production environment completely blocked
+- ✅ **Graceful error handling**: Comprehensive error handling and session management
+- ✅ **TypeScript compilation**: Zero TypeScript errors with full type safety
+- ✅ **Code quality validation**: All Biome checks passed with proper formatting
+
+### Advanced Usage Scenarios
+
+#### Development Workflow Integration
+```bash
+# Start development server with profiling enabled
+PROFILING_ENABLED=true bun run dev
+
+# In another terminal, perform profiling workflow
+curl -X POST http://localhost:3000/debug/profiling/start
+# ... run your development tests ...
+curl -X POST http://localhost:3000/debug/profiling/stop
+```
+
+#### Performance Testing Integration
+```bash
+# Combined performance testing with profiling
+bun run profile:load-test
+
+# This will:
+# 1. Start server with profiling enabled
+# 2. Start a profiling session
+# 3. Run K6 load tests
+# 4. Stop profiling session
+# 5. Generate performance reports
+```
+
+#### CI/CD Integration Potential
+The profiling infrastructure is designed to support future CI/CD integration for performance regression detection:
+
+- **Automated Performance Baselines**: Profile key operations during CI builds
+- **Regression Detection**: Compare profiling results between releases
+- **Performance Artifacts**: Store profiling reports as build artifacts
+
+### Troubleshooting
+
+#### Common Issues and Solutions
+
+**Issue: Profiling endpoints return 404 or 401**
+- **Cause**: Service not started with profiling enabled or wrong environment
+- **Solution**: Ensure `PROFILING_ENABLED=true` and `NODE_ENV` is development/staging/local
+
+**Issue: Chrome DevTools not connecting**
+- **Cause**: Server not started with `--inspect` flags or firewall blocking
+- **Solution**: Use `bun run profile:start` script which includes proper inspect flags
+
+**Issue: No profiling artifacts generated**
+- **Cause**: Profiling session not properly started or insufficient load
+- **Solution**: Verify session status via `/debug/profiling/status` endpoint
+
+#### Debug Commands
+```bash
+# Check profiling status
+curl http://localhost:3000/debug/profiling/status
+
+# List available reports
+curl http://localhost:3000/debug/profiling/reports
+
+# Clean up artifacts
+curl -X POST http://localhost:3000/debug/profiling/cleanup
+
+# Display help with all commands
+bun run profile:help
+```
+
+### Future Enhancements
+
+The core profiling infrastructure is complete and ready for advanced features:
+
+- **Advanced OpenTelemetry Integration**: Export profiling metadata to APM systems
+- **Automated Performance Regression Detection**: Compare profiles between deployments
+- **Integration with Existing Metrics Dashboards**: Correlate profiling data with operational metrics
+- **Profile Comparison and Analysis Automation**: Automated analysis of performance changes
+
+### Important Notes
+
+- **Chrome DevTools Method Recommended**: For most analysis tasks, Chrome DevTools provides the best interactive experience
+- **API Endpoints for Automation**: Use REST endpoints for automated testing and CI/CD integration
+- **Production Safety**: Multiple layers of environment checks ensure profiling never runs in production
+- **Performance Focus**: Designed specifically for the high-performance requirements of the authentication service (100k+ req/sec capability)
+
+This native Bun implementation provides superior integration with the existing runtime while maintaining all essential profiling capabilities needed for performance analysis and debugging of the authentication service.
+
+---
+
 ## Security Considerations
 
 ### Token Security

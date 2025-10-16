@@ -155,5 +155,88 @@ export default function () {
     },
   });
 
+  sleep(0.3);
+
+  // Test profiling endpoints (development/staging only)
+  // Note: These endpoints are only available when PROFILING_ENABLED=true and in dev/staging environments
+
+  // Test profiling status endpoint
+  const profilingStatusResponse = http.get(`${baseUrl}/debug/profiling/status`);
+  check(profilingStatusResponse, {
+    "GET /debug/profiling/status status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "GET /debug/profiling/status response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /debug/profiling/status valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"enabled"') && body.includes('"sessions"');
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
+  sleep(0.3);
+
+  // Test profiling reports endpoint
+  const profilingReportsResponse = http.get(`${baseUrl}/debug/profiling/reports`);
+  check(profilingReportsResponse, {
+    "GET /debug/profiling/reports status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "GET /debug/profiling/reports response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /debug/profiling/reports valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"reports"') && body.includes('"timestamp"');
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
+  sleep(0.3);
+
+  // Test profiling start endpoint (POST) - only if enabled
+  const profilingStartResponse = http.post(`${baseUrl}/debug/profiling/start`);
+  check(profilingStartResponse, {
+    "POST /debug/profiling/start status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "POST /debug/profiling/start response time < 100ms": (r) => r.timings.duration < 100,
+    "POST /debug/profiling/start valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"success"') && body.includes('"message"');
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
+  sleep(0.3);
+
+  // Test profiling stop endpoint (POST) - only if enabled
+  const profilingStopResponse = http.post(`${baseUrl}/debug/profiling/stop`);
+  check(profilingStopResponse, {
+    "POST /debug/profiling/stop status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "POST /debug/profiling/stop response time < 100ms": (r) => r.timings.duration < 100,
+    "POST /debug/profiling/stop valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"success"') && body.includes('"message"');
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
+  sleep(0.3);
+
+  // Test profiling cleanup endpoint (POST) - only if enabled
+  const profilingCleanupResponse = http.post(`${baseUrl}/debug/profiling/cleanup`);
+  check(profilingCleanupResponse, {
+    "POST /debug/profiling/cleanup status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "POST /debug/profiling/cleanup response time < 100ms": (r) => r.timings.duration < 100,
+    "POST /debug/profiling/cleanup valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"success"') && body.includes('"message"');
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
   sleep(1);
 }

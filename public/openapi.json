@@ -496,6 +496,221 @@
           }
         }
       }
+    },
+    "/debug/profiling/start": {
+      "post": {
+        "summary": "Start Profiling",
+        "description": "Start CPU and memory profiling session for performance analysis",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingStart",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/stop": {
+      "post": {
+        "summary": "Stop Profiling",
+        "description": "Stop active profiling session and generate reports",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingStop",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/status": {
+      "get": {
+        "summary": "Get Profiling Status",
+        "description": "Get current profiling service status and active sessions",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "getDebugProfilingStatus",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/reports": {
+      "get": {
+        "summary": "Get Profiling Reports",
+        "description": "List available profiling reports and analysis files",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "getDebugProfilingReports",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingReports"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/cleanup": {
+      "post": {
+        "summary": "Cleanup Profiling",
+        "description": "Clean up profiling artifacts and session data",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingCleanup",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -510,7 +725,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA1NjQzODksImlhdCI6MTc2MDU2MzQ4OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA2MjIwOTgsImlhdCI6MTc2MDYyMTE5OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -546,7 +761,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2025-10-15T21:24:49.710Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "version": {
             "type": "string",
@@ -686,7 +901,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2025-10-15T21:24:49.710Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -734,7 +949,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-15T21:24:34.710Z"
+                "example": "2025-10-16T13:26:23.696Z"
               }
             }
           },
@@ -805,7 +1020,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2025-10-15T21:24:49.710Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "uptime": {
             "type": "integer",
@@ -909,7 +1124,7 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Next attempt time when circuit is open",
-                  "example": "2025-10-15T21:25:19.710Z"
+                  "example": "2025-10-16T13:27:08.696Z"
                 }
               },
               "description": "Individual circuit breaker statistics and configuration"
@@ -932,7 +1147,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2025-10-15T21:24:49.710Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "message": {
             "type": "string",
@@ -971,7 +1186,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-15T21:24:34.710Z"
+                "example": "2025-10-16T13:26:23.696Z"
               }
             }
           },
@@ -989,6 +1204,172 @@
         },
         "description": "Detailed metrics export statistics and status"
       },
+      "ProfilingResponse": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "success"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Operation timestamp",
+            "example": "2025-10-16T13:26:38.697Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Profiling operation result message",
+            "example": "Profiling session started successfully"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status",
+            "example": true
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Profiling session identifier",
+            "example": "profile-1697463842234-abc123def"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional profiling operation details",
+            "additionalProperties": true
+          }
+        },
+        "description": "Profiling operation response"
+      },
+      "ProfilingStatus": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "sessions",
+          "outputDirectory",
+          "autoGenerate"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether profiling service is enabled",
+            "example": true
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "startTime",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Session identifier",
+                  "example": "profile-1697463842234-abc123def"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "cpu",
+                    "heap"
+                  ],
+                  "description": "Profiling type",
+                  "example": "cpu"
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Session start timestamp",
+                  "example": "2025-10-16T13:26:38.697Z"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Session end timestamp (if completed)",
+                  "example": "2025-10-16T13:26:38.697Z"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "running",
+                    "stopped",
+                    "completed",
+                    "failed"
+                  ],
+                  "description": "Session status",
+                  "example": "running"
+                },
+                "outputFile": {
+                  "type": "string",
+                  "description": "Output file path (if available)",
+                  "example": "profiling/profile-report-1697463842234.txt"
+                },
+                "htmlFile": {
+                  "type": "string",
+                  "description": "HTML report file path (if available)",
+                  "example": "profiling/profile-report-1697463842234.html"
+                },
+                "pid": {
+                  "type": "integer",
+                  "description": "Process ID of profiled session",
+                  "example": 12345,
+                  "minimum": 1
+                }
+              }
+            },
+            "description": "List of profiling sessions"
+          },
+          "outputDirectory": {
+            "type": "string",
+            "description": "Directory where profiling outputs are stored",
+            "example": "profiling"
+          },
+          "autoGenerate": {
+            "type": "boolean",
+            "description": "Whether reports are auto-generated",
+            "example": false
+          }
+        },
+        "description": "Profiling service status and session information"
+      },
+      "ProfilingReports": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "reports"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Report retrieval timestamp",
+            "example": "2025-10-16T13:26:38.697Z"
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of available profiling report file paths",
+            "example": [
+              "profiling/profile-report-1697463842234.html",
+              "profiling/profile-report-1697463734521.txt",
+              "profiling/profile-cpu-1697463642123.cpuprofile"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of available reports",
+            "example": 3,
+            "minimum": 0
+          }
+        },
+        "description": "List of available profiling reports and analysis files"
+      },
       "DebugResponse": {
         "type": "object",
         "required": [
@@ -1001,7 +1382,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2025-10-15T21:24:49.709Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "message": {
             "type": "string",
@@ -1051,7 +1432,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Error occurrence timestamp",
-            "example": "2025-10-15T21:24:49.709Z"
+            "example": "2025-10-16T13:26:38.696Z"
           },
           "requestId": {
             "type": "string",
@@ -1133,6 +1514,10 @@
     {
       "name": "Debug",
       "description": "Debug endpoints for development and troubleshooting"
+    },
+    {
+      "name": "Profiling",
+      "description": "CPU and memory profiling for performance analysis"
     }
   ]
 }

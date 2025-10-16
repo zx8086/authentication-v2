@@ -7,6 +7,14 @@ import {
   handleMetricsUnified,
 } from "../handlers/metrics";
 import { handleOpenAPISpec } from "../handlers/openapi";
+import {
+  handleProfilingCleanup,
+  handleProfilingReport,
+  handleProfilingReports,
+  handleProfilingStart,
+  handleProfilingStatus,
+  handleProfilingStop,
+} from "../handlers/profiling";
 import { handleTokenRequest } from "../handlers/tokens";
 import { handleOptionsRequest } from "../middleware/cors";
 import { handleNotFound } from "../middleware/error-handler";
@@ -71,6 +79,48 @@ export function createRoutes(kongService: IKongService) {
       POST: async (req: Request) =>
         await telemetryTracer.createHttpSpan(req.method, "/debug/metrics/export", 200, () =>
           handleDebugMetricsExport()
+        ),
+    },
+
+    "/debug/profiling/start": {
+      POST: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/start", 200, () =>
+          handleProfilingStart(req)
+        ),
+    },
+
+    "/debug/profiling/stop": {
+      POST: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/stop", 200, () =>
+          handleProfilingStop(req)
+        ),
+    },
+
+    "/debug/profiling/status": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/status", 200, () =>
+          handleProfilingStatus(req)
+        ),
+    },
+
+    "/debug/profiling/reports": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/reports", 200, () =>
+          handleProfilingReports(req)
+        ),
+    },
+
+    "/debug/profiling/cleanup": {
+      POST: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/cleanup", 200, () =>
+          handleProfilingCleanup(req)
+        ),
+    },
+
+    "/debug/profiling/report": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/debug/profiling/report", 200, () =>
+          handleProfilingReport(req)
         ),
     },
   };

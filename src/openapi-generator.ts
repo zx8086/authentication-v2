@@ -113,6 +113,36 @@ class OpenAPIGenerator {
         handler: "getExportStats",
         tags: ["Debug", "Metrics"],
       },
+      {
+        path: "/debug/profiling/start",
+        method: "POST",
+        handler: "startProfiling",
+        tags: ["Debug", "Profiling"],
+      },
+      {
+        path: "/debug/profiling/stop",
+        method: "POST",
+        handler: "stopProfiling",
+        tags: ["Debug", "Profiling"],
+      },
+      {
+        path: "/debug/profiling/status",
+        method: "GET",
+        handler: "getProfilingStatus",
+        tags: ["Debug", "Profiling"],
+      },
+      {
+        path: "/debug/profiling/reports",
+        method: "GET",
+        handler: "getProfilingReports",
+        tags: ["Debug", "Profiling"],
+      },
+      {
+        path: "/debug/profiling/cleanup",
+        method: "POST",
+        handler: "cleanupProfiling",
+        tags: ["Debug", "Profiling"],
+      },
     ];
 
     routes.forEach((route) => {
@@ -146,6 +176,11 @@ class OpenAPIGenerator {
       recordTestMetrics: "Manually record test metrics for debugging purposes",
       forceMetricsExport: "Trigger immediate metrics export to OTLP endpoint",
       getExportStats: "Get detailed metrics export statistics and timing information",
+      startProfiling: "Start CPU and memory profiling session for performance analysis",
+      stopProfiling: "Stop active profiling session and generate reports",
+      getProfilingStatus: "Get current profiling service status and active sessions",
+      getProfilingReports: "List available profiling reports and analysis files",
+      cleanupProfiling: "Clean up profiling artifacts and session data",
     };
 
     return descriptions[handlerName as keyof typeof descriptions] || `Handler: ${handlerName}`;
@@ -230,6 +265,11 @@ class OpenAPIGenerator {
       recordTestMetrics: { $ref: "#/components/schemas/DebugResponse" },
       forceMetricsExport: { $ref: "#/components/schemas/DebugResponse" },
       getExportStats: { $ref: "#/components/schemas/MetricsStats" },
+      startProfiling: { $ref: "#/components/schemas/ProfilingResponse" },
+      stopProfiling: { $ref: "#/components/schemas/ProfilingResponse" },
+      getProfilingStatus: { $ref: "#/components/schemas/ProfilingStatus" },
+      getProfilingReports: { $ref: "#/components/schemas/ProfilingReports" },
+      cleanupProfiling: { $ref: "#/components/schemas/DebugResponse" },
     };
 
     return schemaMap[handlerName as keyof typeof schemaMap] || { type: "object" };
@@ -360,6 +400,7 @@ class OpenAPIGenerator {
         ...this._generateAuthSchemasImmutable(),
         ...this._generateHealthSchemasImmutable(),
         ...this._generateMetricsSchemasImmutable(),
+        ...this._generateProfilingSchemasImmutable(),
         ...this._immutableCache.get("errorSchemas"),
       }),
       securitySchemes: this._immutableCache.get("securitySchemes"),
@@ -540,6 +581,16 @@ class OpenAPIGenerator {
       schema = Object.freeze({ $ref: "#/components/schemas/DebugResponse" });
     } else if (path === "/debug/metrics/stats" && method === "GET") {
       schema = Object.freeze({ $ref: "#/components/schemas/MetricsStats" });
+    } else if (path === "/debug/profiling/start" && method === "POST") {
+      schema = Object.freeze({ $ref: "#/components/schemas/ProfilingResponse" });
+    } else if (path === "/debug/profiling/stop" && method === "POST") {
+      schema = Object.freeze({ $ref: "#/components/schemas/ProfilingResponse" });
+    } else if (path === "/debug/profiling/status" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/ProfilingStatus" });
+    } else if (path === "/debug/profiling/reports" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/ProfilingReports" });
+    } else if (path === "/debug/profiling/cleanup" && method === "POST") {
+      schema = Object.freeze({ $ref: "#/components/schemas/DebugResponse" });
     } else {
       schema = Object.freeze({ type: "object" });
     }
@@ -569,6 +620,10 @@ class OpenAPIGenerator {
       Object.freeze({
         name: "Debug",
         description: "Debug endpoints for development and troubleshooting",
+      }),
+      Object.freeze({
+        name: "Profiling",
+        description: "CPU and memory profiling for performance analysis",
       }),
     ]);
   }
@@ -1345,6 +1400,161 @@ class OpenAPIGenerator {
 
     this._immutableCache.set(cacheKey, schema);
     return schema;
+  }
+
+  private _generateProfilingSchemasImmutable(): any {
+    const cacheKey = "profilingSchemas";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const schemas = Object.freeze({
+      ProfilingResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "message", "success"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Operation timestamp",
+            example: new Date().toISOString(),
+          }),
+          message: Object.freeze({
+            type: "string",
+            description: "Profiling operation result message",
+            example: "Profiling session started successfully",
+          }),
+          success: Object.freeze({
+            type: "boolean",
+            description: "Operation success status",
+            example: true,
+          }),
+          sessionId: Object.freeze({
+            type: "string",
+            description: "Profiling session identifier",
+            example: "profile-1697463842234-abc123def",
+          }),
+          details: Object.freeze({
+            type: "object",
+            description: "Additional profiling operation details",
+            additionalProperties: true,
+          }),
+        }),
+        description: "Profiling operation response",
+      }),
+      ProfilingStatus: Object.freeze({
+        type: "object",
+        required: Object.freeze(["enabled", "sessions", "outputDirectory", "autoGenerate"]),
+        properties: Object.freeze({
+          enabled: Object.freeze({
+            type: "boolean",
+            description: "Whether profiling service is enabled",
+            example: true,
+          }),
+          sessions: Object.freeze({
+            type: "array",
+            items: Object.freeze({
+              type: "object",
+              required: Object.freeze(["id", "type", "startTime", "status"]),
+              properties: Object.freeze({
+                id: Object.freeze({
+                  type: "string",
+                  description: "Session identifier",
+                  example: "profile-1697463842234-abc123def",
+                }),
+                type: Object.freeze({
+                  type: "string",
+                  enum: Object.freeze(["cpu", "heap"]),
+                  description: "Profiling type",
+                  example: "cpu",
+                }),
+                startTime: Object.freeze({
+                  type: "string",
+                  format: "date-time",
+                  description: "Session start timestamp",
+                  example: new Date().toISOString(),
+                }),
+                endTime: Object.freeze({
+                  type: "string",
+                  format: "date-time",
+                  description: "Session end timestamp (if completed)",
+                  example: new Date().toISOString(),
+                }),
+                status: Object.freeze({
+                  type: "string",
+                  enum: Object.freeze(["running", "stopped", "completed", "failed"]),
+                  description: "Session status",
+                  example: "running",
+                }),
+                outputFile: Object.freeze({
+                  type: "string",
+                  description: "Output file path (if available)",
+                  example: "profiling/profile-report-1697463842234.txt",
+                }),
+                htmlFile: Object.freeze({
+                  type: "string",
+                  description: "HTML report file path (if available)",
+                  example: "profiling/profile-report-1697463842234.html",
+                }),
+                pid: Object.freeze({
+                  type: "integer",
+                  description: "Process ID of profiled session",
+                  example: 12345,
+                  minimum: 1,
+                }),
+              }),
+            }),
+            description: "List of profiling sessions",
+          }),
+          outputDirectory: Object.freeze({
+            type: "string",
+            description: "Directory where profiling outputs are stored",
+            example: "profiling",
+          }),
+          autoGenerate: Object.freeze({
+            type: "boolean",
+            description: "Whether reports are auto-generated",
+            example: false,
+          }),
+        }),
+        description: "Profiling service status and session information",
+      }),
+      ProfilingReports: Object.freeze({
+        type: "object",
+        required: Object.freeze(["timestamp", "reports"]),
+        properties: Object.freeze({
+          timestamp: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Report retrieval timestamp",
+            example: new Date().toISOString(),
+          }),
+          reports: Object.freeze({
+            type: "array",
+            items: Object.freeze({
+              type: "string",
+            }),
+            description: "List of available profiling report file paths",
+            example: Object.freeze([
+              "profiling/profile-report-1697463842234.html",
+              "profiling/profile-report-1697463734521.txt",
+              "profiling/profile-cpu-1697463642123.cpuprofile",
+            ]),
+          }),
+          count: Object.freeze({
+            type: "integer",
+            description: "Number of available reports",
+            example: 3,
+            minimum: 0,
+          }),
+        }),
+        description: "List of available profiling reports and analysis files",
+      }),
+    });
+
+    this._immutableCache.set(cacheKey, schemas);
+    return schemas;
   }
 }
 

@@ -77,11 +77,36 @@ git commit -m "Update Docker configuration for multi-stage builds"
   - Delete user-provided context or requirements
   - Replace the original issue scope or methodology
 - 📋 **MANDATORY Process for Updates**:
-  1. Read the current issue description completely
-  2. Identify existing analysis, approach, and requirements sections
-  3. ADD TO (do not replace) the existing content
-  4. Clearly mark new additions with timestamps or "UPDATE:" labels
-  5. Preserve all original context and user-provided information
+  1. **ALWAYS read current issue first** using `mcp__linear_server__get_issue({ id: issueId })`
+  2. **Extract existing description** from the current issue object
+  3. **Append new content** to existing description (NEVER replace)
+  4. **Use clear separators** (`---`) between existing and new content
+  5. **Mark new additions** with timestamps and "UPDATE:" labels
+  6. **Call update_issue** with the combined description
+
+**CRITICAL TECHNICAL IMPLEMENTATION**:
+```typescript
+// ✅ CORRECT - Always preserve existing content
+const currentIssue = await mcp__linear_server__get_issue({ id: issueId });
+const existingDescription = currentIssue.description || "";
+
+const updatedDescription = existingDescription +
+  "\n\n---\n\n" +
+  `**UPDATE [${new Date().toISOString().split('T')[0]}]**: ${newContent}`;
+
+await mcp__linear_server__update_issue({
+  id: issueId,
+  description: updatedDescription
+});
+
+// ❌ WRONG - This destroys all existing content
+await mcp__linear_server__update_issue({
+  id: issueId,
+  description: newContent  // This overwrites everything!
+});
+```
+
+**LINEAR API BEHAVIOR**: The `update_issue` function **completely replaces** the description field. You MUST read existing content first and append to it manually.
 
 **EXAMPLE UPDATE FORMAT**:
 ```
