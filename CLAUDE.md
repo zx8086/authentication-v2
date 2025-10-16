@@ -104,11 +104,13 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - **JWT Generation**: Uses `crypto.subtle` Web API for HMAC-SHA256 signing
 - **Kong Integration**: Native `fetch` with intelligent caching and connection pooling
 - **Performance**: Built-in performance monitoring and rate limiting
+- **Circuit Breaker**: Opossum-based Kong Admin API resilience with stale cache fallback
 - **Observability**: Comprehensive OpenTelemetry instrumentation with Elastic APM integration
 
 ### Service Layer Structure
 - **JWT Service** (`src/services/jwt.service.ts`): Native crypto.subtle JWT generation with HMAC-SHA256
-- **Kong Service** (`src/services/kong.service.ts`): Kong Admin API integration with caching and health checks
+- **Kong Service** (`src/services/kong.service.ts`): Kong Admin API integration with caching, health checks, and circuit breaker protection
+- **Circuit Breaker Service** (`src/services/circuit-breaker.service.ts`): Opossum-based resilience with adaptive stale cache fallback
 - **Telemetry Layer** (`src/telemetry/`): OpenTelemetry instrumentation, structured logging, metrics collection
 - **Configuration** (`src/config/`): 4-pillar configuration pattern (see `config-reviewer` agent for details)
 
@@ -128,7 +130,9 @@ This is a high-performance authentication service migrated from .NET Core to Bun
 - **Caching**: Kong consumer secret caching to reduce Admin API calls
 - **Performance Monitoring**: Built-in metrics collection and reporting
 - **CORS Support**: Configurable CORS with origin validation
-- **Circuit Breaker**: Resilience pattern for Kong Admin API protection (SIO-45)
+- **Circuit Breaker**: Always-enabled Opossum-based Kong Admin API protection with stale cache fallback (SIO-45)
+- **Stale Cache Resilience**: Extended service availability (up to 2 hours) during Kong outages using adaptive caching strategy
+- **Performance Optimization**: .biomeignore for ~30% faster Biome code quality checks (SIO-46)
 - **Telemetry Sampling**: Performed at collector level, not application level
 
 ### Kong Integration Details
@@ -173,6 +177,12 @@ For detailed testing configuration and patterns, see specialized agents:
 - **E2E Browser Tests**: Use `playwright-specialist` agent
 - **Performance Testing**: Use `k6-specialist` agent
 
+**COMPREHENSIVE TEST COVERAGE (SIO-47, SIO-49, SIO-50)**:
+- **Total Tests**: 260 tests (100% pass rate) across all frameworks
+- **Circuit Breaker Testing**: Complete Kong failure scenario coverage with stale cache fallback testing
+- **Kong Integration Testing**: Real endpoint testing (removed mocks) for Kong Konnect with circuit breaker integration
+- **Performance Testing**: Enhanced K6 testing with circuit breaker scenarios under load
+
 **CRITICAL RULE - NEVER APPLY TIMEOUTS TO TESTS**: Claude Code must NEVER apply artificial timeouts to test commands, especially K6 performance tests which are designed to run for their full duration (typically 3+ minutes). Tests must be allowed to complete naturally without time restrictions.
 
 ```bash
@@ -210,6 +220,12 @@ bun run k6:spike            # Traffic spike testing
 - Idempotent operations (safe to run multiple times)
 - Intelligent dependencies (only tests needing Kong consumers perform setup)
 - Consistent test data across all frameworks (5 test consumers + 1 anonymous)
+
+**Circuit Breaker Test Coverage (SIO-45, SIO-49, SIO-50)**:
+- 26 comprehensive circuit breaker test cases with Kong failure simulation
+- Stale cache fallback testing for both Redis (HA mode) and in-memory modes
+- Kong Konnect integration testing with real endpoints
+- Performance testing with circuit breaker scenarios under load
 
 ## Environment Configuration
 
@@ -279,6 +295,16 @@ OTEL_BSP_MAX_EXPORT_BATCH_SIZE=2048
 OTEL_BSP_MAX_QUEUE_SIZE=10000
 ```
 
+### Circuit Breaker Configuration (SIO-45)
+```bash
+# Circuit breaker is ALWAYS ENABLED (KISS principle)
+CIRCUIT_BREAKER_TIMEOUT=500                    # Kong API timeout (ms)
+CIRCUIT_BREAKER_ERROR_THRESHOLD=50             # Error threshold percentage
+CIRCUIT_BREAKER_RESET_TIMEOUT=30000            # Reset timeout (ms)
+STALE_DATA_TOLERANCE_MINUTES=60                # In-memory stale cache tolerance
+HIGH_AVAILABILITY=true                         # Enable Redis stale cache (2-hour tolerance)
+```
+
 ### Testing Configuration
 See specialized testing agents for complete configuration details:
 - **Playwright E2E**: `playwright-specialist` agent
@@ -317,6 +343,12 @@ The service implements comprehensive observability using vendor-neutral OpenTele
 - `jwt_tokens_generated` - JWT generation counters
 - `kong_operations` - Kong API operation metrics
 - `cache_operations` - Cache hit/miss statistics
+- `circuit_breaker_state` - Circuit breaker state (0=closed, 1=open, 2=half-open)
+- `circuit_breaker_requests_total` - Circuit breaker requests by operation and result
+- `circuit_breaker_rejected_total` - Circuit breaker rejections by operation
+- `circuit_breaker_fallback_total` - Circuit breaker fallback usage by operation
+- `cache_tier_operations` - Cache tier usage (redis-stale, in-memory)
+- `cache_tier_latency` - Cache tier access latency by operation
 
 ### Telemetry Modes
 - **`console`**: Logs only to console (development)
@@ -329,6 +361,8 @@ curl -X POST http://localhost:3000/debug/metrics/test
 curl -X POST http://localhost:3000/debug/metrics/export
 curl http://localhost:3000/debug/metrics/stats
 curl http://localhost:3000/health/telemetry
+curl http://localhost:3000/health/metrics              # Circuit breaker health
+curl http://localhost:3000/metrics                     # Includes circuit breaker stats
 ```
 
 ## Deployment & Production
@@ -348,6 +382,10 @@ Recommended alerts based on available metrics:
 - Kong API failures
 - Cache miss rate >50%
 - Export failures in telemetry
+- **Circuit breaker state transitions to "open"** (SIO-45)
+- **Circuit breaker rejection rate >10%** (indicates Kong issues)
+- **Stale data fallback usage >5%** (Kong degradation)
+- **Cache tier errors** (Redis connectivity issues)
 
 ## Code Quality & Development
 
@@ -363,6 +401,24 @@ The `biome:check` command runs:
 - NO emojis in code or logs
 - Minimal comments (no excessive JSDoc)
 - Standardized file headers: `/* src/path/file.ts */`
+
+#### Performance Optimization (SIO-46)
+
+The service includes a comprehensive `.biomeignore` file for enhanced code quality performance:
+
+**Benefits**:
+- **~30% faster Biome execution** (38 files: 21-51ms → 15-35ms)
+- **Reduced memory usage** during code quality checks
+- **Faster CI/CD pipelines** with optimized file discovery
+- **Better IDE integration** with faster file watching
+
+**Key Exclusions**:
+- Dependencies: `node_modules/`, `bun.lockb`
+- Build artifacts: `dist/`, `build/`, `coverage/`
+- Environment files: `.env.*` (except `!.env.example`, `!.env.*.example`)
+- Cache directories: `.cache/`, `.npm/`, `.yarn/`
+- IDE files: `.vscode/`, `.idea/`, `*.swp`
+- Temporary files: `tmp/`, `*.log`, `logs/`
 
 ### Development Guidelines
 - Verify method existence before use
@@ -412,6 +468,31 @@ bun run kill-server
 bun run biome:check:unsafe
 ```
 
+### Enhanced CI/CD with Docker Cloud Builders (SIO-51)
+
+The service now uses Docker Cloud Builders for enhanced build performance:
+
+**Configuration**:
+```yaml
+# .github/workflows/build-and-deploy.yml
+- name: Set up Docker Buildx
+  uses: docker/setup-buildx-action@v3
+  with:
+    driver: cloud
+    endpoint: "zx8086/cldbuild"
+```
+
+**Benefits**:
+- **Enhanced Build Infrastructure**: Dedicated cloud resources for Docker builds
+- **Improved ARM64 Performance**: Better cross-platform build support
+- **Resource Efficiency**: Reduced GitHub Actions minutes usage
+- **Enhanced Caching**: Cloud-native caching for improved build times
+
+**Implementation Approach**:
+- **KISS Principle**: Minimal 3-line addition to existing workflow
+- **Preserved Features**: All security scanning, multi-platform builds, supply chain security maintained
+- **Easy Rollback**: Simple to revert if needed
+
 ### Docker Deployment Commands
 ```bash
 # Build Docker image
@@ -453,6 +534,21 @@ curl -X POST http://localhost:3000/debug/metrics/export
 
 # Monitor export success rate
 watch 'curl -s http://localhost:3000/debug/metrics/stats | jq .successRate'
+
+# Circuit breaker monitoring (SIO-45)
+curl http://localhost:3000/health/metrics        # Circuit breaker health
+curl http://localhost:3000/metrics               # Circuit breaker stats
+```
+
+#### Circuit Breaker Debugging (SIO-45)
+```bash
+# Monitor circuit breaker state and statistics
+curl http://localhost:3000/metrics | jq '.circuitBreakers'
+curl http://localhost:3000/health/metrics | jq '.circuitBreakerSummary'
+
+# Test Kong failure scenarios (development only)
+# Temporarily block Kong Admin API to trigger circuit breaker
+# curl with invalid Kong credentials to simulate failures
 ```
 
 ### Architecture Decisions
@@ -520,7 +616,8 @@ When working on this authentication service, use these specialized agents for op
 - **Performance testing**: `k6-specialist` - Essential for validating 100k+ req/sec capability
 - **Unit testing**: `bun-test-specialist` - Bun test framework patterns and TypeScript testing
 - **Observability**: `observability-engineer` - OpenTelemetry integration and APM monitoring
-- **Code quality**: `biome-config` - Pre-commit validation and linting standards
+- **Code quality**: `biome-config` - Pre-commit validation and linting standards with .biomeignore optimization
+- **Circuit breaker specialist**: `couchbase-resilience-specialist` - For advanced circuit breaker patterns (if needed for Kong integration)
 
 ### Secondary Agents (invoke as needed)
 
@@ -578,5 +675,8 @@ When working on this authentication service, use these specialized agents for op
 - **Coordinate with `test-orchestrator`** when adding comprehensive testing across frameworks
 - **Invoke `observability-engineer`** for any telemetry, monitoring, or APM-related changes
 - **Use `k6-specialist`** for validating performance requirements (100k+ req/sec capability)
+- **Circuit breaker considerations**: The service now has comprehensive circuit breaker protection - any Kong integration changes should consider circuit breaker impact
+- **Performance testing**: All tests now include circuit breaker scenarios - validate Kong failure handling
+- **Code quality**: .biomeignore optimization is in place - avoid modifying exclusion patterns without understanding performance impact
 
 For complete agent capabilities and cross-project usage patterns, see the comprehensive Agent Directory in your user-level CLAUDE.md configuration.
