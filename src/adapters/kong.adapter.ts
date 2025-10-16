@@ -9,11 +9,11 @@ import type {
   KongModeType,
 } from "../config";
 import { getCachingConfig, getKongConfig } from "../config";
+import { CacheFactory } from "../services/cache/cache-factory";
+import type { CircuitBreakerStats } from "../services/shared-circuit-breaker.service";
+import { SharedCircuitBreakerService } from "../services/shared-circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
-import { CacheFactory } from "../services/cache/cache-factory";
-import { SharedCircuitBreakerService } from "../services/shared-circuit-breaker.service";
-import type { CircuitBreakerStats } from "../services/shared-circuit-breaker.service";
 import { withRetry } from "../utils/retry";
 import type { IAPIGatewayAdapter, IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createKongModeStrategy } from "./kong-mode-strategies";
@@ -96,7 +96,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
     const cacheKey = generateCacheKey(consumerId);
 
     // Check cache first
-    const cached = await this.cache!.get(cacheKey);
+    const cached = await this.cache?.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -141,7 +141,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
         }
 
         // Store in cache after successful retrieval
-        await this.cache!.set(cacheKey, secret);
+        await this.cache?.set(cacheKey, secret);
 
         return secret;
       }
@@ -210,7 +210,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
         // Store in cache after successful creation
         await this.ensureCacheInitialized();
         const cacheKey = generateCacheKey(consumerId);
-        await this.cache!.set(cacheKey, createdSecret);
+        await this.cache?.set(cacheKey, createdSecret);
 
         return createdSecret;
       }
@@ -316,9 +316,9 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
     if (consumerId) {
       const cacheKey = generateCacheKey(consumerId);
-      await this.cache!.delete(cacheKey);
+      await this.cache?.delete(cacheKey);
     } else {
-      await this.cache!.clear();
+      await this.cache?.clear();
     }
   }
 

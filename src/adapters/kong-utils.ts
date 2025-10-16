@@ -77,7 +77,9 @@ export async function parseKongApiError(response: Response): Promise<string> {
  * @param baseHeaders - Additional headers to include
  * @returns Headers with User-Agent and other standard fields
  */
-export function createStandardHeaders(baseHeaders: Record<string, string> = {}): Record<string, string> {
+export function createStandardHeaders(
+  baseHeaders: Record<string, string> = {}
+): Record<string, string> {
   return {
     "Content-Type": "application/json",
     "User-Agent": "Authentication-Service/1.0",
@@ -99,7 +101,10 @@ export function createRequestTimeout(timeoutMs: number = 5000): AbortSignal {
  * @param data - Response data from Kong API
  * @returns First valid consumer secret or null
  */
-export function extractConsumerSecret(data: { data?: ConsumerSecret[]; total?: number }): ConsumerSecret | null {
+export function extractConsumerSecret(data: {
+  data?: ConsumerSecret[];
+  total?: number;
+}): ConsumerSecret | null {
   if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
     return null;
   }

@@ -1,7 +1,7 @@
 /* src/services/kong.factory.ts */
 
-import type { IKongService, KongModeType } from "../config";
 import { KongAdapter } from "../adapters/kong.adapter";
+import type { IKongService, KongModeType } from "../config";
 import { APIGatewayService } from "./api-gateway.service";
 
 /**

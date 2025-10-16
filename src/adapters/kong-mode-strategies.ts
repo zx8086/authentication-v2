@@ -1,9 +1,8 @@
 /* src/adapters/kong-mode-strategies.ts */
 
+import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import type { IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createStandardHeaders } from "./kong-utils";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
-import { withRetry } from "../utils/retry";
 
 /**
  * Kong API Gateway Strategy
@@ -13,8 +12,8 @@ import { withRetry } from "../utils/retry";
  */
 export class KongApiGatewayStrategy implements IKongModeStrategy {
   constructor(
-    private readonly baseUrl: string,
-    private readonly adminToken: string
+    readonly baseUrl: string,
+    readonly _adminToken: string
   ) {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
   }
@@ -58,7 +57,7 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   private readonly realmId: string;
 
   constructor(
-    private readonly adminUrl: string,
+    readonly adminUrl: string,
     private readonly adminToken: string
   ) {
     const url = new URL(adminUrl);

@@ -1,5 +1,6 @@
 /* src/services/api-gateway.service.ts */
 
+import type { IAPIGatewayAdapter } from "../adapters/api-gateway-adapter.interface";
 import type {
   ConsumerSecret,
   IKongService,
@@ -7,7 +8,6 @@ import type {
   KongHealthCheckResult,
 } from "../config";
 import type { CircuitBreakerStats } from "./shared-circuit-breaker.service";
-import type { IAPIGatewayAdapter } from "../adapters/api-gateway-adapter.interface";
 
 /**
  * Unified API Gateway Service

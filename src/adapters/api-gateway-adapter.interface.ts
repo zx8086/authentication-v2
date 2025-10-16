@@ -1,10 +1,6 @@
 /* src/adapters/api-gateway-adapter.interface.ts */
 
-import type {
-  ConsumerSecret,
-  KongCacheStats,
-  KongHealthCheckResult,
-} from "../config";
+import type { ConsumerSecret, KongCacheStats, KongHealthCheckResult } from "../config";
 import type { CircuitBreakerStats } from "../services/shared-circuit-breaker.service";
 
 /**

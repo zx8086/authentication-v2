@@ -725,7 +725,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA2MjIwOTgsImlhdCI6MTc2MDYyMTE5OCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NjA2NDE5MTgsImlhdCI6MTc2MDY0MTAxOCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -761,7 +761,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "version": {
             "type": "string",
@@ -901,7 +901,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -949,7 +949,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-16T13:26:23.696Z"
+                "example": "2025-10-16T18:56:43.491Z"
               }
             }
           },
@@ -1020,7 +1020,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "uptime": {
             "type": "integer",
@@ -1124,7 +1124,7 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Next attempt time when circuit is open",
-                  "example": "2025-10-16T13:27:08.696Z"
+                  "example": "2025-10-16T18:57:28.491Z"
                 }
               },
               "description": "Individual circuit breaker statistics and configuration"
@@ -1147,7 +1147,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "message": {
             "type": "string",
@@ -1186,7 +1186,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2025-10-16T13:26:23.696Z"
+                "example": "2025-10-16T18:56:43.491Z"
               }
             }
           },
@@ -1216,7 +1216,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2025-10-16T13:26:38.697Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "message": {
             "type": "string",
@@ -1284,13 +1284,13 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Session start timestamp",
-                  "example": "2025-10-16T13:26:38.697Z"
+                  "example": "2025-10-16T18:56:58.491Z"
                 },
                 "endTime": {
                   "type": "string",
                   "format": "date-time",
                   "description": "Session end timestamp (if completed)",
-                  "example": "2025-10-16T13:26:38.697Z"
+                  "example": "2025-10-16T18:56:58.491Z"
                 },
                 "status": {
                   "type": "string",
@@ -1347,7 +1347,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Report retrieval timestamp",
-            "example": "2025-10-16T13:26:38.697Z"
+            "example": "2025-10-16T18:56:58.491Z"
           },
           "reports": {
             "type": "array",
@@ -1382,7 +1382,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.489Z"
           },
           "message": {
             "type": "string",
@@ -1432,7 +1432,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Error occurrence timestamp",
-            "example": "2025-10-16T13:26:38.696Z"
+            "example": "2025-10-16T18:56:58.489Z"
           },
           "requestId": {
             "type": "string",

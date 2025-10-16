@@ -8,14 +8,14 @@ import type {
   IKongService,
   KongCacheStats,
   KongHealthCheckResult,
-} from "../config";
-import { getCachingConfig, getKongConfig } from "../config";
-import { recordError, recordKongOperation } from "../telemetry/metrics";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
-import { withRetry } from "../utils/retry";
-import { CacheFactory } from "./cache/cache-factory";
-import type { CircuitBreakerStats } from "./shared-circuit-breaker.service";
-import { SharedCircuitBreakerService } from "./shared-circuit-breaker.service";
+} from "../../config";
+import { getCachingConfig, getKongConfig } from "../../config";
+import { recordError, recordKongOperation } from "../../telemetry/metrics";
+import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { withRetry } from "../../utils/retry";
+import { CacheFactory } from "../cache/cache-factory";
+import type { CircuitBreakerStats } from "../shared-circuit-breaker.service";
+import { SharedCircuitBreakerService } from "../shared-circuit-breaker.service";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
