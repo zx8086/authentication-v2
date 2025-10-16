@@ -36,18 +36,30 @@ class ProfilingService {
   }
 
   private isProfilingEnabled(): boolean {
+    // Check if profiling is explicitly enabled via config
+    const configEnabled = this.profilingConfig.enabled;
+
+    // In production, require explicit configuration to enable profiling
     if (this.serverConfig.nodeEnv === "production") {
-      warn("Profiling is disabled in production environment", {
-        component: "profiling",
-        event: "production_disabled",
-      });
-      return false;
+      if (configEnabled) {
+        log("Profiling enabled in production via explicit configuration", {
+          component: "profiling",
+          event: "production_enabled",
+        });
+      } else {
+        log(
+          "Profiling available but disabled in production (use PROFILING_ENABLED=true to enable)",
+          {
+            component: "profiling",
+            event: "production_available",
+          }
+        );
+      }
+      return configEnabled;
     }
 
-    const envEnabled = this.profilingConfig.enabled;
-    const devMode = ["development", "staging", "local"].includes(this.serverConfig.nodeEnv);
-
-    return envEnabled && devMode;
+    // In non-production environments, default to enabled if not explicitly configured
+    return configEnabled !== false; // true if enabled=true or undefined, false only if explicitly false
   }
 
   private generateSessionId(): string {
@@ -59,10 +71,11 @@ class ProfilingService {
     manual: boolean = true
   ): Promise<string | null> {
     if (!this.enabled) {
-      warn("Profiling start attempted but service is disabled", {
+      log("Profiling start attempted but service is disabled", {
         component: "profiling",
         event: "start_disabled",
         type,
+        note: "Profiling service is available but disabled via configuration",
       });
       return null;
     }
@@ -125,6 +138,11 @@ class ProfilingService {
 
   async stopProfiling(sessionId?: string): Promise<boolean> {
     if (!this.enabled) {
+      log("Profiling stop attempted but service is disabled", {
+        component: "profiling",
+        event: "stop_disabled",
+        note: "Profiling service is available but disabled via configuration",
+      });
       return false;
     }
 
@@ -219,6 +237,11 @@ class ProfilingService {
 
   async cleanup(): Promise<void> {
     if (!this.enabled) {
+      log("Profiling cleanup attempted but service is disabled", {
+        component: "profiling",
+        event: "cleanup_disabled",
+        note: "Profiling service is available but disabled via configuration",
+      });
       return;
     }
 
@@ -242,6 +265,11 @@ class ProfilingService {
 
   async shutdown(): Promise<void> {
     if (!this.enabled) {
+      log("Profiling shutdown attempted but service is disabled", {
+        component: "profiling",
+        event: "shutdown_disabled",
+        note: "Profiling service is available but disabled via configuration",
+      });
       return;
     }
 

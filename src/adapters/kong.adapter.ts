@@ -324,7 +324,10 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
   async getCacheStats(): Promise<KongCacheStats> {
     await this.ensureCacheInitialized();
-    return await this.cache!.getStats();
+    if (!this.cache) {
+      throw new Error("Cache not initialized");
+    }
+    return await this.cache.getStats();
   }
 
   getCircuitBreakerStats(): Record<string, CircuitBreakerStats> {

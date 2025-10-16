@@ -18,12 +18,6 @@ describe("Profiling Endpoints", () => {
     it("should return profiling service status", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/status`);
 
-      if (response.status === 404) {
-        // Profiling disabled - this is acceptable
-        expect(response.status).toBe(404);
-        return;
-      }
-
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
 
@@ -34,18 +28,13 @@ describe("Profiling Endpoints", () => {
       expect(typeof data.enabled).toBe("boolean");
     });
 
-    it("should have proper response structure when enabled", async () => {
+    it("should have proper response structure", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/status`);
 
-      if (response.status === 404) {
-        // Skip this test if profiling is disabled
-        return;
-      }
-
+      expect(response.status).toBe(200);
       const data = await response.json();
 
       if (data.enabled) {
-
         // Check session structure if any exist
         if (data.sessions.length > 0) {
           const session = data.sessions[0];
@@ -56,6 +45,9 @@ describe("Profiling Endpoints", () => {
           expect(["cpu", "heap"]).toContain(session.type);
           expect(["running", "stopped", "completed", "failed"]).toContain(session.status);
         }
+      } else {
+        // When disabled, sessions should be empty
+        expect(data.sessions).toHaveLength(0);
       }
     });
   });
@@ -63,12 +55,6 @@ describe("Profiling Endpoints", () => {
   describe("GET /debug/profiling/reports", () => {
     it("should return profiling reports list", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/reports`);
-
-      if (response.status === 404) {
-        // Profiling disabled - this is acceptable
-        expect(response.status).toBe(404);
-        return;
-      }
 
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
@@ -80,13 +66,18 @@ describe("Profiling Endpoints", () => {
       expect(typeof data.total).toBe("number");
       expect(data.total).toBeGreaterThanOrEqual(0);
       expect(data.reports.length).toBe(data.total);
+
+      // When disabled, reports should be empty
+      if (data.enabled === false) {
+        expect(data.reports).toHaveLength(0);
+        expect(data.total).toBe(0);
+      }
     });
 
     it("should have valid response structure", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/reports`);
 
-      if (response.status === 404) return;
-
+      expect(response.status).toBe(200);
       const data = await response.json();
       expect(data).toHaveProperty("reports");
       expect(data).toHaveProperty("total");
@@ -103,29 +94,29 @@ describe("Profiling Endpoints", () => {
         },
       });
 
-      if (response.status === 404) {
-        // Profiling disabled - this is acceptable
-        expect(response.status).toBe(404);
-        return;
-      }
-
-      expect([200, 400]).toContain(response.status);
+      expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
 
       const data = await response.json();
       expect(data).toHaveProperty("message");
       expect(typeof data.message).toBe("string");
 
-      if (response.status === 200) {
-        expect(data).toHaveProperty("sessionId");
-        expect(typeof data.sessionId).toBe("string");
-        expect(data.sessionId).toMatch(/^profile-\d+-[a-z0-9]+$/);
-        expect(data).toHaveProperty("type");
-        expect(data.type).toBe("cpu");
+      if (data.enabled !== false) {
+        // Profiling is enabled - should get a session or error
+        if (data.sessionId) {
+          expect(typeof data.sessionId).toBe("string");
+          expect(data.sessionId).toMatch(/^profile-\d+-[a-z0-9]+$/);
+          expect(data).toHaveProperty("type");
+          expect(data.type).toBe("cpu");
+        }
+      } else {
+        // Profiling is disabled - should get graceful response
+        expect(data.enabled).toBe(false);
+        expect(data.sessionId).toBeNull();
       }
     });
 
-    it("should return proper error structure when profiling fails", async () => {
+    it("should handle dynamic profiling state", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/start`, {
         method: "POST",
         headers: {
@@ -133,15 +124,13 @@ describe("Profiling Endpoints", () => {
         },
       });
 
-      if (response.status === 404) return;
-
+      expect(response.status).toBe(200);
       const data = await response.json();
       expect(data).toHaveProperty("message");
       expect(typeof data.message).toBe("string");
 
-      if (response.status === 400) {
-        expect(data.message.toLowerCase()).toContain("profiling");
-      }
+      // The response should always be valid regardless of profiling state
+      expect(data.message.toLowerCase()).toContain("profiling");
     });
   });
 
@@ -154,21 +143,20 @@ describe("Profiling Endpoints", () => {
         },
       });
 
-      if (response.status === 404) {
-        // Profiling disabled - this is acceptable
-        expect(response.status).toBe(404);
-        return;
-      }
-
-      expect([200, 400]).toContain(response.status);
+      expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
 
       const data = await response.json();
       expect(data).toHaveProperty("message");
       expect(typeof data.message).toBe("string");
 
-      if (response.status === 200) {
+      if (data.enabled !== false) {
+        // Profiling is enabled - should have sessionId
         expect(data).toHaveProperty("sessionId");
+      } else {
+        // Profiling is disabled - should get graceful response
+        expect(data.enabled).toBe(false);
+        expect(data.sessionId).toBeNull();
       }
     });
   });
@@ -182,22 +170,19 @@ describe("Profiling Endpoints", () => {
         },
       });
 
-      if (response.status === 404) {
-        // Profiling disabled - this is acceptable
-        expect(response.status).toBe(404);
-        return;
-      }
-
-      expect([200, 400]).toContain(response.status);
+      expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
 
       const data = await response.json();
       expect(data).toHaveProperty("message");
       expect(typeof data.message).toBe("string");
 
-      if (response.status === 200) {
-        expect(data).toHaveProperty("cleaned");
-        expect(Array.isArray(data.cleaned)).toBe(true);
+      expect(data).toHaveProperty("cleaned");
+      expect(Array.isArray(data.cleaned)).toBe(true);
+
+      if (data.enabled === false) {
+        // When disabled, cleaned array should be empty
+        expect(data.cleaned).toHaveLength(0);
       }
     });
 
@@ -206,10 +191,9 @@ describe("Profiling Endpoints", () => {
         method: "POST",
       });
 
-      if (response.status === 404) return;
-
+      expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.message.toLowerCase()).toMatch(/cleanup|clean|artifacts|profiling/i);
+      expect(data.message.toLowerCase()).toMatch(/cleanup|clean|artifacts|profiling|configuration/i);
     });
   });
 
@@ -261,16 +245,14 @@ describe("Profiling Endpoints", () => {
     it("should handle cleanup properly", async () => {
       const status = profilingService.getStatus();
 
-      if (!status.enabled) {
-        return;
+      // Cleanup should work regardless of enabled state
+      await expect(profilingService.cleanup()).resolves.toBeUndefined();
+
+      // After cleanup, sessions should be cleared (if profiling was enabled)
+      if (status.enabled) {
+        const postCleanupStatus = profilingService.getStatus();
+        expect(postCleanupStatus.sessions).toHaveLength(0);
       }
-
-      // Cleanup should not throw
-      await expect(profilingService.cleanup()).resolves.not.toThrow();
-
-      // After cleanup, sessions should be cleared
-      const postCleanupStatus = profilingService.getStatus();
-      expect(postCleanupStatus.sessions).toHaveLength(0);
     });
   });
 
@@ -283,24 +265,19 @@ describe("Profiling Endpoints", () => {
         method: "POST",
       });
 
-      if (startResponse.status === 404) {
-        // Profiling disabled - skip integration test
-        return;
-      }
-
-      let sessionId: string | null = null;
-
-      if (startResponse.status === 200) {
-        const startData = await startResponse.json();
-        sessionId = startData.sessionId;
-      }
+      expect(startResponse.status).toBe(200);
+      const startData = await startResponse.json();
+      let sessionId: string | null = startData.sessionId;
+      const profilingEnabled = startData.enabled !== false;
 
       // 2. Check status
       const statusResponse = await fetch(`${TEST_BASE_URL}/debug/profiling/status`);
       expect(statusResponse.status).toBe(200);
 
       const statusData = await statusResponse.json();
-      if (sessionId && statusData.enabled) {
+      expect(statusData.enabled).toBe(profilingEnabled);
+
+      if (sessionId && profilingEnabled) {
         const activeSession = statusData.sessions.find((s: any) => s.id === sessionId);
         if (activeSession) {
           expect(activeSession.status).toBe("running");
@@ -309,13 +286,13 @@ describe("Profiling Endpoints", () => {
       }
 
       // 3. Stop profiling (if we have a session)
-      if (sessionId) {
+      if (sessionId && profilingEnabled) {
         await new Promise(resolve => setTimeout(resolve, 100)); // Brief profiling period
 
         const stopResponse = await fetch(`${TEST_BASE_URL}/debug/profiling/stop`, {
           method: "POST",
         });
-        expect([200, 400]).toContain(stopResponse.status);
+        expect(stopResponse.status).toBe(200);
       }
 
       // 4. Check reports
@@ -326,11 +303,16 @@ describe("Profiling Endpoints", () => {
       expect(reportsData).toHaveProperty("reports");
       expect(reportsData).toHaveProperty("total");
 
+      if (!profilingEnabled) {
+        expect(reportsData.reports).toHaveLength(0);
+        expect(reportsData.total).toBe(0);
+      }
+
       // 5. Cleanup
       const cleanupResponse = await fetch(`${TEST_BASE_URL}/debug/profiling/cleanup`, {
         method: "POST",
       });
-      expect([200, 400]).toContain(cleanupResponse.status);
+      expect(cleanupResponse.status).toBe(200);
     });
   });
 });

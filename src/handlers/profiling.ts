@@ -1,7 +1,6 @@
 /* src/handlers/profiling.ts */
 
 import { profilingService } from "../services/profiling.service";
-import { warn } from "../utils/logger";
 import { createErrorResponse, createSuccessResponse } from "../utils/response";
 
 function generateRequestId(): string {
@@ -13,14 +12,14 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    warn("Profiling start attempted but service is disabled", {
-      component: "profiling-handler",
-      event: "start_attempted_disabled",
-    });
-    return createErrorResponse(
-      403,
-      "Forbidden",
-      "Profiling is not enabled for this environment",
+    return createSuccessResponse(
+      {
+        message: "Profiling service is available but disabled via configuration",
+        enabled: false,
+        sessionId: null,
+        instructions:
+          "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+      },
       requestId
     );
   }
@@ -68,10 +67,14 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    return createErrorResponse(
-      403,
-      "Forbidden",
-      "Profiling is not enabled for this environment",
+    return createSuccessResponse(
+      {
+        message: "Profiling service is available but disabled via configuration",
+        enabled: false,
+        sessionId: null,
+        instructions:
+          "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+      },
       requestId
     );
   }
@@ -147,10 +150,15 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    return createErrorResponse(
-      403,
-      "Forbidden",
-      "Profiling is not enabled for this environment",
+    return createSuccessResponse(
+      {
+        reports: [],
+        total: 0,
+        enabled: false,
+        message: "Profiling service is available but disabled via configuration",
+        instructions:
+          "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+      },
       requestId
     );
   }
@@ -185,10 +193,14 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    return createErrorResponse(
-      403,
-      "Forbidden",
-      "Profiling is not enabled for this environment",
+    return createSuccessResponse(
+      {
+        message: "Profiling service is available but disabled via configuration",
+        enabled: false,
+        cleaned: [],
+        instructions:
+          "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+      },
       requestId
     );
   }
@@ -223,10 +235,14 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    return createErrorResponse(
-      403,
-      "Forbidden",
-      "Profiling is not enabled for this environment",
+    return createSuccessResponse(
+      {
+        message: "Profiling service is available but disabled via configuration",
+        enabled: false,
+        report: null,
+        instructions:
+          "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+      },
       requestId
     );
   }
