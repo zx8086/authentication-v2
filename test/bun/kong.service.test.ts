@@ -141,7 +141,7 @@ describe('Kong Service Factory Integration', () => {
         // With circuit breaker disabled, errors are thrown directly
         await expect(async () => {
           await kongService.getConsumerSecret(testConsumerId);
-        }).toThrow('Kong API error: 500 Internal Server Error');
+        }).toThrow('Kong internal server error - check Kong service health');
       });
 
       it('should handle network errors gracefully', async () => {
@@ -231,7 +231,7 @@ describe('Kong Service Factory Integration', () => {
         // With circuit breaker disabled, errors are thrown directly
         await expect(async () => {
           await kongService.createConsumerSecret(testConsumerId);
-        }).toThrow('Kong API error: 500 Internal Server Error');
+        }).toThrow('Kong internal server error - check Kong service health');
       });
 
     });
@@ -270,7 +270,7 @@ describe('Kong Service Factory Integration', () => {
         // Health check should return unhealthy status
         const result = await kongService.healthCheck();
         expect(result.healthy).toBe(false);
-        expect(result.error).toContain('HTTP 503');
+        expect(result.error).toContain('Kong service unavailable');
       });
 
       it('should return unhealthy status when Kong is unreachable', async () => {
