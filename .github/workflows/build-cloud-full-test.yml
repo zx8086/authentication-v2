@@ -87,8 +87,8 @@ jobs:
         timeout-minutes: 2
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ vars.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PAT }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set up Docker Buildx (Cloud)
         uses: docker/setup-buildx-action@v3
