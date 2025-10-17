@@ -60,7 +60,29 @@ git commit -m "Update Docker configuration for multi-stage builds"
   5. **WAIT for explicit user authorization** before running `git push`
   6. **THE USER DECIDES** when code is ready to be committed and pushed
 
+**EXCEPTION**: When user selects slash commands (`/commit-push`, `/test-suite`, etc.), the command selection IS the authorization to proceed with the full command execution.
+
 **REMINDER**: Implementation completion ≠ commit authorization. User must explicitly authorize all git commit and push operations.
+
+### Slash Command Execution
+**CRITICAL RULE - NEVER VIOLATE**: Claude Code must NEVER stop or interrupt slash command execution once initiated by the user.
+
+- ✅ **Claude MUST do**:
+  - Execute slash commands to full completion when user selects them
+  - Allow commands to run their natural duration (especially tests)
+  - Complete all steps defined in the command workflow
+- ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
+  - Stop slash command execution prematurely
+  - Interrupt commands due to time concerns
+  - Skip steps in predefined command workflows
+  - Apply artificial timeouts to slash commands
+- 📋 **MANDATORY Process**:
+  1. When user selects a slash command, that IS their authorization to proceed
+  2. Execute the complete command workflow without interruption
+  3. Allow commands to run their full natural duration
+  4. Report completion status and results when finished
+
+**REMINDER**: Slash command selection = user authorization. Commands must run to completion.
 
 ### Linear Issue Status Management
 **CRITICAL RULE - NEVER VIOLATE**: Claude Code can ONLY create new issues and move them to "In Progress" status. **ABSOLUTELY NEVER** set issues to "Done" status without explicit user approval.
@@ -566,8 +588,47 @@ bun run docker:run:production # Run with .env.prod
 
 ### Debugging & Troubleshooting
 
+#### Server State Management
+**CRITICAL RULE - ALWAYS CHECK SERVER STATE FIRST**: Before attempting to start a new server process, always check if the service is already running on the target port.
+
+- ✅ **Claude MUST do**:
+  - Check if port 3000 is already in use before starting new server processes
+  - Verify if the authentication service is already running and accessible
+  - Use existing running instances when available instead of starting duplicates
+  - Test connectivity to existing services before attempting to start new ones
+- ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
+  - Start new server processes without checking existing state
+  - Kill running servers unless explicitly requested by user
+  - Assume ports are available without verification
+- 📋 **MANDATORY Process**:
+  1. **ALWAYS check port availability first**: `lsof -ti:3000`
+  2. **Test service connectivity**: `curl -s http://localhost:3000/health`
+  3. **If service is running and responsive**: Use existing instance
+  4. **Only start new server if**: Port is free or service is unresponsive
+  5. **When starting new server**: Kill existing processes only if explicitly needed
+
+**Examples**:
+```bash
+# ✅ CORRECT - Check first, then use existing or start new
+if curl -s http://localhost:3000/health > /dev/null 2>&1; then
+  echo "Service already running on port 3000"
+  # Use existing service for tests
+else
+  echo "Starting authentication service..."
+  bun src/server.ts &
+fi
+
+# ❌ WRONG - Blindly starting new processes
+bun src/server.ts &  # May cause port conflicts
+```
+
+**REMINDER**: Server resources should be reused when available. Only start new processes when necessary.
+
 #### Common Development Issues
-1. **Port Already in Use**: Run `bun run kill-server` to clean up processes
+1. **Port Already in Use**:
+   - **First**: Check if the authentication service is already running with `curl http://localhost:3000/health`
+   - **If running**: Use the existing service instead of starting a new one
+   - **If not running**: Run `bun run kill-server` to clean up processes, then start
 2. **Telemetry Errors**: Check OTLP endpoints are reachable and credentials are correct
 3. **Kong Connection Issues**: Verify `KONG_ADMIN_URL` and `KONG_ADMIN_TOKEN` in `.env`
 4. **Rate Limiting**: Adjust `RATE_LIMIT_*` settings for development load
