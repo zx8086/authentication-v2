@@ -304,17 +304,8 @@ jobs:
           } &
           TRIVY_PID=$!
 
-          # Start Docker Scout scan in background (simplified)
-          {
-            echo "Running Docker Scout analysis..."
-            docker scout cves ${{ steps.image-tag.outputs.primary-tag }} \
-              --format sarif --output scout-results.sarif 2>/dev/null || {
-              echo "Docker Scout scan failed or completed with findings - creating empty SARIF"
-              echo '{"version":"2.1.0","runs":[]}' > scout-results.sarif
-              exit 0
-            }
-          } &
-          SCOUT_PID=$!
+          # Docker Scout scan will run as separate step using GitHub Action
+          SCOUT_PID=""
 
           # Wait for all scans to complete
           echo "Waiting for all security scans to complete..."
@@ -328,10 +319,25 @@ jobs:
           wait $TRIVY_PID
           echo "✓ Trivy vulnerability scan finished"
 
-          wait $SCOUT_PID
-          echo "✓ Docker Scout analysis finished"
+          if [ -n "$SCOUT_PID" ]; then
+            wait $SCOUT_PID
+            echo "✓ Docker Scout analysis finished"
+          else
+            echo "✓ Docker Scout will run as separate GitHub Action step"
+          fi
 
           echo "All parallel security scans completed successfully"
+        continue-on-error: true
+
+      - name: Docker Scout analysis
+        if: github.event_name != 'pull_request'
+        uses: docker/scout-action@v1.15.1
+        timeout-minutes: 5
+        with:
+          command: cves,recommendations
+          image: ${{ steps.image-tag.outputs.primary-tag }}
+          sarif-file: scout-results.sarif
+          summary: true
         continue-on-error: true
 
       - name: Upload Snyk code analysis results
