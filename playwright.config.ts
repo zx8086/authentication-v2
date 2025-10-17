@@ -32,44 +32,20 @@ export default defineConfig({
 
   projects: [
     {
-      name: "core-api",
-      testMatch: /core-functionality\.e2e\.ts$/,
+      name: "consolidated-business",
+      testMatch: /consolidated-business\.e2e\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
         ignoreHTTPSErrors: true,
       },
     },
     {
-      name: "telemetry",
-      testMatch: /telemetry-monitoring\.e2e\.ts$/,
+      name: "profiling",
+      testMatch: /profiling\.e2e\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
         ignoreHTTPSErrors: true,
-      },
-    },
-    {
-      name: "security",
-      testMatch: /security-compliance\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
-      },
-    },
-    {
-      name: "performance",
-      testMatch: /performance-resilience\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
-        timeout: 60000, // Performance tests may need more time
-      },
-    },
-    {
-      name: "errors",
-      testMatch: /error-scenarios\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
+        timeout: 60000, // Profiling tests may need more time
       },
     },
     {

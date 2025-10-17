@@ -9,7 +9,7 @@ import {
   beforeEach,
   mock,
 } from "bun:test";
-import { getTestConsumer } from '../shared/test-consumers';
+import { getTestConsumer, type JobPrefix } from '../shared/test-consumers';
 
 // Mock environment variables for testing - Use API_GATEWAY mode for simpler testing
 process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
@@ -24,8 +24,11 @@ process.env.KONG_CIRCUIT_BREAKER_ENABLED = "false"; // Disable circuit breaker f
 
 describe("Authentication Server Integration", () => {
   const serverUrl = "http://localhost:3000";
-  const testConsumer = getTestConsumer(0);
-  const testConsumer2 = getTestConsumer(1);
+
+  // Use job-specific consumers when running in CI environment
+  const jobPrefix = process.env.CI_JOB_PREFIX as JobPrefix | undefined;
+  const testConsumer = getTestConsumer(0, jobPrefix);
+  const testConsumer2 = getTestConsumer(1, jobPrefix);
 
   describe("Health Check Endpoint", () => {
     it("should return health status", async () => {
@@ -179,17 +182,25 @@ describe("Authentication Server Integration", () => {
           return { ok: true, status: 200 };
         }
 
-        // Mock consumer check
+        // Mock consumer check - handle both regular and job-prefixed consumer IDs
         if (urlStr.includes("/core-entities/consumers/") && options?.method === "GET") {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              id: "test-consumer-uuid",
-              username: testConsumer.username,
-              custom_id: testConsumer.custom_id,
-            }),
-          };
+          // Extract consumer ID from URL
+          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^\/]+)/);
+          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : '';
+
+          // Check if this matches our test consumer
+          if (requestedConsumerId === testConsumer.id || requestedConsumerId === testConsumer2.id) {
+            const consumer = requestedConsumerId === testConsumer.id ? testConsumer : testConsumer2;
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                id: "test-consumer-uuid",
+                username: consumer.username,
+                custom_id: consumer.custom_id,
+              }),
+            };
+          }
         }
 
         // Mock JWT credentials fetch
@@ -322,17 +333,22 @@ describe("Authentication Server Integration", () => {
           return { ok: true, status: 200 };
         }
 
-        // Mock consumer check - consumer exists
+        // Mock consumer check - consumer exists (handle job-prefixed IDs)
         if (urlStr.includes("/core-entities/consumers/") && options?.method === "GET" && !urlStr.includes("/jwt")) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              id: "new-consumer-uuid",
-              username: testConsumer2.username,
-              custom_id: testConsumer2.custom_id,
-            }),
-          };
+          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^\/]+)/);
+          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : '';
+
+          if (requestedConsumerId === testConsumer2.id) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                id: "new-consumer-uuid",
+                username: testConsumer2.username,
+                custom_id: testConsumer2.custom_id,
+              }),
+            };
+          }
         }
 
         // Mock JWT credentials fetch - return empty (no existing credentials)
