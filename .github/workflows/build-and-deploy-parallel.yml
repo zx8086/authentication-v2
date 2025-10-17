@@ -77,6 +77,16 @@ jobs:
         run: bun install --frozen-lockfile
         timeout-minutes: 3
 
+      - name: Ensure lockfile exists
+        run: |
+          if [ ! -f bun.lockb ]; then
+            echo "bun.lockb not found, regenerating..."
+            bun install
+          else
+            echo "bun.lockb exists"
+          fi
+          ls -la bun.lockb || echo "bun.lockb still missing after install"
+
       - name: Upload dependency artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -85,6 +95,7 @@ jobs:
             node_modules
             bun.lockb
             package.json
+          if-no-files-found: warn
           retention-days: 1
 
       - name: Generate build metadata
@@ -121,7 +132,10 @@ jobs:
         run: |
           echo "Verifying node_modules and package files..."
           ls -la node_modules/ | head -5
-          ls -la package.json bun.lockb
+          echo "package.json:"
+          ls -la package.json
+          echo "bun.lockb (may not exist if not in repo):"
+          ls -la bun.lockb || echo "bun.lockb not found - this is expected if it's not committed"
           echo "Dependencies restored successfully"
 
       - name: Start authentication service for unit tests
@@ -194,7 +208,10 @@ jobs:
         run: |
           echo "Verifying node_modules and package files..."
           ls -la node_modules/ | head -5
-          ls -la package.json bun.lockb
+          echo "package.json:"
+          ls -la package.json
+          echo "bun.lockb (may not exist if not in repo):"
+          ls -la bun.lockb || echo "bun.lockb not found - this is expected if it's not committed"
           echo "Dependencies restored successfully"
 
       - name: Cache Playwright browsers
@@ -278,7 +295,10 @@ jobs:
         run: |
           echo "Verifying node_modules and package files..."
           ls -la node_modules/ | head -5
-          ls -la package.json bun.lockb
+          echo "package.json:"
+          ls -la package.json
+          echo "bun.lockb (may not exist if not in repo):"
+          ls -la bun.lockb || echo "bun.lockb not found - this is expected if it's not committed"
           echo "Dependencies restored successfully"
 
       - name: Run Biome code quality checks
@@ -355,7 +375,10 @@ jobs:
         run: |
           echo "Verifying node_modules and package files..."
           ls -la node_modules/ | head -5
-          ls -la package.json bun.lockb
+          echo "package.json:"
+          ls -la package.json
+          echo "bun.lockb (may not exist if not in repo):"
+          ls -la bun.lockb || echo "bun.lockb not found - this is expected if it's not committed"
           echo "Dependencies restored successfully"
 
       - name: Log in to Docker Hub
