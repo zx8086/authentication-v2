@@ -139,6 +139,18 @@ jobs:
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started unit test server on port 3000 with PID: $SERVER_PID"
+
+          # Wait for server to be ready with more comprehensive health checks
+          until curl -f http://localhost:3000/health >/dev/null 2>&1; do echo "Waiting for server..."; sleep 2; done
+          sleep 5  # Additional stabilization time
+          echo "Unit test server is ready for testing"
+
+          # Verify server is responding correctly
+          curl -v http://localhost:3000/health || echo "Health check failed but continuing..."
+
+          # Test service endpoint availability
+          echo "Testing service endpoints..."
+          curl -v http://localhost:3000/metrics || echo "Metrics endpoint test failed but continuing..."
         env:
           NODE_ENV: test
           TELEMETRY_MODE: console
@@ -154,18 +166,6 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-
-          # Wait for server to be ready with more comprehensive health checks
-          until curl -f http://localhost:3000/health >/dev/null 2>&1; do echo "Waiting for server..."; sleep 2; done
-          sleep 5  # Additional stabilization time
-          echo "Unit test server is ready for testing"
-
-          # Verify server is responding correctly
-          curl -v http://localhost:3000/health || echo "Health check failed but continuing..."
-
-          # Test service endpoint availability
-          echo "Testing service endpoints..."
-          curl -v http://localhost:3000/metrics || echo "Metrics endpoint test failed but continuing..."
 
       - name: Setup test consumers in Kong
         run: |
@@ -183,9 +183,6 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
-          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
-          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
           STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
@@ -209,9 +206,6 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
-          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
-          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
           STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
@@ -317,9 +311,6 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
-          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
-          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
           STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
@@ -344,9 +335,6 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
-          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
-          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
           STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
@@ -539,7 +527,7 @@ jobs:
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v6
-            with:
+        with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
@@ -698,17 +686,17 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Type | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Setup | Foundation | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | Parallel | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | Parallel | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Code Quality | Parallel | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Deploy | Sequential | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Supply Chain | Verification | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Setup | Foundation | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | Parallel | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | Parallel | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | Parallel | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Deploy | Sequential | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Supply Chain | Verification | Completed |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Optimization Features**:" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚡ Dependency artifact sharing across jobs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔄 Multi-level caching (Bun deps, Playwright browsers)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🏃 Concurrent test execution within jobs" >> $GITHUB_STEP_SUMMARY
-          echo "- 🎯 Service isolation for E2E tests (port 3001)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔒 Consumer isolation (unit-*, e2e-* prefixes)" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 Independent job failure reporting" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency artifact sharing across jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-level caching (Bun deps, Playwright browsers)" >> $GITHUB_STEP_SUMMARY
+          echo "- Concurrent test execution within jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- Service isolation for E2E tests (port 3001)" >> $GITHUB_STEP_SUMMARY
+          echo "- Consumer isolation (unit-*, e2e-* prefixes)" >> $GITHUB_STEP_SUMMARY
+          echo "- Independent job failure reporting" >> $GITHUB_STEP_SUMMARY
