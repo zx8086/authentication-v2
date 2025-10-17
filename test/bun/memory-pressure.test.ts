@@ -51,17 +51,29 @@ describe("Memory Pressure Monitoring", () => {
       startMemoryPressureMonitoring({
         criticalThreshold: 0.01, // Very low threshold to trigger critical state
         warningThreshold: 0.005,
-        checkIntervalMs: 100,
+        checkIntervalMs: 50, // Faster checks
       });
 
-      // Give monitoring time to detect pressure
-      return new Promise((resolve) => {
+      // Give monitoring time to detect pressure with proper error handling
+      return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          try {
+            const shouldDrop = shouldDropTelemetry();
+            expect(shouldDrop).toBe(true);
+            resolve();
+          } catch (error) {
+            reject(error);
+          } finally {
+            stopMemoryPressureMonitoring();
+          }
+        }, 500); // Increased timeout for CI environment
+
+        // Cleanup timeout to prevent test hanging
         setTimeout(() => {
-          const shouldDrop = shouldDropTelemetry();
-          expect(shouldDrop).toBe(true);
+          clearTimeout(timeoutId);
           stopMemoryPressureMonitoring();
-          resolve();
-        }, 200);
+          reject(new Error("Test timed out waiting for memory pressure detection"));
+        }, 4500); // Just under the 5s test timeout
       });
     });
   });
@@ -76,16 +88,28 @@ describe("Memory Pressure Monitoring", () => {
       startMemoryPressureMonitoring({
         criticalThreshold: 0.95,
         warningThreshold: 0.01, // Very low threshold to trigger warning state
-        checkIntervalMs: 100,
+        checkIntervalMs: 50, // Faster checks
       });
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          try {
+            const shouldDrop = shouldDropNonCriticalMetrics();
+            expect(shouldDrop).toBe(true);
+            resolve();
+          } catch (error) {
+            reject(error);
+          } finally {
+            stopMemoryPressureMonitoring();
+          }
+        }, 500); // Increased timeout for CI environment
+
+        // Cleanup timeout to prevent test hanging
         setTimeout(() => {
-          const shouldDrop = shouldDropNonCriticalMetrics();
-          expect(shouldDrop).toBe(true);
+          clearTimeout(timeoutId);
           stopMemoryPressureMonitoring();
-          resolve();
-        }, 200);
+          reject(new Error("Test timed out waiting for memory pressure detection"));
+        }, 4500); // Just under the 5s test timeout
       });
     });
   });

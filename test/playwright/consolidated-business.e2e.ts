@@ -1,7 +1,42 @@
 /* test/playwright/consolidated-business.e2e.ts */
 
 import { test, expect } from '@playwright/test';
-import { getTestConsumer, getBasicTestConsumers, ANONYMOUS_CONSUMER } from '../shared/test-consumers';
+
+// Inline test consumer definitions to avoid import issues
+const TEST_CONSUMER = {
+  id: 'test-user-001',
+  username: 'test-user-001',
+  custom_id: 'test-user-001',
+  description: 'Primary test consumer for basic authentication tests'
+};
+
+const ANONYMOUS_CONSUMER = {
+  id: 'anonymous',
+  username: 'anonymous',
+  custom_id: 'anonymous',
+  description: 'Anonymous consumer for testing rejection scenarios'
+};
+
+const BASIC_TEST_CONSUMERS = [
+  {
+    id: 'test-user-001',
+    username: 'test-user-001',
+    custom_id: 'test-user-001',
+    description: 'Primary test consumer for basic authentication tests'
+  },
+  {
+    id: 'test-user-002',
+    username: 'test-user-002',
+    custom_id: 'test-user-002',
+    description: 'Secondary test consumer for multi-user scenarios'
+  },
+  {
+    id: 'test-user-003',
+    username: 'test-user-003',
+    custom_id: 'test-user-003',
+    description: 'Third test consumer for multi-user scenarios'
+  }
+];
 
 test.describe('Authentication Service - Complete Business Requirements', () => {
 
@@ -45,7 +80,7 @@ test.describe('Authentication Service - Complete Business Requirements', () => {
 
   test.describe('JWT Token Generation Core Flow', () => {
     test('Generates valid JWT token for authenticated consumer', async ({ request }) => {
-      const consumer = getTestConsumer(0);
+      const consumer = TEST_CONSUMER;
       const response = await request.get('/tokens', {
         headers: {
           'X-Consumer-Id': consumer.id,
@@ -71,7 +106,7 @@ test.describe('Authentication Service - Complete Business Requirements', () => {
     });
 
     test('Same consumer gets consistent tokens (same secret)', async ({ request }) => {
-      const consumer = getTestConsumer(0);
+      const consumer = TEST_CONSUMER;
       const headers = {
         'X-Consumer-Id': consumer.id,
         'X-Consumer-Username': consumer.username
@@ -96,7 +131,7 @@ test.describe('Authentication Service - Complete Business Requirements', () => {
     });
 
     test('Different consumers get different tokens', async ({ request }) => {
-      const consumers = getBasicTestConsumers().slice(0, 3);
+      const consumers = BASIC_TEST_CONSUMERS.slice(0, 3);
       const tokens = new Set();
 
       for (const consumer of consumers) {
@@ -184,7 +219,7 @@ test.describe('Authentication Service - Complete Business Requirements', () => {
 
   test.describe('Service Performance & Reliability', () => {
     test('Handles multiple requests efficiently', async ({ request }) => {
-      const consumer = getTestConsumer(0);
+      const consumer = TEST_CONSUMER;
       const headers = {
         'X-Consumer-Id': consumer.id,
         'X-Consumer-Username': consumer.username
@@ -205,7 +240,7 @@ test.describe('Authentication Service - Complete Business Requirements', () => {
     });
 
     test('Different consumers can request tokens concurrently', async ({ request }) => {
-      const consumers = getBasicTestConsumers().slice(0, 3);
+      const consumers = BASIC_TEST_CONSUMERS.slice(0, 3);
 
       const requests = consumers.map(consumer =>
         request.get('/tokens', {
