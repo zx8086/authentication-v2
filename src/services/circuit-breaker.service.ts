@@ -29,7 +29,6 @@ export interface CircuitBreakerStats {
     fallbacks: number;
     semaphoreRejections: number;
     percentiles: Record<string, number>;
-    latencies: number[];
   };
 }
 
@@ -352,7 +351,6 @@ export class KongCircuitBreakerService {
           fallbacks: breakerStats.fallbacks,
           semaphoreRejections: breakerStats.semaphoreRejections,
           percentiles: breakerStats.percentiles,
-          latencies: breakerStats.latencyTimes,
         },
       };
     }

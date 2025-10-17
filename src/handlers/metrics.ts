@@ -2,6 +2,7 @@
 
 import { loadConfig } from "../config/index";
 import type { IKongService } from "../services/kong.service";
+import { getConsumerVolumeStats } from "../telemetry/consumer-volume";
 import {
   forceMetricsFlush,
   getMetricsExportStats,
@@ -163,6 +164,9 @@ async function collectOperationalData(kongService: IKongService) {
     circuitBreakerStats = {};
   }
 
+  // Get consumer volume statistics
+  const consumerVolumeStats = getConsumerVolumeStats();
+
   return {
     timestamp,
     uptime: Math.floor(process.uptime()),
@@ -174,6 +178,14 @@ async function collectOperationalData(kongService: IKongService) {
     },
     cache: cacheStats,
     circuitBreakers: circuitBreakerStats,
+    consumers: {
+      volume: {
+        high: consumerVolumeStats.high,
+        medium: consumerVolumeStats.medium,
+        low: consumerVolumeStats.low,
+        total: consumerVolumeStats.total,
+      },
+    },
   };
 }
 

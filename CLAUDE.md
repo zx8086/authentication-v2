@@ -40,6 +40,28 @@ git commit -m "Update Docker configuration for multi-stage builds"
 - Git branch names auto-generated from Linear issues
 - Easy navigation between Linear and GitHub
 
+### Git Commit Authorization
+**CRITICAL RULE - NEVER VIOLATE**: Claude Code can NEVER commit or push code changes without explicit user authorization.
+
+- ✅ **Claude CAN do**:
+  - Stage changes with `git add` as needed
+  - Show staged changes with `git status` and `git diff --staged`
+  - Prepare commit messages for user review
+- ❌ **Claude CANNOT do UNDER ANY CIRCUMSTANCES**:
+  - Run `git commit` without explicit user instruction
+  - Run `git push` without explicit user authorization
+  - Create commits automatically, even when implementation is complete
+  - Decide when code is ready to be committed
+- 📋 **MANDATORY Process**:
+  1. Stage files with `git add` when changes are complete
+  2. Show user the staged changes with `git status` and optionally `git diff --staged`
+  3. Prepare appropriate commit message for user review
+  4. **WAIT for explicit user instruction** before running `git commit`
+  5. **WAIT for explicit user authorization** before running `git push`
+  6. **THE USER DECIDES** when code is ready to be committed and pushed
+
+**REMINDER**: Implementation completion ≠ commit authorization. User must explicitly authorize all git commit and push operations.
+
 ### Linear Issue Status Management
 **CRITICAL RULE - NEVER VIOLATE**: Claude Code can ONLY create new issues and move them to "In Progress" status. **ABSOLUTELY NEVER** set issues to "Done" status without explicit user approval.
 
@@ -55,7 +77,7 @@ git commit -m "Update Docker configuration for multi-stage builds"
   - Decide when implementation work is complete
 - 📋 **MANDATORY Process**:
   1. When implementation plan is executed, Claude MUST summarize what was implemented
-  2. After committing and pushing code to git, move issue to "In Review" status
+  2. After user authorizes commit and push, move issue to "In Review" status
   3. Claude MUST ask user to explicitly confirm if the work is complete and ready for closure
   4. Claude MUST wait for user approval before touching issue status beyond "In Review"
   5. **THE USER DECIDES** when implementation work is complete and satisfactory

@@ -3,16 +3,16 @@
 import { loadConfig } from "../config/index";
 import { NativeBunJWT } from "../services/jwt.service";
 import type { IKongService } from "../services/kong.service";
-import { incrementConsumerRequest, getVolumeBucket } from "../telemetry/consumer-volume";
+import { getVolumeBucket, incrementConsumerRequest } from "../telemetry/consumer-volume";
 import {
   recordAuthenticationAttempt,
+  recordConsumerError,
+  recordConsumerLatency,
+  recordConsumerRequest,
   recordError,
   recordException,
   recordJwtTokenIssued,
   recordOperationDuration,
-  recordConsumerRequest,
-  recordConsumerError,
-  recordConsumerLatency,
 } from "../telemetry/metrics";
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";

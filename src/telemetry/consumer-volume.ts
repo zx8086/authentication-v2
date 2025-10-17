@@ -26,19 +26,19 @@ export function incrementConsumerRequest(consumerId: string): void {
  * Get volume bucket classification for a consumer
  */
 export function getVolumeBucket(consumerId: string): string {
-  if (!consumerId) return 'low';
+  if (!consumerId) return "low";
 
   const hourlyCount = consumerRequestCounts.get(consumerId) || 0;
 
-  if (hourlyCount > 5000) return 'high';    // >5K/hour (enterprise)
-  if (hourlyCount > 100) return 'medium';   // 100-5K/hour (business)
-  return 'low';                             // <100/hour (basic)
+  if (hourlyCount > 5000) return "high"; // >5K/hour (enterprise)
+  if (hourlyCount > 100) return "medium"; // 100-5K/hour (business)
+  return "low"; // <100/hour (basic)
 }
 
 /**
  * Get consumer count by volume bucket
  */
-export function getConsumerCountByVolume(volume: 'high' | 'medium' | 'low'): number {
+export function getConsumerCountByVolume(volume: "high" | "medium" | "low"): number {
   let count = 0;
 
   for (const [consumerId] of consumerRequestCounts) {
@@ -60,10 +60,10 @@ export function getConsumerVolumeStats(): {
   total: number;
 } {
   return {
-    high: getConsumerCountByVolume('high'),
-    medium: getConsumerCountByVolume('medium'),
-    low: getConsumerCountByVolume('low'),
-    total: consumerRequestCounts.size
+    high: getConsumerCountByVolume("high"),
+    medium: getConsumerCountByVolume("medium"),
+    low: getConsumerCountByVolume("low"),
+    total: consumerRequestCounts.size,
   };
 }
 
