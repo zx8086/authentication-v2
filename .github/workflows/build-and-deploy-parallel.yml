@@ -159,7 +159,12 @@ jobs:
           # Test service endpoint availability
           echo "Testing service endpoints..."
           curl -v http://localhost:3000/metrics || echo "Metrics endpoint test failed but continuing..."
-        timeout-minutes: 3
+
+      - name: Setup test consumers in Kong
+        run: |
+          echo "Setting up test consumers for unit tests..."
+          bun run test/shared/setup-test-consumers.ts setup
+        timeout-minutes: 2
         env:
           PORT: 3000
           NODE_ENV: test
@@ -286,7 +291,12 @@ jobs:
 
           # Verify server is responding correctly
           curl -v http://localhost:3001/health || echo "E2E health check failed but continuing..."
-        timeout-minutes: 3
+
+      - name: Setup test consumers for E2E tests
+        run: |
+          echo "Setting up test consumers for E2E tests..."
+          bun run test/shared/setup-test-consumers.ts setup
+        timeout-minutes: 2
         env:
           PORT: 3001
           NODE_ENV: test
