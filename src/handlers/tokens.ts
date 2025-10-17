@@ -3,12 +3,16 @@
 import { loadConfig } from "../config/index";
 import { NativeBunJWT } from "../services/jwt.service";
 import type { IKongService } from "../services/kong.service";
+import { incrementConsumerRequest, getVolumeBucket } from "../telemetry/consumer-volume";
 import {
   recordAuthenticationAttempt,
   recordError,
   recordException,
   recordJwtTokenIssued,
   recordOperationDuration,
+  recordConsumerRequest,
+  recordConsumerError,
+  recordConsumerLatency,
 } from "../telemetry/metrics";
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
@@ -108,6 +112,9 @@ export async function handleTokenRequest(
 
     const headerValidation = validateKongHeaders(req);
 
+    // Extract consumer ID for volume tracking
+    const consumerId = req.headers.get(config.kong.consumerIdHeader);
+
     if ("error" in headerValidation) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("header_validation_failed", false);
@@ -119,6 +126,13 @@ export async function handleTokenRequest(
           isAnonymous: req.headers.get(config.kong.anonymousHeader) || "false",
         },
       });
+
+      // Record consumer error metrics if consumer ID available
+      if (consumerId) {
+        const volume = getVolumeBucket(consumerId);
+        recordConsumerError(volume);
+        recordConsumerLatency(volume, duration);
+      }
 
       log("HTTP request processed", {
         method: req.method,
@@ -135,6 +149,11 @@ export async function handleTokenRequest(
     try {
       const { consumerId, username } = headerValidation;
 
+      // Track consumer request and get volume bucket
+      incrementConsumerRequest(consumerId);
+      const volume = getVolumeBucket(consumerId);
+      recordConsumerRequest(volume);
+
       let secretResult: { key: string; secret: string } | null;
       try {
         secretResult = await lookupConsumerSecret(consumerId, username, kongService);
@@ -146,6 +165,10 @@ export async function handleTokenRequest(
           username,
           error: kongError instanceof Error ? kongError.message : "Kong service unavailable",
         });
+
+        // Record consumer error metrics
+        recordConsumerError(volume);
+        recordConsumerLatency(volume, duration);
 
         error("Kong service unavailable during token request", {
           consumerId,
@@ -190,6 +213,10 @@ export async function handleTokenRequest(
           error: "Consumer not found or no JWT credentials",
         });
 
+        // Record consumer error metrics
+        recordConsumerError(volume);
+        recordConsumerLatency(volume, duration);
+
         log("Consumer not found or has no JWT credentials", {
           consumerId,
           username,
@@ -221,6 +248,9 @@ export async function handleTokenRequest(
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("success", true, username);
 
+      // Record successful consumer metrics
+      recordConsumerLatency(volume, duration);
+
       log("JWT token generated successfully", {
         consumerId,
         username,
@@ -241,6 +271,13 @@ export async function handleTokenRequest(
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordAuthenticationAttempt("exception", false, headerValidation.username);
       recordException(err as Error);
+
+      // Record consumer error metrics for exceptions
+      if (consumerId) {
+        const volume = getVolumeBucket(consumerId);
+        recordConsumerError(volume);
+        recordConsumerLatency(volume, duration);
+      }
 
       error("Unexpected error during token generation", {
         error: err instanceof Error ? err.message : "Unknown error",

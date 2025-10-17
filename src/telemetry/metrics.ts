@@ -57,6 +57,11 @@ let cacheTierLatencyHistogram: any;
 let cacheTierErrorCounter: any;
 let operationDurationHistogram: any;
 
+// Consumer volume-based metrics (KISS approach)
+let consumerRequestsByVolumeCounter: any;
+let consumerErrorsByVolumeCounter: any;
+let consumerLatencyByVolumeHistogram: any;
+
 let systemMetricsInterval: Timer | null = null;
 
 export function initializeMetrics(): void {
@@ -271,6 +276,25 @@ export function initializeMetrics(): void {
   operationDurationHistogram = meter.createHistogram("operation_duration_seconds", {
     description: "Duration of various operations",
     unit: "s",
+  });
+
+  // Consumer volume-based metrics (KISS approach)
+  consumerRequestsByVolumeCounter = meter.createCounter("consumer_requests_by_volume", {
+    description: "Consumer requests grouped by volume (high/medium/low)",
+    unit: "1",
+  });
+
+  consumerErrorsByVolumeCounter = meter.createCounter("consumer_errors_by_volume", {
+    description: "Consumer errors grouped by volume (high/medium/low)",
+    unit: "1",
+  });
+
+  consumerLatencyByVolumeHistogram = meter.createHistogram("consumer_latency_by_volume", {
+    description: "Consumer response times grouped by volume (high/medium/low)",
+    unit: "s",
+    advice: {
+      explicitBucketBoundaries: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+    },
   });
 
   setupSystemMetricsCollection();
@@ -636,6 +660,54 @@ export function recordRedisOperation(
       error: (err as Error).message,
       operation,
       success,
+      durationMs,
+    });
+  }
+}
+
+// Consumer volume-based metrics functions (KISS approach)
+export function recordConsumerRequest(volume: string): void {
+  if (!isInitialized) return;
+
+  const attributes = { volume };
+
+  try {
+    consumerRequestsByVolumeCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record consumer request by volume metric", {
+      error: (err as Error).message,
+      volume,
+    });
+  }
+}
+
+export function recordConsumerError(volume: string): void {
+  if (!isInitialized) return;
+
+  const attributes = { volume };
+
+  try {
+    consumerErrorsByVolumeCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record consumer error by volume metric", {
+      error: (err as Error).message,
+      volume,
+    });
+  }
+}
+
+export function recordConsumerLatency(volume: string, durationMs: number): void {
+  if (!isInitialized) return;
+
+  const attributes = { volume };
+  const durationSeconds = durationMs / 1000;
+
+  try {
+    consumerLatencyByVolumeHistogram.record(durationSeconds, attributes);
+  } catch (err) {
+    error("Failed to record consumer latency by volume metric", {
+      error: (err as Error).message,
+      volume,
       durationMs,
     });
   }

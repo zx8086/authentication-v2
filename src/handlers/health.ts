@@ -11,6 +11,7 @@ import {
   getTelemetryStatus,
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
+import { getConsumerVolumeStats } from "../telemetry/consumer-volume";
 import { log } from "../utils/logger";
 import { createHealthResponse } from "../utils/response";
 
@@ -164,6 +165,9 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
     const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
 
+    // Get consumer volume statistics
+    const consumerVolumeStats = getConsumerVolumeStats();
+
     const statusCode = allHealthy ? 200 : 503;
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
@@ -223,6 +227,14 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
             responseTime: logsHealth.responseTime,
             ...("error" in logsHealth && logsHealth.error && { error: logsHealth.error }),
           },
+        },
+      },
+      consumers: {
+        volume: {
+          high: consumerVolumeStats.high,
+          medium: consumerVolumeStats.medium,
+          low: consumerVolumeStats.low,
+          total: consumerVolumeStats.total,
         },
       },
       requestId,
