@@ -3,7 +3,14 @@
 /* test/shared/setup-test-consumers.ts */
 
 import { loadConfig } from '../../src/config/index';
-import { TEST_CONSUMERS, ANONYMOUS_CONSUMER, type TestConsumer } from './test-consumers';
+import {
+  TEST_CONSUMERS,
+  ANONYMOUS_CONSUMER,
+  type TestConsumer,
+  getJobSpecificConsumers,
+  JOB_PREFIXES,
+  type JobPrefix
+} from './test-consumers';
 
 interface KongConsumer {
   id: string;
@@ -130,17 +137,22 @@ class TestConsumerSetup {
     }
   }
 
-  async setupConsumers(): Promise<boolean> {
-    console.log('🚀 Setting up test consumers for authentication service tests\n');
+  async setupConsumers(jobPrefix?: JobPrefix): Promise<boolean> {
+    const consumerSet = jobPrefix
+      ? getJobSpecificConsumers(jobPrefix)
+      : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
+
+    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : '';
+    console.log(`🚀 Setting up test consumers${jobDescription} for authentication service tests\n`);
 
     if (!await this.checkKongHealth()) {
       return false;
     }
 
-    console.log(`\nCreating ${TEST_CONSUMERS.length} test consumers...\n`);
+    console.log(`\nCreating ${consumerSet.consumers.length} test consumers${jobDescription}...\n`);
 
     let allSuccessful = true;
-    const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
+    const allConsumers = [...consumerSet.consumers, consumerSet.anonymous];
 
     for (const consumer of allConsumers) {
       // Check if consumer already exists
@@ -169,15 +181,20 @@ class TestConsumerSetup {
     return allSuccessful;
   }
 
-  async cleanupConsumers(): Promise<boolean> {
-    console.log('🧹 Cleaning up test consumers\n');
+  async cleanupConsumers(jobPrefix?: JobPrefix): Promise<boolean> {
+    const consumerSet = jobPrefix
+      ? getJobSpecificConsumers(jobPrefix)
+      : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
+
+    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : '';
+    console.log(`🧹 Cleaning up test consumers${jobDescription}\n`);
 
     if (!await this.checkKongHealth()) {
       return false;
     }
 
     let allSuccessful = true;
-    const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
+    const allConsumers = [...consumerSet.consumers, consumerSet.anonymous];
 
     for (const consumer of allConsumers) {
       if (await this.checkConsumerExists(consumer)) {
@@ -199,14 +216,19 @@ class TestConsumerSetup {
     return allSuccessful;
   }
 
-  async listConsumers(): Promise<void> {
-    console.log('📋 Listing test consumers\n');
+  async listConsumers(jobPrefix?: JobPrefix): Promise<void> {
+    const consumerSet = jobPrefix
+      ? getJobSpecificConsumers(jobPrefix)
+      : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
+
+    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : '';
+    console.log(`📋 Listing test consumers${jobDescription}\n`);
 
     if (!await this.checkKongHealth()) {
       return;
     }
 
-    const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
+    const allConsumers = [...consumerSet.consumers, consumerSet.anonymous];
 
     for (const consumer of allConsumers) {
       const exists = await this.checkConsumerExists(consumer);
@@ -218,32 +240,55 @@ class TestConsumerSetup {
 
 async function main() {
   const command = process.argv[2];
+  const jobPrefixArg = process.argv[3]; // Optional job prefix argument
   const setup = new TestConsumerSetup();
+
+  // Parse job prefix from argument or environment variable
+  let jobPrefix: JobPrefix | undefined;
+  if (jobPrefixArg) {
+    const validPrefixes = Object.values(JOB_PREFIXES);
+    if (validPrefixes.includes(jobPrefixArg as JobPrefix)) {
+      jobPrefix = jobPrefixArg as JobPrefix;
+    } else {
+      console.error(`Invalid job prefix: ${jobPrefixArg}. Valid options: ${validPrefixes.join(', ')}`);
+      process.exit(1);
+    }
+  } else if (process.env.CI_JOB_PREFIX) {
+    jobPrefix = process.env.CI_JOB_PREFIX as JobPrefix;
+  }
 
   try {
     switch (command) {
       case 'setup':
-        const setupSuccess = await setup.setupConsumers();
+        const setupSuccess = await setup.setupConsumers(jobPrefix);
         process.exit(setupSuccess ? 0 : 1);
         break;
 
       case 'cleanup':
-        const cleanupSuccess = await setup.cleanupConsumers();
+        const cleanupSuccess = await setup.cleanupConsumers(jobPrefix);
         process.exit(cleanupSuccess ? 0 : 1);
         break;
 
       case 'list':
-        await setup.listConsumers();
+        await setup.listConsumers(jobPrefix);
         process.exit(0);
         break;
 
       default:
-        console.log('Usage: bun run setup-test-consumers [setup|cleanup|list]');
+        console.log('Usage: bun run setup-test-consumers [setup|cleanup|list] [job-prefix]');
         console.log('');
         console.log('Commands:');
         console.log('  setup   - Create all test consumers in Kong');
         console.log('  cleanup - Delete all test consumers from Kong');
         console.log('  list    - List status of all test consumers');
+        console.log('');
+        console.log('Job Prefixes (for CI/CD isolation):');
+        console.log(`  ${Object.values(JOB_PREFIXES).join(', ')}`);
+        console.log('');
+        console.log('Examples:');
+        console.log('  bun run setup-test-consumers setup unit    # Unit test consumers');
+        console.log('  bun run setup-test-consumers setup e2e     # E2E test consumers');
+        console.log('  bun run setup-test-consumers setup         # Default consumers');
         process.exit(1);
     }
   } catch (error) {

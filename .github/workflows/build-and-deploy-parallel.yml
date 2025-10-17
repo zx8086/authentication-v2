@@ -162,13 +162,14 @@ jobs:
 
       - name: Setup test consumers in Kong
         run: |
-          echo "Setting up test consumers for unit tests..."
-          bun run test/shared/setup-test-consumers.ts setup
+          echo "Setting up isolated test consumers for unit tests..."
+          bun run test/shared/setup-test-consumers.ts setup unit
         timeout-minutes: 2
         env:
           PORT: 3000
           NODE_ENV: test
           TELEMETRY_MODE: console
+          CI_JOB_PREFIX: unit
           KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
           KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
           KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
@@ -191,6 +192,7 @@ jobs:
         env:
           NODE_ENV: test
           TELEMETRY_MODE: console
+          CI_JOB_PREFIX: unit
           KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
           KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
           KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
@@ -294,13 +296,14 @@ jobs:
 
       - name: Setup test consumers for E2E tests
         run: |
-          echo "Setting up test consumers for E2E tests..."
-          bun run test/shared/setup-test-consumers.ts setup
+          echo "Setting up isolated test consumers for E2E tests..."
+          bun run test/shared/setup-test-consumers.ts setup e2e
         timeout-minutes: 2
         env:
           PORT: 3001
           NODE_ENV: test
           TELEMETRY_MODE: console
+          CI_JOB_PREFIX: e2e
           KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
           KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
           KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
@@ -324,6 +327,7 @@ jobs:
           API_BASE_URL: http://localhost:3001
           NODE_ENV: test
           TELEMETRY_MODE: console
+          CI_JOB_PREFIX: e2e
           KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
           KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
           KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
@@ -719,4 +723,5 @@ jobs:
           echo "- 🔄 Multi-level caching (Bun deps, Playwright browsers)" >> $GITHUB_STEP_SUMMARY
           echo "- 🏃 Concurrent test execution within jobs" >> $GITHUB_STEP_SUMMARY
           echo "- 🎯 Service isolation for E2E tests (port 3001)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 Consumer isolation (unit-*, e2e-* prefixes)" >> $GITHUB_STEP_SUMMARY
           echo "- 📊 Independent job failure reporting" >> $GITHUB_STEP_SUMMARY

@@ -1,7 +1,14 @@
 /* test/playwright/global-setup.ts */
 
 import { FullConfig } from '@playwright/test';
-import { TEST_CONSUMERS, ANONYMOUS_CONSUMER, type TestConsumer } from '../shared/test-consumers';
+import {
+  TEST_CONSUMERS,
+  ANONYMOUS_CONSUMER,
+  type TestConsumer,
+  getJobSpecificConsumers,
+  JOB_PREFIXES,
+  type JobPrefix
+} from '../shared/test-consumers';
 
 // Load environment variables explicitly for global setup
 import { readFileSync } from 'fs';
@@ -231,13 +238,20 @@ class PlaywrightTestSetup {
   }
 
   async setupConsumers(): Promise<boolean> {
-    console.log('[Playwright Setup] Setting up test consumers for E2E tests');
+    // Check for job prefix in environment
+    const jobPrefix = process.env.CI_JOB_PREFIX as JobPrefix;
+    const consumerSet = jobPrefix
+      ? getJobSpecificConsumers(jobPrefix)
+      : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
+
+    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : '';
+    console.log(`[Playwright Setup] Setting up test consumers${jobDescription} for E2E tests`);
 
     if (!await this.checkKongHealth()) {
       return false;
     }
 
-    const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
+    const allConsumers = [...consumerSet.consumers, consumerSet.anonymous];
     let allSuccessful = true;
 
     for (const consumer of allConsumers) {
@@ -248,9 +262,9 @@ class PlaywrightTestSetup {
     }
 
     if (allSuccessful) {
-      console.log('[Playwright Setup] All test consumers ready for E2E tests');
+      console.log(`[Playwright Setup] All test consumers${jobDescription} ready for E2E tests`);
     } else {
-      console.log('[Playwright Setup] Some test consumers could not be created');
+      console.log(`[Playwright Setup] Some test consumers${jobDescription} could not be created`);
     }
 
     return allSuccessful;
