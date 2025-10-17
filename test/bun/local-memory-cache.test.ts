@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { ConsumerSecret } from "../../src/config/schemas";
 import { LocalMemoryCache } from "../../src/services/cache/local-memory-cache";
+import { TestConsumerSecretFactory, TestScenarios } from "../shared/test-consumer-secrets";
 
 describe("LocalMemoryCache", () => {
   let cache: LocalMemoryCache;
@@ -19,14 +20,11 @@ describe("LocalMemoryCache", () => {
 
     it("should store and retrieve values", async () => {
       const key = "test-consumer-1";
-      const secret: ConsumerSecret = {
-        id: "test-jwt-credential-1",
-        key: "test-jwt-key",
-        secret: "test-jwt-secret",
-        consumer: {
-          id: "test-consumer-1"
-        },
-      };
+      const secret: ConsumerSecret = TestConsumerSecretFactory.createNew({
+        idPrefix: "test-jwt-credential-1",
+        consumerIdPrefix: "test-consumer-1",
+        deterministic: true
+      });
 
       await cache.set(key, secret);
       const retrieved = await cache.get(key);
@@ -47,13 +45,7 @@ describe("LocalMemoryCache", () => {
       for (let i = 0; i < 50; i++) {
         testData.push({
           key: `concurrent-consumer-${i}`,
-          secret: {
-            consumerId: `concurrent-consumer-${i}`,
-            consumerUsername: `concurrent-user-${i}`,
-            jwtKey: `jwt-key-${i}`,
-            jwtSecret: `jwt-secret-${i}`,
-            algorithm: "HS256",
-          },
+          secret: TestScenarios.CONCURRENCY(i),
         });
       }
 
@@ -77,13 +69,7 @@ describe("LocalMemoryCache", () => {
   describe("TTL (Time To Live) Functionality", () => {
     it("should respect default TTL configuration", async () => {
       const key = "ttl-test-default";
-      const secret: ConsumerSecret = {
-        consumerId: "ttl-consumer",
-        consumerUsername: "ttl-user",
-        jwtKey: "ttl-key",
-        jwtSecret: "ttl-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestConsumerSecretFactory.createForTTL("default");
 
       await cache.set(key, secret);
 
@@ -94,13 +80,7 @@ describe("LocalMemoryCache", () => {
 
     it("should respect custom TTL values", async () => {
       const key = "custom-ttl-test";
-      const secret: ConsumerSecret = {
-        consumerId: "custom-ttl-consumer",
-        consumerUsername: "custom-ttl-user",
-        jwtKey: "custom-ttl-key",
-        jwtSecret: "custom-ttl-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.CUSTOM_TTL();
 
       const customTtl = 1; // 1 second
       await cache.set(key, secret, customTtl);
@@ -123,13 +103,7 @@ describe("LocalMemoryCache", () => {
       const shortTtlCache = new LocalMemoryCache({ ttlSeconds: 1, maxEntries: 100 });
 
       const key = "expire-test";
-      const secret: ConsumerSecret = {
-        consumerId: "expire-consumer",
-        consumerUsername: "expire-user",
-        jwtKey: "expire-key",
-        jwtSecret: "expire-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.EXPIRE_TEST();
 
       await shortTtlCache.set(key, secret);
 
@@ -150,13 +124,7 @@ describe("LocalMemoryCache", () => {
   describe("Delete and Clear Operations", () => {
     it("should delete individual entries", async () => {
       const key = "delete-test";
-      const secret: ConsumerSecret = {
-        consumerId: "delete-consumer",
-        consumerUsername: "delete-user",
-        jwtKey: "delete-key",
-        jwtSecret: "delete-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.DELETE_TEST();
 
       await cache.set(key, secret);
       expect(await cache.get(key)).toEqual(secret);
@@ -167,9 +135,9 @@ describe("LocalMemoryCache", () => {
 
     it("should clear all entries", async () => {
       const entries = [
-        { key: "clear-test-1", secret: { consumerId: "1", consumerUsername: "user1", jwtKey: "key1", jwtSecret: "secret1", algorithm: "HS256" as const } },
-        { key: "clear-test-2", secret: { consumerId: "2", consumerUsername: "user2", jwtKey: "key2", jwtSecret: "secret2", algorithm: "HS256" as const } },
-        { key: "clear-test-3", secret: { consumerId: "3", consumerUsername: "user3", jwtKey: "key3", jwtSecret: "secret3", algorithm: "HS256" as const } },
+        { key: "clear-test-1", secret: TestConsumerSecretFactory.createWithId("clear-1") },
+        { key: "clear-test-2", secret: TestConsumerSecretFactory.createWithId("clear-2") },
+        { key: "clear-test-3", secret: TestConsumerSecretFactory.createWithId("clear-3") },
       ];
 
       // Set multiple entries
@@ -201,13 +169,7 @@ describe("LocalMemoryCache", () => {
   describe("Statistics and Performance Monitoring", () => {
     it("should track hit and miss statistics", async () => {
       const key = "stats-test";
-      const secret: ConsumerSecret = {
-        consumerId: "stats-consumer",
-        consumerUsername: "stats-user",
-        jwtKey: "stats-key",
-        jwtSecret: "stats-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.STATS_TEST();
 
       // Record miss
       await cache.get(key);
@@ -224,8 +186,8 @@ describe("LocalMemoryCache", () => {
 
     it("should calculate hit rate correctly", async () => {
       const testData = [
-        { key: "hit-rate-1", secret: { consumerId: "hr1", consumerUsername: "hru1", jwtKey: "hrk1", jwtSecret: "hrs1", algorithm: "HS256" as const } },
-        { key: "hit-rate-2", secret: { consumerId: "hr2", consumerUsername: "hru2", jwtKey: "hrk2", jwtSecret: "hrs2", algorithm: "HS256" as const } },
+        { key: "hit-rate-1", secret: TestConsumerSecretFactory.createWithId("hit-rate-1") },
+        { key: "hit-rate-2", secret: TestConsumerSecretFactory.createWithId("hit-rate-2") },
       ];
 
       // Set up data
@@ -252,13 +214,7 @@ describe("LocalMemoryCache", () => {
       // Add entries
       const numEntries = 10;
       for (let i = 0; i < numEntries; i++) {
-        await cache.set(`size-test-${i}`, {
-          consumerId: `size-consumer-${i}`,
-          consumerUsername: `size-user-${i}`,
-          jwtKey: `size-key-${i}`,
-          jwtSecret: `size-secret-${i}`,
-          algorithm: "HS256",
-        });
+        await cache.set(`size-test-${i}`, TestConsumerSecretFactory.createWithId(`size-${i}`));
       }
 
       const finalStats = await cache.getStats();
@@ -269,13 +225,7 @@ describe("LocalMemoryCache", () => {
 
     it("should track latency accurately", async () => {
       const key = "latency-test";
-      const secret: ConsumerSecret = {
-        consumerId: "latency-consumer",
-        consumerUsername: "latency-user",
-        jwtKey: "latency-key",
-        jwtSecret: "latency-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.LATENCY_TEST();
 
       await cache.set(key, secret);
 
@@ -296,13 +246,7 @@ describe("LocalMemoryCache", () => {
 
       // Add more entries than the limit
       for (let i = 0; i < 10; i++) {
-        await smallCache.set(`limit-test-${i}`, {
-          consumerId: `limit-consumer-${i}`,
-          consumerUsername: `limit-user-${i}`,
-          jwtKey: `limit-key-${i}`,
-          jwtSecret: `limit-secret-${i}`,
-          algorithm: "HS256",
-        });
+        await smallCache.set(`limit-test-${i}`, TestConsumerSecretFactory.createWithId(`limit-${i}`));
       }
 
       const stats = await smallCache.getStats();
@@ -314,10 +258,10 @@ describe("LocalMemoryCache", () => {
       const smallCache = new LocalMemoryCache({ ttlSeconds: 300, maxEntries: 3 });
 
       const entries = [
-        { key: "evict-1", secret: { consumerId: "e1", consumerUsername: "eu1", jwtKey: "ek1", jwtSecret: "es1", algorithm: "HS256" as const } },
-        { key: "evict-2", secret: { consumerId: "e2", consumerUsername: "eu2", jwtKey: "ek2", jwtSecret: "es2", algorithm: "HS256" as const } },
-        { key: "evict-3", secret: { consumerId: "e3", consumerUsername: "eu3", jwtKey: "ek3", jwtSecret: "es3", algorithm: "HS256" as const } },
-        { key: "evict-4", secret: { consumerId: "e4", consumerUsername: "eu4", jwtKey: "ek4", jwtSecret: "es4", algorithm: "HS256" as const } },
+        { key: "evict-1", secret: TestConsumerSecretFactory.createWithId("evict-1") },
+        { key: "evict-2", secret: TestConsumerSecretFactory.createWithId("evict-2") },
+        { key: "evict-3", secret: TestConsumerSecretFactory.createWithId("evict-3") },
+        { key: "evict-4", secret: TestConsumerSecretFactory.createWithId("evict-4") },
       ];
 
       // Add entries sequentially
@@ -342,13 +286,7 @@ describe("LocalMemoryCache", () => {
 
       // Add some data
       for (let i = 0; i < 100; i++) {
-        await cache.set(`memory-${i}`, {
-          consumerId: `memory-consumer-${i}`,
-          consumerUsername: `memory-user-${i}`,
-          jwtKey: `memory-key-${i}`,
-          jwtSecret: `memory-secret-${i}`,
-          algorithm: "HS256",
-        });
+        await cache.set(`memory-${i}`, TestConsumerSecretFactory.createWithId(`memory-${i}`));
       }
 
       const statsWithData = await cache.getStats();
@@ -359,13 +297,7 @@ describe("LocalMemoryCache", () => {
 
   describe("Edge Cases and Error Handling", () => {
     it("should handle empty string keys", async () => {
-      const secret: ConsumerSecret = {
-        consumerId: "empty-key-consumer",
-        consumerUsername: "empty-key-user",
-        jwtKey: "empty-key-jwt",
-        jwtSecret: "empty-key-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestConsumerSecretFactory.createWithId("empty-key");
 
       await cache.set("", secret);
       const retrieved = await cache.get("");
@@ -386,13 +318,7 @@ describe("LocalMemoryCache", () => {
         "key\\with\\backslashes",
       ];
 
-      const secret: ConsumerSecret = {
-        consumerId: "special-chars-consumer",
-        consumerUsername: "special-chars-user",
-        jwtKey: "special-chars-key",
-        jwtSecret: "special-chars-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.SPECIAL_CHARS();
 
       for (const key of specialKeys) {
         await cache.set(key, secret);
@@ -403,13 +329,7 @@ describe("LocalMemoryCache", () => {
 
     it("should handle very long keys", async () => {
       const longKey = "very-long-key-".repeat(100);
-      const secret: ConsumerSecret = {
-        consumerId: "long-key-consumer",
-        consumerUsername: "long-key-user",
-        jwtKey: "long-key-jwt",
-        jwtSecret: "long-key-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestConsumerSecretFactory.createWithId("long-key");
 
       await cache.set(longKey, secret);
       const retrieved = await cache.get(longKey);
@@ -418,13 +338,7 @@ describe("LocalMemoryCache", () => {
 
     it("should handle zero TTL values", async () => {
       const key = "zero-ttl-test";
-      const secret: ConsumerSecret = {
-        consumerId: "zero-ttl-consumer",
-        consumerUsername: "zero-ttl-user",
-        jwtKey: "zero-ttl-key",
-        jwtSecret: "zero-ttl-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.ZERO_TTL();
 
       await cache.set(key, secret, 0);
 
@@ -436,13 +350,7 @@ describe("LocalMemoryCache", () => {
 
     it("should handle negative TTL values gracefully", async () => {
       const key = "negative-ttl-test";
-      const secret: ConsumerSecret = {
-        consumerId: "negative-ttl-consumer",
-        consumerUsername: "negative-ttl-user",
-        jwtKey: "negative-ttl-key",
-        jwtSecret: "negative-ttl-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.NEGATIVE_TTL();
 
       await cache.set(key, secret, -1);
 
@@ -461,13 +369,7 @@ describe("LocalMemoryCache", () => {
       const setPromises: Promise<void>[] = [];
       for (let i = 0; i < numOperations; i++) {
         setPromises.push(
-          cache.set(`perf-test-${i}`, {
-            consumerId: `perf-consumer-${i}`,
-            consumerUsername: `perf-user-${i}`,
-            jwtKey: `perf-key-${i}`,
-            jwtSecret: `perf-secret-${i}`,
-            algorithm: "HS256",
-          })
+          cache.set(`perf-test-${i}`, TestScenarios.PERFORMANCE(i))
         );
       }
 
@@ -501,13 +403,7 @@ describe("LocalMemoryCache", () => {
       // Mix of set, get, delete operations
       for (let i = 0; i < 200; i++) {
         const key = `mixed-${i}`;
-        const secret: ConsumerSecret = {
-          consumerId: `mixed-consumer-${i}`,
-          consumerUsername: `mixed-user-${i}`,
-          jwtKey: `mixed-key-${i}`,
-          jwtSecret: `mixed-secret-${i}`,
-          algorithm: "HS256",
-        };
+        const secret: ConsumerSecret = TestConsumerSecretFactory.createWithId(`mixed-${i}`);
 
         operations.push(cache.set(key, secret));
         operations.push(cache.get(key));

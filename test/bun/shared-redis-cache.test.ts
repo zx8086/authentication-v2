@@ -3,6 +3,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { ConsumerSecret } from "../../src/config/schemas";
 import { SharedRedisCache } from "../../src/services/cache/shared-redis-cache";
+import { TestConsumerSecretFactory, TestScenarios } from "../shared/test-consumer-secrets";
 
 describe("SharedRedisCache Essential Tests", () => {
   let cache: SharedRedisCache;
@@ -57,13 +58,7 @@ describe("SharedRedisCache Essential Tests", () => {
   describe("Basic Operations", () => {
     skipIfRedisUnavailable("should store and retrieve values", async () => {
       const key = "test-consumer-1";
-      const secret: ConsumerSecret = {
-        consumerId: "test-consumer-1",
-        consumerUsername: "test-user",
-        jwtKey: "test-jwt-key",
-        jwtSecret: "test-jwt-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestConsumerSecretFactory.createWithId("test-consumer-1");
 
       await cache.set(key, secret);
       const retrieved = await cache.get(key);
@@ -77,13 +72,7 @@ describe("SharedRedisCache Essential Tests", () => {
 
     skipIfRedisUnavailable("should delete individual entries", async () => {
       const key = "delete-test";
-      const secret: ConsumerSecret = {
-        consumerId: "delete-consumer",
-        consumerUsername: "delete-user",
-        jwtKey: "delete-key",
-        jwtSecret: "delete-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.DELETE_TEST();
 
       await cache.set(key, secret);
       expect(await cache.get(key)).toEqual(secret);
@@ -94,8 +83,8 @@ describe("SharedRedisCache Essential Tests", () => {
 
     skipIfRedisUnavailable("should clear all entries", async () => {
       // Set multiple entries
-      await cache.set("clear-1", { consumerId: "c1", consumerUsername: "u1", jwtKey: "k1", jwtSecret: "s1", algorithm: "HS256" });
-      await cache.set("clear-2", { consumerId: "c2", consumerUsername: "u2", jwtKey: "k2", jwtSecret: "s2", algorithm: "HS256" });
+      await cache.set("clear-1", TestConsumerSecretFactory.createWithId("clear-1"));
+      await cache.set("clear-2", TestConsumerSecretFactory.createWithId("clear-2"));
 
       // Verify entries exist
       expect(await cache.get("clear-1")).not.toBeNull();
@@ -113,13 +102,7 @@ describe("SharedRedisCache Essential Tests", () => {
   describe("TTL and Expiration", () => {
     skipIfRedisUnavailable("should handle custom TTL values", async () => {
       const key = "custom-ttl";
-      const secret: ConsumerSecret = {
-        consumerId: "custom-ttl-consumer",
-        consumerUsername: "custom-ttl-user",
-        jwtKey: "custom-ttl-key",
-        jwtSecret: "custom-ttl-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.CUSTOM_TTL();
 
       await cache.set(key, secret, 1); // 1 second TTL
 
@@ -141,13 +124,7 @@ describe("SharedRedisCache Essential Tests", () => {
 
       // Record hit
       const key = "stats-test";
-      const secret: ConsumerSecret = {
-        consumerId: "stats-consumer",
-        consumerUsername: "stats-user",
-        jwtKey: "stats-key",
-        jwtSecret: "stats-secret",
-        algorithm: "HS256",
-      };
+      const secret: ConsumerSecret = TestScenarios.STATS_TEST();
 
       await cache.set(key, secret);
       await cache.get(key);
