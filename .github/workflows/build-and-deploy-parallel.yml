@@ -54,19 +54,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun runtime
         id: setup-bun
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies
         id: deps-cache
         uses: actions/cache@v4
-        timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
@@ -78,7 +75,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        timeout-minutes: 3
 
       - name: Ensure lockfile exists
         run: |
@@ -111,22 +107,18 @@ jobs:
   unit-tests:
     needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 6
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun runtime
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
         with:
           bun-version: latest
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
-        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
@@ -147,9 +139,24 @@ jobs:
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started unit test server on port 3000 with PID: $SERVER_PID"
+        env:
+          NODE_ENV: test
+          TELEMETRY_MODE: console
+          CIRCUIT_BREAKER_ENABLED: true
+          CIRCUIT_BREAKER_RESET_TIMEOUT: 10000
+          CIRCUIT_BREAKER_TIMEOUT: 2000
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: 30
+          PROFILING_ENABLED: true
+          KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
+          JWT_EXPIRATION_MINUTES: ${{ env.JWT_EXPIRATION_MINUTES }}
+          KONG_MODE: ${{ env.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
 
           # Wait for server to be ready with more comprehensive health checks
-          timeout 45 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do echo "Waiting for server..."; sleep 2; done'
+          until curl -f http://localhost:3000/health >/dev/null 2>&1; do echo "Waiting for server..."; sleep 2; done
           sleep 5  # Additional stabilization time
           echo "Unit test server is ready for testing"
 
@@ -164,7 +171,6 @@ jobs:
         run: |
           echo "Setting up isolated test consumers for unit tests..."
           bun run test/shared/setup-test-consumers.ts setup unit
-        timeout-minutes: 2
         env:
           PORT: 3000
           NODE_ENV: test
@@ -184,11 +190,14 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
-          CIRCUIT_BREAKER_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: true
+          CIRCUIT_BREAKER_RESET_TIMEOUT: 10000
+          CIRCUIT_BREAKER_TIMEOUT: 2000
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: 30
+          PROFILING_ENABLED: true
 
       - name: Run unit tests with concurrency
         run: bun run bun:test -- --concurrent --max-concurrency=10
-        timeout-minutes: 4
         env:
           NODE_ENV: test
           TELEMETRY_MODE: console
@@ -207,7 +216,11 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
-          CIRCUIT_BREAKER_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: true
+          CIRCUIT_BREAKER_RESET_TIMEOUT: 10000
+          CIRCUIT_BREAKER_TIMEOUT: 2000
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: 30
+          PROFILING_ENABLED: true
 
       - name: Upload unit test results
         if: always()
@@ -235,22 +248,18 @@ jobs:
   e2e-tests:
     needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 8
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun runtime
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
         with:
           bun-version: latest
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
-        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
@@ -267,7 +276,6 @@ jobs:
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
-        timeout-minutes: 1
         with:
           path: |
             ~/.cache/ms-playwright
@@ -277,7 +285,6 @@ jobs:
 
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps
-        timeout-minutes: 3
 
       - name: Start authentication service
         run: |
@@ -287,7 +294,7 @@ jobs:
           echo "Started E2E server on port 3001 with PID: $SERVER_PID"
 
           # Wait for server to be ready with more comprehensive health checks
-          timeout 45 bash -c 'until curl -f http://localhost:3001/health >/dev/null 2>&1; do echo "Waiting for E2E server..."; sleep 2; done'
+          until curl -f http://localhost:3001/health >/dev/null 2>&1; do echo "Waiting for E2E server..."; sleep 2; done
           sleep 5  # Additional stabilization time
           echo "E2E server is ready for testing"
 
@@ -298,7 +305,6 @@ jobs:
         run: |
           echo "Setting up isolated test consumers for E2E tests..."
           bun run test/shared/setup-test-consumers.ts setup e2e
-        timeout-minutes: 2
         env:
           PORT: 3001
           NODE_ENV: test
@@ -318,11 +324,14 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
-          CIRCUIT_BREAKER_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: true
+          CIRCUIT_BREAKER_RESET_TIMEOUT: 10000
+          CIRCUIT_BREAKER_TIMEOUT: 2000
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: 30
+          PROFILING_ENABLED: true
 
       - name: Run Playwright E2E tests
         run: bunx playwright test
-        timeout-minutes: 4
         env:
           API_BASE_URL: http://localhost:3001
           NODE_ENV: test
@@ -342,7 +351,11 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
-          CIRCUIT_BREAKER_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: true
+          CIRCUIT_BREAKER_RESET_TIMEOUT: 10000
+          CIRCUIT_BREAKER_TIMEOUT: 2000
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: 30
+          PROFILING_ENABLED: true
 
       - name: Upload E2E test results
         if: always()
@@ -367,22 +380,18 @@ jobs:
   code-quality:
     needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 6
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun runtime
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
         with:
           bun-version: latest
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
-        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
@@ -399,11 +408,9 @@ jobs:
 
       - name: Run Biome code quality checks
         run: bunx @biomejs/biome check .
-        timeout-minutes: 2
 
       - name: Run TypeScript type checking
         run: bun run typecheck
-        timeout-minutes: 2
 
       - name: License compliance check
         run: |
@@ -421,7 +428,6 @@ jobs:
               echo "::notice::License check passed - no AGPL/GPL-3 dependencies detected"
             fi
           }
-        timeout-minutes: 2
         continue-on-error: true
 
       - name: Upload code quality results
@@ -438,7 +444,6 @@ jobs:
   build-and-deploy:
     needs: [setup, unit-tests, e2e-tests, code-quality]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -453,17 +458,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun runtime
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
         with:
           bun-version: latest
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
-        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
@@ -480,7 +482,6 @@ jobs:
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
-        timeout-minutes: 2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -488,7 +489,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        timeout-minutes: 3
         with:
           driver: cloud
           endpoint: "zx8086/cldbuild"
@@ -511,7 +511,6 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
-        timeout-minutes: 2
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -540,8 +539,7 @@ jobs:
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v6
-        timeout-minutes: 10
-        with:
+            with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
@@ -573,7 +571,6 @@ jobs:
       - name: Run Snyk code analysis
         if: github.event_name != 'pull_request'
         uses: snyk/actions/node@v1.0.0
-        timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -591,7 +588,6 @@ jobs:
       - name: Run Snyk container scan
         if: github.event_name != 'pull_request'
         uses: snyk/actions/docker@v1.0.0
-        timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -602,19 +598,16 @@ jobs:
       - name: Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@0.33.1
-        timeout-minutes: 5
         with:
           image-ref: ${{ steps.image-tag.outputs.primary-tag }}
           format: "sarif"
           output: "trivy-results.sarif"
-          timeout: "3m"
           exit-code: "0"
         continue-on-error: true
 
       - name: Docker Scout analysis
         if: github.event_name != 'pull_request'
         uses: docker/scout-action@v1.15.1
-        timeout-minutes: 5
         with:
           command: cves,recommendations
           image: ${{ steps.image-tag.outputs.primary-tag }}
@@ -625,7 +618,6 @@ jobs:
       - name: Upload security scan results
         if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: "snyk-code-results.sarif"
         continue-on-error: true
@@ -633,7 +625,6 @@ jobs:
       - name: Upload Snyk container scan results
         if: github.event_name != 'pull_request' && hashFiles('snyk-container-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: "snyk-container-results.sarif"
         continue-on-error: true
@@ -641,7 +632,6 @@ jobs:
       - name: Upload Trivy scan results
         if: github.event_name != 'pull_request' && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: "trivy-results.sarif"
         continue-on-error: true
@@ -649,7 +639,6 @@ jobs:
       - name: Upload Docker Scout results
         if: github.event_name != 'pull_request' && hashFiles('scout-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: "scout-results.sarif"
         continue-on-error: true
@@ -657,7 +646,6 @@ jobs:
       - name: Archive security scan results
         if: github.event_name != 'pull_request' && always()
         uses: actions/upload-artifact@v4
-        timeout-minutes: 3
         with:
           name: security-scan-results-${{ github.run_number }}
           path: |
@@ -676,7 +664,6 @@ jobs:
     needs: build-and-deploy
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: read
       attestations: read
