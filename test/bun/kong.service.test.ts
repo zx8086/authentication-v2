@@ -282,7 +282,8 @@ describe('Kong Service Factory Integration', () => {
         // Health check should return unhealthy status
         const result = await kongService.healthCheck();
         expect(result.healthy).toBe(false);
-        expect(result.error).toContain('This operation was aborted');
+        // Error message can vary between local and CI environments due to timeout behavior
+        expect(result.error).toMatch(/Connection refused|This operation was aborted/);
       });
 
       it('should complete health check within reasonable time', async () => {

@@ -143,6 +143,13 @@ class TestConsumerSetup {
     const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
 
     for (const consumer of allConsumers) {
+      // Check if consumer already exists
+      const exists = await this.checkConsumerExists(consumer);
+      if (exists) {
+        console.log(`✅ Consumer already exists: ${consumer.username}`);
+        continue;
+      }
+
       const success = await this.createConsumer(consumer);
       if (!success) {
         allSuccessful = false;
