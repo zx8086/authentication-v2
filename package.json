@@ -24,6 +24,7 @@
     "biome:check:unsafe": "biome check --write --unsafe .",
     "yaml:check": "yamllint .github/workflows/*.yml",
     "lint:all": "bun run biome:check && bun run yaml:check",
+    "lint:fix": "bun run typecheck && bun run biome:check:write && bun run yaml:check",
     "biome:ci": "biome ci .",
     "generate-docs": "bun scripts/generate-openapi.ts",
     "health-check": "curl -f http://localhost:3000/health || exit 1",

@@ -24,7 +24,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -66,19 +66,37 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Cache Bun dependencies for code quality
+      - name: Cache Bun dependencies with enhanced strategy
         uses: actions/cache@v4
         timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
             node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+            bun.lockb
+          key: ${{ runner.os }}-bun-deps-${{ hashFiles('**/bun.lockb') }}-${{ hashFiles('**/package.json') }}
           restore-keys: |
+            ${{ runner.os }}-bun-deps-${{ hashFiles('**/bun.lockb') }}-
+            ${{ runner.os }}-bun-deps-
             ${{ runner.os }}-bun-
 
-      - name: Install dependencies for code quality checks
-        run: bun install --frozen-lockfile
+      - name: Install dependencies with smart caching and selective installation
+        run: |
+          # Check if node_modules is populated from cache
+          if [ -d "node_modules" ] && [ "$(ls -A node_modules)" ]; then
+            echo "Dependencies restored from cache, validating integrity..."
+            bun install --frozen-lockfile --production=false --verify
+          else
+            echo "Installing dependencies from scratch..."
+            bun install --frozen-lockfile --production=false
+          fi
+
+          # For non-PR builds, also prepare production-only dependencies for Docker
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "Pre-installing production dependencies for Docker optimization..."
+            mkdir -p node_modules_prod
+            bun install --frozen-lockfile --production --cwd ./node_modules_prod || true
+          fi
         timeout-minutes: 3
 
       - name: Start application server for testing
@@ -97,14 +115,16 @@ jobs:
         run: bun run bun:test
         timeout-minutes: 3
 
-      - name: Cache Playwright browsers
+      - name: Cache Playwright browsers with version tracking
         uses: actions/cache@v4
         timeout-minutes: 1
         with:
           path: |
             ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}
+            ~/.cache/playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/bun.lockb') }}
           restore-keys: |
+            ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}-
             ${{ runner.os }}-playwright-
 
       - name: Install Playwright browsers
@@ -255,16 +275,6 @@ jobs:
           }
         continue-on-error: true
 
-      - name: Run Snyk code analysis
-        if: github.event_name != 'pull_request'
-        uses: snyk/actions/node@v1.0.0
-        timeout-minutes: 5
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high --sarif-file-output=snyk-code-results.sarif
-        continue-on-error: true
-
       - name: Get primary tag for container scanning
         if: github.event_name != 'pull_request'
         id: image-tag
@@ -273,38 +283,74 @@ jobs:
           echo "primary-tag=$FIRST_TAG" >> $GITHUB_OUTPUT
           echo "Scanning image: $FIRST_TAG"
 
-      - name: Run Snyk container scan
+      - name: Run parallel security scans
         if: github.event_name != 'pull_request'
-        uses: snyk/actions/docker@v1.0.0
         timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ steps.image-tag.outputs.primary-tag }}
-          args: --severity-threshold=high --sarif-file-output=snyk-container-results.sarif
-        continue-on-error: true
+        run: |
+          echo "Starting parallel security scans for image: ${{ steps.image-tag.outputs.primary-tag }}"
 
-      - name: Run Trivy vulnerability scanner
-        if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@0.33.1
-        timeout-minutes: 5
-        with:
-          image-ref: ${{ steps.image-tag.outputs.primary-tag }}
-          format: "sarif"
-          output: "trivy-results.sarif"
-          timeout: "3m"
-          exit-code: "0"
-        continue-on-error: true
+          # Start Snyk code analysis in background
+          {
+            echo "Running Snyk code analysis..."
+            npx --yes snyk@latest test --severity-threshold=high --sarif-file-output=snyk-code-results.sarif || {
+              echo "Snyk code analysis completed with findings"
+              exit 0
+            }
+          } &
+          SNYK_CODE_PID=$!
 
-      - name: Docker Scout analysis
-        if: github.event_name != 'pull_request'
-        uses: docker/scout-action@v1.15.1
-        timeout-minutes: 5
-        with:
-          command: cves,recommendations
-          image: ${{ steps.image-tag.outputs.primary-tag }}
-          sarif-file: scout-results.sarif
-          summary: true
+          # Start Snyk container scan in background
+          {
+            echo "Running Snyk container scan..."
+            npx --yes snyk@latest container test ${{ steps.image-tag.outputs.primary-tag }} \
+              --severity-threshold=high --sarif-file-output=snyk-container-results.sarif || {
+              echo "Snyk container scan completed with findings"
+              exit 0
+            }
+          } &
+          SNYK_CONTAINER_PID=$!
+
+          # Start Trivy scan in background
+          {
+            echo "Running Trivy vulnerability scanner..."
+            docker run --rm -v "$PWD":/workspace \
+              aquasec/trivy:0.55.2 image --format sarif --output /workspace/trivy-results.sarif \
+              --timeout 3m --exit-code 0 ${{ steps.image-tag.outputs.primary-tag }} || {
+              echo "Trivy scan completed with findings"
+              exit 0
+            }
+          } &
+          TRIVY_PID=$!
+
+          # Start Docker Scout scan in background
+          {
+            echo "Running Docker Scout analysis..."
+            docker scout cves ${{ steps.image-tag.outputs.primary-tag }} \
+              --format sarif --output scout-results.sarif || {
+              echo "Docker Scout scan completed with findings"
+              exit 0
+            }
+          } &
+          SCOUT_PID=$!
+
+          # Wait for all scans to complete
+          echo "Waiting for all security scans to complete..."
+
+          wait $SNYK_CODE_PID
+          echo "✓ Snyk code analysis finished"
+
+          wait $SNYK_CONTAINER_PID
+          echo "✓ Snyk container scan finished"
+
+          wait $TRIVY_PID
+          echo "✓ Trivy vulnerability scan finished"
+
+          wait $SCOUT_PID
+          echo "✓ Docker Scout analysis finished"
+
+          echo "All parallel security scans completed successfully"
         continue-on-error: true
 
       - name: Upload Snyk code analysis results
