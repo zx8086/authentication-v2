@@ -10,9 +10,10 @@
 7. [API Reference](#api-reference)
 8. [Observability & Monitoring](#observability--monitoring)
 9. [Deployment & Operations](#deployment--operations)
-10. [Security Considerations](#security-considerations)
-11. [Testing Strategy](#testing-strategy)
-12. [Practical Usage Examples](#practical-usage-examples)
+10. [CPU and Memory Profiling](#cpu-and-memory-profiling)
+11. [Security Considerations](#security-considerations)
+12. [Testing Strategy](#testing-strategy)
+13. [Practical Usage Examples](#practical-usage-examples)
 
 ---
 
@@ -60,13 +61,18 @@ The Authentication Service is a high-performance microservice built with Bun run
                                   │                         │
                                   │                         │
                           ┌───────▼────────┐        ┌───────▼────────┐
-                          │ Kong Admin API │        │ Hybrid Caching │
-                          │   (Consumers)  │◀───────│   & Secrets    │
+                          │ Kong Admin API │        │ Unified Cache  │
+                          │   (Consumers)  │◀───────│  Architecture  │
                           └────────────────┘        └────────────────┘
+                                  │                         │
+                           ┌──────▼──────┐         ┌────────▼────────┐
+                           │ Circuit     │         │  Redis Cache    │
+                           │ Breaker     │         │  (HA Mode)      │
+                           └─────────────┘         └─────────────────┘
                                                              │
                                                     ┌────────▼────────┐
                                                     │  OpenTelemetry  │
-                                                    │    (OTLP/APM)   │
+                                                    │ & Profiling     │
                                                     └─────────────────┘
 ```
 
@@ -75,26 +81,35 @@ The Authentication Service is a high-performance microservice built with Bun run
 #### External Dependencies
 - **Kong Gateway**: Provides consumer authentication and request routing
 - **Kong Admin API**: Manages consumer secrets and JWT configurations
+- **Redis Cache**: Optional high-availability cache backend for enhanced resilience
 - **OpenTelemetry Collector**: Receives distributed tracing, metrics, and logs
 
 #### Internal Components
 - **HTTP Server**: Native Bun.serve() Routes API for maximum performance (100k+ req/sec)
 - **JWT Service**: Token generation using crypto.subtle Web API with response builders
-- **Kong Service**: Kong Admin API client with hybrid caching strategy and circuit breakers
+- **API Gateway Adapter**: Unified Kong adapter supporting both API Gateway and Konnect modes
+  - `kong.adapter.ts`: Consolidated Kong integration with strategy pattern
+  - Mode-specific strategies for different Kong deployments
+- **Unified Cache Architecture**: Pluggable cache backends with intelligent fallback
+  - `cache-factory.ts`: Cache backend selection and initialization
+  - In-memory cache with configurable Redis backend
+  - Automatic failover and stale data tolerance
 - **Response Builders**: Standardized response patterns for consistency and type safety
 - **Handler Layer**: Dedicated request handlers (`src/handlers/`) for focused business logic
   - `tokens.ts`: JWT token generation with Kong integration and caching
   - `health.ts`: Health checks with dependency monitoring and circuit breaker status
   - `metrics.ts`: Consolidated performance metrics and debugging endpoints
   - `openapi.ts`: Dynamic OpenAPI specification generation
+  - `profiling.ts`: Chrome DevTools profiling integration
 - **Middleware Layer**: Cross-cutting concerns (`src/middleware/`)
   - `error-handler.ts`: Centralized error handling with structured responses
   - `cors.ts`: CORS preflight request handling
 - **Router Layer**: Native Bun Routes API integration (`src/routes/router.ts`)
-- **Hybrid Caching**: Memory-based caching with Redis fallback for high performance
 - **Circuit Breaker**: Opossum-based resilience protection for Kong Admin API with stale cache fallback
+- **Shared Circuit Breaker Service**: Centralized circuit breaker management with cache integration
 - **Stale Cache Resilience**: Extended service availability (up to 2 hours) during Kong outages
 - **Telemetry System**: Optimized OpenTelemetry instrumentation with cost reduction
+- **Profiling Service**: Chrome DevTools integration for performance analysis
 - **Configuration Manager**: 4-pillar configuration pattern with security validation
 - **Health Monitors**: Enhanced health checks with circuit breaker and cache status
 
@@ -103,11 +118,15 @@ The Authentication Service is a high-performance microservice built with Bun run
 - **Language**: TypeScript
 - **HTTP Server**: Native Bun.serve() with built-in performance optimizations
 - **JWT Generation**: Web Crypto API (crypto.subtle) with HMAC-SHA256
+- **Caching**: Redis with in-memory fallback using unified cache architecture
+- **Circuit Breakers**: Opossum library for Kong API resilience
 - **Container**: Docker with Alpine Linux base (oven/bun:1.2.23-alpine)
 - **Monitoring**: OpenTelemetry with OTLP protocol
+- **Profiling**: Chrome DevTools integration via Bun inspector
 - **API Documentation**: Dynamic OpenAPI generation
 - **Code Quality**: Biome for linting and formatting with performance optimization
 - **Testing**: Bun test runner, Playwright E2E, K6 performance testing
+- **CI/CD**: GitHub Actions with parallel job execution and Docker Cloud Builders
 
 ---
 
@@ -556,50 +575,106 @@ export class JWTService {
 }
 ```
 
-#### Kong Service (src/services/kong.service.ts)
+#### API Gateway Adapter (src/adapters/kong.adapter.ts)
+
+The service now uses a unified adapter pattern for Kong integration, supporting both Kong API Gateway and Kong Konnect with mode-specific strategies.
+
 ```typescript
-export class KongService {
-  private memoryCache = new Map<string, { secret: ConsumerSecret; timestamp: number }>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly circuitBreaker = new CircuitBreaker();
+export class KongAdapter implements IAPIGatewayAdapter {
+  private readonly strategy: IKongModeStrategy;
+  private cache: IKongCacheService | null = null;
+  private circuitBreaker: SharedCircuitBreakerService;
 
-  async getOrCreateConsumerSecret(consumerId: string): Promise<ConsumerSecret> {
-    // Try memory cache first (fastest)
-    const cached = this.memoryCache.get(consumerId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.secret;
-    }
+  constructor(
+    private readonly mode: KongModeType,
+    private readonly adminUrl: string,
+    private readonly adminToken: string
+  ) {
+    // Create mode-specific strategy for Kong API Gateway vs Konnect
+    this.strategy = createKongModeStrategy(mode, adminUrl, adminToken);
 
-    // Try Redis cache if memory cache miss
-    const redisSecret = await this.getFromRedisCache(consumerId);
-    if (redisSecret) {
-      // Update memory cache and return
-      this.memoryCache.set(consumerId, { secret: redisSecret, timestamp: Date.now() });
-      return redisSecret;
-    }
-
-    // Fetch from Kong Admin API with circuit breaker protection
-    const secrets = await this.circuitBreaker.execute(() =>
-      this.fetchConsumerSecrets(consumerId)
+    // Initialize shared circuit breaker with configuration
+    this.circuitBreaker = SharedCircuitBreakerService.getInstance(
+      circuitBreakerConfig,
+      cachingConfig,
+      undefined
     );
 
-    if (secrets.length === 0) {
-      // Create new secret if none exists
-      return await this.createConsumerSecret(consumerId);
-    }
-
-    // Update both caches and return
-    const secret = secrets[0];
-    this.memoryCache.set(consumerId, { secret, timestamp: Date.now() });
-    await this.setRedisCache(consumerId, secret);
-    return secret;
+    // Initialize unified cache asynchronously
+    this.initializeCache();
   }
 
-  private getApiUrl(consumerId: string): string {
-    if (this.mode === "KONNECT") {
-      return `${this.adminUrl}/core-entities/consumers/${consumerId}/jwt`;
+  async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
+    await this.ensureCacheInitialized();
+
+    const cacheKey = generateCacheKey(consumerId);
+
+    // Check unified cache first (Redis or in-memory)
+    const cached = await this.cache?.get(cacheKey);
+    if (cached) {
+      return cached;
     }
-    return `${this.adminUrl}/consumers/${consumerId}/jwt`;
+
+    // Use circuit breaker for Kong operations with stale cache fallback
+    return await this.circuitBreaker.wrapKongConsumerOperation(
+      "getConsumerSecret",
+      consumerId,
+      async () => {
+        // Ensure prerequisites (realm for Konnect)
+        if (this.strategy.ensurePrerequisites) {
+          await this.strategy.ensurePrerequisites();
+        }
+
+        // Build consumer URL using mode-specific strategy
+        const url = await this.strategy.buildConsumerUrl(this.adminUrl, consumerId);
+
+        const response = await withRetry(() =>
+          fetch(url, {
+            method: "GET",
+            headers: this.strategy.createAuthHeaders(this.adminToken),
+            signal: createRequestTimeout(5000),
+          }),
+          { maxAttempts: 2, baseDelayMs: 100 }
+        );
+
+        if (!isSuccessResponse(response)) {
+          if (isConsumerNotFound(response)) {
+            return null;
+          }
+          const errorMessage = await parseKongApiError(response);
+          throw new Error(errorMessage);
+        }
+
+        const data = (await response.json()) as ConsumerResponse;
+        const secret = extractConsumerSecret(data);
+
+        if (secret) {
+          // Store in unified cache after successful retrieval
+          await this.cache?.set(cacheKey, secret);
+        }
+
+        return secret;
+      }
+    );
+  }
+
+  private async initializeCache(): Promise<void> {
+    try {
+      // Use cache factory to create appropriate backend (Redis or in-memory)
+      this.cache = await CacheFactory.createKongCache();
+
+      // Update circuit breaker with cache service for HA mode
+      if (getKongConfig().highAvailability) {
+        SharedCircuitBreakerService.updateCacheService(this.cache);
+      }
+    } catch (error) {
+      // Graceful degradation - service continues without cache
+      winstonTelemetryLogger.error("Failed to initialize Kong adapter cache", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        mode: this.mode,
+        operation: "cache_initialization",
+      });
+    }
   }
 }
 ```
@@ -703,6 +778,84 @@ export class SharedCircuitBreakerService {
 - **Performance Protection**: Prevents cascading failures when Kong is slow
 - **Observability**: Comprehensive metrics for circuit breaker state and cache tier usage
 - **Adaptive Strategy**: Optimized caching approach for both simple and HA deployments
+
+#### Unified Cache Architecture (src/services/cache/)
+
+The service implements a pluggable cache architecture that supports multiple backends with intelligent failover and performance optimization.
+
+```typescript
+export class CacheFactory {
+  static async createKongCache(): Promise<IKongCacheService> {
+    const cachingConfig = getCachingConfig();
+
+    // Try Redis backend for high-availability mode
+    if (cachingConfig.redis.enabled) {
+      try {
+        const redisCache = new RedisCacheService(cachingConfig.redis);
+        await redisCache.initialize();
+
+        // Wrap with fallback to in-memory for resilience
+        return new FallbackCacheService(redisCache, new InMemoryCacheService());
+      } catch (error) {
+        // Graceful degradation to in-memory cache
+        winstonTelemetryLogger.warn("Redis unavailable, falling back to in-memory cache", {
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    // Default to in-memory cache
+    return new InMemoryCacheService();
+  }
+}
+
+// Unified cache interface supporting multiple implementations
+interface IKongCacheService {
+  get(key: string): Promise<ConsumerSecret | null>;
+  set(key: string, value: ConsumerSecret): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  getStats(): Promise<KongCacheStats>;
+  getStale?(key: string): Promise<ConsumerSecret | null>; // For HA mode
+}
+```
+
+**Cache Backend Features:**
+
+1. **In-Memory Cache** (Default)
+   - Zero external dependencies
+   - Microsecond access times
+   - TTL-based expiration
+   - Memory-efficient with LRU eviction
+   - Stale data tolerance for circuit breaker fallback
+
+2. **Redis Cache** (High-Availability Mode)
+   - Persistent storage across service restarts
+   - Shared cache between multiple service instances
+   - Extended stale data tolerance (2 hours)
+   - Automatic failover to in-memory when Redis unavailable
+   - Connection pooling and retry logic
+
+3. **Fallback Cache Service**
+   - Automatic failover between cache backends
+   - Intelligent retry with exponential backoff
+   - Consistent interface regardless of backend failures
+   - Performance metrics for each cache tier
+
+**Cache Configuration:**
+```typescript
+interface CachingConfig {
+  ttlSeconds: number;              // Default TTL (300 seconds)
+  staleToleranceMinutes: number;   // Stale data tolerance (60 minutes)
+  redis: {
+    enabled: boolean;              // Enable Redis backend
+    url: string;                   // Redis connection URL
+    maxRetries: number;            // Connection retry attempts
+    retryDelayMs: number;          // Retry delay
+    commandTimeoutMs: number;      // Command timeout
+  };
+}
+```
 
 ### Error Handling
 
@@ -811,6 +964,18 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 | `STALE_DATA_TOLERANCE_MINUTES` | Stale cache tolerance in minutes | `60` | Range: 1-120 minutes | No (default: `60`) |
 | `HIGH_AVAILABILITY` | Enable Redis stale cache integration | `true` | HA mode for extended resilience | No (default: `false`) |
 
+#### Redis Cache Configuration (High-Availability Mode)
+| Variable | Description | Example | Security Notes | Required |
+|----------|-------------|---------|----------------|----------|
+| `REDIS_ENABLED` | Enable Redis cache backend | `true` | Enables Redis for HA mode | No (default: `false`) |
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` or `rediss://redis.example.com:6380` | REDISS (TLS) required in production | No |
+| `REDIS_PASSWORD` | Redis authentication password | `secure-password-123` | Strong password required | No |
+| `REDIS_DB` | Redis database number | `0` | Range: 0-15 | No (default: `0`) |
+| `REDIS_MAX_RETRIES` | Connection retry attempts | `3` | Range: 1-10 | No (default: `3`) |
+| `REDIS_RETRY_DELAY_MS` | Retry delay in milliseconds | `100` | Range: 50-5000ms | No (default: `100`) |
+| `REDIS_COMMAND_TIMEOUT_MS` | Command timeout in milliseconds | `5000` | Range: 1000-30000ms | No (default: `5000`) |
+| `REDIS_CONNECT_TIMEOUT_MS` | Connection timeout in milliseconds | `10000` | Range: 1000-30000ms | No (default: `10000`) |
+
 #### API Documentation Configuration
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
@@ -864,9 +1029,12 @@ if (environment === "production") {
 ### Package Dependencies
 
 #### Core Dependencies (package.json)
+
+**Runtime Dependencies:**
 ```json
 {
   "dependencies": {
+    // OpenTelemetry Observability Stack
     "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.206.0",
@@ -879,6 +1047,7 @@ if (environment === "production") {
     "@opentelemetry/host-metrics": "^0.36.2",
     "@opentelemetry/instrumentation-fetch": "^0.206.0",
     "@opentelemetry/instrumentation-http": "^0.206.0",
+    "@opentelemetry/instrumentation-redis": "^0.55.0",
     "@opentelemetry/instrumentation-winston": "^0.51.0",
     "@opentelemetry/resources": "^2.1.0",
     "@opentelemetry/sdk-logs": "^0.206.0",
@@ -887,22 +1056,50 @@ if (environment === "production") {
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.37.0",
     "@opentelemetry/winston-transport": "^0.17.0",
-    "winston": "^3.18.3",
-    "winston-transport": "^4.9.0",
-    "zod": "^4.1.12"
+
+    // Resilience and Caching
+    "opossum": "^9.0.0",                    // Circuit breaker for Kong API protection
+    "redis": "^5.8.3",                     // Redis cache backend for HA mode
+
+    // Logging and Configuration
+    "winston": "^3.18.3",                  // Structured logging with ECS format
+    "winston-transport": "^4.9.0",         // Winston transport abstractions
+    "zod": "^4.1.12"                       // Schema validation with v4 features
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.5",
-    "@playwright/test": "^1.56.0",
-    "@types/bun": "1.2.23",
-    "@types/k6": "^1.3.1",
-    "typescript": "^5.9.3"
+    "@biomejs/biome": "^2.2.5",            // Code quality (linting + formatting)
+    "@playwright/test": "^1.56.0",         // E2E testing framework
+    "@types/bun": "1.2.23",                // Bun runtime types
+    "@types/k6": "^1.3.1",                 // K6 performance testing types
+    "@types/opossum": "^8.1.9",            // Circuit breaker types
+    "@types/redis": "^4.0.11",             // Redis client types
+    "typescript": "^5.9.3"                 // TypeScript compiler
   },
   "engines": {
-    "bun": ">=1.1.35"
+    "bun": ">=1.1.35"                      // Minimum Bun version requirement
   }
 }
 ```
+
+**Key Dependency Categories:**
+
+1. **OpenTelemetry Stack** - Comprehensive observability with OTLP protocol support
+   - Metrics, traces, and logs instrumentation
+   - Redis instrumentation for cache monitoring
+   - Host metrics for system-level telemetry
+
+2. **Resilience & Caching** - High-availability architecture components
+   - `opossum`: Circuit breaker protection for Kong Admin API
+   - `redis`: Cache backend with automatic failover support
+
+3. **Configuration & Validation** - Enterprise-grade configuration management
+   - `zod` v4.1.12: Advanced schema validation with format functions
+   - Environment variable mapping with type safety
+
+4. **Development Tools** - Optimized development workflow
+   - `@biomejs/biome`: Code quality with .biomeignore performance optimization
+   - `@playwright/test`: Cross-browser E2E testing
+   - `@types/*`: TypeScript support for all runtime dependencies
 
 ### CORS Configuration
 
@@ -1390,6 +1587,7 @@ CMD ["bun", "src/server.ts"]
 The service includes enterprise-grade CI/CD automation with comprehensive security and quality checks, enhanced with Docker Cloud Builders for improved build performance.
 
 #### Pipeline Features
+- **Parallel Job Execution**: 6-job parallel architecture for optimized pipeline performance
 - **Automated Testing**: 260 tests (100% pass rate) executed in CI with live server validation
 - **Docker Cloud Builders**: Enhanced build infrastructure with dedicated cloud resources
 - **Multi-platform Builds**: Linux AMD64 and ARM64 with optimized cloud-native compilation
@@ -1437,6 +1635,40 @@ The CI/CD pipeline leverages Docker Cloud Builders for enhanced performance:
 - **Preserved Features**: All existing security scanning, multi-platform builds, and supply chain security maintained
 - **Authentication**: Seamless integration with existing Docker Hub credentials
 - **Backwards Compatibility**: Easy rollback available if needed
+
+#### Parallel Job Architecture
+
+The CI/CD pipeline uses a 6-job parallel architecture for optimized performance and resource utilization:
+
+**Job Architecture:**
+```yaml
+jobs:
+  setup:                    # Dependency setup and artifact preparation
+  unit-tests:              # Bun test framework with service orchestration
+  e2e-tests:              # Playwright cross-browser testing
+  code-quality:           # Biome linting and TypeScript checking
+  build-and-deploy:       # Docker multi-platform builds with Cloud Builders
+  supply-chain-verification: # Security scanning and compliance validation
+```
+
+**Parallel Execution Features:**
+- **Artifact Sharing**: Efficient dependency and build artifact distribution
+- **Service Orchestration**: Automated service startup for unit and E2E tests
+- **Command Resolution**: Native Bun command execution (`bunx` vs `bun run`)
+- **Environment Isolation**: Each job runs in isolated environment with required dependencies
+- **Failure Isolation**: Job failures are contained without affecting parallel jobs
+
+**Performance Optimizations:**
+- **Concurrent Test Execution**: `--concurrent --max-concurrency=10` for unit tests
+- **Dependency Caching**: Shared `node_modules` and `bun.lockb` across jobs
+- **Service Health Checks**: Automated service readiness validation
+- **Resource Efficiency**: Optimized resource allocation across parallel jobs
+
+**Configuration Requirements:**
+- All jobs require access to shared dependency artifacts
+- Service-dependent tests include automatic server startup and health validation
+- Environment variables properly configured for each job's requirements
+- Proper cleanup and shutdown handling for service orchestration
 
 ### Build Commands
 
@@ -1486,6 +1718,60 @@ bun run k6:info           # Display all available K6 tests
 # Health and debugging
 bun run health-check       # Quick health check via curl
 ```
+
+#### Redis Cache Setup (High-Availability Mode)
+
+The service includes comprehensive Redis integration for high-availability caching with automatic failover support.
+
+```bash
+# Redis Container Management
+bun run redis:setup         # Complete Redis setup (stop, remove, start)
+bun run redis:start         # Start Redis container with optimized configuration
+bun run redis:stop          # Stop Redis container
+bun run redis:remove        # Remove Redis container
+bun run redis:restart       # Restart Redis (stop, remove, start)
+
+# Redis Monitoring and Status
+bun run redis:status        # Check Redis container status
+bun run redis:logs          # View Redis container logs (follow mode)
+bun run redis:stats         # Real-time Redis statistics
+bun run redis:cli           # Access Redis CLI for debugging
+
+# Cache Analysis and Debugging
+bun run redis:bigkeys       # Analyze Redis memory usage by key size
+bun run redis:memkeys       # Memory usage analysis by keys
+bun run redis:scan          # Scan first 10 keys in Redis
+bun run redis:scan:auth     # Scan authentication service keys only
+```
+
+**Redis Configuration:**
+- **Version**: Redis 7 Alpine (optimized for containers)
+- **Port**: 6379 (localhost)
+- **Persistence**: AOF (Append Only File) enabled for durability
+- **Memory**: 128MB limit with LRU eviction policy
+- **Restart Policy**: Always restart unless stopped manually
+
+**High-Availability Cache Integration:**
+```bash
+# Enable Redis cache in .env
+REDIS_ENABLED=true
+REDIS_URL=redis://localhost:6379
+HIGH_AVAILABILITY=true
+
+# Start Redis and authentication service with HA caching
+bun run redis:setup
+REDIS_ENABLED=true HIGH_AVAILABILITY=true bun run dev
+
+# Monitor cache performance
+curl http://localhost:3000/metrics | grep cache
+```
+
+**Redis Service Features:**
+- **Automatic Failover**: Falls back to in-memory cache if Redis unavailable
+- **Stale Data Tolerance**: 2-hour cache tolerance during Redis outages
+- **Connection Pooling**: Optimized Redis connections with retry logic
+- **OpenTelemetry Integration**: Redis instrumentation and cache tier metrics
+- **Security**: Optional password authentication and TLS support
 
 #### Code Quality Optimization
 

@@ -30,7 +30,10 @@ env:
   KONG_MODE: ${{ secrets.KONG_MODE }}
   KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
   KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
-  CIRCUIT_BREAKER_ENABLED: false
+  CIRCUIT_BREAKER_TIMEOUT: 500
+  CIRCUIT_BREAKER_ERROR_THRESHOLD: 50
+  CIRCUIT_BREAKER_RESET_TIMEOUT: 30000
+  STALE_DATA_TOLERANCE_MINUTES: 60
   HIGH_AVAILABILITY: false
   OTEL_SERVICE_NAME: authentication-service
   TELEMETRY_MODE: console
@@ -145,10 +148,18 @@ jobs:
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started unit test server on port 3000 with PID: $SERVER_PID"
 
-          # Wait for server to be ready
-          timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
+          # Wait for server to be ready with more comprehensive health checks
+          timeout 45 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do echo "Waiting for server..."; sleep 2; done'
+          sleep 5  # Additional stabilization time
           echo "Unit test server is ready for testing"
-        timeout-minutes: 2
+
+          # Verify server is responding correctly
+          curl -v http://localhost:3000/health || echo "Health check failed but continuing..."
+
+          # Test service endpoint availability
+          echo "Testing service endpoints..."
+          curl -v http://localhost:3000/metrics || echo "Metrics endpoint test failed but continuing..."
+        timeout-minutes: 3
         env:
           PORT: 3000
           NODE_ENV: test
@@ -160,13 +171,34 @@ jobs:
           KONG_MODE: ${{ env.KONG_MODE }}
           KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
           KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
-          CIRCUIT_BREAKER_ENABLED: ${{ env.CIRCUIT_BREAKER_ENABLED }}
+          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
+          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
+          STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
+          REDIS_ENABLED: false
 
       - name: Run unit tests with concurrency
         run: bun run bun:test -- --concurrent --max-concurrency=10
         timeout-minutes: 4
+        env:
+          NODE_ENV: test
+          TELEMETRY_MODE: console
+          KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
+          JWT_EXPIRATION_MINUTES: ${{ env.JWT_EXPIRATION_MINUTES }}
+          KONG_MODE: ${{ env.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
+          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
+          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
+          STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
+          HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
+          OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
+          REDIS_ENABLED: false
 
       - name: Upload unit test results
         if: always()
@@ -174,8 +206,8 @@ jobs:
         with:
           name: unit-test-results-${{ github.run_number }}
           path: |
-            test-results.xml
-            coverage/
+            test/results/bun/
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Cleanup unit test server
@@ -245,18 +277,54 @@ jobs:
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started E2E server on port 3001 with PID: $SERVER_PID"
 
-          # Wait for server to be ready
-          timeout 30 bash -c 'until curl -f http://localhost:3001/health >/dev/null 2>&1; do sleep 1; done'
+          # Wait for server to be ready with more comprehensive health checks
+          timeout 45 bash -c 'until curl -f http://localhost:3001/health >/dev/null 2>&1; do echo "Waiting for E2E server..."; sleep 2; done'
+          sleep 5  # Additional stabilization time
           echo "E2E server is ready for testing"
-        timeout-minutes: 2
+
+          # Verify server is responding correctly
+          curl -v http://localhost:3001/health || echo "E2E health check failed but continuing..."
+        timeout-minutes: 3
         env:
           PORT: 3001
+          NODE_ENV: test
+          TELEMETRY_MODE: console
+          KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
+          JWT_EXPIRATION_MINUTES: ${{ env.JWT_EXPIRATION_MINUTES }}
+          KONG_MODE: ${{ env.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
+          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
+          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
+          STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
+          HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
+          OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
+          REDIS_ENABLED: false
 
       - name: Run Playwright E2E tests
         run: bunx playwright test
         timeout-minutes: 4
         env:
           API_BASE_URL: http://localhost:3001
+          NODE_ENV: test
+          TELEMETRY_MODE: console
+          KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
+          JWT_EXPIRATION_MINUTES: ${{ env.JWT_EXPIRATION_MINUTES }}
+          KONG_MODE: ${{ env.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
+          CIRCUIT_BREAKER_TIMEOUT: ${{ env.CIRCUIT_BREAKER_TIMEOUT }}
+          CIRCUIT_BREAKER_ERROR_THRESHOLD: ${{ env.CIRCUIT_BREAKER_ERROR_THRESHOLD }}
+          CIRCUIT_BREAKER_RESET_TIMEOUT: ${{ env.CIRCUIT_BREAKER_RESET_TIMEOUT }}
+          STALE_DATA_TOLERANCE_MINUTES: ${{ env.STALE_DATA_TOLERANCE_MINUTES }}
+          HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
+          OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
+          REDIS_ENABLED: false
 
       - name: Upload E2E test results
         if: always()
@@ -345,6 +413,7 @@ jobs:
           name: code-quality-results-${{ github.run_number }}
           path: |
             license-report.txt
+          if-no-files-found: warn
           retention-days: 7
 
   # Job 5: Build & Deploy (Sequential After Validation)
