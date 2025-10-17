@@ -140,7 +140,7 @@ jobs:
 
       - name: Start authentication service for unit tests
         run: |
-          PORT=3000 bun run dev &
+          bun run dev &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started unit test server on port 3000 with PID: $SERVER_PID"
@@ -153,6 +153,16 @@ jobs:
           PORT: 3000
           NODE_ENV: test
           TELEMETRY_MODE: console
+          KONG_JWT_AUTHORITY: ${{ env.KONG_JWT_AUTHORITY }}
+          KONG_JWT_AUDIENCE: ${{ env.KONG_JWT_AUDIENCE }}
+          KONG_JWT_KEY_CLAIM_NAME: ${{ env.KONG_JWT_KEY_CLAIM_NAME }}
+          JWT_EXPIRATION_MINUTES: ${{ env.JWT_EXPIRATION_MINUTES }}
+          KONG_MODE: ${{ env.KONG_MODE }}
+          KONG_ADMIN_URL: ${{ env.KONG_ADMIN_URL }}
+          KONG_ADMIN_TOKEN: ${{ env.KONG_ADMIN_TOKEN }}
+          CIRCUIT_BREAKER_ENABLED: ${{ env.CIRCUIT_BREAKER_ENABLED }}
+          HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
+          OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
 
       - name: Run unit tests with concurrency
         run: bun run bun:test -- --concurrent --max-concurrency=10
