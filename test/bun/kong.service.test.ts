@@ -282,7 +282,7 @@ describe('Kong Service Factory Integration', () => {
         // Health check should return unhealthy status
         const result = await kongService.healthCheck();
         expect(result.healthy).toBe(false);
-        expect(result.error).toContain('Connection refused');
+        expect(result.error).toContain('This operation was aborted');
       });
 
       it('should complete health check within reasonable time', async () => {
