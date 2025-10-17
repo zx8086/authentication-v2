@@ -114,9 +114,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bun-dependencies-${{ github.run_id }}
+          path: .
 
       - name: Run unit tests with concurrency
-        run: bun test --concurrent --max-concurrency=10
+        run: bun run bun:test -- --concurrent --max-concurrency=10
         timeout-minutes: 4
 
       - name: Upload unit test results
@@ -150,6 +151,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bun-dependencies-${{ github.run_id }}
+          path: .
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -225,6 +227,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bun-dependencies-${{ github.run_id }}
+          path: .
 
       - name: Run Biome code quality checks
         run: bun run biome:check
@@ -293,6 +296,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bun-dependencies-${{ github.run_id }}
+          path: .
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
