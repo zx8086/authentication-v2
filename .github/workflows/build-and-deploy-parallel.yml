@@ -112,9 +112,33 @@ jobs:
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
+        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
+
+      - name: Verify dependency restoration
+        run: |
+          echo "Verifying node_modules and package files..."
+          ls -la node_modules/ | head -5
+          ls -la package.json bun.lockb
+          echo "Dependencies restored successfully"
+
+      - name: Start authentication service for unit tests
+        run: |
+          PORT=3000 bun run dev &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "Started unit test server on port 3000 with PID: $SERVER_PID"
+
+          # Wait for server to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
+          echo "Unit test server is ready for testing"
+        timeout-minutes: 2
+        env:
+          PORT: 3000
+          NODE_ENV: test
+          TELEMETRY_MODE: console
 
       - name: Run unit tests with concurrency
         run: bun run bun:test -- --concurrent --max-concurrency=10
@@ -129,6 +153,18 @@ jobs:
             test-results.xml
             coverage/
           retention-days: 7
+
+      - name: Cleanup unit test server
+        if: always()
+        run: |
+          if [ ! -z "$SERVER_PID" ]; then
+            echo "Stopping unit test server with PID: $SERVER_PID"
+            kill $SERVER_PID 2>/dev/null || true
+            # Wait a moment for graceful shutdown
+            sleep 2
+            # Force kill if still running
+            kill -9 $SERVER_PID 2>/dev/null || true
+          fi
 
   # Job 3: E2E Tests (Parallel Execution)
   e2e-tests:
@@ -149,9 +185,17 @@ jobs:
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
+        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
+
+      - name: Verify dependency restoration
+        run: |
+          echo "Verifying node_modules and package files..."
+          ls -la node_modules/ | head -5
+          ls -la package.json bun.lockb
+          echo "Dependencies restored successfully"
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -182,7 +226,7 @@ jobs:
           PORT: 3001
 
       - name: Run Playwright E2E tests
-        run: bun run playwright:test
+        run: bunx playwright test
         timeout-minutes: 4
         env:
           API_BASE_URL: http://localhost:3001
@@ -225,12 +269,20 @@ jobs:
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
+        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
 
+      - name: Verify dependency restoration
+        run: |
+          echo "Verifying node_modules and package files..."
+          ls -la node_modules/ | head -5
+          ls -la package.json bun.lockb
+          echo "Dependencies restored successfully"
+
       - name: Run Biome code quality checks
-        run: bun run biome:check
+        run: bunx @biomejs/biome check .
         timeout-minutes: 2
 
       - name: Run TypeScript type checking
@@ -294,9 +346,17 @@ jobs:
 
       - name: Download dependency artifacts
         uses: actions/download-artifact@v4
+        timeout-minutes: 2
         with:
           name: bun-dependencies-${{ github.run_id }}
           path: .
+
+      - name: Verify dependency restoration
+        run: |
+          echo "Verifying node_modules and package files..."
+          ls -la node_modules/ | head -5
+          ls -la package.json bun.lockb
+          echo "Dependencies restored successfully"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
