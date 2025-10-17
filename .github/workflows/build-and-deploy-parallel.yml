@@ -178,6 +178,7 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: false
 
       - name: Run unit tests with concurrency
         run: bun run bun:test -- --concurrent --max-concurrency=10
@@ -199,6 +200,7 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: false
 
       - name: Upload unit test results
         if: always()
@@ -303,6 +305,7 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: false
 
       - name: Run Playwright E2E tests
         run: bunx playwright test
@@ -325,6 +328,7 @@ jobs:
           HIGH_AVAILABILITY: ${{ env.HIGH_AVAILABILITY }}
           OTEL_SERVICE_NAME: ${{ env.OTEL_SERVICE_NAME }}
           REDIS_ENABLED: false
+          CIRCUIT_BREAKER_ENABLED: false
 
       - name: Upload E2E test results
         if: always()
