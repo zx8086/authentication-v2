@@ -1,7 +1,6 @@
-# Parallel CI/CD Pipeline for Authentication Service - SIO-60 Optimization
-# Achieves 40% build time reduction through parallel job execution
+# Build and push Docker images for the Authentication Service
 
-name: Parallel CI/CD Pipeline
+name: Build and Push Docker Image
 
 on:
   push:
@@ -21,135 +20,82 @@ concurrency:
 env:
   REGISTRY: docker.io
   IMAGE_NAME: zx8086/authentication-v2
-  # Shared environment variables for all jobs
-  NODE_ENV: test
-  KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
-  KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
-  KONG_JWT_KEY_CLAIM_NAME: key
-  JWT_EXPIRATION_MINUTES: 15
-  KONG_MODE: ${{ secrets.KONG_MODE }}
-  KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
-  KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
-  CIRCUIT_BREAKER_ENABLED: false
-  HIGH_AVAILABILITY: false
-  OTEL_SERVICE_NAME: authentication-service
-  TELEMETRY_MODE: console
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
-  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
-  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
 
 jobs:
-  # Job 1: Setup & Dependencies (Foundation)
-  setup:
+  build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+      attestations: write
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      KONG_JWT_AUTHORITY: ${{ secrets.KONG_JWT_AUTHORITY }}
+      KONG_JWT_AUDIENCE: ${{ secrets.KONG_JWT_AUDIENCE }}
+      KONG_JWT_KEY_CLAIM_NAME: key
+      JWT_EXPIRATION_MINUTES: 15
+      KONG_MODE: ${{ secrets.KONG_MODE }}
+      KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_URL }}
+      KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN }}
+      CIRCUIT_BREAKER_ENABLED: false
+      HIGH_AVAILABILITY: false
+      OTEL_SERVICE_NAME: authentication-service
+      TELEMETRY_MODE: console
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT }}
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT }}
+
     outputs:
-      dependencies-cache-key: ${{ steps.deps-cache.outputs.cache-hit }}
-      bun-version: ${{ steps.setup-bun.outputs.bun-version }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-uri: ${{ steps.build.outputs.imageuri }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         timeout-minutes: 1
 
-      - name: Setup Bun runtime
-        id: setup-bun
+      - name: Setup Bun for code quality checks
         uses: oven-sh/setup-bun@v2
         timeout-minutes: 2
         with:
           bun-version: latest
 
-      - name: Cache Bun dependencies
-        id: deps-cache
+      - name: Cache Bun dependencies for code quality
         uses: actions/cache@v4
         timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
             node_modules
-            bun.lockb
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - name: Install dependencies
+      - name: Install dependencies for code quality checks
         run: bun install --frozen-lockfile
         timeout-minutes: 3
 
-      - name: Upload dependency artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: bun-dependencies-${{ github.run_id }}
-          path: |
-            node_modules
-            bun.lockb
-            package.json
-          retention-days: 1
-
-      - name: Generate build metadata
-        id: metadata
+      - name: Start application server for testing
         run: |
-          echo "build-timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-          echo "commit-short=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
+          bun run dev &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "Started server with PID: $SERVER_PID"
 
-  # Job 2: Unit Tests (Parallel Execution)
-  unit-tests:
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
+          # Wait for server to be ready
+          timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
+          echo "Server is ready for testing"
+        timeout-minutes: 2
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 1
-
-      - name: Setup Bun runtime
-        uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
-        with:
-          bun-version: latest
-
-      - name: Download dependency artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bun-dependencies-${{ github.run_id }}
-
-      - name: Run unit tests with concurrency
-        run: bun test --concurrent --max-concurrency=10
-        timeout-minutes: 4
-
-      - name: Upload unit test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results-${{ github.run_number }}
-          path: |
-            test-results.xml
-            coverage/
-          retention-days: 7
-
-  # Job 3: E2E Tests (Parallel Execution)
-  e2e-tests:
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 1
-
-      - name: Setup Bun runtime
-        uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
-        with:
-          bun-version: latest
-
-      - name: Download dependency artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bun-dependencies-${{ github.run_id }}
+      - name: Run unit & integration tests
+        run: bun run bun:test
+        timeout-minutes: 3
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -163,136 +109,36 @@ jobs:
 
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps
-        timeout-minutes: 3
-
-      - name: Start authentication service
-        run: |
-          PORT=3001 bun run dev &
-          SERVER_PID=$!
-          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
-          echo "Started E2E server on port 3001 with PID: $SERVER_PID"
-
-          # Wait for server to be ready
-          timeout 30 bash -c 'until curl -f http://localhost:3001/health >/dev/null 2>&1; do sleep 1; done'
-          echo "E2E server is ready for testing"
-        timeout-minutes: 2
-        env:
-          PORT: 3001
+        timeout-minutes: 5
 
       - name: Run Playwright E2E tests
         run: bun run playwright:test
-        timeout-minutes: 4
+        timeout-minutes: 3
         env:
-          API_BASE_URL: http://localhost:3001
+          API_BASE_URL: http://localhost:3000
 
-      - name: Upload E2E test results
+      - name: Upload Playwright test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-results-${{ github.run_number }}
+          name: playwright-report-${{ github.run_number }}
           path: |
             test/results/playwright/
-          retention-days: 7
+          retention-days: 30
 
-      - name: Stop authentication service
+      - name: Stop application server
         if: always()
         run: |
           if [ ! -z "$SERVER_PID" ]; then
-            echo "Stopping E2E server with PID: $SERVER_PID"
+            echo "Stopping server with PID: $SERVER_PID"
             kill $SERVER_PID || true
             sleep 2
             kill -9 $SERVER_PID 2>/dev/null || true
           fi
 
-  # Job 4: Code Quality (Parallel Execution)
-  code-quality:
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 1
-
-      - name: Setup Bun runtime
-        uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
-        with:
-          bun-version: latest
-
-      - name: Download dependency artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bun-dependencies-${{ github.run_id }}
-
       - name: Run Biome code quality checks
         run: bun run biome:check
         timeout-minutes: 2
-
-      - name: Run TypeScript type checking
-        run: bun run typecheck
-        timeout-minutes: 2
-
-      - name: License compliance check
-        run: |
-          echo "Checking for AGPL v3 and other problematic licenses..."
-          bunx license-checker@latest --summary --excludePrivatePackages --excludePackages 'authentication-service@2.4.0' \
-                              --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-3-Clause-Clear;ISC;BSD-2-Clause;0BSD;Unlicense;UNLICENSED;CC0-1.0;CC-BY-3.0;CC-BY-4.0;WTFPL;Python-2.0;MIT OR Apache-2.0' || {
-            echo "Found dependencies with potentially problematic licenses. Generating detailed report..."
-            bunx license-checker@latest --detailed --excludePrivatePackages --excludePackages 'authentication-service@2.4.0' > license-report.txt || true
-
-            if bunx license-checker@latest --summary --excludePackages 'authentication-service@2.4.0' | grep -E "AGPL|GPL-3"; then
-              echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible"
-              bunx license-checker@latest --summary --excludePackages 'authentication-service@2.4.0' | grep -E "AGPL|GPL" || true
-              exit 1
-            else
-              echo "::notice::License check passed - no AGPL/GPL-3 dependencies detected"
-            fi
-          }
-        timeout-minutes: 2
-        continue-on-error: true
-
-      - name: Upload code quality results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: code-quality-results-${{ github.run_number }}
-          path: |
-            license-report.txt
-          retention-days: 7
-
-  # Job 5: Build & Deploy (Sequential After Validation)
-  build-and-deploy:
-    needs: [setup, unit-tests, e2e-tests, code-quality]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
-      id-token: write
-      attestations: write
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-uri: ${{ steps.build.outputs.imageuri }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        timeout-minutes: 1
-
-      - name: Setup Bun runtime
-        uses: oven-sh/setup-bun@v2
-        timeout-minutes: 1
-        with:
-          bun-version: latest
-
-      - name: Download dependency artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bun-dependencies-${{ github.run_id }}
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
