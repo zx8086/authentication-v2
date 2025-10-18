@@ -115,12 +115,11 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.cache/playwright-browsers
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/package.json', '**/playwright.config.ts') }}-v3
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/playwright.config.ts') }}-v4
           restore-keys: |
-            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/package.json') }}-v3
-            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-v3
-            ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}-v3
-            ${{ runner.os }}-playwright-v3
+            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-v4
+            ${{ runner.os }}-playwright-${{ hashFiles('**/playwright.config.ts') }}-v4
+            ${{ runner.os }}-playwright-v4
 
       - name: Install Playwright browsers (Conditional)
         run: |
