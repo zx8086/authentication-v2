@@ -3,6 +3,7 @@
 import { describe, test, expect } from "bun:test";
 import type { ConsumerSecret, ServerConfig, JwtConfig, KongConfig, TelemetryConfig } from "../../src/config/schemas";
 import { SchemaRegistry } from "../../src/config/schemas";
+import { TestConsumerSecretFactory } from "../shared/test-consumer-secrets";
 
 describe.concurrent("TypeScript Type Validation", () => {
   describe.concurrent("Configuration Schema Types", () => {
@@ -44,16 +45,18 @@ describe.concurrent("TypeScript Type Validation", () => {
     });
 
     test.concurrent("KongConfig should have correct union types", () => {
+      const testTokenData = TestConsumerSecretFactory.createWithId("kong-config-test");
+
       const apiGatewayConfig: KongConfig = {
         mode: "API_GATEWAY",
         adminUrl: "http://kong:8001",
-        adminToken: "test-token"
+        adminToken: testTokenData.jwtSecret
       };
 
       const konnectConfig: KongConfig = {
         mode: "KONNECT",
         adminUrl: "https://api.konghq.com",
-        adminToken: "konnect-token",
+        adminToken: testTokenData.jwtKey,
         realm: "default"
       };
 
@@ -91,13 +94,7 @@ describe.concurrent("TypeScript Type Validation", () => {
     });
 
     test.concurrent("ConsumerSecret should have required string properties", () => {
-      const consumerSecret: ConsumerSecret = {
-        jwtKey: "test-key",
-        jwtSecret: "test-secret",
-        algorithm: "HS256",
-        consumerId: "test-consumer-id",
-        consumerUsername: "test-username"
-      };
+      const consumerSecret: ConsumerSecret = TestConsumerSecretFactory.createWithId("type-validation-test");
 
       expect(typeof consumerSecret.jwtKey).toBe("string");
       expect(typeof consumerSecret.jwtSecret).toBe("string");
@@ -173,18 +170,14 @@ describe.concurrent("TypeScript Type Validation", () => {
 
     test.concurrent("Async function types should be correctly inferred", async () => {
       const createConsumerSecret = async (): Promise<ConsumerSecret> => {
-        return {
-          jwtKey: "async-key",
-          jwtSecret: "async-secret",
-          algorithm: "HS256",
-          consumerId: "async-consumer",
-          consumerUsername: "async-user"
-        };
+        return TestConsumerSecretFactory.createWithId("async-test");
       };
 
       const result = await createConsumerSecret();
+      const expectedResult = TestConsumerSecretFactory.createWithId("async-test");
+
       expect(typeof result).toBe("object");
-      expect(result.jwtKey).toBe("async-key");
+      expect(result.jwtKey).toBe(expectedResult.jwtKey);
       expect(result.algorithm).toBe("HS256");
     });
   });
@@ -200,15 +193,11 @@ describe.concurrent("TypeScript Type Validation", () => {
       }
 
       // Mock implementation for type checking
+      const mockConsumerSecret = TestConsumerSecretFactory.createWithId("mock-cache-test");
+
       const mockCache: CacheInterface = {
         async get(key: string): Promise<ConsumerSecret | null> {
-          return key === "exists" ? {
-            jwtKey: "mock-key",
-            jwtSecret: "mock-secret",
-            algorithm: "HS256",
-            consumerId: "mock-consumer",
-            consumerUsername: "mock-user"
-          } : null;
+          return key === "exists" ? mockConsumerSecret : null;
         },
         async set(key: string, value: ConsumerSecret, ttl?: number): Promise<void> {
           // Mock implementation

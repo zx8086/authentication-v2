@@ -487,10 +487,11 @@ The service implements comprehensive security measures for dependency management
 - All OpenTelemetry packages pinned to compatible versions for stability
 
 **Security Testing**:
-- Deterministic test data factory (`test/shared/test-consumer-secrets.ts`)
-- Eliminates hardcoded secrets in test files (addresses Snyk warnings)
-- Consistent, predictable test behavior across environments
+- **NEVER hardcode secrets in test files** - Use `TestConsumerSecretFactory` from `test/shared/test-consumer-secrets.ts`
+- Deterministic test data factory generates secure, consistent test values
+- Eliminates hardcoded secrets in test files (addresses Snyk security warnings)
 - Hash-based approach generates non-obvious but deterministic values
+- **Snyk Security Compliance**: All test data must use factory methods to avoid hardcoded secret warnings
 
 **Vulnerability Scanning**:
 - Integrated Snyk scanning in CI/CD pipeline
@@ -551,7 +552,13 @@ The service includes a comprehensive `.biomeignore` file for enhanced code quali
 - Example: `console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)))`
 
 **Security-First Development**:
-- Never hardcode secrets in test files - use `TestConsumerSecretFactory` from `test/shared/test-consumer-secrets.ts`
+- **NEVER hardcode secrets in test files** - use `TestConsumerSecretFactory` from `test/shared/test-consumer-secrets.ts`
+- **Avoid hardcoded patterns** that trigger Snyk warnings:
+  - ❌ `jwtKey: "test-key"` - hardcoded secret
+  - ❌ `adminToken: "test-token"` - hardcoded token
+  - ❌ `jwtSecret: "mock-secret"` - hardcoded secret
+  - ✅ `TestConsumerSecretFactory.createWithId("test-name")` - secure factory method
+  - ✅ `TestScenarios.BASIC_CACHE()` - predefined secure scenarios
 - Run security scans before major commits: `bunx snyk test`
 - Keep dependency overrides up to date in `package.json`
 - Use deterministic test data that's consistent but not obvious
