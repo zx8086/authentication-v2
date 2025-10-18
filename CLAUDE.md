@@ -247,10 +247,11 @@ For detailed testing configuration and patterns, see specialized agents:
 - **Performance Testing**: Use `k6-specialist` agent
 
 **COMPREHENSIVE TEST COVERAGE (SIO-47, SIO-49, SIO-50)**:
-- **Total Tests**: 260 tests (100% pass rate) across all frameworks
+- **Total Tests**: 238 tests (100% pass rate) across all frameworks
 - **Circuit Breaker Testing**: Complete Kong failure scenario coverage with stale cache fallback testing
 - **Kong Integration Testing**: Real endpoint testing (removed mocks) for Kong Konnect with circuit breaker integration
 - **Performance Testing**: Enhanced K6 testing with circuit breaker scenarios under load
+- **Security Testing**: Deterministic test data factory eliminates hardcoded secrets in tests
 
 **CRITICAL RULE - NEVER APPLY TIMEOUTS TO TESTS**: Claude Code must NEVER apply artificial timeouts to test commands, especially K6 performance tests which are designed to run for their full duration (typically 3+ minutes). Tests must be allowed to complete naturally without time restrictions.
 
@@ -285,10 +286,12 @@ bun run k6:spike            # Traffic spike testing
 #### Recent Updates (October 2025)
 **Standardized Test Consumer Management**: Implemented automatic test consumer setup across all test frameworks (Bun, Playwright, K6):
 - Centralized consumer configuration in `test/shared/test-consumers.ts`
+- Deterministic test data factory in `test/shared/test-consumer-secrets.ts`
 - Automatic setup hooks provision consumers before tests
 - Idempotent operations (safe to run multiple times)
 - Intelligent dependencies (only tests needing Kong consumers perform setup)
 - Consistent test data across all frameworks (5 test consumers + 1 anonymous)
+- Security-compliant test data generation (no hardcoded secrets)
 
 **Circuit Breaker Test Coverage (SIO-45, SIO-49, SIO-50)**:
 - 26 comprehensive circuit breaker test cases with Kong failure simulation
@@ -456,6 +459,41 @@ Recommended alerts based on available metrics:
 - **Stale data fallback usage >5%** (Kong degradation)
 - **Cache tier errors** (Redis connectivity issues)
 
+## Security & Dependency Management
+
+### Vulnerability Management
+The service implements comprehensive security measures for dependency management:
+
+**Dependency Overrides & Resolutions**:
+- `glob: ^10.0.0` - Upgraded from vulnerable 7.2.3 to eliminate `inflight` memory leak
+- `semver: ^7.6.3` - Security patches for version parsing vulnerabilities
+- `protobufjs: ^7.4.0` - Updated for security and performance improvements
+- All OpenTelemetry packages pinned to compatible versions for stability
+
+**Security Testing**:
+- Deterministic test data factory (`test/shared/test-consumer-secrets.ts`)
+- Eliminates hardcoded secrets in test files (addresses Snyk warnings)
+- Consistent, predictable test behavior across environments
+- Hash-based approach generates non-obvious but deterministic values
+
+**Vulnerability Scanning**:
+- Integrated Snyk scanning in CI/CD pipeline
+- Trivy container vulnerability scanning
+- Docker Scout security analysis
+- SARIF output for GitHub Security tab integration
+
+### Dependency Security Best Practices
+```bash
+# Regular security auditing
+bunx snyk test --severity-threshold=medium
+
+# Clean dependency resolution (forces override application)
+rm -rf node_modules bun.lockb && bun install
+
+# Check for vulnerable packages
+bun pm ls | grep -E "(glob|inflight|semver)"
+```
+
 ## Code Quality & Development
 
 ### Pre-Commit Checklist
@@ -495,6 +533,12 @@ The service includes a comprehensive `.biomeignore` file for enhanced code quali
 - Test code snippets with runtime inspection
 - Use `console.log()` for API exploration when unsure
 - Example: `console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)))`
+
+**Security-First Development**:
+- Never hardcode secrets in test files - use `TestConsumerSecretFactory` from `test/shared/test-consumer-secrets.ts`
+- Run security scans before major commits: `bunx snyk test`
+- Keep dependency overrides up to date in `package.json`
+- Use deterministic test data that's consistent but not obvious
 
 ### Bun Runtime Optimization
 For Bun-specific runtime optimization and native API usage, see `bun-reviewer` agent:
@@ -632,6 +676,10 @@ bun src/server.ts &  # May cause port conflicts
 2. **Telemetry Errors**: Check OTLP endpoints are reachable and credentials are correct
 3. **Kong Connection Issues**: Verify `KONG_ADMIN_URL` and `KONG_ADMIN_TOKEN` in `.env`
 4. **Rate Limiting**: Adjust `RATE_LIMIT_*` settings for development load
+5. **Security Vulnerabilities**:
+   - Run `bunx snyk test` to check for known vulnerabilities
+   - If `glob/inflight` issues persist: `rm -rf node_modules bun.lockb && bun install`
+   - Check dependency overrides are applied: `bun pm ls glob`
 
 #### Telemetry Debugging
 ```bash
