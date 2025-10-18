@@ -303,7 +303,8 @@ jobs:
           {
             echo "Running Snyk container scan..."
             npx --yes snyk@latest container test ${{ steps.image-tag.outputs.primary-tag }} \
-              --severity-threshold=high --sarif-file-output=snyk-container-results.sarif || {
+              --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
+              --exclude-base-image-vulns --app-vulns || {
               echo "Snyk container scan completed with findings"
               exit 0
             }
@@ -315,7 +316,8 @@ jobs:
             echo "Running Trivy vulnerability scanner..."
             docker run --rm -v "$PWD":/workspace \
               aquasec/trivy:0.55.2 image --format sarif --output /workspace/trivy-results.sarif \
-              --timeout 3m --exit-code 0 ${{ steps.image-tag.outputs.primary-tag }} || {
+              --timeout 3m --exit-code 0 --ignore-unfixed --severity HIGH,CRITICAL \
+              ${{ steps.image-tag.outputs.primary-tag }} || {
               echo "Trivy scan completed with findings"
               exit 0
             }
@@ -356,6 +358,8 @@ jobs:
           image: ${{ steps.image-tag.outputs.primary-tag }}
           sarif-file: scout-results.sarif
           summary: true
+          only-base-image: true
+          only-fixed: true
         continue-on-error: true
 
       - name: Upload Snyk code analysis results

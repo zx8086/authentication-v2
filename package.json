@@ -63,6 +63,8 @@
     "docker:security:hadolint": "hadolint Dockerfile --config .hadolint.yaml",
     "docker:security:hadolint:docker": "docker run --rm -i hadolint/hadolint --config /dev/stdin < .hadolint.yaml < Dockerfile",
     "docker:security:trivy": "trivy image --exit-code 1 --severity HIGH,CRITICAL authentication-service:latest",
+    "docker:security:trivy:runtime": "trivy image --ignore-unfixed --severity HIGH,CRITICAL authentication-service:latest",
+    "docker:security:verify:runtime": "./scripts/verify-runtime-security.sh authentication-service:latest",
     "docker:security:score": "./scripts/validate-dockerfile-security.sh && echo 'Security validation completed'",
     "docker:stop:local": "docker stop auth-service-local 2>/dev/null || true",
     "docker:stop:dev": "docker stop auth-service-dev 2>/dev/null || true",
