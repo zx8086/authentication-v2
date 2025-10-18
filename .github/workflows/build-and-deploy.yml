@@ -358,8 +358,9 @@ jobs:
           image: ${{ steps.image-tag.outputs.primary-tag }}
           sarif-file: scout-results.sarif
           summary: true
-          only-base-image: true
+          ignore-base: true
           only-fixed: true
+          only-severities: critical,high
         continue-on-error: true
 
       - name: Upload Snyk code analysis results
