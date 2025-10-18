@@ -29,6 +29,7 @@ COPY . .
 
 # Build the application and generate OpenAPI docs
 RUN --mount=type=cache,target=/root/.bun/install/cache \
+    --mount=type=cache,target=/tmp/bun-build \
     bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files to reduce layer size
