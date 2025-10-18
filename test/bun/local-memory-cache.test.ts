@@ -1,6 +1,6 @@
 /* test/bun/local-memory-cache.test.ts */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, test } from "bun:test";
 import type { ConsumerSecret } from "../../src/config/schemas";
 import { LocalMemoryCache } from "../../src/services/cache/local-memory-cache";
 import { TestConsumerSecretFactory, TestScenarios } from "../shared/test-consumer-secrets";
@@ -18,7 +18,7 @@ describe("LocalMemoryCache", () => {
       expect(cache).toBeInstanceOf(LocalMemoryCache);
     });
 
-    it("should store and retrieve values", async () => {
+    test.concurrent("should store and retrieve values", async () => {
       const key = "test-consumer-1";
       const secret: ConsumerSecret = TestConsumerSecretFactory.createNew({
         idPrefix: "test-jwt-credential-1",
@@ -32,12 +32,12 @@ describe("LocalMemoryCache", () => {
       expect(retrieved).toEqual(secret);
     });
 
-    it("should return null for non-existent keys", async () => {
+    test.concurrent("should return null for non-existent keys", async () => {
       const result = await cache.get("non-existent-key");
       expect(result).toBeNull();
     });
 
-    it("should handle multiple concurrent operations", async () => {
+    test.concurrent("should handle multiple concurrent operations", async () => {
       const operations: Promise<void>[] = [];
       const testData: Array<{ key: string; secret: ConsumerSecret }> = [];
 

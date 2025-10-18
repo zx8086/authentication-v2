@@ -1,6 +1,6 @@
 /* test/bun/shared-redis-cache-minimal.test.ts */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from "bun:test";
 import type { ConsumerSecret } from "../../src/config/schemas";
 import { SharedRedisCache } from "../../src/services/cache/shared-redis-cache";
 import { TestConsumerSecretFactory, TestScenarios } from "../shared/test-consumer-secrets";
@@ -46,7 +46,7 @@ describe("SharedRedisCache Essential Tests", () => {
   });
 
   const skipIfRedisUnavailable = (testName: string, testFn: () => Promise<void> | void) => {
-    it(testName, async () => {
+    test.serial(testName, async () => {
       if (!isRedisAvailable) {
         console.log(`Skipping test "${testName}" - Redis not available`);
         return;

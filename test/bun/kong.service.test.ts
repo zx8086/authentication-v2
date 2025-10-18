@@ -1,7 +1,7 @@
 /* test/bun/kong.service.test.ts */
 
 // Tests for Kong service integration using factory pattern
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { KongServiceFactory } from '../../src/services/kong.service';
 import type { IKongService } from '../../src/config';
 import { getTestConsumer } from '../shared/test-consumers';
@@ -13,7 +13,7 @@ describe('Kong Service Factory Integration', () => {
   const testConsumer = getTestConsumer(0);
   const testConsumerId = testConsumer.id;
 
-  describe('API Gateway Mode', () => {
+  describe.concurrent('API Gateway Mode', () => {
     let kongService: IKongService;
     const mockAdminUrl = 'http://test-kong:8001';
     const mockAdminToken = 'test-admin-token';
@@ -30,7 +30,7 @@ describe('Kong Service Factory Integration', () => {
       global.fetch = originalFetch;
     });
 
-    describe('constructor', () => {
+    describe.concurrent('constructor', () => {
       it('should initialize API Gateway service with correct configuration', () => {
         expect(kongService).toBeDefined();
         expect(typeof kongService.getConsumerSecret).toBe('function');
@@ -44,8 +44,8 @@ describe('Kong Service Factory Integration', () => {
       });
     });
 
-    describe('getConsumerSecret', () => {
-      it('should return consumer secret when found', async () => {
+    describe.concurrent('getConsumerSecret', () => {
+      test.concurrent('should return consumer secret when found', async () => {
         const mockSecret = {
           id: 'secret-id-123',
           key: 'consumer-key-123',
@@ -80,7 +80,7 @@ describe('Kong Service Factory Integration', () => {
         expect(global.fetch).toHaveBeenCalledTimes(1); // Only JWT fetch for API Gateway
       });
 
-      it('should return null when consumer not found', async () => {
+      test.concurrent('should return null when consumer not found', async () => {
         // Mock 404 response for API Gateway
         global.fetch = mock(async (url) => {
           const urlStr = url.toString();
@@ -102,7 +102,7 @@ describe('Kong Service Factory Integration', () => {
         expect(result).toBeNull();
       });
 
-      it('should return null when no JWT credentials exist', async () => {
+      test.concurrent('should return null when no JWT credentials exist', async () => {
         const mockResponse = {
           data: [],
           total: 0
@@ -129,7 +129,7 @@ describe('Kong Service Factory Integration', () => {
         expect(result).toBeNull();
       });
 
-      it('should handle Kong API errors gracefully', async () => {
+      test.concurrent('should handle Kong API errors gracefully', async () => {
         // Mock server error for API Gateway
         global.fetch = mock(async () => ({
           ok: false,
@@ -158,7 +158,7 @@ describe('Kong Service Factory Integration', () => {
 
     });
 
-    describe('createConsumerSecret', () => {
+    describe.concurrent('createConsumerSecret', () => {
       it('should create a new consumer secret when consumer exists', async () => {
         const mockCreatedSecret = {
           id: 'new-secret-id-123',
@@ -236,7 +236,7 @@ describe('Kong Service Factory Integration', () => {
 
     });
 
-    describe('healthCheck', () => {
+    describe.concurrent('healthCheck', () => {
       it('should return healthy status when Kong is accessible', async () => {
         // Mock successful health check for API Gateway
         global.fetch = mock(async (url) => {

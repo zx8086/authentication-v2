@@ -93,8 +93,8 @@ jobs:
           echo "Server is ready for testing"
         timeout-minutes: 2
 
-      - name: Run unit & integration tests
-        run: bun run bun:test
+      - name: Run unit & integration tests (concurrent)
+        run: bun run bun:test:concurrent
         timeout-minutes: 3
 
       - name: Cache Playwright browsers

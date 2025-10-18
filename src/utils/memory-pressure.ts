@@ -49,6 +49,13 @@ class MemoryPressureMonitor {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
+    // Reset state when stopping monitoring
+    this.state = {
+      isUnderPressure: false,
+      isCritical: false,
+      heapRatio: 0,
+      lastCheck: 0,
+    };
   }
 
   private checkMemoryPressure(): void {

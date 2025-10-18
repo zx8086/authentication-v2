@@ -1,0 +1,23 @@
+# Bun 1.3 Testing Configuration
+[test]
+# Enable concurrent testing for performance
+maxConcurrency = 4
+
+# Automatically run these tests concurrently (they are stateless)
+concurrentTestGlob = [
+  "**/type-validation.test.ts",
+  "**/profiling.test.ts"
+]
+
+# Coverage configuration
+coveragePathIgnorePatterns = [
+  "node_modules/",
+  "dist/",
+  "coverage/",
+  "test/",
+  "*.test.ts",
+  "*.spec.ts"
+]
+
+# Enable stricter mode for CI
+ci = true

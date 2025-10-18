@@ -1,12 +1,12 @@
 /* test/bun/config.test.ts */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { SchemaRegistry } from '../../src/config/schemas';
 
 describe('Configuration System', () => {
 
   describe('Schema Validation', () => {
-    it('should validate server configuration schema', () => {
+    test.concurrent('should validate server configuration schema', () => {
       const validServerConfig = {
         port: 3000,
         nodeEnv: 'development'
@@ -21,7 +21,7 @@ describe('Configuration System', () => {
       }
     });
 
-    it('should reject invalid server port', () => {
+    test.concurrent('should reject invalid server port', () => {
       const invalidServerConfig = {
         port: -1,
         nodeEnv: 'development'
@@ -31,7 +31,7 @@ describe('Configuration System', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should validate JWT configuration schema', () => {
+    test.concurrent('should validate JWT configuration schema', () => {
       const validJwtConfig = {
         authority: 'https://auth.example.com',
         audience: 'https://api.example.com',
@@ -44,7 +44,7 @@ describe('Configuration System', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should validate Kong configuration schema', () => {
+    test.concurrent('should validate Kong configuration schema', () => {
       const validKongConfig = {
         mode: 'API_GATEWAY',
         adminUrl: 'http://kong:8001',

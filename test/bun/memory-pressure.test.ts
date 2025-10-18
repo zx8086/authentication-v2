@@ -1,6 +1,6 @@
 /* test/bun/memory-pressure.test.ts */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, test } from "bun:test";
 import {
   getMemoryStats,
   shouldDropNonCriticalMetrics,
@@ -15,7 +15,7 @@ describe("Memory Pressure Monitoring", () => {
   });
 
   describe("getMemoryStats", () => {
-    it("should return valid memory statistics", () => {
+    test.serial("should return valid memory statistics", () => {
       const stats = getMemoryStats();
 
       expect(stats).toBeDefined();
@@ -32,7 +32,7 @@ describe("Memory Pressure Monitoring", () => {
       expect(stats.heapRatio).toBeLessThan(10); // Heap ratio can exceed 1 in some conditions
     });
 
-    it("should calculate heap ratio correctly", () => {
+    test.serial("should calculate heap ratio correctly", () => {
       const stats = getMemoryStats();
       const expectedRatio = stats.heapUsed / stats.rss;
 
@@ -43,11 +43,13 @@ describe("Memory Pressure Monitoring", () => {
   });
 
   describe("shouldDropTelemetry", () => {
-    it("should return false under normal memory conditions", () => {
+    test.serial("should return false under normal memory conditions", () => {
+      // Ensure monitoring is stopped before checking normal conditions
+      stopMemoryPressureMonitoring();
       expect(shouldDropTelemetry()).toBe(false);
     });
 
-    it("should return true under critical memory pressure", () => {
+    test.serial("should return true under critical memory pressure", () => {
       startMemoryPressureMonitoring({
         criticalThreshold: 0.01, // Very low threshold to trigger critical state
         warningThreshold: 0.005,

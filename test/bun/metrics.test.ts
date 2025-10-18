@@ -1,6 +1,6 @@
 /* test/bun/metrics.test.ts */
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, test } from "bun:test";
 import {
   initializeMetrics,
   recordAuthenticationAttempt,
@@ -29,12 +29,12 @@ describe("OpenTelemetry Metrics System", () => {
     stopSystemMetricsCollection();
   });
 
-  describe("Metrics Initialization", () => {
-    it("should initialize metrics system without errors", () => {
+  describe.concurrent("Metrics Initialization", () => {
+    test.concurrent("should initialize metrics system without errors", () => {
       expect(() => initializeMetrics()).not.toThrow();
     });
 
-    it("should handle multiple initialization calls gracefully", () => {
+    test.concurrent("should handle multiple initialization calls gracefully", () => {
       initializeMetrics();
       initializeMetrics();
       initializeMetrics();
@@ -42,7 +42,7 @@ describe("OpenTelemetry Metrics System", () => {
       expect(() => initializeMetrics()).not.toThrow();
     });
 
-    it("should initialize all metric instruments", () => {
+    test.concurrent("should initialize all metric instruments", () => {
       initializeMetrics();
 
       expect(() => recordHttpRequest("GET", "/test")).not.toThrow();
@@ -52,7 +52,7 @@ describe("OpenTelemetry Metrics System", () => {
     });
   });
 
-  describe("HTTP Metrics Recording", () => {
+  describe.concurrent("HTTP Metrics Recording", () => {
     beforeEach(() => {
       initializeMetrics();
     });
@@ -105,7 +105,7 @@ describe("OpenTelemetry Metrics System", () => {
     });
   });
 
-  describe("Authentication & JWT Metrics", () => {
+  describe.concurrent("Authentication & JWT Metrics", () => {
     beforeEach(() => {
       initializeMetrics();
     });

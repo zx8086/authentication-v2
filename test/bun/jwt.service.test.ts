@@ -2,7 +2,7 @@
 
 // Unit tests for native Bun JWT service implementation
 
-import { describe, it, expect, beforeAll } from 'bun:test';
+import { describe, it, test, expect, beforeAll } from 'bun:test';
 import { NativeBunJWT } from '../../src/services/jwt.service';
 
 describe('NativeBunJWT', () => {
@@ -13,7 +13,7 @@ describe('NativeBunJWT', () => {
   const testAudience = process.env.TEST_JWT_AUDIENCE || 'mock-audience';
 
   describe('createToken', () => {
-    it('should create a valid JWT token', async () => {
+    test.concurrent('should create a valid JWT token', async () => {
       const tokenResponse = await NativeBunJWT.createToken(
         testUsername,
         testConsumerKey,
@@ -31,7 +31,7 @@ describe('NativeBunJWT', () => {
       expect(parts).toHaveLength(3);
     });
 
-    it('should create tokens with correct header', async () => {
+    test.concurrent('should create tokens with correct header', async () => {
       const tokenResponse = await NativeBunJWT.createToken(
         testUsername,
         testConsumerKey,

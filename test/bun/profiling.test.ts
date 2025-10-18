@@ -1,6 +1,6 @@
 /* test/bun/profiling.test.ts */
 
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { describe, it, test, expect, beforeAll, afterAll } from "bun:test";
 import { profilingService } from "../../src/services/profiling.service";
 
 const TEST_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
@@ -15,7 +15,7 @@ describe("Profiling Endpoints", () => {
   });
 
   describe("GET /debug/profiling/status", () => {
-    it("should return profiling service status", async () => {
+    test.concurrent("should return profiling service status", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/status`);
 
       expect(response.status).toBe(200);
@@ -28,7 +28,7 @@ describe("Profiling Endpoints", () => {
       expect(typeof data.enabled).toBe("boolean");
     });
 
-    it("should have proper response structure", async () => {
+    test.concurrent("should have proper response structure", async () => {
       const response = await fetch(`${TEST_BASE_URL}/debug/profiling/status`);
 
       expect(response.status).toBe(200);
