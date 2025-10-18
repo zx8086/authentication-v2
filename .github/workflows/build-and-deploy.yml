@@ -66,20 +66,23 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Cache Bun dependencies
+      - name: Cache Bun dependencies (Enhanced)
         uses: actions/cache@v4
         timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
+            ~/.bun/bin
             node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}-v4
           restore-keys: |
+            ${{ runner.os }}-bun-${{ hashFiles('**/package.json') }}-v4
+            ${{ runner.os }}-bun-v4
             ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        timeout-minutes: 3
+        timeout-minutes: 2
 
       - name: Start application server for testing
         run: |
@@ -97,19 +100,39 @@ jobs:
         run: bun run bun:test:concurrent
         timeout-minutes: 3
 
-      - name: Cache Playwright browsers
+      - name: Get Playwright version for caching
+        id: playwright-version
+        run: |
+          PLAYWRIGHT_VERSION=$(grep '"@playwright/test"' package.json | head -1 | sed 's/.*"\^\?\([^"]*\)".*/\1/')
+          echo "version=$PLAYWRIGHT_VERSION" >> $GITHUB_OUTPUT
+          echo "Playwright version: $PLAYWRIGHT_VERSION"
+        timeout-minutes: 1
+
+      - name: Cache Playwright browsers (Enhanced)
         uses: actions/cache@v4
+        id: playwright-cache
         timeout-minutes: 1
         with:
           path: |
             ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}
+            ~/.cache/playwright-browsers
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/package.json', '**/playwright.config.ts') }}-v3
           restore-keys: |
-            ${{ runner.os }}-playwright-
+            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/package.json') }}-v3
+            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-v3
+            ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}-v3
+            ${{ runner.os }}-playwright-v3
 
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps
-        timeout-minutes: 5
+      - name: Install Playwright browsers (Conditional)
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            echo "Cache miss - installing browsers with dependencies"
+            bunx playwright install --with-deps
+          else
+            echo "Cache hit - installing only system dependencies"
+            bunx playwright install-deps
+          fi
+        timeout-minutes: 2
 
       - name: Run Playwright E2E tests
         run: bun run playwright:test
@@ -138,7 +161,7 @@ jobs:
 
       - name: Run Biome code quality checks
         run: bun run biome:check
-        timeout-minutes: 2
+        timeout-minutes: 1
 
       - name: License compliance check (PR)
         if: github.event_name == 'pull_request'
@@ -164,9 +187,9 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set up Docker Buildx
+      - name: Set up Docker Buildx (Enhanced)
         uses: docker/setup-buildx-action@v3
-        timeout-minutes: 3
+        timeout-minutes: 2
         with:
           driver: cloud
           endpoint: "zx8086/cldbuild"
@@ -226,8 +249,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
           provenance: true
           sbom: true
           build-args: |
