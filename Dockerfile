@@ -13,13 +13,13 @@ RUN apk update && \
 
 # Dependencies stage - cache layer optimization
 FROM deps-base AS deps-dev
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock ./
 # Use --production=false to install all dependencies including devDependencies for build
 RUN bun install --frozen-lockfile
 
 # Production dependencies stage
 FROM deps-base AS deps-prod
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock ./
 # Install only production dependencies
 RUN bun install --frozen-lockfile --production
 
@@ -36,29 +36,27 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     # Verify build output
     ls -la dist/ public/
 
-# Final production stage - minimal footprint
-FROM oven/bun:1.3.0-alpine AS production
+# Distroless production stage - ZERO attack surface
+FROM gcr.io/distroless/base:nonroot AS production
 
-# Update packages, install runtime dependencies, and create non-root user
-RUN apk update && \
-    apk upgrade --no-cache && \
-    apk add --no-cache dumb-init curl && \
-    rm -rf /var/cache/apk/* && \
-    addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 bunuser && \
-    mkdir -p /app && \
-    chown bunuser:nodejs /app
+# Copy Bun binary from official image with proper permissions for nonroot user (65532:65532)
+COPY --from=oven/bun:1.3.0-alpine --chown=65532:65532 /usr/local/bin/bun /usr/local/bin/bun
+
+# Copy dumb-init for proper PID 1 signal handling (CRITICAL for container signal handling)
+COPY --from=deps-base --chown=65532:65532 /usr/bin/dumb-init /usr/bin/dumb-init
+
+# Copy required shared libraries for Bun from Alpine (architecture-agnostic)
+COPY --from=deps-base --chown=65532:65532 /lib/ld-musl-*.so.1 /lib/
+COPY --from=deps-base --chown=65532:65532 /usr/lib/libgcc_s.so.1 /usr/lib/libstdc++.so.6 /usr/lib/
 
 WORKDIR /app
 
-# Copy production dependencies with proper ownership
-COPY --from=deps-prod --chown=bunuser:nodejs /app/node_modules ./node_modules
-COPY --from=deps-prod --chown=bunuser:nodejs /app/package.json ./
-COPY --from=builder --chown=bunuser:nodejs /app/src ./src
-COPY --from=builder --chown=bunuser:nodejs /app/public ./public
+# Copy production dependencies and application files with distroless user ownership (65532:65532)
+COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
+COPY --from=builder --chown=65532:65532 /app/src /app/public ./
 
-# Switch to non-root user before setting environment
-USER bunuser
+# Already running as nonroot user (65532:65532) - distroless default
 
 # Set environment variables
 ENV NODE_ENV=production \
@@ -69,19 +67,19 @@ ENV NODE_ENV=production \
 # Expose port
 EXPOSE 3000
 
-# Health check with reasonable timeout
+# Health check using Bun native fetch (no curl in distroless)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f -H "User-Agent: Docker-Health-Check" http://localhost:3000/health || exit 1
+    CMD ["/usr/local/bin/bun", "--eval", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
 
-# Use dumb-init to handle signals properly and prevent zombie processes
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["bun", "src/server.ts"]
+# Use dumb-init for proper PID 1 signal handling (CRITICAL for SIGTERM/SIGINT in containers)
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/usr/local/bin/bun", "src/server.ts"]
 
 # Build metadata from package.json
 ARG BUILD_DATE
 ARG VCS_REF
 ARG SERVICE_NAME="authentication-service"
-ARG SERVICE_VERSION="1.0.0"
+ARG SERVICE_VERSION="2.4.0"
 ARG SERVICE_DESCRIPTION="High-performance JWT authentication service built with Bun"
 ARG SERVICE_AUTHOR="Simon Owusu"
 ARG SERVICE_LICENSE="UNLICENSED"
@@ -93,4 +91,7 @@ LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
     org.opencontainers.image.licenses="${SERVICE_LICENSE}" \
-    org.opencontainers.image.base.name="oven/bun:1.3.0-alpine"
+    org.opencontainers.image.base.name="gcr.io/distroless/base:nonroot" \
+    security.scan.disable="false" \
+    security.attestation.required="true" \
+    security.sbom.required="true"

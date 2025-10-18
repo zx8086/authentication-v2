@@ -46,6 +46,7 @@ DOCKER_BUILDKIT=1 docker build \
   --build-arg SERVICE_LICENSE="${SERVICE_LICENSE}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VCS_REF="${VCS_REF}" \
+  --build-arg VERSION="${SERVICE_VERSION}" \
   --cache-from "${IMAGE_NAME}:cache" \
   --cache-to "type=inline" \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
