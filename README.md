@@ -1310,7 +1310,7 @@ Host: auth-service.example.com
 ```
 
 #### GET /metrics
-Performance metrics and cache statistics.
+Unified metrics endpoint with multiple views for operational, infrastructure, and telemetry data.
 
 **Request**
 ```http
@@ -1318,36 +1318,78 @@ GET /metrics HTTP/1.1
 Host: auth-service.example.com
 ```
 
-**Response - Success (200 OK)**
+**Query Parameters**
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `view` | String | Metrics view: `operational`, `infrastructure`, `telemetry`, `exports`, `config`, `full` | `operational` |
+
+**Response - Operational View (200 OK)**
 ```json
 {
+  "timestamp": "2025-01-15T12:00:00.000Z",
   "uptime": 3600,
-  "requests": {
-    "total": 10000,
-    "success": 9950,
-    "errors": 50,
-    "rate": 2.78
-  },
-  "tokens": {
-    "generated": 5000,
-    "failed": 10,
-    "averageTime": 8.5
+  "memory": {
+    "used": 64,
+    "total": 128,
+    "rss": 80,
+    "external": 16
   },
   "cache": {
-    "hits": 4500,
-    "misses": 500,
-    "hitRate": 0.9,
-    "size": 100,
-    "ttl": 300000
+    "strategy": "local-memory",
+    "size": 150,
+    "activeEntries": 45,
+    "hitRate": "0.90",
+    "averageLatencyMs": 1.2
   },
-  "memory": {
-    "rss": 67108864,
-    "heapTotal": 16777216,
-    "heapUsed": 8388608,
-    "external": 1048576,
-    "arrayBuffers": 524288
+  "circuitBreakers": {
+    "getConsumerSecret": {
+      "state": "closed",
+      "successCount": 1250,
+      "failureCount": 15,
+      "rejectionCount": 0,
+      "fallbackCount": 2
+    }
+  },
+  "consumers": {
+    "volume": {
+      "high": 25,
+      "medium": 150,
+      "low": 75,
+      "total": 250
+    }
+  },
+  "telemetry": {
+    "mode": "otlp",
+    "exportStats": {
+      "total": 360,
+      "successful": 358,
+      "failed": 2,
+      "successRate": 0.9944
+    }
+  },
+  "kong": {
+    "adminUrl": "https://us.api.konghq.com/v2/control-planes/abc123",
+    "mode": "KONNECT"
   }
 }
+```
+
+**Additional Views**
+```bash
+# Infrastructure metrics
+GET /metrics?view=infrastructure
+
+# Telemetry system status
+GET /metrics?view=telemetry
+
+# Export statistics (replaces /debug/metrics/stats)
+GET /metrics?view=exports
+
+# Configuration summary
+GET /metrics?view=config
+
+# Complete metrics data
+GET /metrics?view=full
 ```
 
 #### POST /debug/metrics/test
@@ -1400,35 +1442,145 @@ Host: auth-service.example.com
 }
 ```
 
-#### GET /debug/metrics/stats
-Export statistics and success rates (development only).
+#### Profiling Endpoints (Development Only)
+
+#### POST /debug/profiling/start
+Start a profiling session for performance analysis.
 
 **Request**
 ```http
-GET /debug/metrics/stats HTTP/1.1
+POST /debug/profiling/start HTTP/1.1
 Host: auth-service.example.com
 ```
 
 **Response - Success (200 OK)**
 ```json
 {
-  "exports": {
-    "total": 360,
-    "successful": 358,
-    "failed": 2,
-    "successRate": 0.9944
+  "success": true,
+  "message": "Profiling session started",
+  "sessionId": "session_12345",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+#### POST /debug/profiling/stop
+Stop the current profiling session and generate report.
+
+**Request**
+```http
+POST /debug/profiling/stop HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling session stopped",
+  "report": {
+    "sessionId": "session_12345",
+    "duration": 30000,
+    "reportPath": "/tmp/profiling/session_12345.json"
   },
-  "lastExport": {
-    "timestamp": "2025-01-15T12:00:00.000Z",
-    "metrics": 50,
-    "duration": 125
-  },
-  "errors": [
+  "timestamp": "2025-01-15T12:00:30.000Z"
+}
+```
+
+#### GET /debug/profiling/status
+Check current profiling session status.
+
+**Request**
+```http
+GET /debug/profiling/status HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "enabled": true,
+  "active": true,
+  "sessionId": "session_12345",
+  "startTime": "2025-01-15T12:00:00.000Z",
+  "duration": 15000,
+  "chromeDevToolsUrl": "chrome://inspect"
+}
+```
+
+#### GET /debug/profiling/reports
+List available profiling reports.
+
+**Request**
+```http
+GET /debug/profiling/reports HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "reports": [
     {
-      "timestamp": "2025-01-15T11:45:00.000Z",
-      "error": "Export timeout"
+      "sessionId": "session_12345",
+      "created": "2025-01-15T12:00:30.000Z",
+      "size": 2048576,
+      "path": "/tmp/profiling/session_12345.json"
     }
-  ]
+  ],
+  "total": 1
+}
+```
+
+#### POST /debug/profiling/cleanup
+Clean up old profiling reports and sessions.
+
+**Request**
+```http
+POST /debug/profiling/cleanup HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling cleanup completed",
+  "cleaned": {
+    "reports": 3,
+    "sessions": 2
+  },
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+#### GET /debug/profiling/report
+Download a specific profiling report.
+
+**Request**
+```http
+GET /debug/profiling/report?sessionId=session_12345 HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Query Parameters**
+| Parameter | Type | Description | Required |
+|-----------|------|-------------|----------|
+| `sessionId` | String | Profiling session identifier | Yes |
+
+**Response - Success (200 OK)**
+```json
+{
+  "sessionId": "session_12345",
+  "profile": {
+    "nodes": [...],
+    "samples": [...],
+    "timeDeltas": [...]
+  },
+  "metadata": {
+    "startTime": "2025-01-15T12:00:00.000Z",
+    "endTime": "2025-01-15T12:00:30.000Z",
+    "duration": 30000
+  }
 }
 ```
 
@@ -1507,8 +1659,8 @@ curl -X POST http://localhost:3000/debug/metrics/test
 # Force immediate export
 curl -X POST http://localhost:3000/debug/metrics/export
 
-# View export statistics
-curl http://localhost:3000/debug/metrics/stats
+# View export statistics (use metrics endpoint with exports view)
+curl http://localhost:3000/metrics?view=exports
 
 # Check telemetry health
 curl http://localhost:3000/health/telemetry
@@ -1752,6 +1904,25 @@ bun run k6:info           # Display all available K6 tests
 
 # Health and debugging
 bun run health-check       # Quick health check via curl
+
+# License Compliance (High-Performance Bun Native Implementation)
+bun run license:check         # Standard license compliance check (0.1s)
+bun run license:check:verbose # Verbose output with detailed reporting
+bun run license:check:json    # JSON output for CI/CD integration
+bun run license:check:strict  # Fail on warnings (strict mode)
+
+# Profiling and Performance Analysis (Development Only)
+bun run profile:start          # Start server with profiling enabled and Chrome DevTools
+bun run profile:dev            # Start development server with profiling
+bun run profile:status         # Check profiling status
+bun run profile:start-session  # Start profiling session
+bun run profile:stop-session   # Stop profiling session
+bun run profile:reports        # List available reports
+bun run profile:clean          # Clean profiling artifacts
+bun run profile:k6:smoke       # Profile K6 smoke tests
+bun run profile:k6:load-test   # Profile K6 load tests
+bun run profile:k6:stress      # Profile K6 stress tests
+bun run profile:help           # Display all profiling commands
 ```
 
 #### Redis Cache Setup (High-Availability Mode)
