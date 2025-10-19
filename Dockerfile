@@ -55,7 +55,8 @@ WORKDIR /app
 # Copy production dependencies and application files with distroless user ownership (65532:65532)
 COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
-COPY --from=builder --chown=65532:65532 /app/src /app/public ./
+COPY --from=builder --chown=65532:65532 /app/src ./src
+COPY --from=builder --chown=65532:65532 /app/public ./public
 
 # Already running as nonroot user (65532:65532) - distroless default
 
