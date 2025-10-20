@@ -76,18 +76,34 @@ class BunTelemetryTracer {
     method: string,
     url: string,
     statusCode: number,
-    operation: () => T | Promise<T>
+    operation: () => T | Promise<T>,
+    versionContext?: {
+      version: string;
+      source: string;
+      isLatest: boolean;
+      isSupported: boolean;
+    }
   ): T | Promise<T> {
+    const baseAttributes: Record<string, string | number | boolean> = {
+      [SemanticAttributes.HTTP_METHOD]: method,
+      [SemanticAttributes.HTTP_URL]: url,
+      [SemanticAttributes.HTTP_STATUS_CODE]: statusCode,
+      "http.server.type": "bun_serve",
+    };
+
+    // Add API versioning attributes if provided
+    if (versionContext) {
+      baseAttributes["api.version"] = versionContext.version;
+      baseAttributes["api.version.source"] = versionContext.source;
+      baseAttributes["api.version.is_latest"] = versionContext.isLatest;
+      baseAttributes["api.version.is_supported"] = versionContext.isSupported;
+    }
+
     return this.createSpan(
       {
         operationName: `${method} ${url}`,
         kind: SpanKind.SERVER,
-        attributes: {
-          [SemanticAttributes.HTTP_METHOD]: method,
-          [SemanticAttributes.HTTP_URL]: url,
-          [SemanticAttributes.HTTP_STATUS_CODE]: statusCode,
-          "http.server.type": "bun_serve",
-        },
+        attributes: baseAttributes,
       },
       operation
     );
@@ -167,6 +183,41 @@ class BunTelemetryTracer {
       return activeSpan.spanContext().spanId;
     }
     return undefined;
+  }
+
+  public createApiVersionSpan<T>(
+    operation: string,
+    spanOperation: () => T | Promise<T>,
+    versionInfo?: {
+      version?: string;
+      source?: string;
+      parseTimeMs?: number;
+      routingTimeMs?: number;
+    }
+  ): T | Promise<T> {
+    const attributes: Record<string, string | number | boolean> = {
+      "api.versioning.operation": operation,
+    };
+
+    if (versionInfo) {
+      if (versionInfo.version) attributes["api.version"] = versionInfo.version;
+      if (versionInfo.source) attributes["api.version.source"] = versionInfo.source;
+      if (versionInfo.parseTimeMs !== undefined) {
+        attributes["api.version.parse_time_ms"] = versionInfo.parseTimeMs;
+      }
+      if (versionInfo.routingTimeMs !== undefined) {
+        attributes["api.version.routing_time_ms"] = versionInfo.routingTimeMs;
+      }
+    }
+
+    return this.createSpan(
+      {
+        operationName: `API Versioning ${operation}`,
+        kind: SpanKind.INTERNAL,
+        attributes,
+      },
+      spanOperation
+    );
   }
 }
 

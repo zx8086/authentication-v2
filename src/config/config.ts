@@ -88,6 +88,55 @@ const envSchema = z
     API_LICENSE_NAME: NonEmptyString.optional(),
     API_LICENSE_IDENTIFIER: NonEmptyString.optional(),
     API_CORS: NonEmptyString.optional(),
+
+    // API Versioning Configuration
+    API_VERSIONING_SUPPORTED_VERSIONS: z.string().optional(),
+    API_VERSIONING_DEFAULT_VERSION: NonEmptyString.optional(),
+    API_VERSIONING_LATEST_VERSION: NonEmptyString.optional(),
+    API_VERSIONING_STRATEGY: z.enum(["header", "url", "content-type"]).optional(),
+    API_VERSIONING_DEPRECATION_ENABLED: z.string().optional(),
+    API_VERSIONING_DEPRECATION_WARNING_HEADER: z.string().optional(),
+    API_VERSIONING_DEPRECATION_GRACE_PERIOD_DAYS: z.coerce
+      .number()
+      .int()
+      .min(30)
+      .max(365)
+      .optional(),
+
+    // API v2 Security Headers Configuration
+    API_V2_SECURITY_HEADERS_ENABLED: z.string().optional(),
+    API_V2_SECURITY_HSTS_MAX_AGE: z.coerce.number().int().min(86400).max(63072000).optional(),
+    API_V2_SECURITY_HSTS_INCLUDE_SUBDOMAINS: z.string().optional(),
+    API_V2_SECURITY_HSTS_PRELOAD: z.string().optional(),
+    API_V2_SECURITY_CSP_POLICY: z.string().optional(),
+    API_V2_SECURITY_FRAME_OPTIONS: z.enum(["DENY", "SAMEORIGIN"]).optional(),
+    API_V2_SECURITY_CONTENT_TYPE_OPTIONS: z.string().optional(),
+    API_V2_SECURITY_XSS_PROTECTION: z.string().optional(),
+    API_V2_SECURITY_REFERRER_POLICY: z
+      .enum([
+        "no-referrer",
+        "no-referrer-when-downgrade",
+        "origin",
+        "origin-when-cross-origin",
+        "same-origin",
+        "strict-origin",
+        "strict-origin-when-cross-origin",
+        "unsafe-url",
+      ])
+      .optional(),
+    API_V2_SECURITY_PERMISSIONS_POLICY: z.string().optional(),
+
+    // API v2 Audit Logging Configuration
+    API_V2_AUDIT_LOGGING_ENABLED: z.string().optional(),
+    API_V2_AUDIT_LEVEL: z.enum(["basic", "detailed", "comprehensive"]).optional(),
+    API_V2_AUDIT_RETENTION_DAYS: z.coerce.number().int().min(30).max(2555).optional(),
+    API_V2_AUDIT_INCLUDE_CLIENT_INFO: z.string().optional(),
+    API_V2_AUDIT_ANONYMIZE_IP: z.string().optional(),
+    API_V2_AUDIT_INCLUDE_PII: z.string().optional(),
+    API_V2_AUDIT_CORRELATION_ID_HEADER: z.string().optional(),
+    API_V2_AUDIT_AUTH_FAILURE_THRESHOLD: z.coerce.number().int().min(1).optional(),
+    API_V2_AUDIT_ANOMALY_DETECTION: z.string().optional(),
+    API_V2_AUDIT_SUSPICIOUS_PATTERNS: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     addProductionSecurityValidation({ nodeEnv: data.NODE_ENV }, ctx, {
@@ -271,6 +320,52 @@ const defaultConfig: AppConfig = {
     licenseIdentifier: pkg.license || "UNLICENSED",
     cors: "*",
   },
+  apiVersioning: {
+    supportedVersions: ["v1", "v2"],
+    defaultVersion: "v1",
+    latestVersion: "v2",
+    deprecationPolicy: {
+      enabled: false,
+      warningHeader: true,
+      gracePeriodDays: 90,
+    },
+    strategy: "header" as const,
+    headers: {
+      versionHeader: "Accept-Version",
+      responseHeader: "API-Version",
+      supportedHeader: "Supported-Versions",
+    },
+  },
+
+  // API v2 Configuration (always enabled - v2 IS the enhanced version)
+  apiV2: {
+    securityHeaders: {
+      enabled: true,
+      hstsMaxAge: 31536000, // 1 year
+      hstsIncludeSubdomains: true,
+      hstsPreload: true,
+      cspPolicy: "default-src 'self'; script-src 'none'; object-src 'none'",
+      frameOptions: "DENY" as const,
+      contentTypeOptions: true,
+      xssProtection: true,
+      referrerPolicy: "strict-origin-when-cross-origin" as const,
+      permissionsPolicy: "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+    },
+    auditLogging: {
+      enabled: true,
+      level: "detailed" as const,
+      retentionDays: 90,
+      includeClientInfo: true,
+      anonymizeIp: true,
+      includePii: false,
+      correlationIdHeader: "X-Audit-ID",
+      securityEventThresholds: {
+        authFailureCount: 5,
+        anomalyDetection: true,
+        suspiciousPatterns: true,
+      },
+    },
+  },
 };
 
 // Infrastructure Detection Helper (4-Pillar Compliant)
@@ -396,6 +491,83 @@ function initializeConfig(): AppConfig {
         cors: envConfig.API_CORS,
       }).filter(([, value]) => value !== undefined)
     ),
+    apiVersioning: Object.fromEntries(
+      Object.entries({
+        supportedVersions: envConfig.API_VERSIONING_SUPPORTED_VERSIONS
+          ? envConfig.API_VERSIONING_SUPPORTED_VERSIONS.split(",").map((v) => v.trim())
+          : undefined,
+        defaultVersion: envConfig.API_VERSIONING_DEFAULT_VERSION,
+        latestVersion: envConfig.API_VERSIONING_LATEST_VERSION,
+        strategy: envConfig.API_VERSIONING_STRATEGY,
+        deprecationPolicy: envConfig.API_VERSIONING_DEPRECATION_ENABLED
+          ? {
+              enabled: toBool(envConfig.API_VERSIONING_DEPRECATION_ENABLED, false),
+              warningHeader: toBool(envConfig.API_VERSIONING_DEPRECATION_WARNING_HEADER, true),
+              gracePeriodDays: envConfig.API_VERSIONING_DEPRECATION_GRACE_PERIOD_DAYS,
+            }
+          : undefined,
+      }).filter(([, value]) => value !== undefined)
+    ),
+
+    // API v2 Configuration from Environment Variables
+    apiV2: Object.fromEntries(
+      Object.entries({
+        securityHeaders: Object.fromEntries(
+          Object.entries({
+            enabled: envConfig.API_V2_SECURITY_HEADERS_ENABLED
+              ? toBool(envConfig.API_V2_SECURITY_HEADERS_ENABLED, false)
+              : undefined,
+            hstsMaxAge: envConfig.API_V2_SECURITY_HSTS_MAX_AGE,
+            hstsIncludeSubdomains: envConfig.API_V2_SECURITY_HSTS_INCLUDE_SUBDOMAINS
+              ? toBool(envConfig.API_V2_SECURITY_HSTS_INCLUDE_SUBDOMAINS, true)
+              : undefined,
+            hstsPreload: envConfig.API_V2_SECURITY_HSTS_PRELOAD
+              ? toBool(envConfig.API_V2_SECURITY_HSTS_PRELOAD, true)
+              : undefined,
+            cspPolicy: envConfig.API_V2_SECURITY_CSP_POLICY,
+            frameOptions: envConfig.API_V2_SECURITY_FRAME_OPTIONS,
+            contentTypeOptions: envConfig.API_V2_SECURITY_CONTENT_TYPE_OPTIONS
+              ? toBool(envConfig.API_V2_SECURITY_CONTENT_TYPE_OPTIONS, true)
+              : undefined,
+            xssProtection: envConfig.API_V2_SECURITY_XSS_PROTECTION
+              ? toBool(envConfig.API_V2_SECURITY_XSS_PROTECTION, true)
+              : undefined,
+            referrerPolicy: envConfig.API_V2_SECURITY_REFERRER_POLICY,
+            permissionsPolicy: envConfig.API_V2_SECURITY_PERMISSIONS_POLICY,
+          }).filter(([, value]) => value !== undefined)
+        ),
+        auditLogging: Object.fromEntries(
+          Object.entries({
+            enabled: envConfig.API_V2_AUDIT_LOGGING_ENABLED
+              ? toBool(envConfig.API_V2_AUDIT_LOGGING_ENABLED, false)
+              : undefined,
+            level: envConfig.API_V2_AUDIT_LEVEL,
+            retentionDays: envConfig.API_V2_AUDIT_RETENTION_DAYS,
+            includeClientInfo: envConfig.API_V2_AUDIT_INCLUDE_CLIENT_INFO
+              ? toBool(envConfig.API_V2_AUDIT_INCLUDE_CLIENT_INFO, true)
+              : undefined,
+            anonymizeIp: envConfig.API_V2_AUDIT_ANONYMIZE_IP
+              ? toBool(envConfig.API_V2_AUDIT_ANONYMIZE_IP, true)
+              : undefined,
+            includePii: envConfig.API_V2_AUDIT_INCLUDE_PII
+              ? toBool(envConfig.API_V2_AUDIT_INCLUDE_PII, false)
+              : undefined,
+            correlationIdHeader: envConfig.API_V2_AUDIT_CORRELATION_ID_HEADER,
+            securityEventThresholds: Object.fromEntries(
+              Object.entries({
+                authFailureCount: envConfig.API_V2_AUDIT_AUTH_FAILURE_THRESHOLD,
+                anomalyDetection: envConfig.API_V2_AUDIT_ANOMALY_DETECTION
+                  ? toBool(envConfig.API_V2_AUDIT_ANOMALY_DETECTION, true)
+                  : undefined,
+                suspiciousPatterns: envConfig.API_V2_AUDIT_SUSPICIOUS_PATTERNS
+                  ? toBool(envConfig.API_V2_AUDIT_SUSPICIOUS_PATTERNS, true)
+                  : undefined,
+              }).filter(([, value]) => value !== undefined)
+            ),
+          }).filter(([, value]) => value !== undefined)
+        ),
+      }).filter(([, value]) => value !== undefined && Object.keys(value).length > 0)
+    ),
   };
 
   // Merge environment variables with defaults using object spreading (original 4-pillar pattern)
@@ -448,6 +620,35 @@ function initializeConfig(): AppConfig {
     },
     profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
+    apiVersioning: { ...defaultConfig.apiVersioning, ...structuredEnvConfig.apiVersioning },
+    apiV2: {
+      securityHeaders: {
+        enabled: true,
+        hstsMaxAge: 31536000,
+        hstsIncludeSubdomains: true,
+        hstsPreload: true,
+        cspPolicy: "default-src 'self'; script-src 'none'; object-src 'none'",
+        frameOptions: "DENY" as const,
+        contentTypeOptions: true,
+        xssProtection: true,
+        referrerPolicy: "strict-origin-when-cross-origin" as const,
+        permissionsPolicy: "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+      },
+      auditLogging: {
+        enabled: true,
+        level: "detailed" as const,
+        retentionDays: 90,
+        includeClientInfo: true,
+        anonymizeIp: true,
+        includePii: false,
+        correlationIdHeader: "X-Request-Security-ID",
+        securityEventThresholds: {
+          authFailureCount: 5,
+          suspiciousPatterns: true,
+          anomalyDetection: true,
+        },
+      },
+    },
   };
 
   // Check validation cache first for performance
@@ -607,6 +808,8 @@ export const getCachingConfig = () => getConfig().caching;
 export const getTelemetryConfig = () => getConfig().telemetry;
 export const getProfilingConfig = () => getConfig().profiling;
 export const getApiInfoConfig = () => getConfig().apiInfo;
+export const getApiVersioningConfig = () => getConfig().apiVersioning;
+export const getApiV2Config = () => getConfig().apiV2;
 
 // Legacy exports (use getter functions in new code) - Now lazy for testing compatibility
 export const serverConfig = new Proxy({} as ServerConfig, {

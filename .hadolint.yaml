@@ -77,10 +77,22 @@ allowed-registries:
 
 # Security-focused ignored rules (acceptable for distroless)
 ignored:
-  - SC2035  # Use ./*glob* - False positive for COPY bun.lockb
+  - SC2035  # Use ./*glob* - False positive for COPY bun.lock
+  - DL3059  # Multiple RUN is acceptable in multi-stage builds for optimization
+  - DL4006  # Set SHELL in Dockerfile - not needed in distroless
   # DL3006: We intentionally pin specific versions
   # DL3007: Not using latest tag
-  # DL3059: Multiple RUN is acceptable in multi-stage builds for optimization
+
+# Performance and optimization rules
+performance:
+  # Enable cache mount validation
+  DL3042: error  # Avoid cache directory with package install
+  DL3060: error  # yarn cache clean missing after yarn install
+
+# Multi-stage build optimization rules
+optimization:
+  DL3045: warning  # COPY --from should reference a previously defined FROM alias
+  DL3022: warning  # COPY --from should reference a previously defined FROM alias
 
 # Override specific checks that don't apply to distroless
 override:

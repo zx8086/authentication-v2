@@ -256,6 +256,86 @@ export const ApiInfoConfigSchema = z.strictObject({
   cors: NonEmptyString.describe("CORS origin configuration"),
 });
 
+export const ApiVersioningConfigSchema = z.strictObject({
+  supportedVersions: z.array(NonEmptyString).min(1).describe("List of supported API versions"),
+  defaultVersion: NonEmptyString.describe("Default API version when none specified"),
+  latestVersion: NonEmptyString.describe("Latest available API version"),
+  deprecationPolicy: z
+    .strictObject({
+      enabled: z.boolean().describe("Whether version deprecation is enabled"),
+      warningHeader: z.boolean().describe("Include deprecation warning in response headers"),
+      gracePeriodDays: z
+        .number()
+        .int()
+        .min(30)
+        .max(365)
+        .describe("Grace period before version removal"),
+    })
+    .describe("API version deprecation policy"),
+  strategy: z.enum(["header", "url", "content-type"]).describe("Versioning strategy"),
+  headers: z
+    .strictObject({
+      versionHeader: NonEmptyString.describe("Header name for version specification"),
+      responseHeader: NonEmptyString.describe("Header name for version confirmation"),
+      supportedHeader: NonEmptyString.describe("Header name for supported versions list"),
+    })
+    .describe("Header configuration for version management"),
+});
+
+export const ApiV2SecurityHeadersConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable security headers for v2 API"),
+  hstsMaxAge: z
+    .number()
+    .int()
+    .min(86400)
+    .max(63072000)
+    .describe("HSTS max-age in seconds (min 1 day, max 2 years)"),
+  hstsIncludeSubdomains: z.boolean().describe("Include subdomains in HSTS policy"),
+  hstsPreload: z.boolean().describe("Enable HSTS preload"),
+  cspPolicy: NonEmptyString.describe("Content Security Policy directive"),
+  frameOptions: z.enum(["DENY", "SAMEORIGIN"]).describe("X-Frame-Options policy"),
+  contentTypeOptions: z.boolean().describe("Enable X-Content-Type-Options: nosniff"),
+  xssProtection: z.boolean().describe("Enable X-XSS-Protection"),
+  referrerPolicy: z
+    .enum([
+      "no-referrer",
+      "no-referrer-when-downgrade",
+      "origin",
+      "origin-when-cross-origin",
+      "same-origin",
+      "strict-origin",
+      "strict-origin-when-cross-origin",
+      "unsafe-url",
+    ])
+    .describe("Referrer-Policy directive"),
+  permissionsPolicy: NonEmptyString.describe("Permissions-Policy directive"),
+});
+
+export const ApiV2AuditConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable enhanced audit logging for v2 API"),
+  level: z.enum(["basic", "detailed", "comprehensive"]).describe("Audit logging detail level"),
+  retentionDays: z
+    .number()
+    .int()
+    .min(30)
+    .max(2555)
+    .describe("Audit log retention period in days (min 30 days, max 7 years)"),
+  includeClientInfo: z.boolean().describe("Include client information in audit logs"),
+  anonymizeIp: z.boolean().describe("Anonymize IP addresses in audit logs for privacy"),
+  includePii: z.boolean().describe("Include PII in audit logs (compliance consideration)"),
+  correlationIdHeader: NonEmptyString.describe("Header name for audit correlation ID"),
+  securityEventThresholds: z.strictObject({
+    authFailureCount: z.number().int().min(1).describe("Auth failure threshold for alerting"),
+    anomalyDetection: z.boolean().describe("Enable anomaly pattern detection"),
+    suspiciousPatterns: z.boolean().describe("Enable suspicious pattern detection"),
+  }),
+});
+
+export const ApiV2ConfigSchema = z.strictObject({
+  securityHeaders: ApiV2SecurityHeadersConfigSchema,
+  auditLogging: ApiV2AuditConfigSchema,
+});
+
 export const TelemetryConfigSchema = z
   .strictObject({
     serviceName: NonEmptyString.describe("Service identifier for telemetry"),
@@ -300,6 +380,8 @@ export const AppConfigSchema = z
     telemetry: TelemetryConfigSchema,
     profiling: ProfilingConfigSchema,
     apiInfo: ApiInfoConfigSchema,
+    apiVersioning: ApiVersioningConfigSchema,
+    apiV2: ApiV2ConfigSchema.optional(),
   })
   .superRefine((data, ctx) => {
     addProductionSecurityValidation({ nodeEnv: data.server.nodeEnv }, ctx, {
@@ -317,6 +399,10 @@ export const SchemaRegistry = {
   Telemetry: TelemetryConfigSchema,
   Profiling: ProfilingConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
+  ApiVersioning: ApiVersioningConfigSchema,
+  ApiV2: ApiV2ConfigSchema,
+  ApiV2SecurityHeaders: ApiV2SecurityHeadersConfigSchema,
+  ApiV2Audit: ApiV2AuditConfigSchema,
   AppConfig: AppConfigSchema,
   ConsumerSecret: ConsumerSecretSchema,
   ConsumerResponse: ConsumerResponseSchema,
@@ -359,6 +445,10 @@ export type JwtConfig = z.infer<typeof JwtConfigSchema>;
 export type KongConfig = z.infer<typeof KongConfigSchema>;
 export type TelemetryConfig = z.infer<typeof TelemetryConfigSchema>;
 export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
+export type ApiVersioningConfig = z.infer<typeof ApiVersioningConfigSchema>;
+export type ApiV2Config = z.infer<typeof ApiV2ConfigSchema>;
+export type ApiV2SecurityHeadersConfig = z.infer<typeof ApiV2SecurityHeadersConfigSchema>;
+export type ApiV2AuditConfig = z.infer<typeof ApiV2AuditConfigSchema>;
 
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;

@@ -107,4 +107,17 @@ export function error(message: string, context: Record<string, any> = {}) {
   });
 }
 
-export const logger = { log, warn, error };
+export function audit(eventType: string, context: Record<string, any> = {}) {
+  const config = getConfig();
+  getWinstonLogger().info(eventType, {
+    audit: true,
+    event_type: eventType,
+    service: {
+      name: config.telemetry.serviceName,
+      environment: config.telemetry.environment,
+    },
+    ...context,
+  });
+}
+
+export const logger = { log, warn, error, audit };

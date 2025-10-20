@@ -36,9 +36,10 @@ echo "Build target: ${BUILD_TARGET}"
 echo "BuildKit enabled: $(docker buildx version >/dev/null 2>&1 && echo 'Yes' || echo 'No')"
 echo "----------------------------------------"
 
-# Build the Docker image with BuildKit optimization
+# Build the Docker image with enhanced BuildKit optimization
 DOCKER_BUILDKIT=1 docker build \
   --target "${BUILD_TARGET}" \
+  --platform linux/amd64 \
   --build-arg SERVICE_NAME="${SERVICE_NAME}" \
   --build-arg SERVICE_VERSION="${SERVICE_VERSION}" \
   --build-arg SERVICE_DESCRIPTION="${SERVICE_DESCRIPTION}" \
@@ -47,8 +48,10 @@ DOCKER_BUILDKIT=1 docker build \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VCS_REF="${VCS_REF}" \
   --build-arg VERSION="${SERVICE_VERSION}" \
-  --cache-from "${IMAGE_NAME}:cache" \
-  --cache-to "type=inline" \
+  --cache-from "type=registry,ref=${IMAGE_NAME}:buildcache" \
+  --cache-to "type=registry,ref=${IMAGE_NAME}:buildcache,mode=max" \
+  --provenance=false \
+  --sbom=false \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
   -t "${IMAGE_NAME}:latest" \
   .

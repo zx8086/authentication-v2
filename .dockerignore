@@ -119,6 +119,11 @@ kubectl/
 Dockerfile*
 docker-compose*
 .dockerignore
+.github/
+.gitlab-ci.yml
+*.yml
+*.yaml
+!package.json
 
 # Development Configuration
 # -------------------------
@@ -139,11 +144,12 @@ yarn-error.log*
 pnpm-debug.log*
 .pnpm-store/
 
-# Performance Testing
-# -------------------
+# Performance Testing (not needed in container)
+# ---------------------------------------------
 k6/
 perf/
 benchmark/
+test/results/
 
 # Old/Legacy Code
 # ---------------
@@ -157,3 +163,17 @@ old/
 .npm
 .yarn-integrity
 .cache
+
+# Scripts not needed in container
+# -------------------------------
+scripts/
+!scripts/generate-openapi.ts
+
+# Additional build optimization exclusions
+# ----------------------------------------
+*.lock
+!bun.lock
+bun.lockb
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

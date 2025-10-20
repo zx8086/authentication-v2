@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  authentication-service:
+    image: ${SERVICE_NAME:-authentication-service}:${VERSION:-latest}
+    build:
+      context: .
+      target: production
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+        VERSION: ${VERSION}
+        SERVICE_NAME: ${SERVICE_NAME:-authentication-service}
+        SERVICE_VERSION: ${VERSION:-2.4.0}
+        SERVICE_DESCRIPTION: "High-performance JWT authentication service built with Bun"
+        SERVICE_AUTHOR: "Simon Owusu"
+        SERVICE_LICENSE: "UNLICENSED"
+      cache_from:
+        - type=registry,ref=${SERVICE_NAME:-authentication-service}:buildcache
+      cache_to:
+        - type=registry,ref=${SERVICE_NAME:-authentication-service}:buildcache,mode=max
+
+    # Security hardening for production
+    user: "65532:65532"
+    read_only: true
+
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits for high-performance authentication service
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.50'
+          pids: 100
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+      restart_policy:
+        condition: unless-stopped
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+    pids_limit: 100
+
+    # Health check using Bun native fetch (distroless compatible)
+    healthcheck:
+      test: ["/usr/local/bin/bun", "--eval", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    # Environment configuration
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - HOST=${HOST:-0.0.0.0}
+      - TELEMETRY_MODE=${TELEMETRY_MODE:-otlp}
+
+      # Kong configuration
+      - KONG_MODE=${KONG_MODE:-API_GATEWAY}
+      - KONG_JWT_AUTHORITY=${KONG_JWT_AUTHORITY}
+      - KONG_JWT_AUDIENCE=${KONG_JWT_AUDIENCE}
+      - KONG_JWT_ISSUER=${KONG_JWT_ISSUER}
+      - KONG_JWT_KEY_CLAIM_NAME=${KONG_JWT_KEY_CLAIM_NAME:-key}
+      - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES:-15}
+
+      # Circuit breaker configuration (always enabled)
+      - CIRCUIT_BREAKER_TIMEOUT=${CIRCUIT_BREAKER_TIMEOUT:-500}
+      - CIRCUIT_BREAKER_ERROR_THRESHOLD=${CIRCUIT_BREAKER_ERROR_THRESHOLD:-50}
+      - CIRCUIT_BREAKER_RESET_TIMEOUT=${CIRCUIT_BREAKER_RESET_TIMEOUT:-30000}
+      - STALE_DATA_TOLERANCE_MINUTES=${STALE_DATA_TOLERANCE_MINUTES:-60}
+      - HIGH_AVAILABILITY=${HIGH_AVAILABILITY:-true}
+
+      # OpenTelemetry configuration
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-authentication-service}
+      - OTEL_SERVICE_VERSION=${OTEL_SERVICE_VERSION:-2.4.0}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT}
+
+    # External configuration files
+    env_file:
+      - .env.prod
+
+    # Structured logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version,environment"
+
+    # Network configuration
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+
+    networks:
+      - auth-network
+
+    # Temporary filesystem for writable operations (distroless requirement)
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m,mode=1777
+
+    # Container lifecycle
+    restart: unless-stopped
+    container_name: ${CONTAINER_NAME:-authentication-service-prod}
+
+    # Labels for container management
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`auth.${DOMAIN:-localhost}`)"
+      - "traefik.http.services.auth.loadbalancer.server.port=3000"
+      - "service.name=authentication-service"
+      - "service.version=${VERSION:-2.4.0}"
+      - "environment=${NODE_ENV:-production}"
+      - "security.profile=distroless"
+      - "security.scan.required=true"
+
+  # Optional Redis for high availability stale cache
+  redis:
+    image: redis:7.4-alpine
+    container_name: ${REDIS_CONTAINER_NAME:-authentication-redis}
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+    # Security hardening for Redis
+    user: "999:999"
+    read_only: true
+
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.10'
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+    volumes:
+      - redis-data:/data
+      - /tmp
+
+    networks:
+      - auth-network
+
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  auth-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/redis

@@ -96,16 +96,19 @@ export function createHealthResponse(data: any, statusCode: number, requestId: s
 export function createTokenResponse(
   accessToken: string,
   expiresIn: number,
-  requestId: string
+  requestId: string,
+  apiVersion?: string
 ): Response {
   const tokenData = {
     access_token: accessToken,
     expires_in: expiresIn,
+    ...(apiVersion && { apiVersion }),
   };
 
   const headers = {
     ...getDefaultHeaders(requestId),
     ...getCacheHeaders(),
+    ...(apiVersion && { "API-Version": apiVersion }),
   };
 
   return new Response(JSON.stringify(tokenData), {

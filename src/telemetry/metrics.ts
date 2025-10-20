@@ -57,10 +57,25 @@ let cacheTierLatencyHistogram: any;
 let cacheTierErrorCounter: any;
 let operationDurationHistogram: any;
 
+// API Versioning metrics
+let apiVersionRequestsCounter: any;
+let apiVersionHeaderSourceCounter: any;
+let apiVersionUnsupportedCounter: any;
+let apiVersionFallbackCounter: any;
+let apiVersionParsingDurationHistogram: any;
+let apiVersionRoutingDurationHistogram: any;
+
 // Consumer volume-based metrics (KISS approach)
 let consumerRequestsByVolumeCounter: any;
 let consumerErrorsByVolumeCounter: any;
 let consumerLatencyByVolumeHistogram: any;
+
+// Security metrics for v2 features
+let securityEventsCounter: any;
+let securityHeadersAppliedCounter: any;
+let auditEventsCounter: any;
+let securityRiskScoreHistogram: any;
+let securityAnomaliesCounter: any;
 
 let systemMetricsInterval: Timer | null = null;
 
@@ -278,6 +293,49 @@ export function initializeMetrics(): void {
     unit: "s",
   });
 
+  // API Versioning metrics
+  apiVersionRequestsCounter = meter.createCounter("api_version_requests_total", {
+    description: "Total API requests by version, endpoint, and method",
+    unit: "1",
+  });
+
+  apiVersionHeaderSourceCounter = meter.createCounter("api_version_header_source_total", {
+    description: "Count of version detection by source (Accept-Version, media-type, default)",
+    unit: "1",
+  });
+
+  apiVersionUnsupportedCounter = meter.createCounter("api_version_unsupported_total", {
+    description: "Count of unsupported version requests",
+    unit: "1",
+  });
+
+  apiVersionFallbackCounter = meter.createCounter("api_version_fallback_total", {
+    description: "Count of fallbacks to default version",
+    unit: "1",
+  });
+
+  apiVersionParsingDurationHistogram = meter.createHistogram(
+    "api_version_parsing_duration_seconds",
+    {
+      description: "Time taken to parse API version from headers",
+      unit: "s",
+      advice: {
+        explicitBucketBoundaries: [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1],
+      },
+    }
+  );
+
+  apiVersionRoutingDurationHistogram = meter.createHistogram(
+    "api_version_routing_duration_seconds",
+    {
+      description: "Additional overhead from version-aware routing",
+      unit: "s",
+      advice: {
+        explicitBucketBoundaries: [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1],
+      },
+    }
+  );
+
   // Consumer volume-based metrics (KISS approach)
   consumerRequestsByVolumeCounter = meter.createCounter("consumer_requests_by_volume", {
     description: "Consumer requests grouped by volume (high/medium/low)",
@@ -295,6 +353,35 @@ export function initializeMetrics(): void {
     advice: {
       explicitBucketBoundaries: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
     },
+  });
+
+  // Security metrics for v2 features
+  securityEventsCounter = meter.createCounter("security_events_total", {
+    description: "Total number of security events recorded",
+    unit: "1",
+  });
+
+  securityHeadersAppliedCounter = meter.createCounter("security_headers_applied_total", {
+    description: "Count of responses with security headers applied",
+    unit: "1",
+  });
+
+  auditEventsCounter = meter.createCounter("audit_events_total", {
+    description: "Total number of audit events logged",
+    unit: "1",
+  });
+
+  securityRiskScoreHistogram = meter.createHistogram("security_risk_score", {
+    description: "Distribution of security event risk scores",
+    unit: "1",
+    advice: {
+      explicitBucketBoundaries: [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    },
+  });
+
+  securityAnomaliesCounter = meter.createCounter("security_anomalies_total", {
+    description: "Count of security anomalies detected",
+    unit: "1",
   });
 
   setupSystemMetricsCollection();
@@ -819,6 +906,169 @@ export function recordOperationDuration(
   }
 }
 
+// API Versioning metrics functions
+export function recordApiVersionRequest(
+  version: string,
+  endpoint: string,
+  method: string,
+  isLatest: boolean,
+  isSupported: boolean
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    version,
+    endpoint,
+    method: method.toUpperCase(),
+    is_latest: isLatest.toString(),
+    is_supported: isSupported.toString(),
+  };
+
+  try {
+    apiVersionRequestsCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record API version request metric", {
+      error: (err as Error).message,
+      version,
+      endpoint,
+      method,
+    });
+  }
+}
+
+export function recordApiVersionHeaderSource(
+  source: string,
+  version?: string,
+  endpoint?: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    source,
+    ...(version && { version }),
+    ...(endpoint && { endpoint }),
+  };
+
+  try {
+    apiVersionHeaderSourceCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record API version header source metric", {
+      error: (err as Error).message,
+      source,
+      version,
+    });
+  }
+}
+
+export function recordApiVersionUnsupported(
+  requestedVersion: string,
+  source: string,
+  endpoint: string,
+  method: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    requested_version: requestedVersion,
+    source,
+    endpoint,
+    method: method.toUpperCase(),
+  };
+
+  try {
+    apiVersionUnsupportedCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record API version unsupported metric", {
+      error: (err as Error).message,
+      requestedVersion,
+      source,
+      endpoint,
+    });
+  }
+}
+
+export function recordApiVersionFallback(
+  originalVersion: string,
+  fallbackVersion: string,
+  reason: string,
+  endpoint: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    original_version: originalVersion,
+    fallback_version: fallbackVersion,
+    reason,
+    endpoint,
+  };
+
+  try {
+    apiVersionFallbackCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record API version fallback metric", {
+      error: (err as Error).message,
+      originalVersion,
+      fallbackVersion,
+      reason,
+    });
+  }
+}
+
+export function recordApiVersionParsingDuration(
+  durationMs: number,
+  source: string,
+  success: boolean,
+  version?: string
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    source,
+    success: success.toString(),
+    ...(version && { version }),
+  };
+
+  const durationSeconds = durationMs / 1000;
+
+  try {
+    apiVersionParsingDurationHistogram.record(durationSeconds, attributes);
+  } catch (err) {
+    error("Failed to record API version parsing duration metric", {
+      error: (err as Error).message,
+      durationMs,
+      source,
+    });
+  }
+}
+
+export function recordApiVersionRoutingDuration(
+  durationMs: number,
+  version: string,
+  endpoint: string,
+  hasVersionHandler: boolean
+): void {
+  if (!isInitialized) return;
+
+  const attributes = {
+    version,
+    endpoint,
+    has_version_handler: hasVersionHandler.toString(),
+  };
+
+  const durationSeconds = durationMs / 1000;
+
+  try {
+    apiVersionRoutingDurationHistogram.record(durationSeconds, attributes);
+  } catch (err) {
+    error("Failed to record API version routing duration metric", {
+      error: (err as Error).message,
+      durationMs,
+      version,
+      endpoint,
+    });
+  }
+}
+
 export function recordTelemetryExport(exportType: string): void {
   if (!isInitialized) return;
 
@@ -1074,6 +1324,14 @@ export function testMetricRecording(): void {
   recordKongOperation("get_consumer_secret", "success", 89, true, false);
   recordKongOperation("health_check", "success", 23, true, true);
 
+  // Test API versioning metrics
+  recordApiVersionRequest("v1", "/test", "GET", true, true);
+  recordApiVersionHeaderSource("Accept-Version", "v1", "/test");
+  recordApiVersionUnsupported("v3", "Accept-Version", "/test", "GET");
+  recordApiVersionFallback("v2", "v1", "unsupported_version", "/test");
+  recordApiVersionParsingDuration(0.5, "Accept-Version", true, "v1");
+  recordApiVersionRoutingDuration(0.2, "v1", "/test", true);
+
   recordRedisOperation("GET", 12, true, "hit", { database: 0 });
   recordRedisOperation("SET", 8, true, undefined, { database: 0 });
   recordRedisOperation("DEL", 5, true, undefined, { database: 0 });
@@ -1135,6 +1393,14 @@ export function getMetricsStatus() {
       circuitBreakerFallbackCounter: !!circuitBreakerFallbackCounter,
       circuitBreakerStateTransitionCounter: !!circuitBreakerStateTransitionCounter,
       operationDurationHistogram: !!operationDurationHistogram,
+
+      // API Versioning instruments
+      apiVersionRequestsCounter: !!apiVersionRequestsCounter,
+      apiVersionHeaderSourceCounter: !!apiVersionHeaderSourceCounter,
+      apiVersionUnsupportedCounter: !!apiVersionUnsupportedCounter,
+      apiVersionFallbackCounter: !!apiVersionFallbackCounter,
+      apiVersionParsingDurationHistogram: !!apiVersionParsingDurationHistogram,
+      apiVersionRoutingDurationHistogram: !!apiVersionRoutingDurationHistogram,
     },
     meterInfo: {
       name: "authentication-service-metrics",
@@ -1193,8 +1459,23 @@ export function getMetricsStatus() {
         "circuit_breaker_fallback_total",
         "circuit_breaker_state_transitions_total",
       ],
+      apiVersioning: [
+        "api_version_requests_total",
+        "api_version_header_source_total",
+        "api_version_unsupported_total",
+        "api_version_fallback_total",
+        "api_version_parsing_duration_seconds",
+        "api_version_routing_duration_seconds",
+      ],
+      security: [
+        "security_events_total",
+        "security_headers_applied_total",
+        "audit_events_total",
+        "security_risk_score",
+        "security_anomalies_total",
+      ],
     },
-    totalInstruments: 33,
+    totalInstruments: 44,
     memoryPressure: getMemoryStats(),
     optimizations: {
       memoryPressureEnabled: true,
@@ -1217,6 +1498,82 @@ export function stopSystemMetricsCollection(): void {
   if (systemMetricsInterval) {
     clearInterval(systemMetricsInterval);
     systemMetricsInterval = null;
+  }
+}
+
+// Security metrics recording functions
+export function recordSecurityEvent(
+  type: string,
+  severity: string,
+  version?: string,
+  riskScore?: number
+): void {
+  if (!isInitialized) return;
+
+  try {
+    const attributes = {
+      type,
+      severity,
+      ...(version && { version }),
+    };
+
+    securityEventsCounter.add(1, attributes);
+
+    if (riskScore !== undefined) {
+      securityRiskScoreHistogram.record(riskScore, attributes);
+    }
+
+    if (type === "anomaly_detected") {
+      securityAnomaliesCounter.add(1, attributes);
+    }
+  } catch (err) {
+    error("Failed to record security event metrics", {
+      error: (err as Error).message,
+      type,
+      severity,
+      version,
+      riskScore,
+    });
+  }
+}
+
+export function recordSecurityHeadersApplied(version: string, headerCount: number): void {
+  if (!isInitialized) return;
+
+  try {
+    const attributes = {
+      version,
+      header_count: headerCount.toString(),
+    };
+
+    securityHeadersAppliedCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record security headers metrics", {
+      error: (err as Error).message,
+      version,
+      headerCount,
+    });
+  }
+}
+
+export function recordAuditEvent(eventType: string, auditLevel: string, version?: string): void {
+  if (!isInitialized) return;
+
+  try {
+    const attributes = {
+      event_type: eventType,
+      audit_level: auditLevel,
+      ...(version && { version }),
+    };
+
+    auditEventsCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record audit event metrics", {
+      error: (err as Error).message,
+      eventType,
+      auditLevel,
+      version,
+    });
   }
 }
 
