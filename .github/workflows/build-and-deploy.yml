@@ -362,6 +362,18 @@ jobs:
         run: bun install --frozen-lockfile
         timeout-minutes: 3
 
+      - name: Setup Bun for Snyk Code Analysis
+        if: matrix.scan-type == 'snyk-code'
+        uses: oven-sh/setup-bun@v2
+        timeout-minutes: 2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies for Snyk Code Analysis
+        if: matrix.scan-type == 'snyk-code'
+        run: bun install --frozen-lockfile
+        timeout-minutes: 3
+
       - name: Run Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
         timeout-minutes: 6
@@ -441,9 +453,10 @@ jobs:
           docker info | grep -E "(Username|Registry)" || echo "Not logged in to registry"
 
           # Try Docker Scout analysis
-          docker scout cves --format sarif --output scout-results.sarif \
-            --only-severity critical,high \
-            $IMAGE_TAG || {
+          docker scout cves $IMAGE_TAG \
+            --format sarif \
+            --output scout-results.sarif \
+            --only-severity critical,high || {
             echo "Docker Scout analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
