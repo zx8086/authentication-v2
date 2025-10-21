@@ -255,7 +255,9 @@ describe("OpenTelemetry Metrics System", () => {
       ];
 
       scenarios.forEach((scenario) => {
-        expect(() => recordRedisOperation(scenario.operation, "success", scenario.duration)).not.toThrow();
+        expect(() =>
+          recordRedisOperation(scenario.operation, "success", scenario.duration)
+        ).not.toThrow();
 
         if (scenario.hit) {
           expect(() => recordKongCacheHit("redis-test", scenario.operation)).not.toThrow();

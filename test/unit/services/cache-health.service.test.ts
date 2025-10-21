@@ -1,9 +1,9 @@
 /* test/unit/services/cache-health.service.test.ts */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CacheHealthService } from "../../../src/services/cache-health.service";
-import { CacheFactory } from "../../../src/services/cache/cache-factory";
 import { resetConfigCache } from "../../../src/config/config";
+import { CacheFactory } from "../../../src/services/cache/cache-factory";
+import { CacheHealthService } from "../../../src/services/cache-health.service";
 
 describe("CacheHealthService", () => {
   let cacheHealthService: CacheHealthService;
@@ -45,7 +45,6 @@ describe("CacheHealthService", () => {
       expect(result1.responseTime).toBe(result2.responseTime);
     });
   });
-
 
   describe("cleanup", () => {
     it("should cleanup without errors when no redis client exists", async () => {

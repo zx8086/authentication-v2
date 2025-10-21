@@ -1,12 +1,12 @@
 /* test/compatibility/v2-backward-compatibility.test.ts */
 
-import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { KongServiceFactory } from "../../src/services/kong.factory";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { loadConfig } from "../../src/config/index";
 import { handleHealthCheck } from "../../src/handlers/v1/health";
-import { handleV2HealthCheck } from "../../src/handlers/v2/health";
 import { handleTokenRequest } from "../../src/handlers/v1/tokens";
+import { handleV2HealthCheck } from "../../src/handlers/v2/health";
 import { handleV2TokenRequest } from "../../src/handlers/v2/tokens";
+import { KongServiceFactory } from "../../src/services/kong.factory";
 import type { IKongService } from "../../src/services/kong.service";
 
 describe("V2 Backward Compatibility", () => {
@@ -96,7 +96,9 @@ describe("V2 Backward Compatibility", () => {
 
       // Values should match V1 (approximately, allowing for timing differences)
       expect(v2Data.dependencies.kong.status).toBe(v1Data.dependencies.kong.status);
-      expect(v2Data.dependencies.kong.details.adminUrl).toBe(v1Data.dependencies.kong.details.adminUrl);
+      expect(v2Data.dependencies.kong.details.adminUrl).toBe(
+        v1Data.dependencies.kong.details.adminUrl
+      );
       expect(v2Data.dependencies.kong.details.mode).toBe(v1Data.dependencies.kong.details.mode);
     });
   });

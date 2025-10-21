@@ -15,7 +15,7 @@ export class TestConsumerSecretFactory {
    * Generate a unique test suffix to ensure data isolation
    */
   private static getUniqueSuffix(): string {
-    return `${Date.now()}-${++this.counter}`;
+    return `${Date.now()}-${++TestConsumerSecretFactory.counter}`;
   }
 
   /**
@@ -26,7 +26,7 @@ export class TestConsumerSecretFactory {
     let hash = 0;
     for (let i = 0; i < baseId.length; i++) {
       const char = baseId.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return `${Math.abs(hash)}`;
@@ -35,20 +35,22 @@ export class TestConsumerSecretFactory {
   /**
    * Create a ConsumerSecret for testing with dynamic values
    */
-  static create(options: {
-    consumerIdPrefix?: string;
-    usernamePrefix?: string;
-    keyPrefix?: string;
-    secretPrefix?: string;
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
-    const suffix = this.getUniqueSuffix();
+  static create(
+    options: {
+      consumerIdPrefix?: string;
+      usernamePrefix?: string;
+      keyPrefix?: string;
+      secretPrefix?: string;
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
+    const suffix = TestConsumerSecretFactory.getUniqueSuffix();
     const {
       consumerIdPrefix = "test-consumer",
       usernamePrefix = "test-user",
       keyPrefix = "test-key",
       secretPrefix = "test-secret",
-      algorithm = "HS256"
+      algorithm = "HS256",
     } = options;
 
     return {
@@ -56,7 +58,7 @@ export class TestConsumerSecretFactory {
       consumerUsername: `${usernamePrefix}-${suffix}`,
       jwtKey: `${keyPrefix}-${suffix}`,
       jwtSecret: `${secretPrefix}-${suffix}`,
-      algorithm
+      algorithm,
     };
   }
 
@@ -64,33 +66,39 @@ export class TestConsumerSecretFactory {
    * Create a ConsumerSecret with specific identifier for predictable testing
    * Uses deterministic values that are consistent across test runs but not hardcoded
    */
-  static createWithId(baseId: string, options: {
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
+  static createWithId(
+    baseId: string,
+    options: {
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
     const { algorithm = "HS256" } = options;
-    const suffix = this.getDeterministicSuffix(baseId);
+    const suffix = TestConsumerSecretFactory.getDeterministicSuffix(baseId);
 
     return {
       consumerId: `${baseId}-consumer-${suffix}`,
       consumerUsername: `${baseId}-user-${suffix}`,
       jwtKey: `${baseId}-key-${suffix}`,
       jwtSecret: `${baseId}-secret-${suffix}`,
-      algorithm
+      algorithm,
     };
   }
 
   /**
    * Create multiple ConsumerSecret objects for batch testing
    */
-  static createBatch(count: number, options: {
-    basePrefix?: string;
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret[] {
+  static createBatch(
+    count: number,
+    options: {
+      basePrefix?: string;
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret[] {
     const { basePrefix = "batch-test", algorithm = "HS256" } = options;
     const secrets: ConsumerSecret[] = [];
 
     for (let i = 0; i < count; i++) {
-      secrets.push(this.createWithId(`${basePrefix}-${i}`, { algorithm }));
+      secrets.push(TestConsumerSecretFactory.createWithId(`${basePrefix}-${i}`, { algorithm }));
     }
 
     return secrets;
@@ -99,69 +107,83 @@ export class TestConsumerSecretFactory {
   /**
    * Create a ConsumerSecret for TTL testing with deterministic values
    */
-  static createForTTL(testName: string, options: {
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
-    return this.createWithId(`ttl-${testName}`, options);
+  static createForTTL(
+    testName: string,
+    options: {
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
+    return TestConsumerSecretFactory.createWithId(`ttl-${testName}`, options);
   }
 
   /**
    * Create a ConsumerSecret for performance testing with deterministic values
    */
-  static createForPerformance(index: number, options: {
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
-    return this.createWithId(`perf-${index}`, options);
+  static createForPerformance(
+    index: number,
+    options: {
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
+    return TestConsumerSecretFactory.createWithId(`perf-${index}`, options);
   }
 
   /**
    * Create a ConsumerSecret for concurrency testing with deterministic values
    */
-  static createForConcurrency(index: number, options: {
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
-    return this.createWithId(`concurrent-${index}`, options);
+  static createForConcurrency(
+    index: number,
+    options: {
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
+    return TestConsumerSecretFactory.createWithId(`concurrent-${index}`, options);
   }
 
   /**
    * Create a ConsumerSecret for cache testing scenarios with deterministic values
    */
-  static createForCache(scenario: string, options: {
-    algorithm?: "HS256" | "HS384" | "HS512";
-  } = {}): ConsumerSecret {
-    return this.createWithId(`cache-${scenario}`, options);
+  static createForCache(
+    scenario: string,
+    options: {
+      algorithm?: "HS256" | "HS384" | "HS512";
+    } = {}
+  ): ConsumerSecret {
+    return TestConsumerSecretFactory.createWithId(`cache-${scenario}`, options);
   }
 
   /**
    * Create a ConsumerSecret with new format (id, key, secret, consumer.id)
    * Uses deterministic values when given consistent prefixes
    */
-  static createNew(options: {
-    idPrefix?: string;
-    keyPrefix?: string;
-    secretPrefix?: string;
-    consumerIdPrefix?: string;
-    deterministic?: boolean;
-  } = {}): ConsumerSecret {
+  static createNew(
+    options: {
+      idPrefix?: string;
+      keyPrefix?: string;
+      secretPrefix?: string;
+      consumerIdPrefix?: string;
+      deterministic?: boolean;
+    } = {}
+  ): ConsumerSecret {
     const {
       idPrefix = "test-jwt-credential",
       keyPrefix = "test-jwt-key",
       secretPrefix = "test-jwt-secret",
       consumerIdPrefix = "test-consumer",
-      deterministic = false
+      deterministic = false,
     } = options;
 
     const suffix = deterministic
-      ? this.getDeterministicSuffix(`${idPrefix}-${consumerIdPrefix}`)
-      : this.getUniqueSuffix();
+      ? TestConsumerSecretFactory.getDeterministicSuffix(`${idPrefix}-${consumerIdPrefix}`)
+      : TestConsumerSecretFactory.getUniqueSuffix();
 
     return {
       id: `${idPrefix}-${suffix}`,
       key: `${keyPrefix}-${suffix}`,
       secret: `${secretPrefix}-${suffix}`,
       consumer: {
-        id: `${consumerIdPrefix}-${suffix}`
-      }
+        id: `${consumerIdPrefix}-${suffix}`,
+      },
     };
   }
 }

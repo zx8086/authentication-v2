@@ -256,7 +256,7 @@ describe("Memory Pressure Monitoring", () => {
     it("should handle various threshold configurations", () => {
       const configs = [
         { criticalThreshold: 0.95, warningThreshold: 0.85 },
-        { criticalThreshold: 0.80, warningThreshold: 0.70 },
+        { criticalThreshold: 0.8, warningThreshold: 0.7 },
         { criticalThreshold: 0.99, warningThreshold: 0.95 },
       ];
 
@@ -277,7 +277,7 @@ describe("Memory Pressure Monitoring", () => {
     it("should handle edge case threshold values", () => {
       const edgeCases = [
         { criticalThreshold: 0.99, warningThreshold: 0.98 },
-        { criticalThreshold: 0.80, warningThreshold: 0.75 },
+        { criticalThreshold: 0.8, warningThreshold: 0.75 },
         { criticalThreshold: 1.0, warningThreshold: 0.99 },
       ];
 

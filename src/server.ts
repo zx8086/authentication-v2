@@ -90,7 +90,7 @@ try {
 }
 
 const { routes, fallbackFetch } = createRoutes(kongService);
-let server: any;
+let server: ReturnType<typeof Bun.serve>;
 
 try {
   server = Bun.serve({
@@ -318,3 +318,6 @@ process.on("uncaughtException", (err) => {
   });
   process.exit(1);
 });
+
+// Export the server instance for programmatic usage
+export default server;

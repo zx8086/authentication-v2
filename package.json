@@ -5,12 +5,15 @@
   "description": "High-performance JWT authentication service built with Bun",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "bun run generate-docs && bun --hot src/server.ts",
+    "dev": "bun --hot src/index.ts",
+    "dev:docs": "bun run generate-docs && bun --hot src/server.ts",
     "dev:development": "bun run generate-docs && cp .env.dev .env.development && NODE_ENV=development bun src/server.ts; rm .env.development",
     "dev:staging": "bun run generate-docs && cp .env.stg .env.staging && NODE_ENV=staging bun src/server.ts; rm .env.staging",
     "dev:production": "bun run generate-docs && cp .env.prod .env.production && NODE_ENV=production bun src/server.ts; rm .env.production",
-    "start": "bun run src/server.ts",
-    "build": "bun build src/server.ts --target=bun --outdir=dist --minify",
+    "start": "bun run src/index.ts",
+    "start:server": "bun run src/server.ts",
+    "build": "bun build src/index.ts --outdir=./dist --target=bun --minify",
+    "build:server": "bun build src/server.ts --target=bun --outdir=dist --minify",
     "bun:test": "bun test",
     "bun:test:concurrent": "bun test --max-concurrency=4",
     "bun:test:randomize": "bun test --randomize",
@@ -29,8 +32,12 @@
     "biome:check:unsafe": "biome check --write --unsafe .",
     "yaml:check": "yamllint .github/workflows/*.yml",
     "lint:all": "bun run biome:check && bun run yaml:check",
-    "lint:fix": "bun run typecheck && bun run biome:check:write && bun run yaml:check",
+    "quality:check": "bun run typecheck && bun run biome:check && bun run yaml:check",
+    "quality:fix": "bun run biome:check:write && bun run typecheck",
+    "lint:fix": "bun run quality:fix && bun run yaml:check",
     "biome:ci": "biome ci .",
+    "biome:check:changed": "biome check --changed",
+    "biome:check:performance": "time biome check . --max-diagnostics=50",
     "generate-docs": "bun scripts/generate-openapi.ts",
     "license:check": "bun scripts/license-check.ts",
     "license:check:verbose": "bun scripts/license-check.ts --verbose",
@@ -135,12 +142,15 @@
   "bun": {
     "install": {
       "peer": true,
-      "frozenLockfile": true
+      "frozenLockfile": true,
+      "production": false
     },
     "build": {
       "target": "bun",
       "minify": true,
-      "sourcemap": "external"
+      "sourcemap": "external",
+      "splitting": false,
+      "format": "esm"
     }
   },
   "overrides": {

@@ -292,7 +292,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
     const view = (url.searchParams.get("view") as MetricsView) || "operational";
     const timestamp = new Date().toISOString();
 
-    let responseData: any = { timestamp, apiVersion: "v1" };
+    let responseData: Record<string, unknown> = { timestamp, apiVersion: "v1" };
 
     switch (view) {
       case "operational": {

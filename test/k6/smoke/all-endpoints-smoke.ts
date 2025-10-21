@@ -2,13 +2,9 @@
 
 // K6 smoke tests for ALL main endpoints
 
-import http from "k6/http";
 import { check, sleep } from "k6";
-import {
-  getConfig,
-  getPerformanceThresholds,
-  getScenarioConfig,
-} from "../utils/config.ts";
+import http from "k6/http";
+import { getConfig, getPerformanceThresholds, getScenarioConfig } from "../utils/config.ts";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -54,8 +50,7 @@ export default function () {
   const telemetryHealthResponse = http.get(`${baseUrl}/health/telemetry`);
   check(telemetryHealthResponse, {
     "GET /health/telemetry status is 200": (r) => r.status === 200,
-    "GET /health/telemetry response time < 50ms": (r) =>
-      r.timings.duration < 50,
+    "GET /health/telemetry response time < 50ms": (r) => r.timings.duration < 50,
     "GET /health/telemetry has telemetry status": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"telemetry"') && body.includes('"initialized"');
@@ -68,8 +63,7 @@ export default function () {
   const metricsHealthResponse = http.get(`${baseUrl}/health/metrics`);
   check(metricsHealthResponse, {
     "GET /health/metrics status is 200": (r) => r.status === 200,
-    "GET /health/metrics response time < 50ms": (r) =>
-      r.timings.duration < 50,
+    "GET /health/metrics response time < 50ms": (r) => r.timings.duration < 50,
     "GET /health/metrics has circuit breaker data": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"circuitBreakers"') && body.includes('"enabled"');
@@ -133,8 +127,7 @@ export default function () {
   const debugTestResponse = http.post(`${baseUrl}/debug/metrics/test`);
   check(debugTestResponse, {
     "POST /debug/metrics/test status is 200": (r) => r.status === 200,
-    "POST /debug/metrics/test response time < 50ms": (r) =>
-      r.timings.duration < 50,
+    "POST /debug/metrics/test response time < 50ms": (r) => r.timings.duration < 50,
     "POST /debug/metrics/test confirms test metrics": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"success"');
@@ -147,8 +140,7 @@ export default function () {
   const debugExportResponse = http.post(`${baseUrl}/debug/metrics/export`);
   check(debugExportResponse, {
     "POST /debug/metrics/export status is 200": (r) => r.status === 200,
-    "POST /debug/metrics/export response time < 200ms": (r) =>
-      r.timings.duration < 200,
+    "POST /debug/metrics/export response time < 200ms": (r) => r.timings.duration < 200,
     "POST /debug/metrics/export confirms export": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"message"');
@@ -179,7 +171,8 @@ export default function () {
   // Test profiling reports endpoint
   const profilingReportsResponse = http.get(`${baseUrl}/debug/profiling/reports`);
   check(profilingReportsResponse, {
-    "GET /debug/profiling/reports status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "GET /debug/profiling/reports status is 200 or 404": (r) =>
+      r.status === 200 || r.status === 404,
     "GET /debug/profiling/reports response time < 50ms": (r) => r.timings.duration < 50,
     "GET /debug/profiling/reports valid response": (r) => {
       if (r.status === 200) {
@@ -227,7 +220,8 @@ export default function () {
   // Test profiling cleanup endpoint (POST) - only if enabled
   const profilingCleanupResponse = http.post(`${baseUrl}/debug/profiling/cleanup`);
   check(profilingCleanupResponse, {
-    "POST /debug/profiling/cleanup status is 200 or 404": (r) => r.status === 200 || r.status === 404,
+    "POST /debug/profiling/cleanup status is 200 or 404": (r) =>
+      r.status === 200 || r.status === 404,
     "POST /debug/profiling/cleanup response time < 100ms": (r) => r.timings.duration < 100,
     "POST /debug/profiling/cleanup valid response": (r) => {
       if (r.status === 200) {

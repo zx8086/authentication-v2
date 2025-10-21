@@ -2,49 +2,49 @@
 
 // Custom metrics and business KPIs for authentication service testing
 
-import { Counter, Trend, Rate, Gauge } from 'k6/metrics';
+import { Counter, Gauge, Rate, Trend } from "k6/metrics";
 
 export const businessMetrics = {
   // Token generation metrics
-  tokenGenerationRate: new Rate('token_generation_rate'),
-  tokenGenerationDuration: new Trend('token_generation_duration'),
-  tokensPerSecond: new Rate('tokens_per_second'),
+  tokenGenerationRate: new Rate("token_generation_rate"),
+  tokenGenerationDuration: new Trend("token_generation_duration"),
+  tokensPerSecond: new Rate("tokens_per_second"),
 
   // Authentication flow metrics
-  authenticationAttempts: new Counter('authentication_attempts'),
-  authenticationSuccesses: new Counter('authentication_successes'),
-  authenticationFailures: new Counter('authentication_failures'),
+  authenticationAttempts: new Counter("authentication_attempts"),
+  authenticationSuccesses: new Counter("authentication_successes"),
+  authenticationFailures: new Counter("authentication_failures"),
 
   // Kong integration metrics
-  kongResponseTime: new Trend('kong_response_time'),
-  kongProxyCacheHits: new Rate('kong_proxy_cache_hits'),
-  kongProxyCacheMisses: new Rate('kong_proxy_cache_misses'),
+  kongResponseTime: new Trend("kong_response_time"),
+  kongProxyCacheHits: new Rate("kong_proxy_cache_hits"),
+  kongProxyCacheMisses: new Rate("kong_proxy_cache_misses"),
 
   // Rate limiting metrics
-  rateLimitExceeded: new Counter('rate_limit_exceeded'),
-  rateLimitApproaching: new Counter('rate_limit_approaching'),
+  rateLimitExceeded: new Counter("rate_limit_exceeded"),
+  rateLimitApproaching: new Counter("rate_limit_approaching"),
 
   // System performance metrics
-  concurrentUsers: new Gauge('concurrent_active_users'),
-  memoryUsage: new Trend('memory_usage_mb'),
-  jwtSigningTime: new Trend('jwt_signing_time_ms'),
+  concurrentUsers: new Gauge("concurrent_active_users"),
+  memoryUsage: new Trend("memory_usage_mb"),
+  jwtSigningTime: new Trend("jwt_signing_time_ms"),
 
   // Business KPIs
-  tokenUtilizationRate: new Rate('token_utilization_rate'),
-  averageTokenLifetime: new Trend('average_token_lifetime'),
-  peakConcurrentRequests: new Gauge('peak_concurrent_requests'),
+  tokenUtilizationRate: new Rate("token_utilization_rate"),
+  averageTokenLifetime: new Trend("average_token_lifetime"),
+  peakConcurrentRequests: new Gauge("peak_concurrent_requests"),
 
   // Error tracking
-  unauthorizedRequests: new Counter('unauthorized_requests'),
-  invalidConsumerRequests: new Counter('invalid_consumer_requests'),
-  systemErrors: new Counter('system_errors'),
+  unauthorizedRequests: new Counter("unauthorized_requests"),
+  invalidConsumerRequests: new Counter("invalid_consumer_requests"),
+  systemErrors: new Counter("system_errors"),
 
   // Response quality metrics
-  responseCompleteness: new Rate('response_completeness_rate'),
-  tokenValidityRate: new Rate('token_validity_rate'),
+  responseCompleteness: new Rate("response_completeness_rate"),
+  tokenValidityRate: new Rate("token_validity_rate"),
 
   // Performance budget tracking
-  performanceBudgetViolations: new Counter('performance_budget_violations')
+  performanceBudgetViolations: new Counter("performance_budget_violations"),
 };
 
 export interface TokenMetadata {
@@ -63,7 +63,7 @@ export const recordTokenGeneration = (metadata: TokenMetadata) => {
     consumer_id: metadata.consumerId,
     username: metadata.username,
     endpoint: metadata.endpoint,
-    proxy_cache_status: metadata.proxyCacheHit ? 'hit' : 'miss'
+    proxy_cache_status: metadata.proxyCacheHit ? "hit" : "miss",
   };
 
   // Record core metrics
@@ -109,7 +109,7 @@ export interface HealthMetadata {
 export const recordHealthCheck = (metadata: HealthMetadata) => {
   const tags = {
     endpoint: metadata.endpoint,
-    kong_status: metadata.kongHealthy ? 'healthy' : 'unhealthy'
+    kong_status: metadata.kongHealthy ? "healthy" : "unhealthy",
   };
 
   if (metadata.success) {
@@ -122,7 +122,7 @@ export const recordHealthCheck = (metadata: HealthMetadata) => {
 };
 
 export interface ErrorMetadata {
-  errorType: 'unauthorized' | 'invalid_consumer' | 'system_error' | 'rate_limit';
+  errorType: "unauthorized" | "invalid_consumer" | "system_error" | "rate_limit";
   consumerId?: string;
   endpoint: string;
   httpStatus: number;
@@ -133,31 +133,35 @@ export const recordError = (metadata: ErrorMetadata) => {
     error_type: metadata.errorType,
     endpoint: metadata.endpoint,
     http_status: metadata.httpStatus.toString(),
-    consumer_id: metadata.consumerId || 'unknown'
+    consumer_id: metadata.consumerId || "unknown",
   };
 
   switch (metadata.errorType) {
-    case 'unauthorized':
+    case "unauthorized":
       businessMetrics.unauthorizedRequests.add(1, tags);
       break;
-    case 'invalid_consumer':
+    case "invalid_consumer":
       businessMetrics.invalidConsumerRequests.add(1, tags);
       break;
-    case 'rate_limit':
+    case "rate_limit":
       businessMetrics.rateLimitExceeded.add(1, tags);
       break;
-    case 'system_error':
+    case "system_error":
       businessMetrics.systemErrors.add(1, tags);
       break;
   }
 };
 
-export const recordPerformanceBudgetViolation = (operation: string, actualDuration: number, budgetMs: number) => {
+export const recordPerformanceBudgetViolation = (
+  operation: string,
+  actualDuration: number,
+  budgetMs: number
+) => {
   const tags = {
     operation,
     budget_ms: budgetMs.toString(),
     actual_ms: actualDuration.toString(),
-    violation_percent: Math.round(((actualDuration - budgetMs) / budgetMs) * 100).toString()
+    violation_percent: Math.round(((actualDuration - budgetMs) / budgetMs) * 100).toString(),
   };
 
   businessMetrics.performanceBudgetViolations.add(1, tags);
@@ -165,10 +169,10 @@ export const recordPerformanceBudgetViolation = (operation: string, actualDurati
 
 export const getPerformanceBudget = (operation: string): number => {
   const budgets: { [key: string]: number } = {
-    'token_generation': 200,  // 200ms budget for token generation (no app cache)
-    'health_check': 30,       // 30ms budget for health checks
-    'metrics_endpoint': 20,   // 20ms budget for metrics
-    'openapi_spec': 10        // 10ms budget for OpenAPI spec
+    token_generation: 200, // 200ms budget for token generation (no app cache)
+    health_check: 30, // 30ms budget for health checks
+    metrics_endpoint: 20, // 20ms budget for metrics
+    openapi_spec: 10, // 10ms budget for OpenAPI spec
   };
 
   return budgets[operation] || 100; // Default 100ms budget

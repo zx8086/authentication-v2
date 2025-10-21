@@ -2,6 +2,7 @@
 
 const isBun = () => typeof Bun !== "undefined";
 
+// REQUIRED: Standardized performance measurement pattern
 export async function measure<T>(name: string, op: () => Promise<T>) {
   const start = isBun() ? Bun.nanoseconds() : performance.now() * 1_000_000;
   const result = await op();

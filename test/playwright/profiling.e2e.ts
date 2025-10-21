@@ -1,6 +1,6 @@
 /* test/playwright/profiling.e2e.ts */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
 
@@ -14,7 +14,7 @@ test.describe("Profiling Endpoints E2E", () => {
       await request.post(`${API_BASE_URL}/debug/profiling/cleanup`);
     } catch (error) {
       // Don't fail tests if cleanup fails (server might be down)
-      console.warn('Pre-test profiling cleanup failed:', error);
+      console.warn("Pre-test profiling cleanup failed:", error);
     }
   });
 
@@ -24,7 +24,7 @@ test.describe("Profiling Endpoints E2E", () => {
       await request.post(`${API_BASE_URL}/debug/profiling/cleanup`);
     } catch (error) {
       // Don't fail tests if cleanup fails (server might be down)
-      console.warn('Profiling cleanup failed:', error);
+      console.warn("Profiling cleanup failed:", error);
     }
   });
 
@@ -189,7 +189,7 @@ test.describe("Profiling Endpoints E2E", () => {
     }
 
     // 3. Wait briefly for profiling data
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // 4. Stop profiling
     if (sessionId && profilingEnabled) {
@@ -312,34 +312,35 @@ test.describe("Profiling Endpoints E2E", () => {
       {
         method: "GET",
         path: "/debug/profiling/status",
-        expectedProps: ["enabled", "sessions"]
+        expectedProps: ["enabled", "sessions"],
       },
       {
         method: "GET",
         path: "/debug/profiling/reports",
-        expectedProps: ["reports", "total"]
+        expectedProps: ["reports", "total"],
       },
       {
         method: "POST",
         path: "/debug/profiling/start",
-        expectedProps: ["message"]
+        expectedProps: ["message"],
       },
       {
         method: "POST",
         path: "/debug/profiling/stop",
-        expectedProps: ["message"]
+        expectedProps: ["message"],
       },
       {
         method: "POST",
         path: "/debug/profiling/cleanup",
-        expectedProps: ["message", "cleaned"]
+        expectedProps: ["message", "cleaned"],
       },
     ];
 
     for (const endpoint of endpoints) {
-      const response = endpoint.method === "GET"
-        ? await request.get(`${API_BASE_URL}${endpoint.path}`)
-        : await request.post(`${API_BASE_URL}${endpoint.path}`);
+      const response =
+        endpoint.method === "GET"
+          ? await request.get(`${API_BASE_URL}${endpoint.path}`)
+          : await request.post(`${API_BASE_URL}${endpoint.path}`);
 
       // Should always return 200 with graceful handling
       expect(response.status()).toBe(200);

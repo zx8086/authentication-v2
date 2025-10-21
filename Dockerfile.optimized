@@ -9,8 +9,8 @@ WORKDIR /app
 RUN apk update && \
     apk upgrade --no-cache && \
     apk add --no-cache \
-    dumb-init=1.2.5-r3 \
-    ca-certificates=20250911-r0 && \
+        dumb-init=1.2.5-r4 \
+        ca-certificates=20241012-r0 && \
     rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
@@ -61,11 +61,13 @@ COPY --from=deps-base --chown=65532:65532 \
 
 WORKDIR /app
 
-# Copy essential production files in optimized order (fewer layers)
-COPY --from=deps-prod --chown=65532:65532 /app/package.json ./
+# Copy essential production files in optimized order (CONSOLIDATED for fewer layers)
+COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
 COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
 COPY --from=builder --chown=65532:65532 /app/src ./src
 COPY --from=builder --chown=65532:65532 /app/public ./public
+
+# Already running as nonroot user (65532:65532) - distroless default
 
 # Set environment variables
 ENV NODE_ENV=production \

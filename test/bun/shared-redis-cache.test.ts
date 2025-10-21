@@ -131,7 +131,7 @@ describe("SharedRedisCache Essential Tests", () => {
 
       const stats = await cache.getStats();
       expect(stats.strategy).toBe("shared-redis");
-      expect(parseFloat(stats.hitRate)).toBeGreaterThan(0);
+      expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
       expect(stats.averageLatencyMs).toBeGreaterThan(0);
     });
   });

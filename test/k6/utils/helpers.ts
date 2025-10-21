@@ -2,12 +2,18 @@
 
 // Test helper functions for authentication service testing
 
-import http from 'k6/http';
-import type { Response } from 'k6/http';
-import { check } from 'k6';
-import type { Checkers } from 'k6';
-import { getConfig, getHeaders, ConsumerConfig } from './config';
-import { recordTokenGeneration, recordHealthCheck, recordError, getPerformanceBudget, recordPerformanceBudgetViolation } from './metrics';
+import type { Checkers } from "k6";
+import { check } from "k6";
+import type { Response } from "k6/http";
+import http from "k6/http";
+import { type ConsumerConfig, getConfig, getHeaders } from "./config";
+import {
+  getPerformanceBudget,
+  recordError,
+  recordHealthCheck,
+  recordPerformanceBudgetViolation,
+  recordTokenGeneration,
+} from "./metrics";
 
 export interface TokenResponse {
   access_token: string;
@@ -22,7 +28,10 @@ export interface ValidationOptions {
   performanceBudget?: number;
 }
 
-export const executeTokenRequest = (consumer: ConsumerConfig, options: ValidationOptions = { endpoint: 'tokens' }): Response => {
+export const executeTokenRequest = (
+  consumer: ConsumerConfig,
+  options: ValidationOptions = { endpoint: "tokens" }
+): Response => {
   const config = getConfig();
   const startTime = Date.now();
 
@@ -32,12 +41,12 @@ export const executeTokenRequest = (consumer: ConsumerConfig, options: Validatio
   const params = {
     headers,
     tags: {
-      endpoint: 'tokens',
+      endpoint: "tokens",
       consumer_id: consumer.id,
       username: consumer.username,
-      test_type: 'token_generation'
+      test_type: "token_generation",
     },
-    timeout: config.timeout
+    timeout: config.timeout,
   };
 
   const response = http.get(url, params);
@@ -49,18 +58,20 @@ export const executeTokenRequest = (consumer: ConsumerConfig, options: Validatio
   recordTokenGeneration({
     consumerId: consumer.id,
     username: consumer.username,
-    endpoint: 'tokens',
+    endpoint: "tokens",
     success,
     duration,
     tokenValid: success && options.validateJWT,
-    proxyCacheHit: typeof response.headers['X-Cache-Status'] === 'string' && response.headers['X-Cache-Status'] === 'HIT',
-    rateLimited: response.status === 429
+    proxyCacheHit:
+      typeof response.headers["X-Cache-Status"] === "string" &&
+      response.headers["X-Cache-Status"] === "HIT",
+    rateLimited: response.status === 429,
   });
 
   // Check performance budget
-  const budget = options.performanceBudget || getPerformanceBudget('token_generation');
+  const budget = options.performanceBudget || getPerformanceBudget("token_generation");
   if (duration > budget) {
-    recordPerformanceBudgetViolation('token_generation', duration, budget);
+    recordPerformanceBudgetViolation("token_generation", duration, budget);
   }
 
   return response;
@@ -71,21 +82,22 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
 
   const checks: Checkers<Response> = {
     [`status is ${expectedStatus}`]: (r: Response) => r.status === expectedStatus,
-    'has content-type header': (r: Response) => {
-      const contentType = r.headers['Content-Type'];
-      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    "has content-type header": (r: Response) => {
+      const contentType = r.headers["Content-Type"];
+      return typeof contentType === "string" ? contentType === "application/json" : false;
     },
-    'has request-id header': (r: Response) => {
-      const requestId = r.headers['X-Request-Id'];
-      return typeof requestId === 'string' ? !!requestId : false;
+    "has request-id header": (r: Response) => {
+      const requestId = r.headers["X-Request-Id"];
+      return typeof requestId === "string" ? !!requestId : false;
     },
-    'response time acceptable': (r: Response) => r.timings.duration < (options.performanceBudget || 100)
+    "response time acceptable": (r: Response) =>
+      r.timings.duration < (options.performanceBudget || 100),
   };
 
   if (expectedStatus === 200 && options.expectToken !== false) {
-    checks['has access_token'] = (r: Response) => {
+    checks["has access_token"] = (r: Response) => {
       try {
-        const body = typeof r.body === 'string' ? r.body : '';
+        const body = typeof r.body === "string" ? r.body : "";
         const tokenResponse = JSON.parse(body) as TokenResponse;
         return !!tokenResponse.access_token;
       } catch {
@@ -93,9 +105,9 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
       }
     };
 
-    checks['has expires_in'] = (r: Response) => {
+    checks["has expires_in"] = (r: Response) => {
       try {
-        const body = typeof r.body === 'string' ? r.body : '';
+        const body = typeof r.body === "string" ? r.body : "";
         const tokenResponse = JSON.parse(body) as TokenResponse;
         return tokenResponse.expires_in === 900;
       } catch {
@@ -104,22 +116,22 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
     };
 
     if (options.validateJWT) {
-      checks['valid JWT structure'] = (r: Response) => {
+      checks["valid JWT structure"] = (r: Response) => {
         try {
-          const body = typeof r.body === 'string' ? r.body : '';
+          const body = typeof r.body === "string" ? r.body : "";
           const tokenResponse = JSON.parse(body) as TokenResponse;
-          const tokenParts = tokenResponse.access_token.split('.');
+          const tokenParts = tokenResponse.access_token.split(".");
           return tokenParts.length === 3;
         } catch {
           return false;
         }
       };
 
-      checks['valid JWT payload'] = (r: Response) => {
+      checks["valid JWT payload"] = (r: Response) => {
         try {
-          const body = typeof r.body === 'string' ? r.body : '';
+          const body = typeof r.body === "string" ? r.body : "";
           const tokenResponse = JSON.parse(body) as TokenResponse;
-          const tokenParts = tokenResponse.access_token.split('.');
+          const tokenParts = tokenResponse.access_token.split(".");
           // K6 doesn't have atob, so we'll just check the token structure
           // Full JWT validation would require importing encoding libraries
           return tokenParts.length === 3 && tokenParts[1].length > 0;
@@ -134,21 +146,22 @@ export const validateTokenResponse = (response: Response, options: ValidationOpt
 
   // Record errors for failed requests
   if (!success || response.status >= 400) {
-    let errorType: 'unauthorized' | 'invalid_consumer' | 'system_error' | 'rate_limit' = 'system_error';
+    let errorType: "unauthorized" | "invalid_consumer" | "system_error" | "rate_limit" =
+      "system_error";
 
     if (response.status === 401) {
-      errorType = 'unauthorized';
+      errorType = "unauthorized";
     } else if (response.status === 429) {
-      errorType = 'rate_limit';
+      errorType = "rate_limit";
     } else if (response.status === 400) {
-      errorType = 'invalid_consumer';
+      errorType = "invalid_consumer";
     }
 
     recordError({
       errorType,
       endpoint: options.endpoint,
       httpStatus: response.status,
-      consumerId: response.request?.headers?.['X-Consumer-Id']?.[0]
+      consumerId: response.request?.headers?.["X-Consumer-Id"]?.[0],
     });
   }
 
@@ -162,14 +175,14 @@ export const executeHealthCheck = (): Response => {
   const url = `${config.baseUrl}/health`;
   const params = {
     headers: {
-      'User-Agent': config.userAgent,
-      'Accept': 'application/json'
+      "User-Agent": config.userAgent,
+      Accept: "application/json",
     },
     tags: {
-      endpoint: 'health',
-      test_type: 'health_check'
+      endpoint: "health",
+      test_type: "health_check",
     },
-    timeout: config.timeout
+    timeout: config.timeout,
   };
 
   const response = http.get(url, params);
@@ -182,27 +195,29 @@ export const executeHealthCheck = (): Response => {
 
   if (success && response.status === 200) {
     try {
-      const body = typeof response.body === 'string' ? response.body : '';
+      const body = typeof response.body === "string" ? response.body : "";
       const healthData = JSON.parse(body);
-      kongHealthy = healthData.dependencies?.kong?.status === 'healthy';
-      memoryUsage = healthData.memory?.used ? Math.round(healthData.memory.used / (1024 * 1024)) : undefined;
+      kongHealthy = healthData.dependencies?.kong?.status === "healthy";
+      memoryUsage = healthData.memory?.used
+        ? Math.round(healthData.memory.used / (1024 * 1024))
+        : undefined;
     } catch {
       // Ignore JSON parsing errors
     }
   }
 
   recordHealthCheck({
-    endpoint: 'health',
+    endpoint: "health",
     duration,
     success,
     kongHealthy,
-    memoryUsage
+    memoryUsage,
   });
 
   // Check performance budget
-  const budget = getPerformanceBudget('health_check');
+  const budget = getPerformanceBudget("health_check");
   if (duration > budget) {
-    recordPerformanceBudgetViolation('health_check', duration, budget);
+    recordPerformanceBudgetViolation("health_check", duration, budget);
   }
 
   return response;
@@ -210,21 +225,21 @@ export const executeHealthCheck = (): Response => {
 
 export const validateHealthResponse = (response: Response): boolean => {
   const checks: Checkers<Response> = {
-    'status is 200 or 503': (r: Response) => [200, 503].includes(r.status),
-    'has content-type header': (r: Response) => {
-      const contentType = r.headers['Content-Type'];
-      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    "status is 200 or 503": (r: Response) => [200, 503].includes(r.status),
+    "has content-type header": (r: Response) => {
+      const contentType = r.headers["Content-Type"];
+      return typeof contentType === "string" ? contentType === "application/json" : false;
     },
-    'has valid health response': (r: Response) => {
+    "has valid health response": (r: Response) => {
       try {
-        const body = typeof r.body === 'string' ? r.body : '';
+        const body = typeof r.body === "string" ? r.body : "";
         const health = JSON.parse(body);
         return health.status && health.timestamp && health.version !== undefined;
       } catch {
         return false;
       }
     },
-    'response time under 100ms': (r: Response) => r.timings.duration < 100
+    "response time under 100ms": (r: Response) => r.timings.duration < 100,
   };
 
   return check(response, checks);
@@ -237,14 +252,14 @@ export const executeMetricsCheck = (): Response => {
   const url = `${config.baseUrl}/metrics`;
   const params = {
     headers: {
-      'User-Agent': config.userAgent,
-      'Accept': 'application/json'
+      "User-Agent": config.userAgent,
+      Accept: "application/json",
     },
     tags: {
-      endpoint: 'metrics',
-      test_type: 'metrics_check'
+      endpoint: "metrics",
+      test_type: "metrics_check",
     },
-    timeout: config.timeout
+    timeout: config.timeout,
   };
 
   const response = http.get(url, params);
@@ -253,9 +268,9 @@ export const executeMetricsCheck = (): Response => {
   const success = validateMetricsResponse(response);
 
   // Check performance budget
-  const budget = getPerformanceBudget('metrics_endpoint');
+  const budget = getPerformanceBudget("metrics_endpoint");
   if (duration > budget) {
-    recordPerformanceBudgetViolation('metrics_endpoint', duration, budget);
+    recordPerformanceBudgetViolation("metrics_endpoint", duration, budget);
   }
 
   return response;
@@ -263,21 +278,23 @@ export const executeMetricsCheck = (): Response => {
 
 export const validateMetricsResponse = (response: Response): boolean => {
   const checks: Checkers<Response> = {
-    'status is 200': (r: Response) => r.status === 200,
-    'has content-type header': (r: Response) => {
-      const contentType = r.headers['Content-Type'];
-      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    "status is 200": (r: Response) => r.status === 200,
+    "has content-type header": (r: Response) => {
+      const contentType = r.headers["Content-Type"];
+      return typeof contentType === "string" ? contentType === "application/json" : false;
     },
-    'has valid metrics response': (r: Response) => {
+    "has valid metrics response": (r: Response) => {
       try {
-        const body = typeof r.body === 'string' ? r.body : '';
+        const body = typeof r.body === "string" ? r.body : "";
         const metrics = JSON.parse(body);
-        return metrics.timestamp && metrics.uptime !== undefined && metrics.memory && metrics.performance;
+        return (
+          metrics.timestamp && metrics.uptime !== undefined && metrics.memory && metrics.performance
+        );
       } catch {
         return false;
       }
     },
-    'response time under 50ms': (r: Response) => r.timings.duration < 50
+    "response time under 50ms": (r: Response) => r.timings.duration < 50,
   };
 
   return check(response, checks);
@@ -290,14 +307,14 @@ export const executeOpenAPICheck = (): Response => {
   const url = `${config.baseUrl}/openapi`;
   const params = {
     headers: {
-      'User-Agent': config.userAgent,
-      'Accept': 'application/json'
+      "User-Agent": config.userAgent,
+      Accept: "application/json",
     },
     tags: {
-      endpoint: 'openapi',
-      test_type: 'openapi_check'
+      endpoint: "openapi",
+      test_type: "openapi_check",
     },
-    timeout: config.timeout
+    timeout: config.timeout,
   };
 
   const response = http.get(url, params);
@@ -306,9 +323,9 @@ export const executeOpenAPICheck = (): Response => {
   const success = validateOpenAPIResponse(response);
 
   // Check performance budget
-  const budget = getPerformanceBudget('openapi_spec');
+  const budget = getPerformanceBudget("openapi_spec");
   if (duration > budget) {
-    recordPerformanceBudgetViolation('openapi_spec', duration, budget);
+    recordPerformanceBudgetViolation("openapi_spec", duration, budget);
   }
 
   return response;
@@ -316,21 +333,21 @@ export const executeOpenAPICheck = (): Response => {
 
 export const validateOpenAPIResponse = (response: Response): boolean => {
   const checks: Checkers<Response> = {
-    'status is 200': (r: Response) => r.status === 200,
-    'has content-type header': (r: Response) => {
-      const contentType = r.headers['Content-Type'];
-      return typeof contentType === 'string' ? contentType === 'application/json' : false;
+    "status is 200": (r: Response) => r.status === 200,
+    "has content-type header": (r: Response) => {
+      const contentType = r.headers["Content-Type"];
+      return typeof contentType === "string" ? contentType === "application/json" : false;
     },
-    'has valid OpenAPI spec': (r: Response) => {
+    "has valid OpenAPI spec": (r: Response) => {
       try {
-        const body = typeof r.body === 'string' ? r.body : '';
+        const body = typeof r.body === "string" ? r.body : "";
         const spec = JSON.parse(body);
         return spec.openapi && spec.info && spec.paths;
       } catch {
         return false;
       }
     },
-    'response time under 20ms': (r: Response) => r.timings.duration < 20
+    "response time under 20ms": (r: Response) => r.timings.duration < 20,
   };
 
   return check(response, checks);
@@ -342,8 +359,8 @@ export const testRateLimiting = (consumer: ConsumerConfig, requestCount: number 
   const responses = [];
   for (let i = 0; i < requestCount; i++) {
     const response = executeTokenRequest(consumer, {
-      endpoint: 'tokens',
-      expectedStatus: undefined // Don't enforce status, we expect some 429s
+      endpoint: "tokens",
+      expectedStatus: undefined, // Don't enforce status, we expect some 429s
     });
     responses.push(response);
 
@@ -354,10 +371,12 @@ export const testRateLimiting = (consumer: ConsumerConfig, requestCount: number 
     }
   }
 
-  const successCount = responses.filter(r => r.status === 200).length;
-  const rateLimitedCount = responses.filter(r => r.status === 429).length;
+  const successCount = responses.filter((r) => r.status === 200).length;
+  const rateLimitedCount = responses.filter((r) => r.status === 429).length;
 
-  console.log(`Rate limiting test results: ${successCount} successful, ${rateLimitedCount} rate limited`);
+  console.log(
+    `Rate limiting test results: ${successCount} successful, ${rateLimitedCount} rate limited`
+  );
 };
 
 export const simulateUserJourney = (consumer: ConsumerConfig): void => {
@@ -369,14 +388,14 @@ export const simulateUserJourney = (consumer: ConsumerConfig): void => {
 
   // 3. Generate token
   const tokenResponse = executeTokenRequest(consumer, {
-    endpoint: 'tokens',
-    validateJWT: true
+    endpoint: "tokens",
+    validateJWT: true,
   });
 
   // 4. Verify token was generated successfully
   if (tokenResponse.status === 200) {
     try {
-      const body = typeof tokenResponse.body === 'string' ? tokenResponse.body : '';
+      const body = typeof tokenResponse.body === "string" ? tokenResponse.body : "";
       const tokenData = JSON.parse(body) as TokenResponse;
       console.log(`Generated token for ${consumer.username}, expires in ${tokenData.expires_in}s`);
     } catch (e) {

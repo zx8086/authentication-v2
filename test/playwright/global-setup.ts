@@ -1,36 +1,38 @@
 /* test/playwright/global-setup.ts */
 
-import { FullConfig } from '@playwright/test';
+import type { FullConfig } from "@playwright/test";
+// Load environment variables explicitly for global setup
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
-  TEST_CONSUMERS,
   ANONYMOUS_CONSUMER,
-  type TestConsumer,
   getJobSpecificConsumers,
   JOB_PREFIXES,
-  type JobPrefix
-} from '../shared/test-consumers';
-
-// Load environment variables explicitly for global setup
-import { readFileSync } from 'fs';
-import { join } from 'path';
+  type JobPrefix,
+  TEST_CONSUMERS,
+  type TestConsumer,
+} from "../shared/test-consumers";
 
 function loadEnvFile() {
   try {
-    const envPath = join(process.cwd(), '.env');
-    const envContent = readFileSync(envPath, 'utf8');
+    const envPath = join(process.cwd(), ".env");
+    const envContent = readFileSync(envPath, "utf8");
 
-    envContent.split('\n').forEach(line => {
+    envContent.split("\n").forEach((line) => {
       const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#')) {
-        const [key, ...valueParts] = trimmed.split('=');
+      if (trimmed && !trimmed.startsWith("#")) {
+        const [key, ...valueParts] = trimmed.split("=");
         if (key && valueParts.length > 0) {
-          const value = valueParts.join('=').replace(/^['"]|['"]$/g, '');
+          const value = valueParts.join("=").replace(/^['"]|['"]$/g, "");
           process.env[key.trim()] = value;
         }
       }
     });
   } catch (error) {
-    console.warn('[Playwright Setup] Could not load .env file:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      "[Playwright Setup] Could not load .env file:",
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }
 
@@ -50,22 +52,24 @@ class PlaywrightTestSetup {
     // Load environment variables first
     loadEnvFile();
 
-    this.adminUrl = process.env.KONG_ADMIN_URL || '';
-    this.adminToken = process.env.KONG_ADMIN_TOKEN || '';
+    this.adminUrl = process.env.KONG_ADMIN_URL || "";
+    this.adminToken = process.env.KONG_ADMIN_TOKEN || "";
 
     if (!this.adminUrl || !this.adminToken) {
-      throw new Error('KONG_ADMIN_URL and KONG_ADMIN_TOKEN environment variables must be configured');
+      throw new Error(
+        "KONG_ADMIN_URL and KONG_ADMIN_TOKEN environment variables must be configured"
+      );
     }
   }
 
   private async checkConsumerExists(consumer: TestConsumer): Promise<boolean> {
     try {
       const response = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'User-Agent': 'Playwright-Test-Setup/1.0'
-        }
+          Authorization: `Bearer ${this.adminToken}`,
+          "User-Agent": "Playwright-Test-Setup/1.0",
+        },
       });
 
       return response.ok;
@@ -87,20 +91,20 @@ class PlaywrightTestSetup {
       console.log(`[Playwright Setup] Creating consumer: ${consumer.id}`);
 
       const response = await fetch(`${this.adminUrl}/core-entities/consumers`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Playwright-Test-Setup/1.0'
+          Authorization: `Bearer ${this.adminToken}`,
+          "Content-Type": "application/json",
+          "User-Agent": "Playwright-Test-Setup/1.0",
         },
         body: JSON.stringify({
           username: consumer.username,
-          custom_id: consumer.custom_id || consumer.id
-        })
+          custom_id: consumer.custom_id || consumer.id,
+        }),
       });
 
       if (response.ok) {
-        const created = await response.json() as KongConsumer;
+        const created = (await response.json()) as KongConsumer;
         console.log(`[Playwright Setup] Consumer created: ${created.username}`);
         // Create JWT credentials for the new consumer
         return await this.ensureJWTCredentials(consumer);
@@ -110,7 +114,9 @@ class PlaywrightTestSetup {
         return await this.ensureJWTCredentials(consumer);
       } else {
         const errorText = await response.text();
-        console.error(`[Playwright Setup] Failed to create consumer ${consumer.username}: ${response.status} ${errorText}`);
+        console.error(
+          `[Playwright Setup] Failed to create consumer ${consumer.username}: ${response.status} ${errorText}`
+        );
         return false;
       }
     } catch (error) {
@@ -122,85 +128,112 @@ class PlaywrightTestSetup {
   private async ensureJWTCredentials(consumer: TestConsumer): Promise<boolean> {
     try {
       // Get consumer UUID first
-      const consumerResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'User-Agent': 'Playwright-Test-Setup/1.0'
+      const consumerResponse = await fetch(
+        `${this.adminUrl}/core-entities/consumers/${consumer.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.adminToken}`,
+            "User-Agent": "Playwright-Test-Setup/1.0",
+          },
         }
-      });
+      );
 
       if (!consumerResponse.ok) {
         console.error(`[Playwright Setup] Failed to get consumer UUID for ${consumer.username}`);
         return false;
       }
 
-      const consumerData = await consumerResponse.json() as KongConsumer;
+      const consumerData = (await consumerResponse.json()) as KongConsumer;
       const consumerUuid = consumerData.id;
 
       // Force delete existing JWT credentials to ensure unique credentials for each consumer
-      const jwtResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'User-Agent': 'Playwright-Test-Setup/1.0'
+      const jwtResponse = await fetch(
+        `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.adminToken}`,
+            "User-Agent": "Playwright-Test-Setup/1.0",
+          },
         }
-      });
+      );
 
       if (jwtResponse.ok) {
         const jwtData = await jwtResponse.json();
         if (jwtData.data && jwtData.data.length > 0) {
           // Delete existing JWT credentials to force unique credential creation
           for (const credential of jwtData.data) {
-            console.log(`[Playwright Setup] Deleting existing JWT credential for ${consumer.username}: ${credential.id}`);
+            console.log(
+              `[Playwright Setup] Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
+            );
 
-            const deleteResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${this.adminToken}`,
-                'User-Agent': 'Playwright-Test-Setup/1.0'
+            const deleteResponse = await fetch(
+              `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`,
+              {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${this.adminToken}`,
+                  "User-Agent": "Playwright-Test-Setup/1.0",
+                },
               }
-            });
+            );
 
             if (!deleteResponse.ok) {
-              console.warn(`[Playwright Setup] Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`);
+              console.warn(
+                `[Playwright Setup] Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
+              );
             } else {
-              console.log(`[Playwright Setup] Deleted JWT credential ${credential.id} for ${consumer.username}`);
+              console.log(
+                `[Playwright Setup] Deleted JWT credential ${credential.id} for ${consumer.username}`
+              );
             }
           }
         }
       }
 
       // Create new JWT credentials with unique key and secret
-      console.log(`[Playwright Setup] Creating new unique JWT credentials for: ${consumer.username}`);
+      console.log(
+        `[Playwright Setup] Creating new unique JWT credentials for: ${consumer.username}`
+      );
 
       const key = `test-key-${consumer.id}-${Date.now()}`;
       const secret = this.generateSecureSecret();
 
-      const createJwtResponse = await fetch(`${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'Content-Type': 'application/json',
-          'User-Agent': 'Playwright-Test-Setup/1.0'
-        },
-        body: JSON.stringify({
-          key: key,
-          secret: secret
-        })
-      });
+      const createJwtResponse = await fetch(
+        `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.adminToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "Playwright-Test-Setup/1.0",
+          },
+          body: JSON.stringify({
+            key: key,
+            secret: secret,
+          }),
+        }
+      );
 
       if (createJwtResponse.ok) {
         const createdCredential = await createJwtResponse.json();
-        console.log(`[Playwright Setup] New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`);
+        console.log(
+          `[Playwright Setup] New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
+        );
         return true;
       } else {
         const errorText = await createJwtResponse.text();
-        console.error(`[Playwright Setup] Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`);
+        console.error(
+          `[Playwright Setup] Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`
+        );
         return false;
       }
     } catch (error) {
-      console.error(`[Playwright Setup] Error ensuring JWT credentials for ${consumer.username}:`, error);
+      console.error(
+        `[Playwright Setup] Error ensuring JWT credentials for ${consumer.username}:`,
+        error
+      );
       return false;
     }
   }
@@ -208,31 +241,31 @@ class PlaywrightTestSetup {
   private generateSecureSecret(): string {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
   private async checkKongHealth(): Promise<boolean> {
     try {
-      console.log('[Playwright Setup] Checking Kong connectivity...');
+      console.log("[Playwright Setup] Checking Kong connectivity...");
 
       const response = await fetch(this.adminUrl, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${this.adminToken}`,
-          'User-Agent': 'Playwright-Test-Setup/1.0'
+          Authorization: `Bearer ${this.adminToken}`,
+          "User-Agent": "Playwright-Test-Setup/1.0",
         },
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(5000),
       });
 
       if (response.ok) {
-        console.log('[Playwright Setup] Kong is accessible');
+        console.log("[Playwright Setup] Kong is accessible");
         return true;
       } else {
         console.error(`[Playwright Setup] Kong health check failed: ${response.status}`);
         return false;
       }
     } catch (error) {
-      console.error('[Playwright Setup] Kong connection failed:', error);
+      console.error("[Playwright Setup] Kong connection failed:", error);
       return false;
     }
   }
@@ -244,10 +277,10 @@ class PlaywrightTestSetup {
       ? getJobSpecificConsumers(jobPrefix)
       : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
 
-    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : '';
+    const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : "";
     console.log(`[Playwright Setup] Setting up test consumers${jobDescription} for E2E tests`);
 
-    if (!await this.checkKongHealth()) {
+    if (!(await this.checkKongHealth())) {
       return false;
     }
 
@@ -272,20 +305,20 @@ class PlaywrightTestSetup {
 }
 
 async function globalSetup(config: FullConfig) {
-  console.log('[Playwright Setup] Starting global setup...');
+  console.log("[Playwright Setup] Starting global setup...");
 
   try {
     const setup = new PlaywrightTestSetup();
     const success = await setup.setupConsumers();
 
     if (!success) {
-      console.error('[Playwright Setup] Test consumer setup failed');
+      console.error("[Playwright Setup] Test consumer setup failed");
       process.exit(1);
     }
 
-    console.log('[Playwright Setup] Global setup completed successfully');
+    console.log("[Playwright Setup] Global setup completed successfully");
   } catch (error) {
-    console.error('[Playwright Setup] Global setup failed:', error);
+    console.error("[Playwright Setup] Global setup failed:", error);
     process.exit(1);
   }
 }

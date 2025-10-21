@@ -2,13 +2,9 @@
 
 // K6 smoke tests specifically for profiling endpoints
 
-import http from "k6/http";
 import { check, sleep } from "k6";
-import {
-  getConfig,
-  getPerformanceThresholds,
-  getScenarioConfig,
-} from "../utils/config.ts";
+import http from "k6/http";
+import { getConfig, getPerformanceThresholds, getScenarioConfig } from "../utils/config.ts";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -39,14 +35,15 @@ export default function () {
   check(statusResponse, {
     "GET /debug/profiling/status responds appropriately": (r) =>
       r.status === 200 || r.status === 404,
-    "GET /debug/profiling/status response time < 100ms": (r) =>
-      r.timings.duration < 100,
+    "GET /debug/profiling/status response time < 100ms": (r) => r.timings.duration < 100,
     "GET /debug/profiling/status valid response when enabled": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"enabled"') &&
-               body.includes('"sessions"') &&
-               body.includes('"outputDirectory"');
+        return (
+          body.includes('"enabled"') &&
+          body.includes('"sessions"') &&
+          body.includes('"outputDirectory"')
+        );
       }
       return true; // 404 is acceptable when disabled
     },
@@ -64,10 +61,14 @@ export default function () {
     ];
 
     endpoints.forEach((endpoint) => {
-      const method = endpoint.includes("start") || endpoint.includes("stop") || endpoint.includes("cleanup") ? "POST" : "GET";
-      const response = method === "POST"
-        ? http.post(`${baseUrl}${endpoint}`, null, { tags: { endpoint: "profiling" } })
-        : http.get(`${baseUrl}${endpoint}`, { tags: { endpoint: "profiling" } });
+      const method =
+        endpoint.includes("start") || endpoint.includes("stop") || endpoint.includes("cleanup")
+          ? "POST"
+          : "GET";
+      const response =
+        method === "POST"
+          ? http.post(`${baseUrl}${endpoint}`, null, { tags: { endpoint: "profiling" } })
+          : http.get(`${baseUrl}${endpoint}`, { tags: { endpoint: "profiling" } });
 
       check(response, {
         [`${method} ${endpoint} returns 404 when disabled`]: (r) => r.status === 404,
@@ -88,12 +89,10 @@ export default function () {
 
   check(reportsResponse, {
     "GET /debug/profiling/reports status is 200": (r) => r.status === 200,
-    "GET /debug/profiling/reports response time < 100ms": (r) =>
-      r.timings.duration < 100,
+    "GET /debug/profiling/reports response time < 100ms": (r) => r.timings.duration < 100,
     "GET /debug/profiling/reports has valid structure": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"reports"') &&
-             body.includes('"total"');
+      return body.includes('"reports"') && body.includes('"total"');
     },
   });
 
@@ -128,12 +127,10 @@ export default function () {
     check(startResponse, {
       "POST /debug/profiling/start responds appropriately": (r) =>
         r.status === 200 || r.status === 400,
-      "POST /debug/profiling/start response time < 200ms": (r) =>
-        r.timings.duration < 200,
+      "POST /debug/profiling/start response time < 200ms": (r) => r.timings.duration < 200,
       "POST /debug/profiling/start has valid response": (r) => {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') &&
-               (body.includes('"sessionId"') || r.status === 400);
+        return body.includes('"message"') && (body.includes('"sessionId"') || r.status === 400);
       },
     });
 
@@ -145,8 +142,7 @@ export default function () {
           sessionId = startData.sessionId;
 
           check(sessionId, {
-            "Session ID has valid format": (id) =>
-              /^profile-\d+-[a-z0-9]+$/.test(id || ""),
+            "Session ID has valid format": (id) => /^profile-\d+-[a-z0-9]+$/.test(id || ""),
           });
         }
       } catch (e) {
@@ -186,12 +182,10 @@ export default function () {
     check(stopResponse, {
       "POST /debug/profiling/stop responds appropriately": (r) =>
         r.status === 200 || r.status === 400,
-      "POST /debug/profiling/stop response time < 200ms": (r) =>
-        r.timings.duration < 200,
+      "POST /debug/profiling/stop response time < 200ms": (r) => r.timings.duration < 200,
       "POST /debug/profiling/stop has valid response": (r) => {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') &&
-               (body.includes('"sessionId"') || r.status === 400);
+        return body.includes('"message"') && (body.includes('"sessionId"') || r.status === 400);
       },
     });
   } else if (externalSessionExists) {
@@ -210,12 +204,10 @@ export default function () {
     check(cleanupResponse, {
       "POST /debug/profiling/cleanup responds appropriately": (r) =>
         r.status === 200 || r.status === 400,
-      "POST /debug/profiling/cleanup response time < 200ms": (r) =>
-        r.timings.duration < 200,
+      "POST /debug/profiling/cleanup response time < 200ms": (r) => r.timings.duration < 200,
       "POST /debug/profiling/cleanup has valid response": (r) => {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') &&
-               (body.includes('"cleaned"') || r.status === 400);
+        return body.includes('"message"') && (body.includes('"cleaned"') || r.status === 400);
       },
       "POST /debug/profiling/cleanup message mentions cleanup": (r) => {
         const body = typeof r.body === "string" ? r.body : "";

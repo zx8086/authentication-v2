@@ -23,7 +23,7 @@ describe("LocalMemoryCache", () => {
       const secret: ConsumerSecret = TestConsumerSecretFactory.createNew({
         idPrefix: "test-jwt-credential-1",
         consumerIdPrefix: "test-consumer-1",
-        deterministic: true
+        deterministic: true,
       });
 
       await cache.set(key, secret);
@@ -180,7 +180,7 @@ describe("LocalMemoryCache", () => {
 
       const stats = await cache.getStats();
       expect(stats.strategy).toBe("local-memory");
-      expect(parseFloat(stats.hitRate)).toBeGreaterThan(0);
+      expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
       expect(stats.averageLatencyMs).toBeGreaterThanOrEqual(0);
     });
 
@@ -246,7 +246,10 @@ describe("LocalMemoryCache", () => {
 
       // Add more entries than the limit
       for (let i = 0; i < 10; i++) {
-        await smallCache.set(`limit-test-${i}`, TestConsumerSecretFactory.createWithId(`limit-${i}`));
+        await smallCache.set(
+          `limit-test-${i}`,
+          TestConsumerSecretFactory.createWithId(`limit-${i}`)
+        );
       }
 
       const stats = await smallCache.getStats();
@@ -268,7 +271,7 @@ describe("LocalMemoryCache", () => {
       for (const entry of entries) {
         await smallCache.set(entry.key, entry.secret);
         // Small delay to ensure creation time ordering
-        await new Promise(resolve => setTimeout(resolve, 1));
+        await new Promise((resolve) => setTimeout(resolve, 1));
       }
 
       // First entry should be evicted
@@ -368,9 +371,7 @@ describe("LocalMemoryCache", () => {
       // Perform many set operations
       const setPromises: Promise<void>[] = [];
       for (let i = 0; i < numOperations; i++) {
-        setPromises.push(
-          cache.set(`perf-test-${i}`, TestScenarios.PERFORMANCE(i))
-        );
+        setPromises.push(cache.set(`perf-test-${i}`, TestScenarios.PERFORMANCE(i)));
       }
 
       await Promise.all(setPromises);
@@ -421,7 +422,7 @@ describe("LocalMemoryCache", () => {
 
       const stats = await cache.getStats();
       expect(stats.averageLatencyMs).toBeGreaterThan(0);
-      expect(parseFloat(stats.hitRate)).toBeGreaterThan(0);
+      expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
     });
   });
 });

@@ -1,7 +1,13 @@
 /* test/bun/type-validation.test.ts */
 
-import { describe, test, expect } from "bun:test";
-import type { ConsumerSecret, ServerConfig, JwtConfig, KongConfig, TelemetryConfig } from "../../src/config/schemas";
+import { describe, expect, test } from "bun:test";
+import type {
+  ConsumerSecret,
+  JwtConfig,
+  KongConfig,
+  ServerConfig,
+  TelemetryConfig,
+} from "../../src/config/schemas";
 import { SchemaRegistry } from "../../src/config/schemas";
 import { TestConsumerSecretFactory } from "../shared/test-consumer-secrets";
 
@@ -11,7 +17,7 @@ describe.concurrent("TypeScript Type Validation", () => {
       const validServerConfig: ServerConfig = {
         port: 3000,
         nodeEnv: "test",
-        host: "localhost"
+        host: "localhost",
       };
 
       expect(typeof validServerConfig.port).toBe("number");
@@ -21,7 +27,7 @@ describe.concurrent("TypeScript Type Validation", () => {
       // Test optional property
       const minimalServerConfig: ServerConfig = {
         port: 3000,
-        nodeEnv: "test"
+        nodeEnv: "test",
       };
       expect(typeof minimalServerConfig.port).toBe("number");
       expect(typeof minimalServerConfig.nodeEnv).toBe("string");
@@ -34,7 +40,7 @@ describe.concurrent("TypeScript Type Validation", () => {
         audience: "api.example.com",
         issuer: "auth.example.com",
         keyClaimName: "key",
-        expirationMinutes: 15
+        expirationMinutes: 15,
       };
 
       expect(typeof validJwtConfig.authority).toBe("string");
@@ -50,14 +56,14 @@ describe.concurrent("TypeScript Type Validation", () => {
       const apiGatewayConfig: KongConfig = {
         mode: "API_GATEWAY",
         adminUrl: "http://kong:8001",
-        adminToken: testTokenData.jwtSecret
+        adminToken: testTokenData.jwtSecret,
       };
 
       const konnectConfig: KongConfig = {
         mode: "KONNECT",
         adminUrl: "https://api.konghq.com",
         adminToken: testTokenData.jwtKey,
-        realm: "default"
+        realm: "default",
       };
 
       expect(apiGatewayConfig.mode).toBe("API_GATEWAY");
@@ -69,14 +75,14 @@ describe.concurrent("TypeScript Type Validation", () => {
       const consoleConfig: TelemetryConfig = {
         mode: "console",
         serviceName: "test-service",
-        serviceVersion: "1.0.0"
+        serviceVersion: "1.0.0",
       };
 
       const otlpConfig: TelemetryConfig = {
         mode: "otlp",
         serviceName: "test-service",
         serviceVersion: "1.0.0",
-        endpoint: "http://otel-collector:4317"
+        endpoint: "http://otel-collector:4317",
       };
 
       const bothConfig: TelemetryConfig = {
@@ -85,7 +91,7 @@ describe.concurrent("TypeScript Type Validation", () => {
         serviceVersion: "1.0.0",
         tracesEndpoint: "http://jaeger:14268",
         metricsEndpoint: "http://prometheus:9090",
-        logsEndpoint: "http://loki:3100"
+        logsEndpoint: "http://loki:3100",
       };
 
       expect(consoleConfig.mode).toBe("console");
@@ -94,7 +100,8 @@ describe.concurrent("TypeScript Type Validation", () => {
     });
 
     test.concurrent("ConsumerSecret should have required string properties", () => {
-      const consumerSecret: ConsumerSecret = TestConsumerSecretFactory.createWithId("type-validation-test");
+      const consumerSecret: ConsumerSecret =
+        TestConsumerSecretFactory.createWithId("type-validation-test");
 
       expect(typeof consumerSecret.jwtKey).toBe("string");
       expect(typeof consumerSecret.jwtSecret).toBe("string");
@@ -116,12 +123,12 @@ describe.concurrent("TypeScript Type Validation", () => {
     test.concurrent("Schema validation should work correctly", () => {
       const validServerData = {
         port: 3000,
-        nodeEnv: "test"
+        nodeEnv: "test",
       };
 
       const invalidServerData = {
         port: "invalid",
-        nodeEnv: 123
+        nodeEnv: 123,
       };
 
       const validResult = SchemaRegistry.Server.safeParse(validServerData);
@@ -154,14 +161,14 @@ describe.concurrent("TypeScript Type Validation", () => {
       // Should compile - all required properties provided
       const minimalServerConfig: ServerConfig = {
         port: 3000,
-        nodeEnv: "production"
+        nodeEnv: "production",
       };
 
       // Should compile - optional host provided
       const fullServerConfig: ServerConfig = {
         port: 3000,
         nodeEnv: "production",
-        host: "0.0.0.0"
+        host: "0.0.0.0",
       };
 
       expect(minimalServerConfig.host).toBeUndefined();
@@ -210,7 +217,7 @@ describe.concurrent("TypeScript Type Validation", () => {
         },
         async getStats(): Promise<{ strategy: string; hitRate: string }> {
           return { strategy: "test", hitRate: "100%" };
-        }
+        },
       };
 
       expect(typeof mockCache.get).toBe("function");
@@ -223,7 +230,7 @@ describe.concurrent("TypeScript Type Validation", () => {
     test.concurrent("Configuration types should work with actual schemas", () => {
       const serverConfigData = {
         port: 3000,
-        nodeEnv: "test"
+        nodeEnv: "test",
       };
 
       const jwtConfigData = {
@@ -231,7 +238,7 @@ describe.concurrent("TypeScript Type Validation", () => {
         audience: "test-api",
         issuer: "test-issuer",
         keyClaimName: "key",
-        expirationMinutes: 15
+        expirationMinutes: 15,
       };
 
       const serverResult = SchemaRegistry.Server.safeParse(serverConfigData);

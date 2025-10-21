@@ -1,7 +1,7 @@
 /* test/bun/logger.test.ts */
 
 import { describe, expect, it } from "bun:test";
-import { log, warn, error, logger } from "../../src/utils/logger";
+import { error, log, logger, warn } from "../../src/utils/logger";
 
 describe("Logger Utility", () => {
   describe("Logger Functions", () => {
@@ -53,12 +53,14 @@ describe("Logger Utility", () => {
     });
 
     it("should handle complex context objects", () => {
-      expect(() => log("complex context", {
-        nested: { object: true },
-        array: [1, 2, 3],
-        number: 42,
-        boolean: true
-      })).not.toThrow();
+      expect(() =>
+        log("complex context", {
+          nested: { object: true },
+          array: [1, 2, 3],
+          number: 42,
+          boolean: true,
+        })
+      ).not.toThrow();
     });
   });
 

@@ -7,7 +7,7 @@ import { log } from "../../utils/logger";
 const config = loadConfig();
 const versioningConfig = getApiVersioningConfig();
 
-function convertToYaml(obj: any, indent = 0): string {
+function convertToYaml(obj: Record<string, unknown> | object, indent = 0): string {
   const spaces = " ".repeat(indent);
   let yaml = "";
 

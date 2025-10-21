@@ -2,13 +2,9 @@
 
 // K6 smoke test for health endpoint only - tests /health endpoint with OTLP connectivity checks
 
-import http from "k6/http";
 import { check, sleep } from "k6";
-import {
-  getConfig,
-  getPerformanceThresholds,
-  getScenarioConfig,
-} from "../utils/config.ts";
+import http from "k6/http";
+import { getConfig, getPerformanceThresholds, getScenarioConfig } from "../utils/config.ts";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -29,23 +25,23 @@ export default function () {
   check(healthResponse, {
     "health status is 200": (r) => r.status === 200,
     "health has status field": (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
+      const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"status"');
     },
     "health has dependencies": (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
+      const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"dependencies"');
     },
     "health has kong dependency": (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
+      const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"kong"');
     },
     "health has telemetry dependency": (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
+      const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"telemetry"') && body.includes('"traces"');
     },
     "health has telemetry info": (r) => {
-      const body = typeof r.body === 'string' ? r.body : '';
+      const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"telemetry"');
     },
   });

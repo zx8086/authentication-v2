@@ -1,14 +1,15 @@
 /* test/bun/kong.factory.test.ts */
 
 import { describe, expect, it } from "bun:test";
-import { KongServiceFactory } from "../../src/services/kong.factory";
-import { APIGatewayService } from "../../src/services/api-gateway.service";
 import type { IKongService } from "../../src/config";
+import { APIGatewayService } from "../../src/services/api-gateway.service";
+import { KongServiceFactory } from "../../src/services/kong.factory";
 
 describe("KongServiceFactory", () => {
   const testAdminUrl = "http://test-kong:8001";
   const testAdminToken = "test-token-123";
-  const testKonnectUrl = "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
+  const testKonnectUrl =
+    "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
 
   describe("create", () => {
     it("should create APIGatewayService for API_GATEWAY mode", () => {
@@ -61,7 +62,11 @@ describe("KongServiceFactory", () => {
 
       // Invalid Konnect URL with konghq.com domain should throw error from strategy
       expect(() => {
-        KongServiceFactory.create("KONNECT", "https://us.api.konghq.com/invalid-path", testAdminToken);
+        KongServiceFactory.create(
+          "KONNECT",
+          "https://us.api.konghq.com/invalid-path",
+          testAdminToken
+        );
       }).toThrow("Invalid Kong Konnect URL format");
 
       // Non-konghq.com URLs are treated as self-hosted and should work
@@ -77,7 +82,11 @@ describe("KongServiceFactory", () => {
     });
 
     it("should create different adapter strategies for different modes", () => {
-      const apiGatewayService = KongServiceFactory.create("API_GATEWAY", testAdminUrl, testAdminToken);
+      const apiGatewayService = KongServiceFactory.create(
+        "API_GATEWAY",
+        testAdminUrl,
+        testAdminToken
+      );
       const konnectService = KongServiceFactory.create("KONNECT", testKonnectUrl, testAdminToken);
 
       // Both should be APIGatewayService instances but with different internal adapters

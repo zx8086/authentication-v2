@@ -2,14 +2,8 @@
 
 // Server endpoint tests
 
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  mock,
-} from "bun:test";
-import { getTestConsumer, type JobPrefix } from '../shared/test-consumers';
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { getTestConsumer, type JobPrefix } from "../shared/test-consumers";
 
 // Mock environment variables for testing - Use API_GATEWAY mode for simpler testing
 process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
@@ -164,7 +158,6 @@ describe("Authentication Server Integration", () => {
     });
   });
 
-
   describe("Token Endpoint", () => {
     beforeEach(() => {
       // Mock Kong API calls to match actual service behavior
@@ -173,7 +166,11 @@ describe("Authentication Server Integration", () => {
         const urlStr = url.toString();
 
         // Mock Kong health check
-        if (urlStr.includes("test-kong:8001") && !urlStr.includes("/realms") && !urlStr.includes("/core-entities")) {
+        if (
+          urlStr.includes("test-kong:8001") &&
+          !urlStr.includes("/realms") &&
+          !urlStr.includes("/core-entities")
+        ) {
           return { ok: true, status: 200 };
         }
 
@@ -185,8 +182,8 @@ describe("Authentication Server Integration", () => {
         // Mock consumer check - handle both regular and job-prefixed consumer IDs
         if (urlStr.includes("/core-entities/consumers/") && options?.method === "GET") {
           // Extract consumer ID from URL
-          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^\/]+)/);
-          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : '';
+          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^/]+)/);
+          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : "";
 
           // Check if this matches our test consumer
           if (requestedConsumerId === testConsumer.id || requestedConsumerId === testConsumer2.id) {
@@ -204,7 +201,11 @@ describe("Authentication Server Integration", () => {
         }
 
         // Mock JWT credentials fetch
-        if (urlStr.includes("/core-entities/consumers/") && urlStr.includes("/jwt") && options?.method === "GET") {
+        if (
+          urlStr.includes("/core-entities/consumers/") &&
+          urlStr.includes("/jwt") &&
+          options?.method === "GET"
+        ) {
           return {
             ok: true,
             status: 200,
@@ -213,7 +214,7 @@ describe("Authentication Server Integration", () => {
                 {
                   id: "test-secret-id",
                   key: "test-consumer-key",
-                  secret: process.env.TEST_CONSUMER_SECRET || Array(53).fill('t').join(''),
+                  secret: process.env.TEST_CONSUMER_SECRET || Array(53).fill("t").join(""),
                   consumer: { id: "test-consumer-uuid" },
                 },
               ],
@@ -223,14 +224,18 @@ describe("Authentication Server Integration", () => {
         }
 
         // Mock JWT credentials creation
-        if (urlStr.includes("/core-entities/consumers/") && urlStr.includes("/jwt") && options?.method === "POST") {
+        if (
+          urlStr.includes("/core-entities/consumers/") &&
+          urlStr.includes("/jwt") &&
+          options?.method === "POST"
+        ) {
           return {
             ok: true,
             status: 201,
             json: async () => ({
               id: "new-secret-id",
               key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill('n').join(''),
+              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill("n").join(""),
               consumer: { id: "test-consumer-uuid" },
             }),
           };
@@ -288,9 +293,7 @@ describe("Authentication Server Integration", () => {
       expect(tokenParts).toHaveLength(3);
 
       // Validate JWT payload
-      const payload = JSON.parse(
-        atob(tokenParts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
+      const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, "+").replace(/_/g, "/")));
       expect(payload.sub).toBe(testConsumer.username);
       expect(payload.iss).toBe("https://api.pvhcorp.com");
       expect(payload.aud).toBe("pvh-api");
@@ -324,7 +327,11 @@ describe("Authentication Server Integration", () => {
         const urlStr = url.toString();
 
         // Mock Kong health check
-        if (urlStr.includes("test-kong:8001") && !urlStr.includes("/realms") && !urlStr.includes("/core-entities")) {
+        if (
+          urlStr.includes("test-kong:8001") &&
+          !urlStr.includes("/realms") &&
+          !urlStr.includes("/core-entities")
+        ) {
           return { ok: true, status: 200 };
         }
 
@@ -334,9 +341,13 @@ describe("Authentication Server Integration", () => {
         }
 
         // Mock consumer check - consumer exists (handle job-prefixed IDs)
-        if (urlStr.includes("/core-entities/consumers/") && options?.method === "GET" && !urlStr.includes("/jwt")) {
-          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^\/]+)/);
-          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : '';
+        if (
+          urlStr.includes("/core-entities/consumers/") &&
+          options?.method === "GET" &&
+          !urlStr.includes("/jwt")
+        ) {
+          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^/]+)/);
+          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : "";
 
           if (requestedConsumerId === testConsumer2.id) {
             return {
@@ -352,7 +363,11 @@ describe("Authentication Server Integration", () => {
         }
 
         // Mock JWT credentials fetch - return empty (no existing credentials)
-        if (urlStr.includes("/core-entities/consumers/") && urlStr.includes("/jwt") && options?.method === "GET") {
+        if (
+          urlStr.includes("/core-entities/consumers/") &&
+          urlStr.includes("/jwt") &&
+          options?.method === "GET"
+        ) {
           return {
             ok: true,
             status: 200,
@@ -361,14 +376,18 @@ describe("Authentication Server Integration", () => {
         }
 
         // Mock JWT credentials creation
-        if (urlStr.includes("/core-entities/consumers/") && urlStr.includes("/jwt") && options?.method === "POST") {
+        if (
+          urlStr.includes("/core-entities/consumers/") &&
+          urlStr.includes("/jwt") &&
+          options?.method === "POST"
+        ) {
           return {
             ok: true,
             status: 201,
             json: async () => ({
               id: "new-secret-id",
               key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill('n').join(''),
+              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill("n").join(""),
               consumer: { id: "new-consumer-uuid" },
             }),
           };
@@ -400,7 +419,11 @@ describe("Authentication Server Integration", () => {
         const urlStr = url.toString();
 
         // Mock Kong health check failure
-        if (urlStr.includes("test-kong:8001") && !urlStr.includes("/realms") && !urlStr.includes("/core-entities")) {
+        if (
+          urlStr.includes("test-kong:8001") &&
+          !urlStr.includes("/realms") &&
+          !urlStr.includes("/core-entities")
+        ) {
           return { ok: false, status: 503 };
         }
 
@@ -425,7 +448,6 @@ describe("Authentication Server Integration", () => {
       global.fetch = originalFetch;
     });
   });
-
 
   describe("Error Handling", () => {
     it("should return 404 for unknown paths", async () => {
@@ -463,15 +485,16 @@ describe("Authentication Server Integration", () => {
       const concurrentRequests = 10; // Reduced from 20 to be less demanding
 
       const start = Bun.nanoseconds();
-      const requests = Array.from({ length: concurrentRequests }, () =>
-        fetch(`${serverUrl}/health`), // Use health endpoint instead of tokens
+      const requests = Array.from(
+        { length: concurrentRequests },
+        () => fetch(`${serverUrl}/health`) // Use health endpoint instead of tokens
       );
 
       const responses = await Promise.all(requests);
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
       // All health check requests should succeed
-      const successCount = responses.filter(r => r.status === 200).length;
+      const successCount = responses.filter((r) => r.status === 200).length;
       expect(successCount).toBe(concurrentRequests); // All should succeed for health endpoint
 
       // Should handle concurrent requests efficiently

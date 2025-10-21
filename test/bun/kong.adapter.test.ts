@@ -1,6 +1,6 @@
 /* test/bun/kong.adapter.test.ts */
 
-import { describe, expect, it, beforeEach, afterEach, jest } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { KongAdapter } from "../../src/adapters/kong.adapter";
 import type { ConsumerResponse, ConsumerSecret } from "../../src/config";
 
@@ -21,7 +21,8 @@ afterEach(() => {
 describe("KongAdapter", () => {
   const testAdminUrl = "http://test-kong:8001";
   const testAdminToken = "test-token-123";
-  const testKonnectUrl = "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
+  const testKonnectUrl =
+    "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
   const testConsumerId = "test-consumer";
 
   const mockConsumerSecret: ConsumerSecret = {

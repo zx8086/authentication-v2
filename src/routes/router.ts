@@ -22,7 +22,7 @@ import { recordApiVersionRoutingDuration } from "../telemetry/metrics";
 import { telemetryTracer } from "../telemetry/tracer";
 
 // Version-aware route handler
-async function createVersionedHandler<T extends any[]>(
+async function createVersionedHandler<T extends unknown[]>(
   req: Request,
   method: string,
   _path: string,

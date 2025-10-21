@@ -1,6 +1,6 @@
 /* test/bun/profiling.test.ts */
 
-import { describe, it, test, expect, beforeAll, afterAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, test } from "bun:test";
 import { profilingService } from "../../src/services/profiling.service";
 
 const TEST_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000";
@@ -193,7 +193,9 @@ describe("Profiling Endpoints", () => {
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.message.toLowerCase()).toMatch(/cleanup|clean|artifacts|profiling|configuration/i);
+      expect(data.message.toLowerCase()).toMatch(
+        /cleanup|clean|artifacts|profiling|configuration/i
+      );
     });
   });
 
@@ -267,7 +269,7 @@ describe("Profiling Endpoints", () => {
 
       expect(startResponse.status).toBe(200);
       const startData = await startResponse.json();
-      let sessionId: string | null = startData.sessionId;
+      const sessionId: string | null = startData.sessionId;
       const profilingEnabled = startData.enabled !== false;
 
       // 2. Check status
@@ -287,7 +289,7 @@ describe("Profiling Endpoints", () => {
 
       // 3. Stop profiling (if we have a session)
       if (sessionId && profilingEnabled) {
-        await new Promise(resolve => setTimeout(resolve, 100)); // Brief profiling period
+        await new Promise((resolve) => setTimeout(resolve, 100)); // Brief profiling period
 
         const stopResponse = await fetch(`${TEST_BASE_URL}/debug/profiling/stop`, {
           method: "POST",

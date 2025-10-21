@@ -8,9 +8,9 @@ import {
   deriveEndpoints,
   deriveOtlpEndpoint,
   OTLP_STANDARD_PATHS,
-  validateOtlpEndpoints,
   type OtlpEndpointConfig,
   type OtlpEndpoints,
+  validateOtlpEndpoints,
 } from "../../src/config/helpers";
 
 describe("Configuration Helpers", () => {
@@ -26,31 +26,19 @@ describe("Configuration Helpers", () => {
     });
 
     it("should derive endpoint from base and path suffix", () => {
-      const result = deriveEndpoint(
-        "https://base.example.com",
-        undefined,
-        "/v1/traces"
-      );
+      const result = deriveEndpoint("https://base.example.com", undefined, "/v1/traces");
 
       expect(result).toBe("https://base.example.com/v1/traces");
     });
 
     it("should handle base endpoint with trailing slash", () => {
-      const result = deriveEndpoint(
-        "https://base.example.com/",
-        undefined,
-        "/v1/traces"
-      );
+      const result = deriveEndpoint("https://base.example.com/", undefined, "/v1/traces");
 
       expect(result).toBe("https://base.example.com/v1/traces");
     });
 
     it("should handle path suffix without leading slash", () => {
-      const result = deriveEndpoint(
-        "https://base.example.com",
-        undefined,
-        "v1/traces"
-      );
+      const result = deriveEndpoint("https://base.example.com", undefined, "v1/traces");
 
       expect(result).toBe("https://base.example.com/v1/traces");
     });
@@ -76,11 +64,7 @@ describe("Configuration Helpers", () => {
     });
 
     it("should handle multiple trailing slashes in base endpoint", () => {
-      const result = deriveEndpoint(
-        "https://base.example.com///",
-        undefined,
-        "/v1/traces"
-      );
+      const result = deriveEndpoint("https://base.example.com///", undefined, "/v1/traces");
 
       expect(result).toBe("https://base.example.com///v1/traces"); // Only removes single trailing slash
     });
@@ -94,11 +78,7 @@ describe("Configuration Helpers", () => {
         logs: "/v1/logs",
       };
 
-      const result = deriveEndpoints(
-        "https://otel.example.com",
-        {},
-        pathMappings
-      );
+      const result = deriveEndpoints("https://otel.example.com", {}, pathMappings);
 
       expect(result).toEqual({
         traces: "https://otel.example.com/v1/traces",
@@ -118,11 +98,7 @@ describe("Configuration Helpers", () => {
         metrics: "https://custom-metrics.example.com/api/v2",
       };
 
-      const result = deriveEndpoints(
-        "https://otel.example.com",
-        specificEndpoints,
-        pathMappings
-      );
+      const result = deriveEndpoints("https://otel.example.com", specificEndpoints, pathMappings);
 
       expect(result).toEqual({
         traces: "https://otel.example.com/v1/traces",
@@ -143,11 +119,7 @@ describe("Configuration Helpers", () => {
         logs: "https://loki.example.com/loki/api/v1/push",
       };
 
-      const result = deriveEndpoints(
-        "https://otel.example.com",
-        specificEndpoints,
-        pathMappings
-      );
+      const result = deriveEndpoints("https://otel.example.com", specificEndpoints, pathMappings);
 
       expect(result).toEqual({
         traces: "https://jaeger.example.com/api/traces",
@@ -175,11 +147,7 @@ describe("Configuration Helpers", () => {
     });
 
     it("should handle empty path mappings", () => {
-      const result = deriveEndpoints(
-        "https://base.example.com",
-        {},
-        {}
-      );
+      const result = deriveEndpoints("https://base.example.com", {}, {});
 
       expect(result).toEqual({});
     });
@@ -187,17 +155,9 @@ describe("Configuration Helpers", () => {
 
   describe("deriveOtlpEndpoint", () => {
     it("should be alias for deriveEndpoint", () => {
-      const baseResult = deriveEndpoint(
-        "https://otel.example.com",
-        undefined,
-        "/v1/traces"
-      );
+      const baseResult = deriveEndpoint("https://otel.example.com", undefined, "/v1/traces");
 
-      const otlpResult = deriveOtlpEndpoint(
-        "https://otel.example.com",
-        undefined,
-        "/v1/traces"
-      );
+      const otlpResult = deriveOtlpEndpoint("https://otel.example.com", undefined, "/v1/traces");
 
       expect(otlpResult).toBe(baseResult);
       expect(otlpResult).toBe("https://otel.example.com/v1/traces");
@@ -472,8 +432,12 @@ describe("Configuration Helpers", () => {
 
       const config = createOtlpConfig(env);
 
-      expect(config.traces).toBe("http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces");
-      expect(config.metrics).toBe("http://otel-collector.monitoring.svc.cluster.local:4318/v1/metrics");
+      expect(config.traces).toBe(
+        "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
+      );
+      expect(config.metrics).toBe(
+        "http://otel-collector.monitoring.svc.cluster.local:4318/v1/metrics"
+      );
       expect(config.logs).toBe("http://otel-collector.monitoring.svc.cluster.local:4318/v1/logs");
     });
   });
@@ -519,11 +483,7 @@ describe("Configuration Helpers", () => {
 
     it("should handle very long URLs", () => {
       const longPath = "/very/long/path/".repeat(20);
-      const result = deriveEndpoint(
-        "https://example.com",
-        undefined,
-        longPath
-      );
+      const result = deriveEndpoint("https://example.com", undefined, longPath);
 
       expect(result).toBe(`https://example.com${longPath}`);
     });
@@ -549,13 +509,17 @@ describe("Configuration Helpers", () => {
       const errors = validateOtlpEndpoints(config, true);
 
       expect(errors).toHaveLength(0);
-      expect(config.traces).toBe("https://aws-otel-collector.us-west-2.amazonaws.com:4318/v1/traces");
+      expect(config.traces).toBe(
+        "https://aws-otel-collector.us-west-2.amazonaws.com:4318/v1/traces"
+      );
     });
 
     it("should handle Azure Application Insights configuration", () => {
       const env = {
-        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://westus2-0.in.applicationinsights.azure.com/v2.1/track",
-        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://westus2-0.in.applicationinsights.azure.com/v2.1/track",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
+          "https://westus2-0.in.applicationinsights.azure.com/v2.1/track",
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:
+          "https://westus2-0.in.applicationinsights.azure.com/v2.1/track",
       };
 
       const config = createOtlpConfig(env);
@@ -567,7 +531,8 @@ describe("Configuration Helpers", () => {
 
     it("should handle Google Cloud Trace configuration", () => {
       const env = {
-        OTEL_EXPORTER_OTLP_ENDPOINT: "https://cloudtrace.googleapis.com/v1/projects/my-project/traces",
+        OTEL_EXPORTER_OTLP_ENDPOINT:
+          "https://cloudtrace.googleapis.com/v1/projects/my-project/traces",
       };
 
       const config = createOtlpConfig(env);
