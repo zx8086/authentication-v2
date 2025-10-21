@@ -304,7 +304,7 @@ const defaultConfig: AppConfig = {
       podName: undefined,
       namespace: undefined,
     },
-  } as any,
+  },
   profiling: {
     enabled: false,
   },
@@ -587,7 +587,9 @@ function initializeConfig(): AppConfig {
       ...structuredEnvConfig.kong,
       circuitBreaker: {
         ...defaultConfig.kong.circuitBreaker,
-        ...(structuredEnvConfig.kong as any)?.circuitBreaker,
+        ...("circuitBreaker" in structuredEnvConfig.kong
+          ? structuredEnvConfig.kong.circuitBreaker
+          : {}),
       },
     },
     caching: { ...defaultConfig.caching, ...structuredEnvConfig.caching },
@@ -596,27 +598,35 @@ function initializeConfig(): AppConfig {
       ...structuredEnvConfig.telemetry,
       // Handle derived OTLP endpoints
       logsEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        "endpoint" in structuredEnvConfig.telemetry
+          ? (structuredEnvConfig.telemetry.endpoint as string | undefined)
+          : undefined,
         envConfig.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
         "/v1/logs"
       ),
       tracesEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        "endpoint" in structuredEnvConfig.telemetry
+          ? (structuredEnvConfig.telemetry.endpoint as string | undefined)
+          : undefined,
         envConfig.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
         "/v1/traces"
       ),
       metricsEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        "endpoint" in structuredEnvConfig.telemetry
+          ? (structuredEnvConfig.telemetry.endpoint as string | undefined)
+          : undefined,
         envConfig.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
         "/v1/metrics"
       ),
       // Handle computed properties - ensure boolean values
       enabled:
-        (((structuredEnvConfig.telemetry as any).mode ??
-          defaultConfig.telemetry.mode) as string) !== "console",
+        (("mode" in structuredEnvConfig.telemetry
+          ? structuredEnvConfig.telemetry.mode
+          : defaultConfig.telemetry.mode) as string) !== "console",
       enableOpenTelemetry:
-        (((structuredEnvConfig.telemetry as any).mode ??
-          defaultConfig.telemetry.mode) as string) !== "console",
+        (("mode" in structuredEnvConfig.telemetry
+          ? structuredEnvConfig.telemetry.mode
+          : defaultConfig.telemetry.mode) as string) !== "console",
     },
     profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
