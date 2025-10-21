@@ -53,7 +53,7 @@ jobs:
 
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
-      image-uri: ${{ steps.build.outputs.imageuri }}
+      image-tag: ${{ steps.image-tag.outputs.primary-tag }}
 
     steps:
       - name: Checkout repository
@@ -310,7 +310,8 @@ jobs:
     env:
       NODE_ENV: test
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      IMAGE_TAG: ${{ needs.build-and-push.outputs.image-uri }}
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+      REGISTRY: docker.io
 
     steps:
       - name: Checkout repository
@@ -344,25 +345,41 @@ jobs:
       - name: Run Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
         timeout-minutes: 6
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
           echo "Running Snyk code analysis..."
-          npx --yes snyk@latest test --severity-threshold=high --sarif-file-output=snyk-code-results.sarif || {
-            echo "Snyk code analysis completed with findings"
+          echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
+          npx --yes snyk@latest test --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
+            echo "Snyk code analysis completed with findings or errors"
+            echo "Exit code: $?"
+            ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
             exit 0
           }
+          echo "Snyk code analysis completed successfully"
+          ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
         continue-on-error: true
 
       - name: Run Snyk Container Scan
         if: matrix.scan-type == 'snyk-container'
         timeout-minutes: 6
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
           echo "Running Snyk container scan..."
+          echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
+          echo "IMAGE_TAG: ${{ env.IMAGE_TAG }}"
           npx --yes snyk@latest container test ${{ env.IMAGE_TAG }} \
             --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
+            --json-file-output=snyk-container-results.json \
             --exclude-base-image-vulns --app-vulns || {
-            echo "Snyk container scan completed with findings"
+            echo "Snyk container scan completed with findings or errors"
+            echo "Exit code: $?"
+            ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
             exit 0
           }
+          echo "Snyk container scan completed successfully"
+          ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
         continue-on-error: true
 
       - name: Run Trivy Container Scan
@@ -370,27 +387,50 @@ jobs:
         timeout-minutes: 6
         run: |
           echo "Running Trivy vulnerability scanner..."
+          echo "IMAGE_TAG: ${{ env.IMAGE_TAG }}"
           docker run --rm -v "$PWD":/workspace \
             aquasec/trivy:0.55.2 image --format sarif --output /workspace/trivy-results.sarif \
             --timeout 5m --exit-code 0 --ignore-unfixed --severity HIGH,CRITICAL \
             ${{ env.IMAGE_TAG }} || {
-            echo "Trivy scan completed with findings"
+            echo "Trivy scan completed with findings or errors"
+            echo "Exit code: $?"
+            ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
             exit 0
           }
+          echo "Trivy scan completed successfully"
+          ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
+        continue-on-error: true
+
+      - name: Log in to Docker Hub (for Docker Scout)
+        if: matrix.scan-type == 'docker-scout'
+        uses: docker/login-action@v3
+        timeout-minutes: 2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
         continue-on-error: true
 
       - name: Run Docker Scout Analysis
         if: matrix.scan-type == 'docker-scout'
-        uses: docker/scout-action@v1.15.1
         timeout-minutes: 6
-        with:
-          command: cves,recommendations
-          image: ${{ env.IMAGE_TAG }}
-          sarif-file: scout-results.sarif
-          summary: true
-          ignore-base: true
-          only-fixed: true
-          only-severities: critical,high
+        run: |
+          echo "Running Docker Scout analysis..."
+          echo "IMAGE_TAG: ${{ env.IMAGE_TAG }}"
+          echo "Checking Docker login status:"
+          docker info | grep -E "(Username|Registry)" || echo "Not logged in to registry"
+
+          # Try Docker Scout analysis
+          docker scout cves --format sarif --output scout-results.sarif \
+            --only-severity critical,high \
+            ${{ env.IMAGE_TAG }} || {
+            echo "Docker Scout analysis completed with findings or errors"
+            echo "Exit code: $?"
+            ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
+            exit 0
+          }
+          echo "Docker Scout analysis completed successfully"
+          ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
         continue-on-error: true
 
       - name: Run License Compliance Check
@@ -398,17 +438,24 @@ jobs:
         run: |
           echo "Running Bun native license compliance check..."
           bun scripts/license-check.ts --json > license-report.json || {
+            license_exit_code=$?
+            echo "License check exit code: $license_exit_code"
+
             # Check if it's specifically problematic licenses (AGPL, GPL-3)
-            if bun scripts/license-check.ts --json | grep -E "AGPL|GPL-3" >/dev/null 2>&1; then
+            if bun scripts/license-check.ts --json 2>/dev/null | grep -E "AGPL|GPL-3" >/dev/null 2>&1; then
               echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible with our policy"
+              ls -la *.json 2>/dev/null || echo "No JSON files found"
               exit 1
             else
               echo "::warning::Found dependencies with non-allowed licenses (see report for details)"
+              ls -la *.json 2>/dev/null || echo "No JSON files found"
               exit 1
             fi
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
+          echo "License check completed successfully"
+          ls -la *.json 2>/dev/null || echo "No JSON files found"
         timeout-minutes: 2
         continue-on-error: true
 
@@ -503,7 +550,7 @@ jobs:
               ;;
             "license-compliance")
               if [ -f "license-report.json" ]; then
-                echo "✅ License Compliance check completed with issues - see artifact for details"
+                echo "⚠️ License Compliance check completed with issues - see artifact for details"
               else
                 echo "✅ License Compliance check passed - all dependencies use allowed licenses"
               fi
@@ -530,7 +577,7 @@ jobs:
         run: |
           echo "## 🔒 Security Scan Summary (Parallel Execution)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scanned Image:** \`${{ needs.build-and-push.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Scanned Image:** \`${{ needs.build-and-push.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Image Digest:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Execution Model:** Job-level matrix parallelization (5 concurrent scans)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
