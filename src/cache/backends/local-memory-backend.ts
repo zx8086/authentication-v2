@@ -27,7 +27,11 @@ export class LocalMemoryBackend implements ICacheBackend {
   }
 
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
-    await this.cache.set(key, value as any, ttl);
+    await this.cache.set(
+      key,
+      value as unknown as import("../../config/schemas").ConsumerSecret,
+      ttl
+    );
   }
 
   async delete(key: string): Promise<void> {

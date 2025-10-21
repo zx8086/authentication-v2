@@ -788,11 +788,11 @@ export function recordHttpResponseSize(
   if (!isInitialized) return;
 
   const attributes: HttpRequestAttributes = {
-    method: method.toUpperCase() as any,
+    method: method.toUpperCase(),
     route,
     ...(statusCode && {
-      status_code: statusCode.toString() as any,
-      status_class: `${Math.floor(statusCode / 100)}xx` as any,
+      status_code: statusCode.toString(),
+      status_class: `${Math.floor(statusCode / 100)}xx`,
     }),
   };
 
@@ -875,11 +875,11 @@ export function recordHttpRequestSize(
   if (!isInitialized) return;
 
   const attributes: HttpRequestAttributes = {
-    method: method.toUpperCase() as any,
+    method: method.toUpperCase(),
     route,
     ...(statusCode && {
-      status_code: statusCode.toString() as any,
-      status_class: `${Math.floor(statusCode / 100)}xx` as any,
+      status_code: statusCode.toString(),
+      status_class: `${Math.floor(statusCode / 100)}xx`,
     }),
   };
 
@@ -990,7 +990,6 @@ export function recordTelemetryExportError(
 
   const attributes: TelemetryAttributes = {
     exporter,
-    error_type: errorType as any,
     status: "failure",
   };
 
@@ -1692,7 +1691,8 @@ export function recordRedisConnection(increment: boolean): void {
 export function recordCircuitBreakerRequest(operation: string, state?: string): void {
   if (!isInitialized) return;
 
-  recordCircuitBreakerOperation(operation, (state as any) || "closed", "request");
+  const validState = state === "open" || state === "half_open" ? state : "closed";
+  recordCircuitBreakerOperation(operation, validState, "request");
 }
 
 export function recordCircuitBreakerRejection(operation: string, reason?: string): void {
@@ -1708,7 +1708,9 @@ export function recordCircuitBreakerStateTransition(
 ): void {
   if (!isInitialized) return;
 
-  recordCircuitBreakerOperation(operation, toState as any, "state_transition");
+  const validToState =
+    toState === "open" || toState === "half_open" || toState === "closed" ? toState : "closed";
+  recordCircuitBreakerOperation(operation, validToState, "state_transition");
 }
 
 export function recordCircuitBreakerFallback(operation: string, reason?: string): void {
@@ -1720,9 +1722,16 @@ export function recordCircuitBreakerFallback(operation: string, reason?: string)
 export function recordCacheTierUsage(tier: string, operation: string): void {
   if (!isInitialized) return;
 
+  const validTier = ["memory", "redis", "kong", "fallback"].includes(tier)
+    ? (tier as "memory" | "redis" | "kong" | "fallback")
+    : "fallback";
+  const validOperation = ["get", "set", "delete", "invalidate"].includes(operation)
+    ? (operation as "get" | "set" | "delete" | "invalidate")
+    : "get";
+
   const attributes: CacheTierAttributes = {
-    tier: tier as any,
-    operation: operation as any,
+    tier: validTier,
+    operation: validOperation,
   };
 
   try {
@@ -1739,9 +1748,16 @@ export function recordCacheTierUsage(tier: string, operation: string): void {
 export function recordCacheTierLatency(tier: string, operation: string, latencyMs: number): void {
   if (!isInitialized) return;
 
+  const validTier = ["memory", "redis", "kong", "fallback"].includes(tier)
+    ? (tier as "memory" | "redis" | "kong" | "fallback")
+    : "fallback";
+  const validOperation = ["get", "set", "delete", "invalidate"].includes(operation)
+    ? (operation as "get" | "set" | "delete" | "invalidate")
+    : "get";
+
   const attributes: CacheTierAttributes = {
-    tier: tier as any,
-    operation: operation as any,
+    tier: validTier,
+    operation: validOperation,
   };
 
   try {
@@ -1780,10 +1796,15 @@ export function recordCacheTierError(tier: string, operation: string, errorType?
 export function recordAuditEvent(eventType: string, auditLevel: string, version?: string): void {
   if (!isInitialized) return;
 
+  const validSeverity = ["low", "medium", "high", "critical"].includes(auditLevel)
+    ? (auditLevel as "low" | "medium" | "high" | "critical")
+    : "low";
+  const validVersion = version === "v2" ? version : "v2";
+
   const attributes: SecurityAttributes = {
     event_type: "header_validation",
-    severity: auditLevel as any,
-    version: (version as any) || "v2",
+    severity: validSeverity,
+    version: validVersion,
   };
 
   try {
@@ -1843,7 +1864,11 @@ export function recordApiVersionRequest(
   method: string,
   source?: string
 ): void {
-  recordApiVersionUsage(version as any, endpoint, method, (source as any) || "header");
+  const validVersion = version === "v1" || version === "v2" ? version : "v1";
+  const validSource = ["header", "default", "fallback"].includes(source || "header")
+    ? (source as "header" | "default" | "fallback") || "header"
+    : "header";
+  recordApiVersionUsage(validVersion, endpoint, method, validSource);
 }
 
 export function recordApiVersionHeaderSource(
@@ -1852,7 +1877,11 @@ export function recordApiVersionHeaderSource(
   method: string,
   source: string
 ): void {
-  recordApiVersionUsage(version as any, endpoint, method, source as any);
+  const validVersion = version === "v1" || version === "v2" ? version : "v1";
+  const validSource = ["header", "default", "fallback"].includes(source)
+    ? (source as "header" | "default" | "fallback")
+    : "header";
+  recordApiVersionUsage(validVersion, endpoint, method, validSource);
 }
 
 export function recordApiVersionParsingDuration(
@@ -1861,7 +1890,8 @@ export function recordApiVersionParsingDuration(
   method: string,
   durationMs: number
 ): void {
-  recordApiVersionParsing(version as any, endpoint, method, durationMs);
+  const validVersion = version === "v1" || version === "v2" ? version : "v1";
+  recordApiVersionParsing(validVersion, endpoint, method, durationMs);
 }
 
 export function recordApiVersionUnsupported(
@@ -1872,7 +1902,7 @@ export function recordApiVersionUnsupported(
   if (!isInitialized) return;
 
   const attributes: ApiVersionAttributes = {
-    version: version as any,
+    version: version === "v1" || version === "v2" ? version : "v1",
     endpoint,
     method,
     source: "header",
@@ -1894,7 +1924,7 @@ export function recordApiVersionFallback(version: string, endpoint: string, meth
   if (!isInitialized) return;
 
   const attributes: ApiVersionAttributes = {
-    version: version as any,
+    version: version === "v1" || version === "v2" ? version : "v1",
     endpoint,
     method,
     source: "fallback",
@@ -1921,7 +1951,7 @@ export function recordApiVersionRoutingDuration(
   if (!isInitialized) return;
 
   const attributes: ApiVersionAttributes = {
-    version: version as any,
+    version: version === "v1" || version === "v2" ? version : "v1",
     endpoint,
     method,
     source: "header",

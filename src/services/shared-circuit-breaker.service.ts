@@ -147,7 +147,7 @@ export class SharedCircuitBreakerService {
     }
 
     // Update the action for this specific call
-    (this.kongBreaker as any).action = action;
+    (this.kongBreaker as CircuitBreaker & { action?: () => Promise<unknown> }).action = action;
     return this.kongBreaker as CircuitBreaker<any[], T>;
   }
 

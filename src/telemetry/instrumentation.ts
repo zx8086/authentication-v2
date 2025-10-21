@@ -82,14 +82,14 @@ export async function initializeTelemetry(): Promise<void> {
       forceFlush: () => Promise.resolve(),
       shutdown: () => Promise.resolve(),
     };
-    metricExporter = noOpExporter as any;
+    metricExporter = noOpExporter as unknown as typeof metricExporter;
 
     // Create no-op metric reader for console mode
     const noOpReader = {
       forceFlush: () => Promise.resolve(),
       shutdown: () => Promise.resolve(),
     };
-    metricReader = noOpReader as any;
+    metricReader = noOpReader as unknown as typeof metricReader;
     return;
   }
 
@@ -139,7 +139,7 @@ export async function initializeTelemetry(): Promise<void> {
     shutdown: () => baseOtlpMetricExporter.shutdown(),
   };
 
-  metricExporter = trackingMetricExporter as any;
+  metricExporter = trackingMetricExporter as unknown as typeof metricExporter;
 
   const otlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
@@ -151,8 +151,14 @@ export async function initializeTelemetry(): Promise<void> {
     scheduledDelayMillis: 1000,
   });
 
+  if (!metricExporter) {
+    throw new Error(
+      "metricExporter must be initialized before creating PeriodicExportingMetricReader"
+    );
+  }
+
   metricReader = new PeriodicExportingMetricReader({
-    exporter: metricExporter as any, // trackingMetricExporter implements PushMetricExporter interface
+    exporter: metricExporter, // trackingMetricExporter implements PushMetricExporter interface
     exportIntervalMillis: 10000,
   });
 
@@ -256,9 +262,15 @@ export async function forceMetricsFlush(): Promise<void> {
   if (metricExporter) {
     // For console mode, simulate metric export to trigger tracking
     if (telemetryConfig.mode === "console") {
-      metricExporter.export({ resource: {}, scopeMetrics: [] } as any, (_result: any) => {
-        // No-op callback, tracking already happened in export method
-      });
+      metricExporter.export(
+        {
+          resource: {},
+          scopeMetrics: [],
+        } as unknown as import("@opentelemetry/sdk-metrics").ResourceMetrics,
+        (_result: unknown) => {
+          // No-op callback, tracking already happened in export method
+        }
+      );
     } else {
       await metricExporter.forceFlush();
     }
@@ -273,10 +285,15 @@ export async function triggerImmediateMetricsExport(): Promise<void> {
   if (!metricReader) {
     throw new Error("Metrics reader not initialized");
   }
-  if (typeof (metricReader as any).collect === "function") {
-    await (metricReader as any).collect();
-  } else if (typeof (metricReader as any).forceFlush === "function") {
-    await (metricReader as any).forceFlush();
+  if (
+    typeof (metricReader as unknown as { collect?: () => Promise<unknown> }).collect === "function"
+  ) {
+    await (metricReader as unknown as { collect: () => Promise<unknown> }).collect();
+  } else if (
+    typeof (metricReader as unknown as { forceFlush?: () => Promise<void> }).forceFlush ===
+    "function"
+  ) {
+    await (metricReader as unknown as { forceFlush: () => Promise<void> }).forceFlush();
   }
 }
 

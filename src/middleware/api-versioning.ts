@@ -425,7 +425,7 @@ export function getVersionContextForTelemetry(request: Request):
 
     return {
       version: versionRequest.versionInfo.version,
-      source: (middleware as any).determineVersionSource(request),
+      source: middleware.determineVersionSource(request),
       isLatest: versionRequest.versionInfo.isLatest,
       isSupported: versionRequest.versionInfo.isSupported,
     };

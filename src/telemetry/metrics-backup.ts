@@ -1296,8 +1296,13 @@ function setupSystemMetricsCollection(): void {
     try {
       if (shouldDropNonCriticalMetrics()) return;
 
-      if (typeof (process as any)._getActiveHandles === "function") {
-        const activeHandles = (process as any)._getActiveHandles().length;
+      if (
+        typeof (process as NodeJS.Process & { _getActiveHandles?: () => unknown[] })
+          ._getActiveHandles === "function"
+      ) {
+        const activeHandles = (
+          process as NodeJS.Process & { _getActiveHandles: () => unknown[] }
+        )._getActiveHandles().length;
         observableResult.observe(activeHandles);
       }
     } catch (err) {

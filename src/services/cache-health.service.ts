@@ -56,7 +56,8 @@ export class CacheHealthService {
       // Skip expensive stats call for health check - only test basic connectivity
 
       // If we have a SharedRedisCache, we can access its Redis client for detailed health checks
-      const sharedRedisCache = cacheService as any;
+      const sharedRedisCache =
+        cacheService as import("../services/cache/shared-redis-cache").SharedRedisCache;
       const redisClient = sharedRedisCache.getClientForHealthCheck?.();
       if (redisClient) {
         // Test basic connectivity with PING
