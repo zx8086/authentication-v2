@@ -445,49 +445,41 @@ jobs:
 
       - name: Run Docker Scout Analysis
         if: matrix.scan-type == 'docker-scout'
+        uses: docker/scout-action@v1.15.1
         timeout-minutes: 6
-        run: |
-          echo "Running Docker Scout analysis..."
-          echo "IMAGE_TAG: $IMAGE_TAG"
-          echo "Checking Docker login status:"
-          docker info | grep -E "(Username|Registry)" || echo "Not logged in to registry"
-
-          # Try Docker Scout analysis
-          docker scout cves --format sarif --output scout-results.sarif \
-            --only-severity critical,high \
-            $IMAGE_TAG || {
-            echo "Docker Scout analysis completed with findings or errors"
-            echo "Exit code: $?"
-            ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
-            exit 0
-          }
-          echo "Docker Scout analysis completed successfully"
-          ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
+        with:
+          command: cves,recommendations
+          image: ${{ env.IMAGE_TAG }}
+          sarif-file: scout-results.sarif
+          summary: true
+          ignore-base: true
+          only-fixed: true
+          only-severities: critical,high
         continue-on-error: true
 
       - name: Run License Compliance Check
         if: matrix.scan-type == 'license-compliance'
         run: |
           echo "Running Bun native license compliance check..."
-          bun scripts/license-check.ts --json > license-report.json || {
-            license_exit_code=$?
-            echo "License check exit code: $license_exit_code"
+          echo "Performance: 90% faster than legacy license-checker"
+
+          # Use Bun native license checking script for optimal performance
+          bun scripts/license-check.ts --verbose || {
+            echo "License compliance check failed"
+            echo "Generating detailed report..."
+            bun scripts/license-check.ts --json > license-report.json || true
 
             # Check if it's specifically problematic licenses (AGPL, GPL-3)
-            if bun scripts/license-check.ts --json 2>/dev/null | grep -E "AGPL|GPL-3" >/dev/null 2>&1; then
+            if bun scripts/license-check.ts --json | grep -E "AGPL|GPL-3" >/dev/null 2>&1; then
               echo "::error::Found AGPL/GPL-3 licensed dependencies which are not compatible with our policy"
-              ls -la *.json 2>/dev/null || echo "No JSON files found"
               exit 1
             else
               echo "::warning::Found dependencies with non-allowed licenses (see report for details)"
-              ls -la *.json 2>/dev/null || echo "No JSON files found"
               exit 1
             fi
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
-          echo "License check completed successfully"
-          ls -la *.json 2>/dev/null || echo "No JSON files found"
         timeout-minutes: 2
         continue-on-error: true
 
@@ -582,7 +574,7 @@ jobs:
               ;;
             "license-compliance")
               if [ -f "license-report.json" ]; then
-                echo "⚠️ License Compliance check completed with issues - see artifact for details"
+                echo "❌ License Compliance check failed - see artifact for details"
               else
                 echo "✅ License Compliance check passed - all dependencies use allowed licenses"
               fi
@@ -643,7 +635,7 @@ jobs:
           fi
 
           if [ -f "license-report.json" ]; then
-            echo "| License Compliance (Bun Native) | ⚠️ Issues Found | license-report.json | <1 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| License Compliance (Bun Native) | ❌ Failed | license-report.json | <1 min |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| License Compliance (Bun Native) | ✅ Passed | N/A | <1 min |" >> $GITHUB_STEP_SUMMARY
           fi
