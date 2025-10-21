@@ -327,7 +327,7 @@ export async function handleV2TokenRequest(
             message: "Authentication service is temporarily unavailable. Please try again later.",
             details: "Kong gateway connectivity issues",
             timestamp: new Date().toISOString(),
-            version: "v2",
+            apiVersion: "v2",
           }),
           {
             status: 503,
@@ -454,7 +454,12 @@ export async function handleV2TokenRequest(
         version: "v2",
       });
 
-      const response = createTokenResponse(tokenData.access_token, tokenData.expires_in, requestId);
+      const response = createTokenResponse(
+        tokenData.access_token,
+        tokenData.expires_in,
+        requestId,
+        "v2"
+      );
 
       // Add v2 version header before applying security headers
       response.headers.set("X-API-Version", "v2");

@@ -64,7 +64,7 @@ describe('API Versioning Router Integration', () => {
       expect(response.headers.get('X-Request-Security-ID')).toBeTruthy();
 
       const data = await response.json();
-      expect(data.version).toBe('v2');
+      expect(data.apiVersion).toBe('v2');
       expect(data.security).toBeDefined(); // V2 should have security context
       expect(data.audit).toBeDefined(); // V2 should have audit info
     });

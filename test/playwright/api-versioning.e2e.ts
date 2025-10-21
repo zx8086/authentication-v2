@@ -53,7 +53,7 @@ test.describe('API Versioning - V1 vs V2 Behavior', () => {
 
       const data = await response.json();
       expect(data.status).toBe('healthy');
-      expect(data.version).toBe('v2'); // Check API version field
+      expect(data.apiVersion).toBe('v2'); // V2 now uses consistent apiVersion field like V1
       expect(data.service).toBe('authentication-service');
 
       // v2 should include security context
