@@ -5,12 +5,10 @@
 FROM oven/bun:1.3.0-alpine AS deps-base
 WORKDIR /app
 
-# Install minimal system dependencies with version pinning for security
+# Install minimal system dependencies and upgrade ALL vulnerable packages
 RUN apk update && \
     apk upgrade --no-cache && \
-    apk add --no-cache \
-    dumb-init=1.2.5-r4 \
-    ca-certificates=20241012-r0 && \
+    apk add --no-cache dumb-init ca-certificates && \
     rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
@@ -53,17 +51,17 @@ COPY --from=oven/bun:1.3.0-alpine --chown=65532:65532 /usr/local/bin/bun /usr/lo
 COPY --from=deps-base --chown=65532:65532 /usr/bin/dumb-init /usr/bin/dumb-init
 
 # Copy required shared libraries for Bun from Alpine (optimized for distroless)
-COPY --from=deps-base --chown=65532:65532 \
-    /lib/ld-musl-*.so.1 \
-    /usr/lib/libgcc_s.so.1 \
-    /usr/lib/libstdc++.so.6 \
-    /usr/lib/
+COPY --from=deps-base --chown=65532:65532 /lib/ld-musl-*.so.1 /lib/
+COPY --from=deps-base --chown=65532:65532 /usr/lib/libgcc_s.so.1 /usr/lib/
+COPY --from=deps-base --chown=65532:65532 /usr/lib/libstdc++.so.6 /usr/lib/
 
 WORKDIR /app
 
-# Copy essential production files in optimized order (CONSOLIDATED for fewer layers)
-COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
+# Copy only essential production dependencies (minimize image size)
 COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
+
+# Copy application source and public assets
 COPY --from=builder --chown=65532:65532 /app/src ./src
 COPY --from=builder --chown=65532:65532 /app/public ./public
 

@@ -32,6 +32,24 @@ echo "----------------------------------------"
 # Build target selection for optimization
 BUILD_TARGET=${BUILD_TARGET:-production}
 
+# Detect CI/CD environment and set appropriate cache strategy
+if [ -n "${GITHUB_ACTIONS}" ]; then
+  # GitHub Actions environment - use GitHub Actions cache
+  CACHE_FROM="--cache-from type=gha"
+  CACHE_TO="--cache-to type=gha,mode=max"
+  echo "CI/CD: Using GitHub Actions cache"
+elif [ -n "${CI}" ]; then
+  # Generic CI environment - use local cache
+  CACHE_FROM="--cache-from type=local,src=/tmp/docker-cache"
+  CACHE_TO="--cache-to type=local,dest=/tmp/docker-cache,mode=max"
+  echo "CI/CD: Using local cache"
+else
+  # Local development - minimal caching to avoid registry issues
+  CACHE_FROM=""
+  CACHE_TO=""
+  echo "Local: No external cache (avoid registry auth issues)"
+fi
+
 echo "Build target: ${BUILD_TARGET}"
 echo "BuildKit enabled: $(docker buildx version >/dev/null 2>&1 && echo 'Yes' || echo 'No')"
 echo "----------------------------------------"
@@ -48,8 +66,8 @@ DOCKER_BUILDKIT=1 docker build \
   --build-arg BUILD_DATE="${BUILD_DATE}" \
   --build-arg VCS_REF="${VCS_REF}" \
   --build-arg VERSION="${SERVICE_VERSION}" \
-  --cache-from "type=registry,ref=${IMAGE_NAME}:buildcache" \
-  --cache-to "type=registry,ref=${IMAGE_NAME}:buildcache,mode=max" \
+  ${CACHE_FROM} \
+  ${CACHE_TO} \
   --provenance=false \
   --sbom=false \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
