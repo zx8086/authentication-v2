@@ -5,7 +5,6 @@ import {
   type Histogram,
   metrics,
 } from "@opentelemetry/api";
-import { z } from "zod";
 import { error, log as info, warn } from "../utils/logger";
 
 // ===========================
@@ -828,40 +827,6 @@ export function recordJwtTokenCreation(durationMs: number, consumerId: string): 
   }
 }
 
-export function recordAuthenticationAttempt(
-  consumerId: string,
-  success: boolean,
-  operation?: string
-): void {
-  if (!isInitialized) return;
-
-  const validOperation =
-    operation === "token_generation" || operation === "validation" || operation === "refresh"
-      ? operation
-      : "validation";
-
-  const attributes: AuthAttributes = {
-    consumer_id: consumerId,
-    operation: validOperation,
-    result: success ? "success" : "failure",
-  };
-
-  try {
-    authenticationAttemptsCounter.add(1, attributes);
-
-    if (success) {
-      authenticationSuccessCounter.add(1, attributes);
-    } else {
-      authenticationFailureCounter.add(1, attributes);
-    }
-  } catch (err) {
-    error("Failed to record authentication attempt", {
-      error: (err as Error).message,
-      attributes,
-    });
-  }
-}
-
 export function recordKongOperation(
   operation: string,
   durationMs: number,
@@ -936,9 +901,17 @@ export function recordKongResponseTime(
 ): void {
   if (!isInitialized) return;
 
+  const validOperation =
+    operation === "get_consumer" ||
+    operation === "create_credential" ||
+    operation === "health_check"
+      ? (operation as "get_consumer" | "create_credential" | "health_check")
+      : "health_check";
+
   const attributes: KongAttributes = {
-    operation,
+    operation: validOperation,
     status: success ? "success" : "failure",
+    cache_status: "miss",
   };
 
   try {
@@ -956,9 +929,18 @@ export function recordKongResponseTime(
 export function recordKongCacheHit(consumerId: string, operation: string): void {
   if (!isInitialized) return;
 
+  const validOperation =
+    operation === "get_consumer" ||
+    operation === "create_credential" ||
+    operation === "health_check"
+      ? (operation as "get_consumer" | "create_credential" | "health_check")
+      : "health_check";
+
   const attributes: KongAttributes = {
-    operation,
+    operation: validOperation,
     consumer_id: consumerId,
+    cache_status: "hit",
+    status: "success",
   };
 
   try {
@@ -975,9 +957,18 @@ export function recordKongCacheHit(consumerId: string, operation: string): void 
 export function recordKongCacheMiss(consumerId: string, operation: string): void {
   if (!isInitialized) return;
 
+  const validOperation =
+    operation === "get_consumer" ||
+    operation === "create_credential" ||
+    operation === "health_check"
+      ? (operation as "get_consumer" | "create_credential" | "health_check")
+      : "health_check";
+
   const attributes: KongAttributes = {
-    operation,
+    operation: validOperation,
     consumer_id: consumerId,
+    cache_status: "miss",
+    status: "failure",
   };
 
   try {
@@ -1000,6 +991,7 @@ export function recordTelemetryExportError(
   const attributes: TelemetryAttributes = {
     exporter,
     error_type: errorType as any,
+    status: "failure",
   };
 
   try {
@@ -1527,7 +1519,9 @@ export {
 // ===========================
 
 export function recordJwtTokenIssued(username: string, creationTimeMs?: number): void {
-  recordJwtTokenCreation(creationTimeMs, username);
+  if (creationTimeMs !== undefined) {
+    recordJwtTokenCreation(creationTimeMs, username);
+  }
 }
 
 // Additional authentication functions for backward compatibility with tests
@@ -1571,13 +1565,9 @@ export function recordAuthenticationFailure(username?: string, reason?: string):
 }
 
 // Overloaded version of recordAuthenticationAttempt to match test signature
-export function recordAuthenticationAttempt(username: string): void;
-export function recordAuthenticationAttempt(
-  type: string,
-  success: boolean,
-  username?: string
-): void;
-export function recordAuthenticationAttempt(
+function recordAuthenticationAttemptImpl(username: string): void;
+function recordAuthenticationAttemptImpl(type: string, success: boolean, username?: string): void;
+function recordAuthenticationAttemptImpl(
   typeOrUsername: string,
   success?: boolean,
   username?: string
@@ -1625,6 +1615,9 @@ export function recordAuthenticationAttempt(
     }
   }
 }
+
+// Export the implementation as the public function
+export { recordAuthenticationAttemptImpl as recordAuthenticationAttempt };
 
 export function recordConsumerRequest(volume: string): void {
   if (!isInitialized) return;
@@ -1819,7 +1812,7 @@ export function testMetricRecording(): void {
 
   try {
     recordHttpRequest("GET", "/test", 200);
-    recordAuthenticationAttempt("test-consumer", true);
+    recordAuthenticationAttemptImpl("test-consumer", true);
     recordKongOperation("health_check", 50);
     recordRedisOperation("get", 5);
 
