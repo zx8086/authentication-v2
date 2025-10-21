@@ -50,7 +50,6 @@ try {
   startupKongHealth = await kongService.healthCheck();
   recordKongOperation(
     "startup_health_check",
-    startupKongHealth.healthy ? "success" : "failure",
     startupKongHealth.responseTime,
     startupKongHealth.healthy
   );
@@ -80,7 +79,7 @@ try {
     status: "degraded",
   });
 
-  recordKongOperation("startup_health_check", "failure", 0, false);
+  recordKongOperation("startup_health_check", 0, false);
 
   warn("Server will start in degraded mode - Kong integration unavailable", {
     component: "kong",

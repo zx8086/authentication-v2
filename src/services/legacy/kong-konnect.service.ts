@@ -314,7 +314,7 @@ export class KongKonnectService implements IKongService {
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
         if (response.ok) {
-          recordKongOperation("health_check", "success", responseTime, true);
+          recordKongOperation("health_check", responseTime, true);
           winstonTelemetryLogger.debug("Kong health check successful", {
             responseTime,
             operation: "health_check",
@@ -354,7 +354,7 @@ export class KongKonnectService implements IKongService {
             });
           }
 
-          recordKongOperation("health_check", "failure", responseTime, false);
+          recordKongOperation("health_check", responseTime, false);
           recordError("kong_health_check_failed", {
             status: response.status,
             statusText: response.statusText || "Unknown",
@@ -368,7 +368,7 @@ export class KongKonnectService implements IKongService {
     if (result === null) {
       // Circuit breaker is open and rejected the request
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
-      recordKongOperation("health_check", "failure", responseTime, false);
+      recordKongOperation("health_check", responseTime, false);
       recordError("kong_health_check_circuit_breaker", {
         status: "circuit_open",
         message: "Circuit breaker rejected request",

@@ -77,16 +77,11 @@ export class APIVersioningMiddleware {
         );
 
         // Record header source metrics
-        recordApiVersionHeaderSource(versionSource, detectedVersion, endpoint);
+        recordApiVersionHeaderSource(detectedVersion, endpoint, request.method, versionSource);
 
         // Record parsing duration
         const durationMs = (Bun.nanoseconds() - startTime) / 1_000_000;
-        recordApiVersionParsingDuration(
-          durationMs,
-          versionSource,
-          result.isSupported,
-          detectedVersion
-        );
+        recordApiVersionParsingDuration(detectedVersion, endpoint, request.method, durationMs);
 
         return result;
       }
@@ -101,16 +96,11 @@ export class APIVersioningMiddleware {
           const result = this.validateVersion(mediaTypeVersion, "Accept");
 
           // Record header source metrics
-          recordApiVersionHeaderSource(versionSource, detectedVersion, endpoint);
+          recordApiVersionHeaderSource(detectedVersion, endpoint, request.method, versionSource);
 
           // Record parsing duration
           const durationMs = (Bun.nanoseconds() - startTime) / 1_000_000;
-          recordApiVersionParsingDuration(
-            durationMs,
-            versionSource,
-            result.isSupported,
-            detectedVersion
-          );
+          recordApiVersionParsingDuration(detectedVersion, endpoint, request.method, durationMs);
 
           return result;
         }
@@ -118,7 +108,7 @@ export class APIVersioningMiddleware {
 
       // Default: Backward compatibility
       versionSource = "default";
-      recordApiVersionHeaderSource(versionSource, this.defaultVersion, endpoint);
+      recordApiVersionHeaderSource(this.defaultVersion, endpoint, request.method, versionSource);
 
       log(
         "No version header provided, defaulting to configured default for backward compatibility",
@@ -141,7 +131,7 @@ export class APIVersioningMiddleware {
 
       // Record parsing duration for default fallback
       const durationMs = (Bun.nanoseconds() - startTime) / 1_000_000;
-      recordApiVersionParsingDuration(durationMs, versionSource, true, this.defaultVersion);
+      recordApiVersionParsingDuration(this.defaultVersion, endpoint, request.method, durationMs);
 
       return result;
     } catch (err) {
@@ -160,8 +150,8 @@ export class APIVersioningMiddleware {
       });
 
       // Record failed parsing metrics
-      recordApiVersionParsingDuration(durationMs, versionSource, false, detectedVersion);
-      recordApiVersionFallback(detectedVersion, this.defaultVersion, "parse_error", endpoint);
+      recordApiVersionParsingDuration(detectedVersion, endpoint, request.method, durationMs);
+      recordApiVersionFallback(detectedVersion, endpoint, request.method);
 
       return {
         version: this.defaultVersion,
@@ -191,13 +181,7 @@ export class APIVersioningMiddleware {
     telemetryTracer.createApiVersionSpan(
       "create_version_request",
       () => {
-        recordApiVersionRequest(
-          versionInfo.version,
-          endpoint,
-          request.method,
-          versionInfo.isLatest,
-          versionInfo.isSupported
-        );
+        recordApiVersionRequest(versionInfo.version, endpoint, request.method, versionSource);
 
         log("API version detected", {
           component: "api-versioning",
@@ -261,7 +245,7 @@ export class APIVersioningMiddleware {
 
     // Record unsupported version metrics
     if (endpoint && method) {
-      recordApiVersionUnsupported(requestedVersion, source, endpoint, method);
+      recordApiVersionUnsupported(requestedVersion, endpoint, method);
     }
 
     error("Unsupported API version requested", {

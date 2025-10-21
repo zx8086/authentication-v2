@@ -164,7 +164,7 @@ export class SharedCircuitBreakerService {
 
     try {
       const result = await breaker.fire();
-      recordCircuitBreakerRequest(operation, true, false);
+      recordCircuitBreakerRequest(operation, "closed");
       return result;
     } catch (error) {
       winstonTelemetryLogger.warn(`Shared circuit breaker operation failed for ${operation}`, {
@@ -178,7 +178,7 @@ export class SharedCircuitBreakerService {
         return this.handleOpenCircuit(operation, fallbackData);
       }
 
-      recordCircuitBreakerRequest(operation, false, false);
+      recordCircuitBreakerRequest(operation, "open");
       return null;
     }
   }
@@ -197,7 +197,7 @@ export class SharedCircuitBreakerService {
 
     try {
       const result = await breaker.fire();
-      recordCircuitBreakerRequest(operation, true, false);
+      recordCircuitBreakerRequest(operation, "closed");
 
       if (result) {
         this.updateStaleCache(cacheKey, result);
@@ -233,7 +233,7 @@ export class SharedCircuitBreakerService {
         return await this.handleOpenCircuitWithStaleData(operation, cacheKey, consumerId);
       }
 
-      recordCircuitBreakerRequest(operation, false, false);
+      recordCircuitBreakerRequest(operation, "open");
       return null;
     }
   }
@@ -247,7 +247,7 @@ export class SharedCircuitBreakerService {
         component: "shared_circuit_breaker",
         action: "fallback_data",
       });
-      recordCircuitBreakerRequest(operation, true, true);
+      recordCircuitBreakerRequest(operation, "half_open");
       return fallbackData;
     }
 
@@ -256,7 +256,7 @@ export class SharedCircuitBreakerService {
       component: "shared_circuit_breaker",
       action: "no_fallback",
     });
-    recordCircuitBreakerRequest(operation, false, true);
+    recordCircuitBreakerRequest(operation, "open");
     return null;
   }
 
@@ -306,7 +306,7 @@ export class SharedCircuitBreakerService {
           });
 
           recordCircuitBreakerFallback(operation, "redis_stale_cache");
-          recordCircuitBreakerRequest(operation, true, true);
+          recordCircuitBreakerRequest(operation, "half_open");
           return redisStale;
         }
       } catch (error) {
@@ -345,7 +345,7 @@ export class SharedCircuitBreakerService {
         });
 
         recordCircuitBreakerFallback(operation, "in_memory_stale_cache");
-        recordCircuitBreakerRequest(operation, true, true);
+        recordCircuitBreakerRequest(operation, "half_open");
         return inMemoryStale.data;
       }
     }
@@ -358,7 +358,7 @@ export class SharedCircuitBreakerService {
       haMode: this.config.highAvailability,
     });
 
-    recordCircuitBreakerRequest(operation, false, true);
+    recordCircuitBreakerRequest(operation, "open");
     return null;
   }
 

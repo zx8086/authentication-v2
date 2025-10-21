@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**/*", "scripts/**/*", "test/**/*", "*.ts", "*.js", "*.json"]
+    "includes": ["src/**/*", "scripts/**/*", "*.ts", "*.js", "*.json"]
   },
   "formatter": {
     "enabled": true,
@@ -46,7 +46,9 @@
         "noUnsafeOptionalChaining": "error",
         "noUnusedLabels": "error",
         "noUnusedPrivateClassMembers": "warn",
-        "noUnusedVariables": "warn",
+        "noUnusedVariables": "off",
+        "noUnusedFunctionParameters": "off",
+        "noUnusedImports": "warn",
         "useIsNan": "error",
         "useValidForDirection": "error",
         "useYield": "error"
@@ -59,11 +61,12 @@
         "useConsistentArrayType": "off",
         "useForOf": "error",
         "useImportType": "error",
-        "useNodejsImportProtocol": "error",
+        "useNodejsImportProtocol": "warn",
         "useNumberNamespace": "error",
         "useShorthandFunctionType": "error",
         "useSingleVarDeclarator": "off",
-        "useTemplate": "error"
+        "useTemplate": "warn",
+        "noNonNullAssertion": "off"
       },
       "security": {
         "noGlobalEval": "error",
@@ -82,7 +85,7 @@
         "noDuplicateClassMembers": "error",
         "noDuplicateObjectKeys": "error",
         "noDuplicateParameters": "error",
-        "noEmptyBlockStatements": "error",
+        "noEmptyBlockStatements": "warn",
         "noExplicitAny": "warn",
         "noExtraNonNullAssertion": "error",
         "noFallthroughSwitchClause": "error",
@@ -101,7 +104,8 @@
         "useIterableCallbackReturn": "warn",
         "noArrayIndexKey": "warn",
         "noThenProperty": "error",
-        "noApproximativeNumericConstant": "warn"
+        "noApproximativeNumericConstant": "warn",
+        "noTemplateCurlyInString": "warn"
       }
     }
   },

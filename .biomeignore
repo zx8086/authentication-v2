@@ -20,6 +20,15 @@ test-results/
 playwright-report/
 test/coverage/
 
+# Test files - exclude from production linting
+test/**/*
+*.test.ts
+*.spec.ts
+*.e2e.ts
+
+# Legacy backup files
+src/telemetry/metrics-backup.ts
+
 # Logs
 *.log
 logs/

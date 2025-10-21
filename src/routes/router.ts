@@ -58,14 +58,14 @@ async function createVersionedHandler<T extends unknown[]>(
 
     // Record routing duration for fallback
     const routingDurationMs = (Bun.nanoseconds() - routingStartTime) / 1_000_000;
-    recordApiVersionRoutingDuration(routingDurationMs, version, endpoint, false);
+    recordApiVersionRoutingDuration(version, endpoint, method, routingDurationMs);
 
     return versioningMiddleware.addVersionHeaders(await fallbackHandler(...args), "v1");
   }
 
   // Record routing duration for successful version routing
   const routingDurationMs = (Bun.nanoseconds() - routingStartTime) / 1_000_000;
-  recordApiVersionRoutingDuration(routingDurationMs, version, endpoint, hasVersionHandler);
+  recordApiVersionRoutingDuration(version, endpoint, method, routingDurationMs);
 
   const response = await handler(...args);
   return versioningMiddleware.addVersionHeaders(response, version);

@@ -133,7 +133,7 @@ export class KongCircuitBreakerService {
 
     try {
       const result = await breaker.fire();
-      recordCircuitBreakerRequest(operation, true, false);
+      recordCircuitBreakerRequest(operation, "closed");
       return result;
     } catch (error) {
       winstonTelemetryLogger.warn(`Circuit breaker operation failed for ${operation}`, {
@@ -147,7 +147,7 @@ export class KongCircuitBreakerService {
         return this.handleOpenCircuit(operation, fallbackData);
       }
 
-      recordCircuitBreakerRequest(operation, false, false);
+      recordCircuitBreakerRequest(operation, "open");
       return null;
     }
   }
@@ -166,7 +166,7 @@ export class KongCircuitBreakerService {
 
     try {
       const result = await breaker.fire();
-      recordCircuitBreakerRequest(operation, true, false);
+      recordCircuitBreakerRequest(operation, "closed");
 
       if (result) {
         this.updateStaleCache(cacheKey, result);
@@ -189,7 +189,7 @@ export class KongCircuitBreakerService {
         return await this.handleOpenCircuitWithStaleData(operation, cacheKey, consumerId);
       }
 
-      recordCircuitBreakerRequest(operation, false, false);
+      recordCircuitBreakerRequest(operation, "open");
       return null;
     }
   }
@@ -203,7 +203,7 @@ export class KongCircuitBreakerService {
         component: "circuit_breaker",
         action: "fallback_data",
       });
-      recordCircuitBreakerRequest(operation, true, true);
+      recordCircuitBreakerRequest(operation, "half_open");
       return fallbackData;
     }
 
@@ -212,7 +212,7 @@ export class KongCircuitBreakerService {
       component: "circuit_breaker",
       action: "no_fallback",
     });
-    recordCircuitBreakerRequest(operation, false, true);
+    recordCircuitBreakerRequest(operation, "open");
     return null;
   }
 
@@ -244,7 +244,7 @@ export class KongCircuitBreakerService {
           });
 
           recordCircuitBreakerFallback(operation, "redis_stale_cache");
-          recordCircuitBreakerRequest(operation, true, true);
+          recordCircuitBreakerRequest(operation, "half_open");
           return redisStale;
         }
       } catch (error) {
@@ -285,7 +285,7 @@ export class KongCircuitBreakerService {
         });
 
         recordCircuitBreakerFallback(operation, "in_memory_stale_cache");
-        recordCircuitBreakerRequest(operation, true, true);
+        recordCircuitBreakerRequest(operation, "half_open");
         return inMemoryStale.data;
       }
     }
@@ -299,7 +299,7 @@ export class KongCircuitBreakerService {
       haMode: this.config.highAvailability,
     });
 
-    recordCircuitBreakerRequest(operation, false, true);
+    recordCircuitBreakerRequest(operation, "open");
     return null;
   }
 

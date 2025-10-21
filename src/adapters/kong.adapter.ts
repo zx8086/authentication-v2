@@ -239,7 +239,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
           const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
           if (isSuccessResponse(response)) {
-            recordKongOperation("health_check", "success", responseTime, true);
+            recordKongOperation("health_check", responseTime, true);
             winstonTelemetryLogger.debug("Kong health check successful", {
               responseTime,
               operation: "health_check",
@@ -249,7 +249,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
           } else {
             const errorMessage = await parseKongApiError(response);
 
-            recordKongOperation("health_check", "failure", responseTime, false);
+            recordKongOperation("health_check", responseTime, false);
             recordError("kong_health_check_failed", {
               status: response.status,
               statusText: response.statusText || "Unknown",
@@ -276,7 +276,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
       if (result === null) {
         // Circuit breaker is open and rejected the request
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
-        recordKongOperation("health_check", "failure", responseTime, false);
+        recordKongOperation("health_check", responseTime, false);
         recordError("kong_health_check_circuit_breaker", {
           status: "circuit_open",
           message: "Circuit breaker rejected request",
@@ -296,7 +296,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      recordKongOperation("health_check", "failure", responseTime, false);
+      recordKongOperation("health_check", responseTime, false);
       recordError("kong_health_check_error", {
         error: errorMessage,
         message: "Health check failed with error",

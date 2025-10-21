@@ -227,8 +227,16 @@ export class JWTAuditService {
     this.logAuditEvent(auditEvent);
     this.updateMetrics(auditEvent);
 
-    // Record security event metrics
-    recordSecurityEvent(params.type, params.severity, "v2", params.riskScore);
+    // Record security event metrics (map types to match function signature)
+    const mappedType =
+      params.type === "authentication_failure"
+        ? "jwt_anomaly"
+        : params.type === "suspicious_pattern"
+          ? "suspicious_activity"
+          : params.type === "policy_violation"
+            ? "header_validation"
+            : "suspicious_activity";
+    recordSecurityEvent(mappedType, params.severity);
     recordAuditEvent("security_event", "detailed", "v2");
 
     // Check for security event thresholds
