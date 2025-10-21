@@ -25,6 +25,7 @@ This file provides essential guidance for working with this authentication servi
 ### Linear Project
 - **URL**: https://linear.app/siobytes/project/authentication-service-f7a13083a8cc
 - **Team**: Siobytes
+- **Project**: Authentication Service
 
 ### Git Commits
 ```bash
