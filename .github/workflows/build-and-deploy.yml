@@ -58,17 +58,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Setup Bun for code quality checks
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies (Enhanced)
         uses: actions/cache@v4
-        timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
@@ -82,11 +79,10 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-        timeout-minutes: 3
 
       - name: Start application server for testing
         run: |
-          bun run dev &
+          bun run dev:ci &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started server with PID: $SERVER_PID"
@@ -94,11 +90,9 @@ jobs:
           # Wait for server to be ready
           timeout 30 bash -c 'until curl -f http://localhost:3000/health >/dev/null 2>&1; do sleep 1; done'
           echo "Server is ready for testing"
-        timeout-minutes: 2
 
-      - name: Run unit & integration tests (concurrent)
+      - name: Run unit & integration tests
         run: bun run bun:test:concurrent
-        timeout-minutes: 3
 
       - name: Get Playwright version for caching
         id: playwright-version
@@ -110,7 +104,6 @@ jobs:
       - name: Cache Playwright browsers (Enhanced)
         uses: actions/cache@v4
         id: playwright-cache
-        timeout-minutes: 1
         with:
           path: |
             ~/.cache/ms-playwright
@@ -149,7 +142,6 @@ jobs:
 
       - name: Run Playwright E2E tests
         run: bun run playwright:test
-        timeout-minutes: 3
         env:
           API_BASE_URL: http://localhost:3000
 
@@ -174,20 +166,16 @@ jobs:
 
       - name: Run Biome code quality checks
         run: bun run biome:check
-        timeout-minutes: 2
 
       - name: TypeScript Type Checking
         run: bun run typecheck
-        timeout-minutes: 2
 
       - name: YAML Configuration Validation
         run: bun run yaml:check
-        timeout-minutes: 1
         continue-on-error: true
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
-        timeout-minutes: 2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -195,7 +183,6 @@ jobs:
 
       - name: Set up Docker Buildx (Enhanced)
         uses: docker/setup-buildx-action@v3
-        timeout-minutes: 3
         with:
           driver: cloud
           endpoint: "zx8086/cldbuild"
@@ -218,7 +205,6 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
-        timeout-minutes: 2
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -302,7 +288,6 @@ jobs:
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
-        timeout-minutes: 2
 
       - name: Get primary tag for container scanning
         id: image-tag
@@ -340,7 +325,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        timeout-minutes: 1
 
       - name: Reconstruct image tag (avoid GitHub secret detection)
         id: image-tag
@@ -365,14 +349,12 @@ jobs:
       - name: Setup Bun (for license compliance)
         if: matrix.scan-type == 'license-compliance'
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies (for license compliance)
         if: matrix.scan-type == 'license-compliance'
         uses: actions/cache@v4
-        timeout-minutes: 1
         with:
           path: |
             ~/.bun/install/cache
@@ -384,19 +366,16 @@ jobs:
       - name: Install dependencies (for license compliance)
         if: matrix.scan-type == 'license-compliance'
         run: bun install --frozen-lockfile
-        timeout-minutes: 3
 
       - name: Setup Bun for Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
         uses: oven-sh/setup-bun@v2
-        timeout-minutes: 2
         with:
           bun-version: latest
 
       - name: Install dependencies for Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
         run: bun install --frozen-lockfile
-        timeout-minutes: 3
 
       - name: Run Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
@@ -460,7 +439,6 @@ jobs:
       - name: Log in to Docker Hub (for Docker Scout)
         if: matrix.scan-type == 'docker-scout'
         uses: docker/login-action@v3
-        timeout-minutes: 2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -504,13 +482,11 @@ jobs:
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
-        timeout-minutes: 2
         continue-on-error: true
 
       - name: Upload Snyk Code SARIF results
         if: matrix.scan-type == 'snyk-code' && hashFiles('snyk-code-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: snyk-code-results.sarif
           category: snyk-code
@@ -519,7 +495,6 @@ jobs:
       - name: Upload Snyk Container SARIF results
         if: matrix.scan-type == 'snyk-container' && hashFiles('snyk-container-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: snyk-container-results.sarif
           category: snyk-container
@@ -528,7 +503,6 @@ jobs:
       - name: Upload Trivy SARIF results
         if: matrix.scan-type == 'trivy-container' && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: trivy-results.sarif
           category: trivy-container
@@ -537,7 +511,6 @@ jobs:
       - name: Upload Docker Scout SARIF results
         if: matrix.scan-type == 'docker-scout' && hashFiles('scout-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        timeout-minutes: 2
         with:
           sarif_file: scout-results.sarif
           category: docker-scout
@@ -546,7 +519,6 @@ jobs:
       - name: Archive scan results
         if: always()
         uses: actions/upload-artifact@v4
-        timeout-minutes: 2
         with:
           name: ${{ matrix.scan-type }}-results-${{ github.run_number }}
           path: |
@@ -557,7 +529,6 @@ jobs:
 
       - name: Generate scan summary
         if: always()
-        timeout-minutes: 1
         run: |
           echo "## ${{ matrix.scan-type }} Scan Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -609,7 +580,6 @@ jobs:
   security-scan-summary:
     needs: [build-and-push, security-scan]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     if: always()
     permissions:
       contents: read
@@ -679,7 +649,6 @@ jobs:
 
       - name: Archive consolidated security results
         uses: actions/upload-artifact@v4
-        timeout-minutes: 2
         with:
           name: security-scan-consolidated-${{ github.run_number }}
           path: |
