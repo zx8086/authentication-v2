@@ -6,6 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "bun --hot src/index.ts",
+    "dev:ci": "bun --hot src/index.ts",
     "dev:docs": "bun run generate-docs && bun --hot src/server.ts",
     "dev:development": "bun run generate-docs && cp .env.dev .env.development && NODE_ENV=development bun src/server.ts; rm .env.development",
     "dev:staging": "bun run generate-docs && cp .env.stg .env.staging && NODE_ENV=staging bun src/server.ts; rm .env.staging",
@@ -14,8 +15,8 @@
     "start:server": "bun run src/server.ts",
     "build": "bun build src/index.ts --outdir=./dist --target=bun --minify",
     "build:server": "bun build src/server.ts --target=bun --outdir=dist --minify",
-    "bun:test": "bun test",
-    "bun:test:concurrent": "bun test --max-concurrency=4",
+    "bun:test": "bun test --only-failures",
+    "bun:test:concurrent": "bun test --max-concurrency=4 --only-failures",
     "bun:test:randomize": "bun test --randomize",
     "bun:test:seed": "bun test --seed",
     "bun:test:types": "bun test test/bun/type-validation.test.ts",
