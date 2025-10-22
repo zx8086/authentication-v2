@@ -82,7 +82,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Use dumb-init for proper PID 1 signal handling (CRITICAL for SIGTERM/SIGINT in containers)
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["/usr/local/bin/bun", "src/server.ts"]
+CMD ["/usr/local/bin/bun", "src/index.ts"]
 
 # Build metadata from package.json
 ARG BUILD_DATE
