@@ -100,15 +100,6 @@ jobs:
         run: bun run bun:test:concurrent
         timeout-minutes: 3
 
-      - name: Pre-install system dependencies for Playwright
-        run: |
-          echo "Pre-installing common system dependencies..."
-          sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends \
-            libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
-            libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2 \
-            libxshmfence1 libgconf-2-4 libgtk-3-0 libxss1 libasound2
-        timeout-minutes: 1
-
       - name: Get Playwright version for caching
         id: playwright-version
         run: |
