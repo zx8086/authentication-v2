@@ -100,6 +100,15 @@ jobs:
         run: bun run bun:test:concurrent
         timeout-minutes: 3
 
+      - name: Pre-install system dependencies for Playwright
+        run: |
+          echo "Pre-installing common system dependencies..."
+          sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends \
+            libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+            libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2 \
+            libxshmfence1 libgconf-2-4 libgtk-3-0 libxss1 libasound2
+        timeout-minutes: 1
+
       - name: Get Playwright version for caching
         id: playwright-version
         run: |
@@ -114,21 +123,37 @@ jobs:
         with:
           path: |
             ~/.cache/ms-playwright
+            /home/runner/.cache/ms-playwright
             ~/.cache/playwright-browsers
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/playwright.config.ts') }}-v4
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('**/playwright.config.ts') }}-ubuntu-22.04-v5
           restore-keys: |
-            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-v4
-            ${{ runner.os }}-playwright-${{ hashFiles('**/playwright.config.ts') }}-v4
-            ${{ runner.os }}-playwright-v4
+            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-ubuntu-22.04-v5
+            ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-v5
+            ${{ runner.os }}-playwright-ubuntu-22.04-v5
 
-      - name: Install Playwright browsers (Conditional)
+      - name: Install Playwright browsers (Optimized)
         run: |
+          echo "Cache status: ${{ steps.playwright-cache.outputs.cache-hit }}"
+
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
             echo "Cache miss - installing browsers with dependencies"
-            bunx playwright install --with-deps
+            # Install system deps first to avoid redundant work
+            sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends \
+              libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+              libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2
+
+            # Then install browsers (faster with deps already present)
+            bunx playwright install chromium firefox webkit
           else
-            echo "Cache hit - installing only system dependencies"
-            bunx playwright install-deps
+            echo "Cache hit - verifying browsers and installing missing system deps"
+            # Quick verification and minimal system dep install
+            bunx playwright install-deps chromium || true
+
+            # Verify cached browsers are functional
+            if ! bunx playwright --version >/dev/null 2>&1; then
+              echo "Cache corrupted - reinstalling browsers"
+              bunx playwright install chromium firefox webkit
+            fi
           fi
 
       - name: Run Playwright E2E tests

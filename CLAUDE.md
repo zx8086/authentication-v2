@@ -234,6 +234,12 @@ bun run kill-server && bun run dev    # Clean restart
 - Let K6 performance tests run their full duration
 - Tests are designed to complete naturally
 
+### CI/CD Workflow Rules
+- **NEVER add timeouts to critical installation steps** (Playwright browsers, dependencies)
+- Failing workflows due to artificial timeouts is counterproductive
+- Let operations complete naturally - optimize the operation, not restrict the time
+- Only use timeouts for known quick operations (cache, checkout, etc.)
+
 ### CI/CD Architecture
 **Single Consolidated Workflow**: All quality checks, testing, building, and security scanning in one optimized pipeline:
 - **build-and-deploy.yml**: Comprehensive CI/CD with parallel security scans
