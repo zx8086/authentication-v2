@@ -131,7 +131,7 @@ jobs:
             # Install system deps first to avoid redundant work
             sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends \
               libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
-              libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2
+              libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2t64
 
             # Then install browsers (faster with deps already present)
             bunx playwright install chromium firefox webkit
