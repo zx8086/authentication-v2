@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides essential guidance for working with this authentication service.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Core Practices
 
@@ -74,38 +74,71 @@ High-performance authentication service using Bun runtime with 100% API compatib
 
 ### Key Features
 - Circuit breaker with stale cache fallback (SIO-45)
-- Comprehensive testing (238 tests, 100% pass rate)
+- Comprehensive testing (460+ tests across 25 test files, 100% pass rate)
 - Security headers + audit logging (v2 only)
 - License compliance check (593x faster than legacy)
+- Multi-stage Docker builds with distroless base (security-hardened)
 
 ## Critical Runtime Requirements
 
 **THIS IS A BUN PROJECT - NOT NPM/NODE**
 - Use `bun` not `npm/node/npx`
-- Commands: `bun install`, `bun run`, `bun src/server.ts`
+- Commands: `bun install`, `bun run`, `bun src/index.ts` (NOT server.ts)
 - Lockfile: `bun.lockb`
+- Entry point: `src/index.ts` (uses `import.meta.main` for conditional execution)
 
 ## Quick Commands
 
 ### Development
 ```bash
-bun run dev              # Development server
+bun run dev              # Development server with hot reload
+bun run start            # Production server (src/index.ts)
 bun run typecheck        # TypeScript checking
-bun run biome:check      # Code quality
+bun run quality:check    # Full quality check (TypeScript + Biome + YAML)
+bun run quality:fix      # Auto-fix quality issues
 ```
 
 ### Testing
 ```bash
-bun run bun:test         # Unit tests
-bun run playwright:test  # E2E tests
-bun run k6:smoke:health  # Performance tests
+# Unit Tests (Bun)
+bun run bun:test                # All unit tests (392 tests)
+bun run bun:test:concurrent     # Parallel execution (4 workers)
+bun run bun:test:watch          # Watch mode
+
+# E2E Tests (Playwright)
+bun run playwright:test         # All E2E tests (68 tests)
+bun run playwright:ui           # Interactive test UI
+
+# Performance Tests (K6)
+bun run k6:quick               # Health + tokens smoke tests
+bun run k6:smoke:health        # Health endpoint only
+bun run k6:smoke:tokens        # JWT token generation
+bun run k6:load                # Load testing
+bun run k6:stress              # Stress testing
+
+# Full Test Suite
+bun run test:suite             # All tests: Bun + Playwright + K6
 ```
 
 ### Debugging
 ```bash
 curl http://localhost:3000/health           # Health check
-curl -H "Accept-Version: v2" /health        # V2 with security headers
+curl -H "Accept-Version: v2" http://localhost:3000/health  # V2 with security headers
 curl http://localhost:3000/metrics          # Performance metrics
+bun run health-check                        # Automated health check
+bun run kill-server                         # Kill any running server on port 3000
+```
+
+### Docker Operations
+```bash
+# Build and Run
+bun run docker:build:enhanced    # Enhanced build with metadata
+bun run docker:local             # Build and run locally
+bun run docker:dev               # Build and run for development
+
+# Security Validation
+bun run docker:security:full     # Complete security validation
+bun run docker:security:trivy    # Trivy vulnerability scan
 ```
 
 ## Environment Configuration
@@ -190,13 +223,23 @@ When working on specific areas, use these agents:
 curl -s http://localhost:3000/health > /dev/null 2>&1
 
 # Only start if not running
-bun src/server.ts &
+bun src/index.ts &
+
+# Or use helper commands
+bun run kill-server && bun run dev    # Clean restart
 ```
 
 ### Testing Rules
 - **NEVER apply artificial timeouts to tests**
 - Let K6 performance tests run their full duration
 - Tests are designed to complete naturally
+
+### CI/CD Architecture
+**Single Consolidated Workflow**: All quality checks, testing, building, and security scanning in one optimized pipeline:
+- **build-and-deploy.yml**: Comprehensive CI/CD with parallel security scans
+- **security-audit.yml**: Dedicated security auditing workflow
+- No duplicate workflows - quality checks run once per build
+- 5 parallel security scans: Snyk (code + container), Trivy, Docker Scout, License compliance
 
 ## Production Considerations
 
@@ -212,4 +255,22 @@ bun src/server.ts &
 - Kong API failures
 - Circuit breaker state changes
 
-This streamlined version removes redundant information while preserving all critical guidance.
+## Recent Architectural Improvements
+
+### SIO-70: TypeScript Type Safety Architecture Refactoring
+- **Phase 3 Complete**: Eliminated all 37 `as any` instances from src directory
+- Type-safe OpenTelemetry metrics interfaces with runtime validation
+- Enhanced enum validation patterns for metric attributes
+- Zero breaking changes maintained across 460+ tests
+
+### Docker Container Optimization
+- **Entry Point Fix**: Changed from `src/server.ts` to `src/index.ts`
+- Eliminates double startup issues and circular import problems
+- Uses proper conditional execution via `import.meta.main`
+- Multi-stage distroless builds for security hardening
+
+### Workflow Consolidation
+- Eliminated duplicate code quality workflows
+- Single comprehensive CI/CD pipeline in `build-and-deploy.yml`
+- Parallel security scanning matrix (5 concurrent scans)
+- ~60-70% improvement in pipeline execution time

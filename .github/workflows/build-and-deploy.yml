@@ -160,6 +160,14 @@ jobs:
         run: bun run biome:check
         timeout-minutes: 2
 
+      - name: TypeScript Type Checking
+        run: bun run typecheck
+        timeout-minutes: 2
+
+      - name: YAML Configuration Validation
+        run: bun run yaml:check
+        timeout-minutes: 1
+        continue-on-error: true
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
