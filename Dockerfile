@@ -8,7 +8,7 @@ WORKDIR /app
 # Install minimal system dependencies and upgrade ALL vulnerable packages
 RUN apk update && \
     apk upgrade --no-cache && \
-    apk add --no-cache dumb-init=1.2.5-r3 ca-certificates=20240705-r0 && \
+    apk add --no-cache dumb-init ca-certificates && \
     rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
