@@ -3,10 +3,27 @@
 # Enable concurrent testing for performance
 maxConcurrency = 4
 
-# Automatically run these tests concurrently (they are stateless)
+# Test environment isolation
+env = "test"
+
+# Pure unit tests - safe for concurrent execution
 concurrentTestGlob = [
   "**/type-validation.test.ts",
-  "**/profiling.test.ts"
+  "**/profiling.test.ts",
+  "**/jwt.service.test.ts",
+  "**/local-memory-cache.test.ts",
+  "**/config.test.ts",
+  "**/config-helpers.test.ts",
+  "**/logger.test.ts",
+  "**/metrics.test.ts"
+]
+
+# Integration tests - require external dependencies (run serially)
+serialTestGlob = [
+  "**/server.test.ts",
+  "**/kong.service.test.ts",
+  "**/shared-redis-cache.test.ts",
+  "**/cache-health.service.test.ts"
 ]
 
 # Coverage configuration
@@ -18,6 +35,9 @@ coveragePathIgnorePatterns = [
   "*.test.ts",
   "*.spec.ts"
 ]
+
+# Test timeouts
+timeout = "30s"
 
 # Enable stricter mode for CI
 ci = true

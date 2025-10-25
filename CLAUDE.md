@@ -261,6 +261,17 @@ bun run kill-server && bun run dev    # Clean restart
 - Kong API failures
 - Circuit breaker state changes
 
+### Observability Cost Management
+**CONTEXT**: This service has telemetry collectors in place that manage data volume and costs at the infrastructure level.
+
+**Current Status**: OpenTelemetry sampling is NOT needed at the application level because:
+- Telemetry collectors handle intelligent sampling upstream
+- Infrastructure-level cost controls are already implemented
+- Application maintains full observability for debugging and business metrics
+- Cost optimization is managed by the collector pipeline, not application configuration
+
+**Guidance**: Do NOT implement application-level OpenTelemetry sampling unless specifically requested. The current comprehensive telemetry approach is intentional and cost-managed through collector infrastructure.
+
 ## Recent Architectural Improvements
 
 ### SIO-70: TypeScript Type Safety Architecture Refactoring

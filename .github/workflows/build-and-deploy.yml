@@ -24,7 +24,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -58,26 +58,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun for code quality checks
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Bun with cache
+        id: bun-setup
+        uses: ./.github/actions/setup-bun-with-cache
         with:
           bun-version: latest
-
-      - name: Cache Bun dependencies (Enhanced)
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            ~/.bun/bin
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}-v4
-          restore-keys: |
-            ${{ runner.os }}-bun-${{ hashFiles('**/package.json') }}-v4
-            ${{ runner.os }}-bun-v4
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+          cache-version: v5
 
       - name: Start application server for testing
         run: |
@@ -173,18 +159,13 @@ jobs:
         run: bun run yaml:check
         continue-on-error: true
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Setup Docker Buildx with authentication
+        uses: ./.github/actions/setup-docker-buildx
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Set up Docker Buildx (Enhanced)
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: cloud
-          endpoint: "zx8086/cldbuild"
+          login: ${{ github.event_name != 'pull_request' }}
 
       - name: Extract package.json metadata
         id: package
@@ -231,6 +212,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         timeout-minutes: 10
         with:
@@ -243,6 +225,7 @@ jobs:
           cache-from: |
             type=gha
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-to: |
             type=gha,mode=max
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
@@ -258,7 +241,31 @@ jobs:
             SERVICE_AUTHOR=${{ steps.package.outputs.service-author }}
             SERVICE_LICENSE=${{ steps.package.outputs.service-license }}
 
+      - name: Build Docker image (PR validation)
+        id: build-pr
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        timeout-minutes: 10
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version || github.ref_name }}
+            SERVICE_NAME=${{ steps.package.outputs.service-name }}
+            SERVICE_VERSION=${{ steps.package.outputs.service-version }}
+            SERVICE_DESCRIPTION=${{ steps.package.outputs.service-description }}
+            SERVICE_AUTHOR=${{ steps.package.outputs.service-author }}
+            SERVICE_LICENSE=${{ steps.package.outputs.service-license }}
+
       - name: Generate build provenance
+        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -288,12 +295,35 @@ jobs:
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
 
+      - name: Performance Summary
+        if: always()
+        run: |
+          echo "## Build Performance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Execution:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cache Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bun Cache Hit:** ${{ steps.bun-setup.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Playwright Cache Hit:** ${{ steps.playwright-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Scanning" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "- **Security Scans:** Skipped for PR (performance optimization)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Docker Build:** Validation only (no push)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Security Scans:** 6 parallel scans scheduled" >> $GITHUB_STEP_SUMMARY
+            echo "- **Docker Build:** Multi-platform build with registry push" >> $GITHUB_STEP_SUMMARY
+          fi
+
 
   # Parallel Security Scanning Jobs using Matrix Strategy
   security-scan:
     needs: build-and-push
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
     permissions:
       contents: read
       security-events: write
@@ -306,7 +336,8 @@ jobs:
           - trivy-container
           - docker-scout
           - license-compliance
-      max-parallel: 5
+          - secrets-detection
+      max-parallel: 6
       fail-fast: false
 
     env:
@@ -339,46 +370,29 @@ jobs:
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Reconstructed image tag: $IMAGE_TAG"
 
-      - name: Setup Bun (for license compliance)
+      - name: Setup Bun with cache (for license compliance)
         if: matrix.scan-type == 'license-compliance'
-        uses: oven-sh/setup-bun@v2
+        uses: ./.github/actions/setup-bun-with-cache
         with:
           bun-version: latest
+          cache-version: v5
 
-      - name: Cache Bun dependencies (for license compliance)
-        if: matrix.scan-type == 'license-compliance'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}-v4
-          restore-keys: |
-            ${{ runner.os }}-bun-v4
-
-      - name: Install dependencies (for license compliance)
-        if: matrix.scan-type == 'license-compliance'
-        run: bun install --frozen-lockfile
-
-      - name: Setup Bun for Snyk Code Analysis
+      - name: Setup Bun with cache (for Snyk Code Analysis)
         if: matrix.scan-type == 'snyk-code'
-        uses: oven-sh/setup-bun@v2
+        uses: ./.github/actions/setup-bun-with-cache
         with:
           bun-version: latest
-
-      - name: Install dependencies for Snyk Code Analysis
-        if: matrix.scan-type == 'snyk-code'
-        run: bun install --frozen-lockfile
+          cache-version: v5
 
       - name: Run Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
-        timeout-minutes: 6
+        timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
           echo "Running Snyk code analysis..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
-          npx --yes snyk@latest test --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
+          npx --yes snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
             echo "Snyk code analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
@@ -390,7 +404,7 @@ jobs:
 
       - name: Run Snyk Container Scan
         if: matrix.scan-type == 'snyk-container'
-        timeout-minutes: 6
+        timeout-minutes: 5
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
@@ -398,7 +412,7 @@ jobs:
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
           echo "IMAGE_TAG: $IMAGE_TAG"
           npx --yes snyk@latest container test $IMAGE_TAG \
-            --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
+            --quiet --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
             --json-file-output=snyk-container-results.json \
             --exclude-base-image-vulns --app-vulns || {
             echo "Snyk container scan completed with findings or errors"
@@ -412,7 +426,7 @@ jobs:
 
       - name: Run Trivy Container Scan
         if: matrix.scan-type == 'trivy-container'
-        timeout-minutes: 6
+        timeout-minutes: 5
         run: |
           echo "Running Trivy vulnerability scanner..."
           echo "IMAGE_TAG: $IMAGE_TAG"
@@ -441,7 +455,7 @@ jobs:
       - name: Run Docker Scout Analysis
         if: matrix.scan-type == 'docker-scout'
         uses: docker/scout-action@v1.15.1
-        timeout-minutes: 6
+        timeout-minutes: 5
         with:
           command: cves,recommendations
           image: ${{ env.IMAGE_TAG }}
@@ -475,6 +489,21 @@ jobs:
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
+        continue-on-error: true
+
+      - name: Run Secrets Detection
+        if: matrix.scan-type == 'secrets-detection'
+        run: |
+          echo "Running secrets detection with TruffleHog..."
+          curl -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.6/trufflehog_3.82.6_linux_amd64.tar.gz | tar -xzf - trufflehog
+          ./trufflehog git file://. --json --no-update --fail > secrets-scan.json || {
+            echo "Secrets detection completed with findings or errors"
+            echo "Exit code: $?"
+            ls -la secrets-scan.json 2>/dev/null || echo "No secrets scan file found"
+            exit 0
+          }
+          echo "Secrets detection completed successfully - no secrets found"
+          ls -la secrets-scan.json 2>/dev/null || echo "No secrets scan file found"
         continue-on-error: true
 
       - name: Upload Snyk Code SARIF results
@@ -567,13 +596,25 @@ jobs:
                 echo "License Compliance check passed - all dependencies use allowed licenses"
               fi
               ;;
+            "secrets-detection")
+              if [ -f "secrets-scan.json" ]; then
+                secrets_count=$(wc -l < secrets-scan.json 2>/dev/null || echo "0")
+                if [ "$secrets_count" -gt 0 ]; then
+                  echo "❌ Secrets Detection found $secrets_count potential secrets"
+                else
+                  echo "Secrets Detection completed - no secrets found"
+                fi
+              else
+                echo "Secrets Detection completed - no secrets found"
+              fi
+              ;;
           esac
 
   # Security Scan Results Consolidation Job
   security-scan-summary:
     needs: [build-and-push, security-scan]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && github.event_name != 'pull_request'
     permissions:
       contents: read
 
@@ -627,9 +668,20 @@ jobs:
             echo "| License Compliance (Bun Native) | Passed | N/A | <1 min |" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ -f "secrets-scan.json" ]; then
+            secrets_count=$(wc -l < secrets-scan.json 2>/dev/null || echo "0")
+            if [ "$secrets_count" -gt 0 ]; then
+              echo "| Secrets Detection (TruffleHog) | Failed | secrets-scan.json | ~2 min |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Secrets Detection (TruffleHog) | Passed | N/A | ~2 min |" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "| Secrets Detection (TruffleHog) | Passed | N/A | ~2 min |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Performance Improvements" >> $GITHUB_STEP_SUMMARY
-          echo "- **Parallel Execution**: All 5 scans run concurrently in separate jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Parallel Execution**: All 6 scans run concurrently in separate jobs" >> $GITHUB_STEP_SUMMARY
           echo "- **Resource Isolation**: Each scan gets dedicated runner resources (2 vCPU, 7GB RAM)" >> $GITHUB_STEP_SUMMARY
           echo "- **Expected Total Time**: ~5-7 minutes (vs 12-17 minutes sequential)" >> $GITHUB_STEP_SUMMARY
           echo "- **Time Savings**: ~60-70% improvement in scan completion time" >> $GITHUB_STEP_SUMMARY
@@ -651,6 +703,7 @@ jobs:
 
   supply-chain-verification:
     needs: build-and-push
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

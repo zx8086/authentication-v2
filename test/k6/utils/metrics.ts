@@ -34,6 +34,18 @@ export const businessMetrics = {
   averageTokenLifetime: new Trend("average_token_lifetime"),
   peakConcurrentRequests: new Gauge("peak_concurrent_requests"),
 
+  // High-throughput specific metrics
+  requestsPerSecond: new Trend("requests_per_second"),
+  tokensPerSecondActual: new Trend("tokens_per_second_actual"),
+  circuitBreakerActivations: new Counter("circuit_breaker_activations"),
+  staleCacheHits: new Counter("stale_cache_hits"),
+  highThroughputViolations: new Counter("high_throughput_violations"),
+
+  // Capacity planning metrics
+  cpuUtilizationUnderLoad: new Trend("cpu_utilization_under_load"),
+  memoryUtilizationUnderLoad: new Trend("memory_utilization_under_load"),
+  connectionPoolUtilization: new Trend("connection_pool_utilization"),
+
   // Error tracking
   unauthorizedRequests: new Counter("unauthorized_requests"),
   invalidConsumerRequests: new Counter("invalid_consumer_requests"),
@@ -169,11 +181,41 @@ export const recordPerformanceBudgetViolation = (
 
 export const getPerformanceBudget = (operation: string): number => {
   const budgets: { [key: string]: number } = {
-    token_generation: 200, // 200ms budget for token generation (no app cache)
-    health_check: 30, // 30ms budget for health checks
-    metrics_endpoint: 20, // 20ms budget for metrics
-    openapi_spec: 10, // 10ms budget for OpenAPI spec
+    token_generation: 10,     // 10ms budget for token generation (100k+ req/sec target)
+    token_generation_p99: 25, // 25ms P99 budget
+    health_check: 20,         // 20ms budget for health checks
+    health_check_p99: 30,     // 30ms P99 budget
+    metrics_endpoint: 15,     // 15ms budget for metrics
+    openapi_spec: 10,         // 10ms budget for OpenAPI spec
+    jwt_signing: 3,           // 3ms budget for JWT signing
+    circuit_breaker_response: 50, // 50ms budget for circuit breaker responses
+    cache_lookup: 2,          // 2ms budget for cache operations
   };
 
-  return budgets[operation] || 100; // Default 100ms budget
+  return budgets[operation] || 50; // Default 50ms budget for high-performance target
+};
+
+// Additional performance monitoring functions
+export const recordHighThroughputMetrics = (requestsPerSecond: number, avgResponseTime: number) => {
+  const tags = {
+    throughput_tier: requestsPerSecond > 50000 ? "ultra_high" :
+                    requestsPerSecond > 10000 ? "high" :
+                    requestsPerSecond > 1000 ? "medium" : "low",
+    performance_tier: avgResponseTime < 10 ? "excellent" :
+                     avgResponseTime < 50 ? "good" :
+                     avgResponseTime < 100 ? "acceptable" : "degraded"
+  };
+
+  businessMetrics.peakConcurrentRequests.add(requestsPerSecond, tags);
+};
+
+export const recordCircuitBreakerMetrics = (state: "open" | "closed" | "half-open", responseTime: number) => {
+  const tags = {
+    circuit_breaker_state: state,
+    response_category: responseTime < 50 ? "fast" : responseTime < 200 ? "normal" : "slow"
+  };
+
+  if (state === "open") {
+    businessMetrics.rateLimitExceeded.add(1, tags);
+  }
 };

@@ -92,14 +92,16 @@ export const getHeaders = (
 };
 
 export const getPerformanceThresholds = () => {
-  const healthP95 = Number.parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || "300", 10);
-  const healthP99 = Number.parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || "600", 10);
-  const tokensP95 = Number.parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || "50", 10);
-  const tokensP99 = Number.parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || "100", 10);
-  const metricsP95 = Number.parseInt(__ENV.K6_METRICS_P95_THRESHOLD || "30", 10);
-  const metricsP99 = Number.parseInt(__ENV.K6_METRICS_P99_THRESHOLD || "50", 10);
-  const errorRate = Number.parseFloat(__ENV.K6_ERROR_RATE_THRESHOLD || "0.01");
-  const stressErrorRate = Number.parseFloat(__ENV.K6_STRESS_ERROR_RATE_THRESHOLD || "0.05");
+  // Production-grade thresholds aligned with 100k+ req/sec target
+  const healthP95 = Number.parseInt(__ENV.K6_HEALTH_P95_THRESHOLD || "30", 10);
+  const healthP99 = Number.parseInt(__ENV.K6_HEALTH_P99_THRESHOLD || "50", 10);
+  const tokensP95 = Number.parseInt(__ENV.K6_TOKENS_P95_THRESHOLD || "10", 10);  // Sub-10ms target
+  const tokensP99 = Number.parseInt(__ENV.K6_TOKENS_P99_THRESHOLD || "50", 10);
+  const metricsP95 = Number.parseInt(__ENV.K6_METRICS_P95_THRESHOLD || "20", 10);
+  const metricsP99 = Number.parseInt(__ENV.K6_METRICS_P99_THRESHOLD || "30", 10);
+  const errorRate = Number.parseFloat(__ENV.K6_ERROR_RATE_THRESHOLD || "0.005");  // 99.5% success
+  const stressErrorRate = Number.parseFloat(__ENV.K6_STRESS_ERROR_RATE_THRESHOLD || "0.02");  // 98% under stress
+  const throughputMinimum = Number.parseInt(__ENV.K6_THROUGHPUT_MINIMUM || "1000", 10);  // 1k req/sec minimum
 
   // Check if thresholds should be non-blocking (continue execution even if violated)
   const nonBlocking = __ENV.K6_THRESHOLDS_NON_BLOCKING === "true";
@@ -128,31 +130,35 @@ export const getPerformanceThresholds = () => {
   return {
     health: {
       smoke: {
-        http_req_duration: [`p(95)<${healthP95}`, `p(99)<${healthP99}`],
-        http_req_failed: [`rate<${errorRate}`],
+        'http_req_duration{endpoint:health}': [`p(95)<${healthP95}`, `p(99)<${healthP99}`, `avg<15`],
+        'http_req_failed{endpoint:health}': [`rate<${errorRate}`],
       },
       load: {
-        http_req_duration: [`p(95)<${healthP95 * 2}`, `p(99)<${healthP99 * 2}`],
-        http_req_failed: [`rate<${errorRate}`],
+        'http_req_duration{endpoint:health}': [`p(95)<${healthP95}`, `p(99)<${healthP99}`, `avg<20`],
+        'http_req_failed{endpoint:health}': [`rate<${errorRate}`],
+        'http_reqs{endpoint:health}': [`rate>${throughputMinimum / 10}`], // 10% of total throughput
       },
       stress: {
-        http_req_duration: [`p(95)<${healthP95 * 4}`, `p(99)<${healthP99 * 5}`],
-        http_req_failed: [`rate<${stressErrorRate}`],
+        'http_req_duration{endpoint:health}': [`p(95)<${healthP95 * 3}`, `p(99)<${healthP99 * 4}`],
+        'http_req_failed{endpoint:health}': [`rate<${stressErrorRate}`],
       },
     },
     tokens: {
       smoke: {
-        http_req_duration: [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
-        "http_req_failed{expected_response:true}": [`rate<${errorRate}`],
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`, `avg<5`],
+        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
+        'jwt_signing_time': [`p(95)<5`, `p(99)<10`], // Sub-10ms JWT signing
       },
       load: {
-        http_req_duration: [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`],
-        http_req_failed: [`rate<${errorRate}`],
-        http_reqs: ["rate>10"], // Minimum 10 requests per second
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95}`, `p(99)<${tokensP99}`, `avg<8`],
+        'http_req_failed{endpoint:tokens}': [`rate<${errorRate}`],
+        'http_reqs{endpoint:tokens}': [`rate>${throughputMinimum}`], // 1k+ tokens/sec
+        'token_generation_rate': [`rate>0.95`], // 95% success rate
       },
       stress: {
-        http_req_duration: [`p(95)<${tokensP95 * 2}`, `p(99)<${tokensP99 * 2}`],
-        http_req_failed: [`rate<${stressErrorRate}`],
+        'http_req_duration{endpoint:tokens}': [`p(95)<${tokensP95 * 3}`, `p(99)<${tokensP99 * 3}`],
+        'http_req_failed{endpoint:tokens}': [`rate<${stressErrorRate}`],
+        'http_reqs{endpoint:tokens}': [`rate>${throughputMinimum / 2}`], // 500+ tokens/sec under stress
       },
     },
     metrics: {

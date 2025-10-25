@@ -1,0 +1,52 @@
+name: 'Setup Bun with Cache'
+description: 'Setup Bun runtime with optimized dependency caching'
+inputs:
+  bun-version:
+    description: 'Bun version to install'
+    required: false
+    default: 'latest'
+  cache-version:
+    description: 'Cache version for cache invalidation'
+    required: false
+    default: 'v5'
+  install-deps:
+    description: 'Whether to install dependencies'
+    required: false
+    default: 'true'
+
+outputs:
+  cache-hit:
+    description: 'Whether cache was hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Cache Bun dependencies
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.bun/install/cache
+          node_modules
+        key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}-${{ hashFiles('**/package.json') }}-${{ inputs.cache-version }}
+        restore-keys: |
+          ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}-${{ inputs.cache-version }}
+          ${{ runner.os }}-bun-${{ inputs.cache-version }}
+
+    - name: Install dependencies
+      if: inputs.install-deps == 'true'
+      shell: bash
+      run: bun install --frozen-lockfile
+
+    - name: Display cache status
+      shell: bash
+      run: |
+        echo "Cache hit: ${{ steps.cache.outputs.cache-hit }}"
+        echo "Bun version: $(bun --version)"
+        echo "Node modules size: $(du -sh node_modules 2>/dev/null || echo 'N/A')"

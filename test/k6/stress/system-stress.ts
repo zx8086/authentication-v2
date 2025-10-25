@@ -21,19 +21,40 @@ export function setup() {
 
 export const options = {
   scenarios: {
-    stress_test: {
+    // Breaking point analysis with extreme load
+    breaking_point_vus: {
       executor: "ramping-vus",
       stages: [
-        { duration: "1m", target: 50 }, // Ramp up to 50 VUs
-        { duration: "2m", target: 100 }, // Push to 100 VUs (beyond normal capacity)
-        { duration: "2m", target: 100 }, // Sustain stress load
-        { duration: "1m", target: 0 }, // Ramp down
+        { duration: "2m", target: 200 },   // Baseline stress
+        { duration: "3m", target: 500 },   // High stress
+        { duration: "3m", target: 1000 },  // Extreme stress
+        { duration: "2m", target: 1500 },  // Breaking point
+        { duration: "3m", target: 0 },     // Recovery analysis
+      ],
+    },
+    // Arrival-rate stress testing for throughput limits
+    throughput_stress: {
+      executor: "ramping-arrival-rate",
+      startRate: 1000,
+      timeUnit: "1s",
+      preAllocatedVUs: 200,
+      maxVUs: 2000,
+      stages: [
+        { target: 5000, duration: "2m" },   // 5k req/sec
+        { target: 10000, duration: "2m" },  // 10k req/sec
+        { target: 20000, duration: "2m" },  // 20k req/sec
+        { target: 50000, duration: "1m" },  // 50k req/sec burst
+        { target: 100000, duration: "30s" }, // 100k req/sec target
+        { target: 0, duration: "2m" },      // Recovery
       ],
     },
   },
   thresholds: {
-    http_req_duration: ["p(95)<500"], // Relaxed threshold for stress
-    http_req_failed: ["rate<0.1"], // Higher error tolerance
+    // Stress testing with degraded performance acceptance
+    'http_req_duration{endpoint:tokens}': ["p(95)<200", "p(99)<500"],  // Degraded but functional
+    'http_req_duration{endpoint:health}': ["p(95)<100", "p(99)<200"],  // Health still responsive
+    'http_req_failed': ["rate<0.1"],                                   // 90% success under stress
+    'throughput_stress_http_reqs': ["rate>5000"],                     // Minimum 5k req/sec sustained
   },
 };
 

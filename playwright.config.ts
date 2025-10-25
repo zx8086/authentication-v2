@@ -27,12 +27,19 @@ export default defineConfig({
       Accept: "application/json",
       "User-Agent": "Playwright-AuthService-E2E/1.0",
     },
-    trace: "on-first-retry",
+    trace: process.env.E2E_TRACE || "on-first-retry",
+    video: process.env.E2E_VIDEO || "retain-on-failure",
+    screenshot: process.env.E2E_SCREENSHOT || "only-on-failure",
+    viewport: {
+      width: Number.parseInt(process.env.E2E_VIEWPORT_WIDTH || "1280", 10),
+      height: Number.parseInt(process.env.E2E_VIEWPORT_HEIGHT || "720", 10),
+    },
   },
 
   projects: [
+    // Cross-browser testing for authentication flows
     {
-      name: "consolidated-business",
+      name: "chromium",
       testMatch: /consolidated-business\.e2e\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
@@ -40,14 +47,49 @@ export default defineConfig({
       },
     },
     {
+      name: "firefox",
+      testMatch: /consolidated-business\.e2e\.ts$/,
+      use: {
+        ...devices["Desktop Firefox"],
+        ignoreHTTPSErrors: true,
+      },
+    },
+    {
+      name: "webkit",
+      testMatch: /consolidated-business\.e2e\.ts$/,
+      use: {
+        ...devices["Desktop Safari"],
+        ignoreHTTPSErrors: true,
+      },
+    },
+    // Mobile testing for authentication
+    {
+      name: "mobile-chrome",
+      testMatch: /consolidated-business\.e2e\.ts$/,
+      use: {
+        ...devices["Pixel 5"],
+        ignoreHTTPSErrors: true,
+      },
+    },
+    {
+      name: "mobile-safari",
+      testMatch: /consolidated-business\.e2e\.ts$/,
+      use: {
+        ...devices["iPhone 12"],
+        ignoreHTTPSErrors: true,
+      },
+    },
+    // Profiling tests (Chrome only for performance consistency)
+    {
       name: "profiling",
       testMatch: /profiling\.e2e\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
         ignoreHTTPSErrors: true,
-        timeout: 60000, // Profiling tests may need more time
+        timeout: 60000,
       },
     },
+    // Legacy project for backward compatibility
     {
       name: "all-tests",
       testMatch: /.*\.e2e\.ts$/,

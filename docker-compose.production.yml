@@ -37,16 +37,16 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    # Resource limits for high-performance authentication service
+    # Resource limits optimized for 100k+ req/sec capability
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.50'
-          pids: 100
+          memory: 512M
+          cpus: '1.0'
+          pids: 200
         reservations:
-          memory: 128M
-          cpus: '0.25'
+          memory: 256M
+          cpus: '0.5'
       restart_policy:
         condition: unless-stopped
         delay: 5s
@@ -112,9 +112,10 @@ services:
     networks:
       - auth-network
 
-    # Temporary filesystem for writable operations (distroless requirement)
+    # Temporary filesystem optimized for high-throughput operations
     tmpfs:
-      - /tmp:noexec,nosuid,nodev,size=50m,mode=1777
+      - /tmp:noexec,nosuid,nodev,size=100m,mode=1777
+      - /var/tmp:noexec,nosuid,nodev,size=50m,mode=1777
 
     # Container lifecycle
     restart: unless-stopped
