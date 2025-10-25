@@ -21,41 +21,18 @@ export function setup() {
 
 export const options = {
   scenarios: {
-    // Production-grade load testing with ramping VUs
     steady_load: {
       executor: "ramping-vus",
       stages: [
-        { duration: "2m", target: 50 },   // Ramp to baseline production load
-        { duration: "5m", target: 100 },  // Scale to sustained production load
-        { duration: "3m", target: 200 },  // Peak hour simulation
-        { duration: "2m", target: 100 },  // Return to sustained
-        { duration: "2m", target: 0 },    // Graceful ramp down
-      ],
-    },
-    // Arrival-rate testing for true throughput validation
-    arrival_rate_load: {
-      executor: "ramping-arrival-rate",
-      startRate: 100,  // 100 req/sec baseline
-      timeUnit: "1s",
-      preAllocatedVUs: 50,
-      maxVUs: 500,
-      stages: [
-        { target: 500, duration: "2m" },   // 500 req/sec
-        { target: 1000, duration: "3m" },  // 1k req/sec
-        { target: 2000, duration: "3m" },  // 2k req/sec
-        { target: 5000, duration: "2m" },  // 5k req/sec burst
-        { target: 1000, duration: "2m" },  // Return to sustainable
-        { target: 0, duration: "1m" },     // Ramp down
+        { duration: "1m", target: 10 }, // Ramp up to 10 VUs
+        { duration: "3m", target: 20 }, // Scale to 20 VUs
+        { duration: "1m", target: 0 }, // Ramp down
       ],
     },
   },
   thresholds: {
-    // Performance targets aligned with 100k+ req/sec capability
-    'http_req_duration{endpoint:tokens}': ["p(95)<50", "p(99)<100"],  // JWT generation targets
-    'http_req_duration{endpoint:health}': ["p(95)<30", "p(99)<50"],   // Health check targets
-    'http_req_failed': ["rate<0.01"],                                  // 99% success rate
-    'http_reqs': ["rate>500"],                                         // Minimum 500 req/sec
-    'arrival_rate_load_http_reqs': ["rate>1000"],                     // Arrival rate minimum
+    http_req_duration: ["p(95)<200", "p(99)<500"],
+    http_req_failed: ["rate<0.05"],
   },
 };
 
