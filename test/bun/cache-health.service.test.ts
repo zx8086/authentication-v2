@@ -1,9 +1,9 @@
-/* test/unit/services/cache-health.service.test.ts */
+/* test/bun/cache-health.service.test.ts */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { resetConfigCache } from "../../../src/config/config";
-import { CacheFactory } from "../../../src/services/cache/cache-factory";
-import { CacheHealthService } from "../../../src/services/cache-health.service";
+import { resetConfigCache } from "../../src/config/config";
+import { CacheFactory } from "../../src/services/cache/cache-factory";
+import { CacheHealthService } from "../../src/services/cache-health.service";
 
 describe("CacheHealthService", () => {
   let cacheHealthService: CacheHealthService;

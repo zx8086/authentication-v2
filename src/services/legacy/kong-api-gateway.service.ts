@@ -85,13 +85,18 @@ export class KongApiGatewayService implements IKongService {
       async () => {
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "User-Agent": "Authentication-Service/1.0",
+        };
+
+        if (this.adminToken) {
+          headers["Kong-Admin-Token"] = this.adminToken;
+        }
+
         const response = await fetch(url, {
           method: "GET",
-          headers: {
-            "Kong-Admin-Token": this.adminToken,
-            "Content-Type": "application/json",
-            "User-Agent": "Authentication-Service/1.0",
-          },
+          headers,
           signal: AbortSignal.timeout(5000),
         });
 
@@ -143,13 +148,18 @@ export class KongApiGatewayService implements IKongService {
 
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "User-Agent": "Authentication-Service/1.0",
+        };
+
+        if (this.adminToken) {
+          headers["Kong-Admin-Token"] = this.adminToken;
+        }
+
         const response = await fetch(url, {
           method: "POST",
-          headers: {
-            "Kong-Admin-Token": this.adminToken,
-            "Content-Type": "application/json",
-            "User-Agent": "Authentication-Service/1.0",
-          },
+          headers,
           body: JSON.stringify({
             key: key,
             secret: secret,
@@ -216,12 +226,17 @@ export class KongApiGatewayService implements IKongService {
       const result = await this.circuitBreaker.wrapKongOperation<KongHealthCheckResult>(
         "healthCheck",
         async () => {
+          const headers: Record<string, string> = {
+            "User-Agent": "Authentication-Service/1.0",
+          };
+
+          if (this.adminToken) {
+            headers["Kong-Admin-Token"] = this.adminToken;
+          }
+
           const response = await fetch(`${this.baseUrl}/status`, {
             method: "GET",
-            headers: {
-              "Kong-Admin-Token": this.adminToken,
-              "User-Agent": "Authentication-Service/1.0",
-            },
+            headers,
             signal: AbortSignal.timeout(5000),
           });
 

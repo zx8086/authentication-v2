@@ -1,117 +1,39 @@
 /* test/k6/utils/setup.js */
 
 // K6-compatible test consumer setup utility
+// Uses shared test consumers that are already configured in Kong
+// No need for Kong admin API access - consumers are pre-configured
 
-import http from "k6/http";
 import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "./test-consumers.js";
 
 export class K6TestSetup {
   constructor() {
-    this.adminUrl = __ENV.KONG_ADMIN_URL;
-    this.adminToken = __ENV.KONG_ADMIN_TOKEN;
-
-    if (!this.adminUrl || !this.adminToken) {
-      throw new Error("KONG_ADMIN_URL and KONG_ADMIN_TOKEN environment variables must be set");
-    }
+    // K6 tests use the shared test consumers that are already set up in Kong
+    // Consumers: test-consumer-001, test-consumer-002, test-consumer-003, test-consumer-004, test-consumer-005
+    console.log("K6 using shared test consumers:", TEST_CONSUMERS.map(c => c.id).join(", "));
   }
 
-  checkConsumerExists(consumer) {
-    const response = http.get(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
-      headers: {
-        Authorization: `Bearer ${this.adminToken}`,
-        "User-Agent": "K6-Test-Setup/1.0",
-      },
-    });
-
-    return response.status === 200;
+  getTestConsumers() {
+    return TEST_CONSUMERS;
   }
 
-  createConsumer(consumer) {
-    if (this.checkConsumerExists(consumer)) {
-      console.log(`[K6 Setup] Consumer already exists: ${consumer.username}`);
-      return true;
-    }
-
-    console.log(`[K6 Setup] Creating consumer: ${consumer.id}`);
-
-    const response = http.post(
-      `${this.adminUrl}/core-entities/consumers`,
-      JSON.stringify({
-        username: consumer.username,
-        custom_id: consumer.custom_id || consumer.id,
-      }),
-      {
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "K6-Test-Setup/1.0",
-        },
-      }
-    );
-
-    if (response.status === 200 || response.status === 201) {
-      console.log(`[K6 Setup] Consumer created: ${consumer.username}`);
-      return true;
-    } else if (response.status === 409 || response.status === 400) {
-      console.log(`[K6 Setup] Consumer already exists: ${consumer.username}`);
-      return true;
-    } else {
-      console.error(
-        `[K6 Setup] Failed to create consumer ${consumer.username}: ${response.status} ${response.body}`
-      );
-      return false;
-    }
+  getAnonymousConsumer() {
+    return ANONYMOUS_CONSUMER;
   }
 
-  checkKongHealth() {
-    console.log("[K6 Setup] Checking Kong connectivity...");
-
-    const response = http.get(this.adminUrl, {
-      headers: {
-        Authorization: `Bearer ${this.adminToken}`,
-        "User-Agent": "K6-Test-Setup/1.0",
-      },
-      timeout: "5s",
-    });
-
-    if (response.status === 200) {
-      console.log("[K6 Setup] Kong is accessible");
-      return true;
-    } else {
-      console.error(`[K6 Setup] Kong health check failed: ${response.status}`);
-      return false;
-    }
-  }
-
-  setupConsumers() {
-    console.log("[K6 Setup] Setting up test consumers for performance tests");
-
-    if (!this.checkKongHealth()) {
-      return false;
-    }
-
-    const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
-    let allSuccessful = true;
-
-    for (const consumer of allConsumers) {
-      const success = this.createConsumer(consumer);
-      if (!success) {
-        allSuccessful = false;
-      }
-    }
-
-    if (allSuccessful) {
-      console.log("[K6 Setup] All test consumers ready for performance tests");
-    } else {
-      console.log("[K6 Setup] Some test consumers could not be created");
-    }
-
-    return allSuccessful;
+  getAllConsumers() {
+    return [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
   }
 }
 
 // Setup function that can be called from K6 tests
+// Returns the shared test consumers (no Kong API calls needed)
 export function setupTestConsumers() {
   const setup = new K6TestSetup();
-  return setup.setupConsumers();
+  console.log("[K6 Setup] Using pre-configured shared test consumers");
+  return {
+    success: true,
+    consumers: setup.getTestConsumers(),
+    anonymous: setup.getAnonymousConsumer()
+  };
 }

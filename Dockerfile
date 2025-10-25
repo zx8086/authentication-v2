@@ -8,7 +8,7 @@ WORKDIR /app
 # Install minimal system dependencies and upgrade ALL vulnerable packages
 RUN apk update && \
     apk upgrade --no-cache && \
-    apk add --no-cache dumb-init ca-certificates && \
+    apk add --no-cache dumb-init=1.2.5-r3 ca-certificates=20240705-r0 && \
     rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
@@ -61,7 +61,7 @@ WORKDIR /app
 COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
 
-# Copy application source and public assets
+# Copy application source and public assets in single operation
 COPY --from=builder --chown=65532:65532 /app/src ./src
 COPY --from=builder --chown=65532:65532 /app/public ./public
 

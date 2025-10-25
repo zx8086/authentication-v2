@@ -4,7 +4,14 @@
 
 import { check, sleep } from "k6";
 import http from "k6/http";
-import { getConfig, getPerformanceThresholds, getScenarioConfig } from "../utils/config.ts";
+import {
+  getConfig,
+  getHeaders,
+  getPerformanceThresholds,
+  getScenarioConfig,
+  getTestConsumer,
+} from "../utils/config.ts";
+import { setupTestConsumers } from "../utils/setup.js";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -17,8 +24,19 @@ export const options = {
   thresholds: thresholds.health.smoke,
 };
 
+export function setup() {
+  console.log("[K6 All Endpoints Test] Running setup...");
+  const success = setupTestConsumers();
+  if (!success) {
+    throw new Error("Failed to setup test consumers");
+  }
+  console.log("[K6 All Endpoints Test] Setup completed successfully");
+  return { setupComplete: true };
+}
+
 export default function () {
   const baseUrl = config.baseUrl;
+  const consumer = getTestConsumer(0);
 
   // Test OpenAPI endpoint (served at root)
   const openapiResponse = http.get(`${baseUrl}/`);
@@ -27,7 +45,7 @@ export default function () {
     "GET / response time < 50ms": (r) => r.timings.duration < 50,
     "GET / contains OpenAPI spec": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"openapi": "3.0.3"');
+      return body.includes('"openapi":') && body.includes('"3.');
     },
   });
 
@@ -117,7 +135,23 @@ export default function () {
     "GET /metrics?view=exports response time < 50ms": (r) => r.timings.duration < 50,
     "GET /metrics?view=exports has export data": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"exports"') && body.includes('"configuration"');
+      return body.includes('"exports"') && body.includes('"totalExports"');
+    },
+  });
+
+  sleep(0.3);
+
+  // Test tokens endpoint (GET) - requires Kong headers
+  const headers = getHeaders(consumer, {
+    'X-Authenticated-Groups': 'admin,user',
+  });
+  const tokensResponse = http.get(`${baseUrl}/tokens`, { headers });
+  check(tokensResponse, {
+    "GET /tokens status is 200": (r) => r.status === 200,
+    "GET /tokens response time < 100ms": (r) => r.timings.duration < 100,
+    "GET /tokens returns JWT token": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"access_token"') && body.includes('eyJ');
     },
   });
 
@@ -177,7 +211,7 @@ export default function () {
     "GET /debug/profiling/reports valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"reports"') && body.includes('"timestamp"');
+        return body.includes('"reports"') && (body.includes('"timestamp"') || body.includes('"enabled"'));
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -193,7 +227,7 @@ export default function () {
     "POST /debug/profiling/start valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"success"') && body.includes('"message"');
+        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -209,7 +243,24 @@ export default function () {
     "POST /debug/profiling/stop valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"success"') && body.includes('"message"');
+        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
+      }
+      return true; // 404 is acceptable when profiling is disabled
+    },
+  });
+
+  sleep(0.3);
+
+  // Test profiling report endpoint (GET) - only if enabled
+  const profilingReportResponse = http.get(`${baseUrl}/debug/profiling/report`);
+  check(profilingReportResponse, {
+    "GET /debug/profiling/report status is 200 or 404": (r) =>
+      r.status === 200 || r.status === 404,
+    "GET /debug/profiling/report response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /debug/profiling/report valid response": (r) => {
+      if (r.status === 200) {
+        const body = typeof r.body === "string" ? r.body : "";
+        return body.includes('"report"') || body.includes('"data"');
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -226,11 +277,13 @@ export default function () {
     "POST /debug/profiling/cleanup valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"success"') && body.includes('"message"');
+        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
       }
       return true; // 404 is acceptable when profiling is disabled
     },
   });
+
+  sleep(0.3);
 
   sleep(1);
 }

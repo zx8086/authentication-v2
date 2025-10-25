@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "bun:test";
 import type { IKongService } from "../../src/config";
-import { APIGatewayService } from "../../src/services/api-gateway.service";
+import { KongApiGatewayService } from "../../src/services/legacy/kong-api-gateway.service";
+import { KongKonnectService } from "../../src/services/legacy/kong-konnect.service";
 import { KongServiceFactory } from "../../src/services/kong.factory";
 
 describe("KongServiceFactory", () => {
@@ -12,11 +13,11 @@ describe("KongServiceFactory", () => {
     "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
 
   describe("create", () => {
-    it("should create APIGatewayService for API_GATEWAY mode", () => {
+    it("should create KongApiGatewayService for API_GATEWAY mode", () => {
       const service = KongServiceFactory.create("API_GATEWAY", testAdminUrl, testAdminToken);
 
-      // Should return unified APIGatewayService regardless of mode
-      expect(service).toBeInstanceOf(APIGatewayService);
+      // Should return mode-specific service
+      expect(service).toBeInstanceOf(KongApiGatewayService);
 
       // Should implement IKongService interface
       expect(service).toHaveProperty("getConsumerSecret");
@@ -27,11 +28,11 @@ describe("KongServiceFactory", () => {
       expect(service).toHaveProperty("getCircuitBreakerStats");
     });
 
-    it("should create APIGatewayService for KONNECT mode", () => {
+    it("should create KongKonnectService for KONNECT mode", () => {
       const service = KongServiceFactory.create("KONNECT", testKonnectUrl, testAdminToken);
 
-      // Should return unified APIGatewayService regardless of mode
-      expect(service).toBeInstanceOf(APIGatewayService);
+      // Should return mode-specific service
+      expect(service).toBeInstanceOf(KongKonnectService);
 
       // Should implement IKongService interface
       expect(service).toHaveProperty("getConsumerSecret");
@@ -81,7 +82,7 @@ describe("KongServiceFactory", () => {
       }).toThrow("Unsupported Kong mode: INVALID_MODE");
     });
 
-    it("should create different adapter strategies for different modes", () => {
+    it("should create different service implementations for different modes", () => {
       const apiGatewayService = KongServiceFactory.create(
         "API_GATEWAY",
         testAdminUrl,
@@ -89,9 +90,9 @@ describe("KongServiceFactory", () => {
       );
       const konnectService = KongServiceFactory.create("KONNECT", testKonnectUrl, testAdminToken);
 
-      // Both should be APIGatewayService instances but with different internal adapters
-      expect(apiGatewayService).toBeInstanceOf(APIGatewayService);
-      expect(konnectService).toBeInstanceOf(APIGatewayService);
+      // Should create appropriate service for each mode
+      expect(apiGatewayService).toBeInstanceOf(KongApiGatewayService);
+      expect(konnectService).toBeInstanceOf(KongKonnectService);
 
       // Both should satisfy IKongService interface
       const checkInterface = (service: IKongService) => {

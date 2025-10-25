@@ -108,10 +108,10 @@ class OpenAPIGenerator {
         tags: ["Debug", "Metrics"],
       },
       {
-        path: "/debug/metrics/stats",
+        path: "/debug/profiling/report",
         method: "GET",
-        handler: "getExportStats",
-        tags: ["Debug", "Metrics"],
+        handler: "getProfilingReport",
+        tags: ["Debug", "Profiling"],
       },
       {
         path: "/debug/profiling/start",
@@ -142,6 +142,30 @@ class OpenAPIGenerator {
         method: "POST",
         handler: "cleanupProfiling",
         tags: ["Debug", "Profiling"],
+      },
+      {
+        path: "/memory/health",
+        method: "GET",
+        handler: "getMemoryHealth",
+        tags: ["Memory", "Health"],
+      },
+      {
+        path: "/memory/metrics",
+        method: "GET",
+        handler: "getMemoryMetrics",
+        tags: ["Memory", "Metrics"],
+      },
+      {
+        path: "/memory/baseline",
+        method: "GET",
+        handler: "getMemoryBaseline",
+        tags: ["Memory", "Baseline"],
+      },
+      {
+        path: "/memory/actions",
+        method: "POST",
+        handler: "executeMemoryActions",
+        tags: ["Memory", "Actions"],
       },
     ];
 
@@ -180,7 +204,14 @@ class OpenAPIGenerator {
       stopProfiling: "Stop active profiling session and generate reports",
       getProfilingStatus: "Get current profiling service status and active sessions",
       getProfilingReports: "List available profiling reports and analysis files",
+      getProfilingReport: "Get specific profiling report data and analysis",
       cleanupProfiling: "Clean up profiling artifacts and session data",
+      getMemoryHealth:
+        "Get enhanced memory health status with leak detection and reliability scoring",
+      getMemoryMetrics: "Get detailed memory metrics including JSC heap stats and trends",
+      getMemoryBaseline: "Get memory baseline establishment and reporting data",
+      executeMemoryActions:
+        "Execute memory management actions (garbage collection, queue clearing, reset)",
     };
 
     return descriptions[handlerName as keyof typeof descriptions] || `Handler: ${handlerName}`;

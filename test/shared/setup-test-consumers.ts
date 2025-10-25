@@ -36,15 +36,31 @@ class TestConsumerSetup {
 
   private async createConsumer(consumer: TestConsumer): Promise<boolean> {
     try {
+      // Check if consumer already exists first
+      const exists = await this.checkConsumerExists(consumer);
+      if (exists) {
+        console.log(`⚠️  Consumer already exists: ${consumer.username}`);
+        // Still need to ensure JWT credentials exist
+        return await this.ensureJWTCredentials(consumer);
+      }
+
       console.log(`Creating consumer: ${consumer.id} (${consumer.username})`);
 
-      const response = await fetch(`${this.adminUrl}/core-entities/consumers`, {
+      // Use appropriate endpoint for Kong mode
+      const isKonnect = this.config.kong.mode === "KONNECT";
+      const endpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers`
+        : `${this.adminUrl}/consumers`;
+
+      const headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "Test-Setup/1.0",
-        },
+        headers,
         body: JSON.stringify({
           username: consumer.username,
           custom_id: consumer.custom_id || consumer.id,
@@ -54,10 +70,12 @@ class TestConsumerSetup {
       if (response.ok) {
         const created = (await response.json()) as KongConsumer;
         console.log(`✅ Consumer created: ${created.username} (ID: ${created.id})`);
-        return true;
-      } else if (response.status === 409) {
+        // Create JWT credentials for the new consumer
+        return await this.ensureJWTCredentials(consumer);
+      } else if (response.status === 409 || response.status === 400) {
         console.log(`⚠️  Consumer already exists: ${consumer.username}`);
-        return true;
+        // Still need to ensure JWT credentials exist
+        return await this.ensureJWTCredentials(consumer);
       } else {
         const errorText = await response.text();
         console.error(
@@ -73,12 +91,20 @@ class TestConsumerSetup {
 
   private async checkConsumerExists(consumer: TestConsumer): Promise<boolean> {
     try {
-      const response = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
+      // Use appropriate endpoint for Kong mode
+      const isKonnect = this.config.kong.mode === "KONNECT";
+      const endpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers/${consumer.id}`
+        : `${this.adminUrl}/consumers/${consumer.id}`;
+
+      const headers = {
+        "User-Agent": "Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "User-Agent": "Test-Setup/1.0",
-        },
+        headers,
       });
 
       return response.ok;
@@ -87,16 +113,144 @@ class TestConsumerSetup {
     }
   }
 
+  private async ensureJWTCredentials(consumer: TestConsumer): Promise<boolean> {
+    try {
+      // Get consumer UUID first
+      const isKonnect = this.config.kong.mode === "KONNECT";
+      const endpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers/${consumer.id}`
+        : `${this.adminUrl}/consumers/${consumer.id}`;
+
+      const headers = {
+        "User-Agent": "Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const consumerResponse = await fetch(endpoint, {
+        method: "GET",
+        headers,
+      });
+
+      if (!consumerResponse.ok) {
+        console.error(`❌ Failed to get consumer UUID for ${consumer.username}`);
+        return false;
+      }
+
+      const consumerData = (await consumerResponse.json()) as KongConsumer;
+      const consumerUuid = consumerData.id;
+
+      // Force delete existing JWT credentials to ensure unique credentials for each consumer
+      const jwtEndpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`
+        : `${this.adminUrl}/consumers/${consumerUuid}/jwt`;
+
+      const jwtResponse = await fetch(jwtEndpoint, {
+        method: "GET",
+        headers,
+      });
+
+      if (jwtResponse.ok) {
+        const jwtData = await jwtResponse.json();
+        if (jwtData.data && jwtData.data.length > 0) {
+          // Delete existing JWT credentials to force unique credential creation
+          for (const credential of jwtData.data) {
+            console.log(
+              `🔑 Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
+            );
+
+            const deleteEndpoint = isKonnect
+              ? `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`
+              : `${this.adminUrl}/consumers/${consumerUuid}/jwt/${credential.id}`;
+
+            const deleteResponse = await fetch(deleteEndpoint, {
+              method: "DELETE",
+              headers,
+            });
+
+            if (!deleteResponse.ok) {
+              console.warn(
+                `⚠️  Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
+              );
+            } else {
+              console.log(
+                `✅ Deleted JWT credential ${credential.id} for ${consumer.username}`
+              );
+            }
+          }
+        }
+      }
+
+      // Create new JWT credentials with unique key and secret
+      console.log(
+        `🔑 Creating new unique JWT credentials for: ${consumer.username}`
+      );
+
+      const key = `test-key-${consumer.id}-${Date.now()}`;
+      const secret = this.generateSecureSecret();
+
+      const createEndpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`
+        : `${this.adminUrl}/consumers/${consumerUuid}/jwt`;
+
+      const createJwtResponse = await fetch(createEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Test-Setup/1.0",
+          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        },
+        body: JSON.stringify({
+          key: key,
+          secret: secret,
+        }),
+      });
+
+      if (createJwtResponse.ok) {
+        const createdCredential = await createJwtResponse.json();
+        console.log(
+          `✅ New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
+        );
+        return true;
+      } else {
+        const errorText = await createJwtResponse.text();
+        console.error(
+          `❌ Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error(
+        `❌ Error ensuring JWT credentials for ${consumer.username}:`,
+        error
+      );
+      return false;
+    }
+  }
+
+  private generateSecureSecret(): string {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
   private async deleteConsumer(consumer: TestConsumer): Promise<boolean> {
     try {
       console.log(`Deleting consumer: ${consumer.id}`);
 
-      const response = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
+      // Use appropriate endpoint for Kong mode
+      const isKonnect = this.config.kong.mode === "KONNECT";
+      const endpoint = isKonnect
+        ? `${this.adminUrl}/core-entities/consumers/${consumer.id}`
+        : `${this.adminUrl}/consumers/${consumer.id}`;
+
+      const headers = {
+        "User-Agent": "Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "User-Agent": "Test-Setup/1.0",
-        },
+        headers,
       });
 
       if (response.ok || response.status === 404) {
@@ -159,13 +313,6 @@ class TestConsumerSetup {
     const allConsumers = [...consumerSet.consumers, consumerSet.anonymous];
 
     for (const consumer of allConsumers) {
-      // Check if consumer already exists
-      const exists = await this.checkConsumerExists(consumer);
-      if (exists) {
-        console.log(`✅ Consumer already exists: ${consumer.username}`);
-        continue;
-      }
-
       const success = await this.createConsumer(consumer);
       if (!success) {
         allSuccessful = false;

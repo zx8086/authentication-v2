@@ -18,6 +18,7 @@ import { withRetry } from "../utils/retry";
 import type { IAPIGatewayAdapter, IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createKongModeStrategy } from "./kong-mode-strategies";
 import {
+  createKongApiError,
   createRequestTimeout,
   extractConsumerSecret,
   generateCacheKey,
@@ -25,7 +26,6 @@ import {
   generateSecureSecret,
   isConsumerNotFound,
   isSuccessResponse,
-  parseKongApiError,
 } from "./kong-utils";
 
 /**
@@ -111,8 +111,18 @@ export class KongAdapter implements IAPIGatewayAdapter {
           await this.strategy.ensurePrerequisites();
         }
 
+        // Resolve consumer ID if needed (UUID for Konnect)
+        let resolvedConsumerId = consumerId;
+        if (this.strategy.resolveConsumerId) {
+          const resolved = await this.strategy.resolveConsumerId(consumerId);
+          if (!resolved) {
+            return null; // Consumer doesn't exist
+          }
+          resolvedConsumerId = resolved;
+        }
+
         // Build consumer URL using strategy
-        const url = await this.strategy.buildConsumerUrl(this.adminUrl, consumerId);
+        const url = await this.strategy.buildConsumerUrl(this.adminUrl, resolvedConsumerId);
 
         const response = await withRetry(
           () =>
@@ -129,8 +139,8 @@ export class KongAdapter implements IAPIGatewayAdapter {
             return null;
           }
 
-          const errorMessage = await parseKongApiError(response);
-          throw new Error(errorMessage);
+          // Use KongApiError to preserve status information for circuit breaker
+          throw await createKongApiError(response);
         }
 
         const data = (await response.json()) as ConsumerResponse;
@@ -195,14 +205,16 @@ export class KongAdapter implements IAPIGatewayAdapter {
             return null;
           }
 
-          const errorMessage = await parseKongApiError(response);
+          // Use KongApiError to preserve status information for circuit breaker
+          const kongError = await createKongApiError(response);
           winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
             consumerId,
-            error: errorMessage,
+            error: kongError.message,
+            status: kongError.status,
             operation: "create_jwt_credentials",
             mode: this.mode,
           });
-          throw new Error(errorMessage);
+          throw kongError;
         }
 
         const createdSecret = (await response.json()) as ConsumerSecret;
@@ -247,27 +259,32 @@ export class KongAdapter implements IAPIGatewayAdapter {
             });
             return { healthy: true, responseTime };
           } else {
-            const errorMessage = await parseKongApiError(response);
+            const kongError = await createKongApiError(response);
 
             recordKongOperation("health_check", responseTime, false);
             recordError("kong_health_check_failed", {
-              status: response.status,
-              statusText: response.statusText || "Unknown",
+              status: kongError.status,
+              statusText: kongError.statusText,
               mode: this.mode,
             });
 
             winstonTelemetryLogger.error("Kong health check failed", {
-              status: response.status,
-              statusText: response.statusText || "Unknown",
-              error: errorMessage,
+              status: kongError.status,
+              statusText: kongError.statusText,
+              error: kongError.message,
               operation: "health_check",
               mode: this.mode,
             });
 
+            // For health checks, we want to throw to trigger circuit breaker if it's an infrastructure error
+            if (kongError.isInfrastructureError) {
+              throw kongError;
+            }
+
             return {
               healthy: false,
               responseTime,
-              error: errorMessage,
+              error: kongError.message,
             };
           }
         }

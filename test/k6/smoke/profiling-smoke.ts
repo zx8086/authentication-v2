@@ -42,7 +42,7 @@ export default function () {
         return (
           body.includes('"enabled"') &&
           body.includes('"sessions"') &&
-          body.includes('"outputDirectory"')
+          body.includes('"environment"')
         );
       }
       return true; // 404 is acceptable when disabled

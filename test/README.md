@@ -1,20 +1,26 @@
 # Authentication Service Testing Suite
 
-Comprehensive testing for the Bun-based authentication service with three-tier testing strategy: unit/integration (Bun), end-to-end scenarios (Playwright), and performance validation (K6).
+Comprehensive testing for the Bun-based authentication service with three-tier testing strategy: unit/integration (Bun), end-to-end scenarios (Playwright), and performance validation (K6). Current test suite includes 50 test files with 460+ individual tests across 21 Bun unit tests, 3 Playwright E2E suites, and 18 K6 performance tests.
 
 ## Directory Structure
 
 ```
 test/
-├── bun/           # Unit & Integration Tests (Bun Test Framework)
-├── k6/            # Performance Tests (K6 Load Testing)
-│   ├── smoke/     # Quick validation tests
-│   ├── load/      # Production load simulation
-│   ├── stress/    # Breaking point analysis
-│   ├── spike/     # Traffic burst testing
-│   └── utils/     # Shared utilities and configurations
-├── playwright/    # E2E Scenarios (Playwright API Testing)
-└── README.md      # This file
+├── bun/              # Unit & Integration Tests (21 test files, 392+ tests)
+├── k6/               # Performance Tests (K6 Load Testing, 18 test files)
+│   ├── smoke/        # Quick validation tests (6 smoke test variants)
+│   ├── load/         # Production load simulation
+│   ├── stress/       # Breaking point analysis
+│   ├── spike/        # Traffic burst testing
+│   ├── soak/         # Extended endurance testing
+│   └── utils/        # Shared utilities and configurations
+├── playwright/       # E2E Scenarios (3 test suites, 68+ tests)
+├── shared/           # Shared test utilities and consumer setup
+├── telemetry/        # Telemetry-specific test files
+├── compatibility/    # Compatibility and migration tests
+├── unit/             # Legacy unit test directory
+├── results/          # Test execution results and reports
+└── README.md         # This file
 ```
 
 ## Testing Strategy Overview
@@ -24,10 +30,23 @@ test/
 **Framework**: Bun native test runner
 **When to run**: During development, pre-commit, CI/CD
 
-**Test Files**:
+**Test Files** (21 files, 392+ tests):
 - `jwt.service.test.ts` - JWT generation and validation logic
-- `kong.service.test.ts` - Kong API integration with mocking
+- `kong.adapter.test.ts` - Unified Kong adapter testing
+- `kong.service.test.ts` - Kong service integration with mocking
+- `kong.factory.test.ts` - Kong service factory patterns
 - `server.test.ts` - Full server integration tests with HTTP requests
+- `config.test.ts` - Configuration validation and schema testing
+- `api-versioning.*.test.ts` - API versioning middleware and routing (3 files)
+- `v2-*.test.ts` - API v2 specific features (3 files)
+- `memory-pressure.test.ts` - Memory management and pressure testing
+- `metrics.test.ts` - Telemetry and metrics collection
+- `profiling.test.ts` - Performance profiling capabilities
+- `circuit-breaker-error-classification.test.ts` - Circuit breaker resilience
+- `*-cache.test.ts` - Caching strategies (2 files)
+- `type-validation.test.ts` - TypeScript type safety
+- `logger.test.ts` - Logging infrastructure
+- `config-helpers.test.ts` - Configuration utility functions
 
 **Commands**:
 ```bash
@@ -42,8 +61,10 @@ bun test --coverage                        # With coverage
 **Framework**: Playwright for API testing
 **When to run**: Pre-deployment, staging validation, comprehensive testing
 
-**Test Files**:
-- `core-functionality.e2e.ts` - Core service functionality (9 focused tests)
+**Test Files** (3 suites, 68+ tests):
+- `consolidated-business.e2e.ts` - Core business logic and JWT token flows
+- `api-versioning.e2e.ts` - API versioning and backward compatibility
+- `profiling.e2e.ts` - Performance profiling endpoint testing
 
 **Commands**:
 ```bash
@@ -54,11 +75,16 @@ bun run playwright:ui                     # Interactive test UI
 **What Playwright Tests Cover**:
 - ✅ Health Check endpoint with Kong dependency status
 - ✅ OpenAPI specification serving and validation
-- ✅ Performance metrics endpoint
+- ✅ Performance metrics and telemetry endpoints
 - ✅ JWT token generation with valid Kong headers
-- ✅ Anonymous consumer rejection
+- ✅ Anonymous consumer rejection and authentication failures
 - ✅ Missing/invalid header validation
 - ✅ Multiple users get unique tokens
+- ✅ API versioning (v1/v2) with Accept-Version headers
+- ✅ V2 security headers and audit logging
+- ✅ Circuit breaker behavior under Kong failures
+- ✅ Memory monitoring and pressure management
+- ✅ Profiling endpoints and session management
 - ✅ Unknown endpoints return 404
 - ✅ Service monitoring endpoint availability
 
@@ -78,16 +104,36 @@ bun run playwright:ui                     # Interactive test UI
 
 ### Test Categories
 
-#### Smoke Tests - Quick Validation
-**Health Smoke Test** (`k6:smoke:health`)
+#### Smoke Tests - Quick Validation (6 variants)
+**Health Only Smoke Test** (`k6:smoke:health`)
 - **Duration**: 3 minutes, 3 VUs
-- **Endpoints**: `/health`, `/metrics`, `/` (OpenAPI)
+- **Endpoints**: `/health` endpoint focused testing
 - **Thresholds**: P95 < 50ms, error rate < 1%
+
+**Metrics Only Smoke Test** (`k6:smoke:metrics`)
+- **Duration**: 3 minutes, 3 VUs
+- **Endpoints**: `/metrics` and related monitoring endpoints
+- **Thresholds**: P95 < 30ms, error rate < 1%
+
+**OpenAPI Only Smoke Test** (`k6:smoke:openapi`)
+- **Duration**: 3 minutes, 3 VUs
+- **Endpoints**: `/` (OpenAPI specification serving)
+- **Thresholds**: P95 < 10ms, error rate < 1%
 
 **Token Smoke Test** (`k6:smoke:tokens`)
 - **Duration**: 3 minutes, 3 VUs
 - **Focus**: JWT generation, validation, error scenarios
 - **Thresholds**: P95 < 50ms, P99 < 100ms, success rate > 99%
+
+**All Endpoints Smoke Test** (`k6:smoke:all-endpoints`)
+- **Duration**: 3 minutes, 3 VUs
+- **Endpoints**: Comprehensive test of all endpoints including profiling and memory
+- **Thresholds**: Mixed based on endpoint type
+
+**Profiling Smoke Test** (`k6:smoke:profiling`)
+- **Duration**: 3 minutes, 3 VUs
+- **Endpoints**: Performance profiling endpoints (dev/staging only)
+- **Thresholds**: P95 < 100ms, error rate < 1%
 
 #### Load Tests - Production Simulation
 **Authentication Load Test** (`k6:load`)
@@ -109,13 +155,27 @@ bun run playwright:ui                     # Interactive test UI
 
 ### K6 Commands
 
+**Quick Test Combinations**:
+```bash
+bun run k6:quick               # Health + tokens smoke tests (6min)
+```
+
 **Individual Test Categories**:
 ```bash
-bun run k6:smoke:health        # Health endpoint validation (3min)
-bun run k6:smoke:tokens        # JWT token generation validation (3min)
-bun run k6:load                # Production load simulation (10min)
-bun run k6:stress              # System breaking point (18min)
-bun run k6:spike               # Traffic burst testing (8min)
+# Smoke Tests (3min each)
+bun run k6:smoke:health            # Health endpoint only
+bun run k6:smoke:metrics           # Metrics endpoints only
+bun run k6:smoke:openapi           # OpenAPI specification only
+bun run k6:smoke:tokens            # JWT token generation
+bun run k6:smoke:all-endpoints     # All endpoints comprehensive
+bun run k6:smoke:profiling         # Profiling endpoints
+
+# Load & Stress Tests
+bun run k6:load                    # Production load simulation (10min)
+bun run k6:stress                  # System breaking point (18min)
+bun run k6:spike                   # Traffic burst testing (8min)
+bun run k6:soak                    # Extended endurance testing
+bun run k6:pressure:memory         # Memory pressure testing
 ```
 
 **Test Information**:
@@ -302,21 +362,27 @@ Expected JWT response format:
 
 ### Comprehensive Testing Strategy
 ```bash
-# 1. Unit & Integration (fastest) - 30 seconds
+# 1. Unit & Integration (fastest) - 30 seconds, 392+ tests
 bun test
 
-# 2. E2E Scenarios (thorough) - 2-3 minutes
+# 2. E2E Scenarios (thorough) - 2-3 minutes, 68+ tests
 bun run playwright:test
 
 # 3. Performance Testing (selective)
-bun run k6:smoke:health          # Quick health validation - 3min
-bun run k6:smoke:tokens          # Quick token validation - 3min
+bun run k6:quick                 # Health + tokens validation - 6min
+bun run k6:smoke:all-endpoints   # Comprehensive endpoint test - 3min
+
+# 4. Clean up test artifacts
+bun run test:clean               # Remove all test result files
 ```
 
 ### CI/CD Pipeline Testing
 ```bash
 # Quick validation for CI/CD (6-8 minutes total)
-bun run check && bun test && bun run playwright:test && bun run k6:smoke:health
+bun run quality:check && bun test && bun run playwright:test && bun run k6:quick
+
+# Full test suite validation (comprehensive)
+bun run test:suite              # Bun + Playwright + K6 quick tests
 ```
 
 ### Full Performance Validation

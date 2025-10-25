@@ -541,28 +541,28 @@ jobs:
           case "${{ matrix.scan-type }}" in
             "snyk-code")
               if [ -f "snyk-code-results.sarif" ]; then
-                echo "✅ Snyk Code Analysis completed - results uploaded to Security tab"
+                echo "Snyk Code Analysis completed - results uploaded to Security tab"
               else
                 echo "❌ Snyk Code Analysis failed or no results generated"
               fi
               ;;
             "snyk-container")
               if [ -f "snyk-container-results.sarif" ]; then
-                echo "✅ Snyk Container Scan completed - results uploaded to Security tab"
+                echo "Snyk Container Scan completed - results uploaded to Security tab"
               else
                 echo "❌ Snyk Container Scan failed or no results generated"
               fi
               ;;
             "trivy-container")
               if [ -f "trivy-results.sarif" ]; then
-                echo "✅ Trivy Container Scan completed - results uploaded to Security tab"
+                echo "Trivy Container Scan completed - results uploaded to Security tab"
               else
                 echo "❌ Trivy Container Scan failed or no results generated"
               fi
               ;;
             "docker-scout")
               if [ -f "scout-results.sarif" ]; then
-                echo "✅ Docker Scout Analysis completed - results uploaded to Security tab"
+                echo "Docker Scout Analysis completed - results uploaded to Security tab"
               else
                 echo "❌ Docker Scout Analysis failed or no results generated"
               fi
@@ -571,7 +571,7 @@ jobs:
               if [ -f "license-report.json" ]; then
                 echo "❌ License Compliance check failed - see artifact for details"
               else
-                echo "✅ License Compliance check passed - all dependencies use allowed licenses"
+                echo "License Compliance check passed - all dependencies use allowed licenses"
               fi
               ;;
           esac
@@ -593,7 +593,7 @@ jobs:
 
       - name: Generate consolidated security summary
         run: |
-          echo "## 🔒 Security Scan Summary (Parallel Execution)" >> $GITHUB_STEP_SUMMARY
+          echo "## Security Scan Summary (Parallel Execution)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Scanned Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Image Digest:** \`${{ needs.build-and-push.outputs.image-digest }}\`" >> $GITHUB_STEP_SUMMARY
@@ -605,43 +605,43 @@ jobs:
 
           # Check each scan result
           if [ -f "snyk-code-results.sarif" ]; then
-            echo "| Snyk Code Analysis | ✅ Completed | snyk-code-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Code Analysis | Completed | snyk-code-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Snyk Code Analysis | ❌ Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Code Analysis | Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ -f "snyk-container-results.sarif" ]; then
-            echo "| Snyk Container Scan | ✅ Completed | snyk-container-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Container Scan | Completed | snyk-container-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Snyk Container Scan | ❌ Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Snyk Container Scan | Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ -f "trivy-results.sarif" ]; then
-            echo "| Trivy Container Scan | ✅ Completed | trivy-results.sarif | ~2-3 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| Trivy Container Scan | Completed | trivy-results.sarif | ~2-3 min |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Trivy Container Scan | ❌ Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Trivy Container Scan | Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ -f "scout-results.sarif" ]; then
-            echo "| Docker Scout Analysis | ✅ Completed | scout-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| Docker Scout Analysis | Completed | scout-results.sarif | ~3-5 min |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Docker Scout Analysis | ❌ Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Docker Scout Analysis | Failed | N/A | - |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ -f "license-report.json" ]; then
-            echo "| License Compliance (Bun Native) | ❌ Failed | license-report.json | <1 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| License Compliance (Bun Native) | Failed | license-report.json | <1 min |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| License Compliance (Bun Native) | ✅ Passed | N/A | <1 min |" >> $GITHUB_STEP_SUMMARY
+            echo "| License Compliance (Bun Native) | Passed | N/A | <1 min |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Performance Improvements" >> $GITHUB_STEP_SUMMARY
+          echo "### Performance Improvements" >> $GITHUB_STEP_SUMMARY
           echo "- **Parallel Execution**: All 5 scans run concurrently in separate jobs" >> $GITHUB_STEP_SUMMARY
           echo "- **Resource Isolation**: Each scan gets dedicated runner resources (2 vCPU, 7GB RAM)" >> $GITHUB_STEP_SUMMARY
           echo "- **Expected Total Time**: ~5-7 minutes (vs 12-17 minutes sequential)" >> $GITHUB_STEP_SUMMARY
           echo "- **Time Savings**: ~60-70% improvement in scan completion time" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY

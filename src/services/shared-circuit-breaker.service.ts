@@ -151,6 +151,63 @@ export class SharedCircuitBreakerService {
     return this.kongBreaker as CircuitBreaker<any[], T>;
   }
 
+  /**
+   * Determines if an HTTP status code represents an infrastructure error
+   * vs a business logic response
+   */
+  private isInfrastructureError(status: number): boolean {
+    // Infrastructure failures that should trigger circuit breaker
+    if (status >= 500 && status < 600) return true; // 5xx server errors
+    if (status === 429) return true; // Rate limiting (infrastructure constraint)
+    if (status === 502) return true; // Bad gateway
+    if (status === 503) return true; // Service unavailable
+    if (status === 504) return true; // Gateway timeout
+
+    // Business logic responses that should NOT trigger circuit breaker
+    if (status === 404) return false; // Consumer not found - expected business response
+    if (status === 401) return false; // Unauthorized - expected business response
+    if (status === 403) return false; // Forbidden - expected business response
+    if (status === 409) return false; // Conflict - expected business response
+    if (status === 422) return false; // Unprocessable entity - expected business response
+
+    // 4xx client errors (except rate limiting) are generally business logic
+    if (status >= 400 && status < 500) return false;
+
+    // 2xx/3xx are successful responses
+    if (status >= 200 && status < 400) return false;
+
+    // Default: treat unknown status codes as infrastructure errors (conservative)
+    return true;
+  }
+
+  /**
+   * Determines if an error is a business logic error that should not trigger circuit breaker
+   */
+  private isBusinessLogicError(error: any): boolean {
+    // Handle KongApiError (our custom error with status information)
+    if (error?.name === "KongApiError" && typeof error.isInfrastructureError === "boolean") {
+      return !error.isInfrastructureError; // Business logic errors are NOT infrastructure errors
+    }
+
+    // Handle Response objects (fetch API errors)
+    if (error && typeof error.status === "number") {
+      return !this.isInfrastructureError(error.status);
+    }
+
+    // Handle Error objects with response status
+    if (error instanceof Error) {
+      // Check if error message contains HTTP status information
+      const statusMatch = error.message.match(/(\d{3})/);
+      if (statusMatch) {
+        const status = Number.parseInt(statusMatch[1], 10);
+        return !this.isInfrastructureError(status);
+      }
+    }
+
+    // Default: treat unknown errors as infrastructure errors (they should trigger circuit breaker)
+    return false;
+  }
+
   async wrapKongOperation<T>(
     operation: string,
     action: () => Promise<T>,
@@ -160,7 +217,34 @@ export class SharedCircuitBreakerService {
       return await action();
     }
 
-    const breaker = this.getOrCreateKongBreaker(action);
+    // Create a wrapper action that handles business logic errors
+    const wrappedAction = async (): Promise<T> => {
+      try {
+        return await action();
+      } catch (error) {
+        // Check if this is a business logic error that shouldn't trigger circuit breaker
+        if (this.isBusinessLogicError(error)) {
+          winstonTelemetryLogger.debug(
+            `Business logic error for ${operation}, not triggering circuit breaker`,
+            {
+              operation,
+              error: error instanceof Error ? error.message : "Unknown error",
+              errorStatus: (error as any)?.status,
+              component: "shared_circuit_breaker",
+              action: "business_logic_error",
+            }
+          );
+
+          // For business logic errors, return null as success (don't throw)
+          return null as T;
+        }
+
+        // For infrastructure errors, re-throw to trigger circuit breaker
+        throw error;
+      }
+    };
+
+    const breaker = this.getOrCreateKongBreaker(wrappedAction);
 
     try {
       const result = await breaker.fire();
@@ -192,19 +276,55 @@ export class SharedCircuitBreakerService {
       return await action();
     }
 
-    const breaker = this.getOrCreateKongBreaker(action);
     const cacheKey = `${operation}:${consumerId}`;
+
+    // Create a wrapper action that handles business logic errors
+    const wrappedAction = async (): Promise<ConsumerSecret | null> => {
+      try {
+        const result = await action();
+
+        // Success - update cache if result exists
+        if (result) {
+          this.updateStaleCache(cacheKey, result);
+        } else if (this.staleCache) {
+          this.staleCache.delete(cacheKey);
+        }
+
+        return result;
+      } catch (error) {
+        // Check if this is a business logic error that shouldn't trigger circuit breaker
+        if (this.isBusinessLogicError(error)) {
+          winstonTelemetryLogger.debug(
+            `Business logic error for ${operation}, not triggering circuit breaker`,
+            {
+              operation,
+              consumerId,
+              error: error instanceof Error ? error.message : "Unknown error",
+              errorStatus: (error as any)?.status,
+              component: "shared_circuit_breaker",
+              action: "business_logic_error",
+            }
+          );
+
+          // Clear cache entry if it exists
+          if (this.staleCache) {
+            this.staleCache.delete(cacheKey);
+          }
+
+          // For business logic errors, return null as success (don't throw)
+          return null;
+        }
+
+        // For infrastructure errors, re-throw to trigger circuit breaker
+        throw error;
+      }
+    };
+
+    const breaker = this.getOrCreateKongBreaker(wrappedAction);
 
     try {
       const result = await breaker.fire();
       recordCircuitBreakerRequest(operation, "closed");
-
-      if (result) {
-        this.updateStaleCache(cacheKey, result);
-      } else if (this.staleCache) {
-        this.staleCache.delete(cacheKey);
-      }
-
       return result;
     } catch (error) {
       winstonTelemetryLogger.warn(

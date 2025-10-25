@@ -55,21 +55,34 @@ class PlaywrightTestSetup {
     this.adminUrl = process.env.KONG_ADMIN_URL || "";
     this.adminToken = process.env.KONG_ADMIN_TOKEN || "";
 
-    if (!this.adminUrl || !this.adminToken) {
+    if (!this.adminUrl) {
       throw new Error(
-        "KONG_ADMIN_URL and KONG_ADMIN_TOKEN environment variables must be configured"
+        "KONG_ADMIN_URL environment variable must be configured"
       );
+    }
+
+    // KONG_ADMIN_TOKEN can be empty for API Gateway mode without authentication
+    if (!this.adminToken) {
+      console.log("[Playwright Setup] Running with empty Kong Admin Token (API Gateway mode)")
     }
   }
 
   private async checkConsumerExists(consumer: TestConsumer): Promise<boolean> {
     try {
-      const response = await fetch(`${this.adminUrl}/core-entities/consumers/${consumer.id}`, {
+      // Try Kong Gateway endpoint first, fallback to Konnect
+      const isKongGateway = this.adminToken === "";
+      const endpoint = isKongGateway
+        ? `${this.adminUrl}/consumers/${consumer.id}`
+        : `${this.adminUrl}/core-entities/consumers/${consumer.id}`;
+
+      const headers = {
+        "User-Agent": "Playwright-Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "User-Agent": "Playwright-Test-Setup/1.0",
-        },
+        headers,
       });
 
       return response.ok;
@@ -90,13 +103,21 @@ class PlaywrightTestSetup {
 
       console.log(`[Playwright Setup] Creating consumer: ${consumer.id}`);
 
-      const response = await fetch(`${this.adminUrl}/core-entities/consumers`, {
+      // Use appropriate endpoint for Kong mode
+      const isKongGateway = this.adminToken === "";
+      const endpoint = isKongGateway
+        ? `${this.adminUrl}/consumers`
+        : `${this.adminUrl}/core-entities/consumers`;
+
+      const headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Playwright-Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.adminToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "Playwright-Test-Setup/1.0",
-        },
+        headers,
         body: JSON.stringify({
           username: consumer.username,
           custom_id: consumer.custom_id || consumer.id,
@@ -128,16 +149,20 @@ class PlaywrightTestSetup {
   private async ensureJWTCredentials(consumer: TestConsumer): Promise<boolean> {
     try {
       // Get consumer UUID first
-      const consumerResponse = await fetch(
-        `${this.adminUrl}/core-entities/consumers/${consumer.id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.adminToken}`,
-            "User-Agent": "Playwright-Test-Setup/1.0",
-          },
-        }
-      );
+      const isKongGateway = this.adminToken === "";
+      const endpoint = isKongGateway
+        ? `${this.adminUrl}/consumers/${consumer.id}`
+        : `${this.adminUrl}/core-entities/consumers/${consumer.id}`;
+
+      const headers = {
+        "User-Agent": "Playwright-Test-Setup/1.0",
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+      };
+
+      const consumerResponse = await fetch(endpoint, {
+        method: "GET",
+        headers,
+      });
 
       if (!consumerResponse.ok) {
         console.error(`[Playwright Setup] Failed to get consumer UUID for ${consumer.username}`);
@@ -148,16 +173,14 @@ class PlaywrightTestSetup {
       const consumerUuid = consumerData.id;
 
       // Force delete existing JWT credentials to ensure unique credentials for each consumer
-      const jwtResponse = await fetch(
-        `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.adminToken}`,
-            "User-Agent": "Playwright-Test-Setup/1.0",
-          },
-        }
-      );
+      const jwtEndpoint = isKongGateway
+        ? `${this.adminUrl}/consumers/${consumerUuid}/jwt`
+        : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
+
+      const jwtResponse = await fetch(jwtEndpoint, {
+        method: "GET",
+        headers,
+      });
 
       if (jwtResponse.ok) {
         const jwtData = await jwtResponse.json();
@@ -168,16 +191,14 @@ class PlaywrightTestSetup {
               `[Playwright Setup] Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
             );
 
-            const deleteResponse = await fetch(
-              `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`,
-              {
-                method: "DELETE",
-                headers: {
-                  Authorization: `Bearer ${this.adminToken}`,
-                  "User-Agent": "Playwright-Test-Setup/1.0",
-                },
-              }
-            );
+            const deleteEndpoint = isKongGateway
+              ? `${this.adminUrl}/consumers/${consumerUuid}/jwt/${credential.id}`
+              : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`;
+
+            const deleteResponse = await fetch(deleteEndpoint, {
+              method: "DELETE",
+              headers,
+            });
 
             if (!deleteResponse.ok) {
               console.warn(
@@ -200,21 +221,22 @@ class PlaywrightTestSetup {
       const key = `test-key-${consumer.id}-${Date.now()}`;
       const secret = this.generateSecureSecret();
 
-      const createJwtResponse = await fetch(
-        `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${this.adminToken}`,
-            "Content-Type": "application/json",
-            "User-Agent": "Playwright-Test-Setup/1.0",
-          },
-          body: JSON.stringify({
-            key: key,
-            secret: secret,
-          }),
-        }
-      );
+      const createEndpoint = isKongGateway
+        ? `${this.adminUrl}/consumers/${consumerUuid}/jwt`
+        : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
+
+      const createJwtResponse = await fetch(createEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Playwright-Test-Setup/1.0",
+          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        },
+        body: JSON.stringify({
+          key: key,
+          secret: secret,
+        }),
+      });
 
       if (createJwtResponse.ok) {
         const createdCredential = await createJwtResponse.json();

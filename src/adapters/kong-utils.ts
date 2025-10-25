@@ -10,6 +10,38 @@ import type { ConsumerSecret } from "../config";
  */
 
 /**
+ * Custom error class that preserves HTTP status information
+ * for proper circuit breaker error classification
+ */
+export class KongApiError extends Error {
+  public readonly status: number;
+  public readonly statusText: string;
+  public readonly isInfrastructureError: boolean;
+
+  constructor(message: string, status: number, statusText: string = "") {
+    super(message);
+    this.name = "KongApiError";
+    this.status = status;
+    this.statusText = statusText;
+
+    // Determine if this is an infrastructure error that should trigger circuit breaker
+    this.isInfrastructureError = this.determineIfInfrastructureError(status);
+  }
+
+  private determineIfInfrastructureError(status: number): boolean {
+    // Infrastructure failures that should trigger circuit breaker
+    if (status >= 500 && status < 600) return true; // 5xx server errors
+    if (status === 429) return true; // Rate limiting (infrastructure constraint)
+    if (status === 502) return true; // Bad gateway
+    if (status === 503) return true; // Service unavailable
+    if (status === 504) return true; // Gateway timeout
+
+    // Business logic responses that should NOT trigger circuit breaker
+    return false;
+  }
+}
+
+/**
  * Generate cache key for consumer secrets
  * @param consumerId - Consumer identifier
  * @returns Standardized cache key
@@ -37,11 +69,33 @@ export function generateJwtKey(): string {
 }
 
 /**
+ * Create a KongApiError from a failed Response
+ * @param response - Failed HTTP response from Kong API
+ * @returns KongApiError with status information preserved
+ */
+export async function createKongApiError(response: Response): Promise<KongApiError> {
+  const status = response.status;
+  const statusText = response.statusText || "Unknown";
+  const message = await parseKongApiErrorMessage(response);
+
+  return new KongApiError(message, status, statusText);
+}
+
+/**
  * Parse Kong API error response and extract meaningful error information
  * @param response - Failed HTTP response from Kong API
  * @returns Standardized error message
  */
 export async function parseKongApiError(response: Response): Promise<string> {
+  return parseKongApiErrorMessage(response);
+}
+
+/**
+ * Internal function to parse error message from Kong API response
+ * @param response - Failed HTTP response from Kong API
+ * @returns Standardized error message
+ */
+async function parseKongApiErrorMessage(response: Response): Promise<string> {
   const status = response.status;
   const statusText = response.statusText || "Unknown";
 

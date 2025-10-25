@@ -43,6 +43,3 @@ pids
 # Temporary files
 tmp/
 temp/
-
-# Old .NET version (for reference only)
-old/

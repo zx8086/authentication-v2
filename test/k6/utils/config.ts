@@ -165,6 +165,14 @@ export const getPerformanceThresholds = () => {
         http_req_failed: [`rate<${errorRate}`],
       },
     },
+    soak: {
+      // Soak test thresholds - focus on stability over time
+      http_req_duration: [`p(95)<${healthP95}`, `p(99)<${healthP99}`, `avg<200`],
+      http_req_failed: [`rate<${errorRate}`],
+      // Key soak metrics - performance shouldn't degrade over time
+      "http_req_duration{endpoint:tokens}": [`p(95)<${tokensP95}`, `avg<30`],
+      "http_req_duration{endpoint:health}": [`p(95)<${healthP95}`, `avg<100`],
+    },
   };
 };
 
@@ -236,6 +244,11 @@ export const getScenarioConfig = () => ({
         target: 0,
       },
     ],
+  },
+  soak: {
+    executor: "constant-vus",
+    vus: Number.parseInt(__ENV.K6_SOAK_VUS || "10", 10),
+    duration: __ENV.K6_SOAK_DURATION || "2h",
   },
   rampingArrivalRate: {
     executor: "ramping-arrival-rate",

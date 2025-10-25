@@ -9,33 +9,33 @@ export interface TestConsumer {
 
 export const TEST_CONSUMERS: TestConsumer[] = [
   {
-    id: "test-user-001",
-    username: "test-user-001",
-    custom_id: "test-user-001",
+    id: "test-consumer-001",
+    username: "test-consumer-001",
+    custom_id: "test-consumer-001",
     description: "Primary test consumer for basic authentication tests",
   },
   {
-    id: "test-user-002",
-    username: "test-user-002",
-    custom_id: "test-user-002",
+    id: "test-consumer-002",
+    username: "test-consumer-002",
+    custom_id: "test-consumer-002",
     description: "Secondary test consumer for multi-user scenarios",
   },
   {
-    id: "test-user-003",
-    username: "test-user-003",
-    custom_id: "test-user-003",
+    id: "test-consumer-003",
+    username: "test-consumer-003",
+    custom_id: "test-consumer-003",
     description: "Third test consumer for multi-user scenarios",
   },
   {
-    id: "test-user-004",
-    username: "test-user-004",
-    custom_id: "test-user-004",
+    id: "test-consumer-004",
+    username: "test-consumer-004",
+    custom_id: "test-consumer-004",
     description: "Load testing consumer for performance tests",
   },
   {
-    id: "test-user-005",
-    username: "test-user-005",
-    custom_id: "test-user-005",
+    id: "test-consumer-005",
+    username: "test-consumer-005",
+    custom_id: "test-consumer-005",
     description: "Load testing consumer for performance tests",
   },
 ];

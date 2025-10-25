@@ -85,12 +85,8 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   }
 
   async buildConsumerUrl(baseUrl: string, consumerId: string): Promise<string> {
-    // Resolve consumer ID to UUID for Konnect
-    const consumerUuid = await this.resolveConsumerId(consumerId);
-    if (!consumerUuid) {
-      throw new Error(`Consumer not found: ${consumerId}`);
-    }
-    return `${baseUrl}/core-entities/consumers/${consumerUuid}/jwt`;
+    // Consumer ID should already be resolved UUID for Konnect
+    return `${baseUrl}/core-entities/consumers/${consumerId}/jwt`;
   }
 
   buildHealthUrl(baseUrl: string): string {
@@ -108,10 +104,11 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   }
 
   async resolveConsumerId(consumerId: string): Promise<string | null> {
-    const checkUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerId}`;
+    // Try direct ID lookup first
+    let checkUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerId}`;
 
     try {
-      const response = await fetch(checkUrl, {
+      let response = await fetch(checkUrl, {
         method: "GET",
         headers: this.createAuthHeaders(this.adminToken),
         signal: AbortSignal.timeout(5000),
@@ -122,7 +119,34 @@ export class KongKonnectStrategy implements IKongModeStrategy {
         return consumer.id;
       }
 
+      // If direct ID lookup fails with 404, try searching by username
       if (response.status === 404) {
+        checkUrl = `${this.gatewayAdminUrl}/core-entities/consumers?filter[username]=${encodeURIComponent(consumerId)}`;
+
+        response = await fetch(checkUrl, {
+          method: "GET",
+          headers: this.createAuthHeaders(this.adminToken),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          // Ensure we have valid data array and at least one consumer
+          if (result?.data && Array.isArray(result.data) && result.data.length > 0) {
+            // Verify the returned consumer actually matches our search
+            const consumer = result.data[0];
+            if (consumer?.id && consumer.username === consumerId) {
+              return consumer.id;
+            }
+          }
+        } else {
+          winstonTelemetryLogger.warn("Failed to search consumers by username", {
+            consumerId,
+            status: response.status,
+            operation: "resolve_consumer_id_search",
+          });
+        }
+
         winstonTelemetryLogger.warn("Consumer not found in Kong Konnect", {
           consumerId,
           message: "Consumer must be created in Kong before JWT credentials can be provisioned",

@@ -117,7 +117,7 @@ class BunTelemetryTracer {
   ): T | Promise<T> {
     return this.createSpan(
       {
-        operationName: `Kong ${operation}`,
+        operationName: `http.client.kong.${operation}`,
         kind: SpanKind.CLIENT,
         attributes: {
           [SemanticAttributes.HTTP_METHOD]: method,
@@ -125,6 +125,8 @@ class BunTelemetryTracer {
           "kong.operation": operation,
           "kong.api.type": "admin_api",
           "http.client.type": "kong_gateway",
+          component: "kong_client",
+          "span.type": "http_client",
         },
       },
       spanOperation
@@ -138,13 +140,15 @@ class BunTelemetryTracer {
   ): T | Promise<T> {
     return this.createSpan(
       {
-        operationName: `JWT ${operation}`,
+        operationName: `crypto.jwt.${operation}`,
         kind: SpanKind.INTERNAL,
         attributes: {
           "jwt.operation": operation,
           "jwt.username": username || "unknown",
           "crypto.algorithm": "HS256",
           "crypto.key_type": "hmac",
+          component: "jwt_service",
+          "span.type": "crypto",
         },
       },
       spanOperation
@@ -197,6 +201,8 @@ class BunTelemetryTracer {
   ): T | Promise<T> {
     const attributes: Record<string, string | number | boolean> = {
       "api.versioning.operation": operation,
+      component: "api_versioning",
+      "middleware.type": "api_versioning",
     };
 
     if (versionInfo) {
@@ -212,7 +218,7 @@ class BunTelemetryTracer {
 
     return this.createSpan(
       {
-        operationName: `API Versioning ${operation}`,
+        operationName: `api_versioning.${operation}`,
         kind: SpanKind.INTERNAL,
         attributes,
       },

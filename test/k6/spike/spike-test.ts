@@ -25,8 +25,8 @@ export const options = {
       executor: "ramping-vus",
       stages: [
         { duration: "30s", target: 25 }, // Normal load
-        { duration: "30s", target: 200 }, // Sudden spike
-        { duration: "2m", target: 200 }, // Sustain spike
+        { duration: "30s", target: 300 }, // Sudden spike
+        { duration: "2m", target: 300 }, // Sustain spike
         { duration: "30s", target: 25 }, // Back to normal
         { duration: "30s", target: 0 }, // Ramp down
       ],
@@ -48,7 +48,8 @@ export default function () {
 
   const tokenResponse = http.get(`${baseUrl}/tokens`, { headers });
   check(tokenResponse, {
-    "spike token status is 200 or 429": (r) => r.status === 200 || r.status === 429,
+    "spike token status is 200 or 429": (r) =>
+      r.status === 200 || r.status === 429,
     "spike token response time < 500ms": (r) => r.timings.duration < 500,
   });
 

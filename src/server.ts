@@ -13,6 +13,7 @@ import {
   initializeTelemetry,
   shutdownSimpleTelemetry,
 } from "./telemetry/instrumentation";
+import { LifecycleObservabilityLogger, lifecycleLogger } from "./telemetry/lifecycle-logger";
 import { recordKongOperation, shutdownMetrics } from "./telemetry/metrics";
 import { error, log, warn } from "./utils/logger";
 
@@ -102,6 +103,8 @@ try {
     // Fallback fetch for OPTIONS and 404s
     async fetch(req) {
       try {
+        const url = new URL(req.url);
+
         return await fallbackFetch(req);
       } catch (error) {
         return handleServerError(error as Error);
@@ -147,23 +150,25 @@ log("Authentication server started", {
   "server.port": config.server.port,
 });
 
+const allEndpoints = [
+  "GET / - OpenAPI specification (JSON/YAML based on Accept header)",
+  "GET /health - Health check",
+  "GET /health/telemetry - Telemetry health status",
+  "GET /metrics - Unified metrics endpoint (operational, infrastructure, telemetry, exports, config, full views)",
+  "GET /tokens - Issue JWT token (requires Kong headers)",
+  "POST /debug/metrics/test - Record test metrics",
+  "POST /debug/metrics/export - Force metrics export",
+  "POST /debug/profiling/start - Start profiling session (dev/staging only)",
+  "POST /debug/profiling/stop - Stop profiling session (dev/staging only)",
+  "GET /debug/profiling/status - Profiling status (dev/staging only)",
+  "GET /debug/profiling/reports - List profiling reports (dev/staging only)",
+  "POST /debug/profiling/cleanup - Clean profiling artifacts (dev/staging only)",
+];
+
 log("Server endpoints configured", {
   component: "server",
   event: "endpoints_configured",
-  endpoints: [
-    "GET / - OpenAPI specification (JSON/YAML based on Accept header)",
-    "GET /health - Health check",
-    "GET /health/telemetry - Telemetry health status",
-    "GET /metrics - Unified metrics endpoint (operational, infrastructure, telemetry, exports, config, full views)",
-    "GET /tokens - Issue JWT token (requires Kong headers)",
-    "POST /debug/metrics/test - Record test metrics",
-    "POST /debug/metrics/export - Force metrics export",
-    "POST /debug/profiling/start - Start profiling session (dev/staging only)",
-    "POST /debug/profiling/stop - Stop profiling session (dev/staging only)",
-    "GET /debug/profiling/status - Profiling status (dev/staging only)",
-    "GET /debug/profiling/reports - List profiling reports (dev/staging only)",
-    "POST /debug/profiling/cleanup - Clean profiling artifacts (dev/staging only)",
-  ],
+  endpoints: allEndpoints,
 });
 
 log("Metrics debugging endpoints available", {
@@ -238,12 +243,9 @@ const gracefulShutdown = async (signal: string) => {
   }
 
   isShuttingDown = true;
-  log("Graceful shutdown initiated", {
-    component: "server",
-    event: "shutdown_initiated",
-    signal,
-    pid: process.pid,
-  });
+
+  // Set environment variable for lifecycle logger
+  process.env.SHUTDOWN_SIGNAL = signal;
 
   const shutdownTimeout = setTimeout(() => {
     error("Graceful shutdown timeout - forcing exit", {
@@ -255,34 +257,21 @@ const gracefulShutdown = async (signal: string) => {
   }, 10000);
 
   try {
+    // Phase 1: Log complete shutdown sequence (batch approach)
+    const shutdownSequence = LifecycleObservabilityLogger.generateShutdownSequence(signal);
+    lifecycleLogger.logShutdownSequence(shutdownSequence);
+
+    // Phase 2: Flush all shutdown messages to OTLP
+    await lifecycleLogger.flushShutdownMessages();
+
+    // Phase 3: Actual system shutdown (no more logging after this point)
     if (server) {
-      log("Stopping HTTP server...", {
-        component: "server",
-        event: "shutdown_http_server",
-      });
       server.stop();
     }
-
-    log("Shutting down telemetry...", {
-      component: "telemetry",
-      event: "shutdown_telemetry",
-    });
-
-    log("Shutting down profiling service...", {
-      component: "profiling",
-      event: "shutdown_profiling",
-    });
 
     await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
 
     clearTimeout(shutdownTimeout);
-
-    log("Graceful shutdown completed", {
-      component: "server",
-      event: "shutdown_completed",
-      signal,
-    });
-
     process.exit(0);
   } catch (err) {
     error("Error during graceful shutdown", {
@@ -319,4 +308,6 @@ process.on("uncaughtException", (err) => {
 });
 
 // Export the server instance for programmatic usage
+// Export lifecycle logger for testing
+export { lifecycleLogger };
 export default server;

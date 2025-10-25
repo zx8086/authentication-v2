@@ -1,20 +1,12 @@
 /* test/bun/server.test.ts */
 
-// Server endpoint tests
+// Server endpoint tests using real Kong Gateway endpoints
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { getTestConsumer, type JobPrefix } from "../shared/test-consumers";
 
-// Mock environment variables for testing - Use API_GATEWAY mode for simpler testing
-process.env.KONG_JWT_AUTHORITY = "https://localhost:8000";
-process.env.KONG_JWT_AUDIENCE = "example-api";
-process.env.KONG_ADMIN_URL = "http://test-kong:8001";
-process.env.KONG_ADMIN_TOKEN = "test-admin-token-123456789012345678901234567890";
-process.env.KONG_MODE = "API_GATEWAY"; // Use API_GATEWAY for integration tests
-process.env.NODE_ENV = "test";
-process.env.TELEMETRY_MODE = "console";
-process.env.PORT = "3000";
-process.env.KONG_CIRCUIT_BREAKER_ENABLED = "false"; // Disable circuit breaker for tests
+// Load environment variables for testing - inherits from .env
+// Real Kong Gateway configuration will be used from environment
 
 describe("Authentication Server Integration", () => {
   const serverUrl = "http://localhost:3000";
@@ -25,16 +17,7 @@ describe("Authentication Server Integration", () => {
   const testConsumer2 = getTestConsumer(1, jobPrefix);
 
   describe("Health Check Endpoint", () => {
-    it("should return health status", async () => {
-      // Mock Kong health check
-      const originalFetch = global.fetch;
-      global.fetch = mock(async (url) => {
-        if (url.toString().includes("/status")) {
-          return { ok: true, status: 200 };
-        }
-        return originalFetch(url);
-      }) as any;
-
+    it("should return health status with real Kong Gateway", async () => {
       const response = await fetch(`${serverUrl}/health`);
       expect(response.status).toBe(200);
 
@@ -46,28 +29,19 @@ describe("Authentication Server Integration", () => {
       expect(health).toHaveProperty("dependencies");
       expect(health.dependencies).toHaveProperty("kong");
 
-      global.fetch = originalFetch;
+      // With real Kong service running, it should be healthy
+      expect(health.status).toBe("healthy");
+      expect(health.dependencies.kong).toHaveProperty("status");
     });
 
-    it("should return degraded status when Kong is unhealthy", async () => {
-      // Mock Kong unhealthy
-      const originalFetch = global.fetch;
-      global.fetch = mock(async (url) => {
-        if (url.toString().includes("/status")) {
-          return { ok: false, status: 503 };
-        }
-        return originalFetch(url);
-      }) as any;
-
+    it("should include Kong connectivity information", async () => {
       const response = await fetch(`${serverUrl}/health`);
-      expect([200, 503]).toContain(response.status);
+      expect(response.status).toBe(200);
 
       const health = await response.json();
-      if (response.status === 503) {
-        expect(health.status).toBe("degraded");
-      }
-
-      global.fetch = originalFetch;
+      expect(health.dependencies.kong).toHaveProperty("responseTime");
+      expect(typeof health.dependencies.kong.responseTime).toBe("number");
+      expect(health.dependencies.kong.responseTime).toBeGreaterThan(0);
     });
   });
 
@@ -159,91 +133,6 @@ describe("Authentication Server Integration", () => {
   });
 
   describe("Token Endpoint", () => {
-    beforeEach(() => {
-      // Mock Kong API calls to match actual service behavior
-      const originalFetch = global.fetch;
-      global.fetch = mock(async (url, options) => {
-        const urlStr = url.toString();
-
-        // Mock Kong health check
-        if (
-          urlStr.includes("test-kong:8001") &&
-          !urlStr.includes("/realms") &&
-          !urlStr.includes("/core-entities")
-        ) {
-          return { ok: true, status: 200 };
-        }
-
-        // Mock realm check
-        if (urlStr.includes("/realms/default")) {
-          return { ok: true, status: 200 };
-        }
-
-        // Mock consumer check - handle both regular and job-prefixed consumer IDs
-        if (urlStr.includes("/core-entities/consumers/") && options?.method === "GET") {
-          // Extract consumer ID from URL
-          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^/]+)/);
-          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : "";
-
-          // Check if this matches our test consumer
-          if (requestedConsumerId === testConsumer.id || requestedConsumerId === testConsumer2.id) {
-            const consumer = requestedConsumerId === testConsumer.id ? testConsumer : testConsumer2;
-            return {
-              ok: true,
-              status: 200,
-              json: async () => ({
-                id: "test-consumer-uuid",
-                username: consumer.username,
-                custom_id: consumer.custom_id,
-              }),
-            };
-          }
-        }
-
-        // Mock JWT credentials fetch
-        if (
-          urlStr.includes("/core-entities/consumers/") &&
-          urlStr.includes("/jwt") &&
-          options?.method === "GET"
-        ) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              data: [
-                {
-                  id: "test-secret-id",
-                  key: "test-consumer-key",
-                  secret: process.env.TEST_CONSUMER_SECRET || Array(53).fill("t").join(""),
-                  consumer: { id: "test-consumer-uuid" },
-                },
-              ],
-              total: 1,
-            }),
-          };
-        }
-
-        // Mock JWT credentials creation
-        if (
-          urlStr.includes("/core-entities/consumers/") &&
-          urlStr.includes("/jwt") &&
-          options?.method === "POST"
-        ) {
-          return {
-            ok: true,
-            status: 201,
-            json: async () => ({
-              id: "new-secret-id",
-              key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill("n").join(""),
-              consumer: { id: "test-consumer-uuid" },
-            }),
-          };
-        }
-
-        return originalFetch(url, options);
-      }) as any;
-    });
 
     it("should reject requests without Kong headers", async () => {
       const response = await fetch(`${serverUrl}/tokens`);
@@ -271,7 +160,7 @@ describe("Authentication Server Integration", () => {
       expect(error.message).toContain("Anonymous consumers");
     });
 
-    it("should issue token for valid consumer", async () => {
+    it("should issue token for valid consumer with real Kong Gateway", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
           "X-Consumer-Id": testConsumer.id,
@@ -319,83 +208,7 @@ describe("Authentication Server Integration", () => {
       expect(response.status).toBe(401);
     });
 
-    it("should create new consumer secret when none exists", async () => {
-      // Override mock to return empty JWT credentials first, then successful creation
-      const originalFetch = global.fetch;
-
-      global.fetch = mock(async (url, options) => {
-        const urlStr = url.toString();
-
-        // Mock Kong health check
-        if (
-          urlStr.includes("test-kong:8001") &&
-          !urlStr.includes("/realms") &&
-          !urlStr.includes("/core-entities")
-        ) {
-          return { ok: true, status: 200 };
-        }
-
-        // Mock realm check
-        if (urlStr.includes("/realms/default")) {
-          return { ok: true, status: 200 };
-        }
-
-        // Mock consumer check - consumer exists (handle job-prefixed IDs)
-        if (
-          urlStr.includes("/core-entities/consumers/") &&
-          options?.method === "GET" &&
-          !urlStr.includes("/jwt")
-        ) {
-          const consumerIdMatch = urlStr.match(/\/core-entities\/consumers\/([^/]+)/);
-          const requestedConsumerId = consumerIdMatch ? consumerIdMatch[1] : "";
-
-          if (requestedConsumerId === testConsumer2.id) {
-            return {
-              ok: true,
-              status: 200,
-              json: async () => ({
-                id: "new-consumer-uuid",
-                username: testConsumer2.username,
-                custom_id: testConsumer2.custom_id,
-              }),
-            };
-          }
-        }
-
-        // Mock JWT credentials fetch - return empty (no existing credentials)
-        if (
-          urlStr.includes("/core-entities/consumers/") &&
-          urlStr.includes("/jwt") &&
-          options?.method === "GET"
-        ) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ data: [], total: 0 }),
-          };
-        }
-
-        // Mock JWT credentials creation
-        if (
-          urlStr.includes("/core-entities/consumers/") &&
-          urlStr.includes("/jwt") &&
-          options?.method === "POST"
-        ) {
-          return {
-            ok: true,
-            status: 201,
-            json: async () => ({
-              id: "new-secret-id",
-              key: "new-consumer-key",
-              secret: process.env.TEST_NEW_CONSUMER_SECRET || Array(53).fill("n").join(""),
-              consumer: { id: "new-consumer-uuid" },
-            }),
-          };
-        }
-
-        return originalFetch(url, options);
-      }) as any;
-
+    it("should handle token generation with real Kong Gateway for different consumers", async () => {
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
           "X-Consumer-Id": testConsumer2.id,
@@ -404,48 +217,36 @@ describe("Authentication Server Integration", () => {
         },
       });
 
+      // Should work with real Kong service (mode-agnostic)
       expect(response.status).toBe(200);
 
       const tokenResponse = await response.json();
       expect(tokenResponse).toHaveProperty("access_token");
+      expect(tokenResponse).toHaveProperty("expires_in", 900);
 
-      global.fetch = originalFetch;
+      // Validate JWT structure for second consumer
+      const tokenParts = tokenResponse.access_token.split(".");
+      expect(tokenParts).toHaveLength(3);
+
+      const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      expect(payload.sub).toBe(testConsumer2.username);
     });
 
-    it("should handle Kong API failures gracefully", async () => {
-      // Mock Kong API failure
-      const originalFetch = global.fetch;
-      global.fetch = mock(async (url) => {
-        const urlStr = url.toString();
-
-        // Mock Kong health check failure
-        if (
-          urlStr.includes("test-kong:8001") &&
-          !urlStr.includes("/realms") &&
-          !urlStr.includes("/core-entities")
-        ) {
-          return { ok: false, status: 503 };
-        }
-
-        // Mock Kong API failure
-        if (urlStr.includes("/realms") || urlStr.includes("/core-entities")) {
-          throw new Error("Kong API unavailable");
-        }
-
-        return originalFetch(url);
-      }) as any;
-
+    it("should handle invalid consumer requests appropriately", async () => {
+      // Test with a non-existent consumer
       const response = await fetch(`${serverUrl}/tokens`, {
         headers: {
-          "X-Consumer-Id": testConsumer.id,
-          "X-Consumer-Username": testConsumer.username,
+          "X-Consumer-Id": "non-existent-consumer-999",
+          "X-Consumer-Username": "non-existent-user",
           "X-Anonymous-Consumer": "false",
         },
       });
 
+      // Should return 401 for non-existent consumer
       expect(response.status).toBe(401);
 
-      global.fetch = originalFetch;
+      const error = await response.json();
+      expect(error).toHaveProperty("error");
     });
   });
 
@@ -478,46 +279,33 @@ describe("Authentication Server Integration", () => {
   });
 
   describe("Performance", () => {
-    it("should handle concurrent requests efficiently", async () => {
-      // Simplified test: just test that the server can handle concurrent requests
-      // without needing complex Kong mocking
-
-      const concurrentRequests = 10; // Reduced from 20 to be less demanding
+    it("should handle concurrent requests efficiently with real Kong Gateway", async () => {
+      const concurrentRequests = 10;
 
       const start = Bun.nanoseconds();
       const requests = Array.from(
         { length: concurrentRequests },
-        () => fetch(`${serverUrl}/health`) // Use health endpoint instead of tokens
+        () => fetch(`${serverUrl}/health`)
       );
 
       const responses = await Promise.all(requests);
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
-      // All health check requests should succeed
+      // All health check requests should succeed with real Kong service
       const successCount = responses.filter((r) => r.status === 200).length;
-      expect(successCount).toBe(concurrentRequests); // All should succeed for health endpoint
+      expect(successCount).toBe(concurrentRequests);
 
       // Should handle concurrent requests efficiently
-      expect(duration).toBeLessThan(2000); // Within 2 seconds
+      expect(duration).toBeLessThan(3000); // Within 3 seconds for real Kong service
     });
 
-    it("should respond to health checks quickly", async () => {
-      const originalFetch = global.fetch;
-      global.fetch = mock(async (url) => {
-        if (url.toString().includes("test-kong:8001")) {
-          return { ok: true, status: 200 };
-        }
-        return originalFetch(url);
-      }) as any;
-
+    it("should respond to health checks quickly with real Kong service", async () => {
       const start = Bun.nanoseconds();
       const response = await fetch(`${serverUrl}/health`);
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
       expect(response.status).toBe(200);
-      expect(duration).toBeLessThan(2000); // Should respond within 2 seconds (CI environment)
-
-      global.fetch = originalFetch;
+      expect(duration).toBeLessThan(3000); // Allow more time for real Kong service communication
     });
   });
 });

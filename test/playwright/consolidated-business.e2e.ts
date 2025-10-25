@@ -2,11 +2,11 @@
 
 import { expect, test } from "@playwright/test";
 
-// Inline test consumer definitions to avoid import issues
+// Use shared test consumer definitions for consistency
 const TEST_CONSUMER = {
-  id: "test-user-001",
-  username: "test-user-001",
-  custom_id: "test-user-001",
+  id: "test-consumer-001",
+  username: "test-consumer-001",
+  custom_id: "test-consumer-001",
   description: "Primary test consumer for basic authentication tests",
 };
 
@@ -19,21 +19,21 @@ const ANONYMOUS_CONSUMER = {
 
 const BASIC_TEST_CONSUMERS = [
   {
-    id: "test-user-001",
-    username: "test-user-001",
-    custom_id: "test-user-001",
+    id: "test-consumer-001",
+    username: "test-consumer-001",
+    custom_id: "test-consumer-001",
     description: "Primary test consumer for basic authentication tests",
   },
   {
-    id: "test-user-002",
-    username: "test-user-002",
-    custom_id: "test-user-002",
+    id: "test-consumer-002",
+    username: "test-consumer-002",
+    custom_id: "test-consumer-002",
     description: "Secondary test consumer for multi-user scenarios",
   },
   {
-    id: "test-user-003",
-    username: "test-user-003",
-    custom_id: "test-user-003",
+    id: "test-consumer-003",
+    username: "test-consumer-003",
+    custom_id: "test-consumer-003",
     description: "Third test consumer for multi-user scenarios",
   },
 ];
