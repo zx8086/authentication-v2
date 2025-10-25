@@ -5,24 +5,30 @@
 FROM oven/bun:1.3.0-alpine AS deps-base
 WORKDIR /app
 
-# Install minimal system dependencies with pinned versions
-RUN apk update && \
+# Install minimal system dependencies (Alpine drops old package versions, so pinning breaks builds)
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    --mount=type=cache,target=/var/lib/apk,sharing=locked \
+    apk update && \
     apk upgrade --no-cache && \
-    apk add --no-cache dumb-init ca-certificates && \
+    apk add --no-cache \
+        ca-certificates \
+        dumb-init && \
     rm -rf /var/cache/apk/*
 
 # Dependencies stage - cache layer optimization
 FROM deps-base AS deps-dev
 COPY package.json bun.lock ./
 # Use BuildKit cache mount for faster dependency installation
-RUN --mount=type=cache,target=/root/.bun/install/cache \
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    --mount=type=cache,target=/root/.cache/bun,sharing=locked \
     bun install --frozen-lockfile
 
 # Production dependencies stage
 FROM deps-base AS deps-prod
 COPY package.json bun.lock ./
 # Install only production dependencies with cache mount
-RUN --mount=type=cache,target=/root/.bun/install/cache \
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    --mount=type=cache,target=/root/.cache/bun,sharing=locked \
     bun install --frozen-lockfile --production
 
 # Build stage
@@ -30,8 +36,9 @@ FROM deps-dev AS builder
 COPY . .
 
 # Build the application and generate OpenAPI docs
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    --mount=type=cache,target=/tmp/bun-build \
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    --mount=type=cache,target=/root/.cache/bun,sharing=locked \
+    --mount=type=cache,target=/tmp/bun-build,sharing=locked \
     bun run generate-docs && \
     bun run build && \
     # Clean up unnecessary files for smaller image

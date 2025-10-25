@@ -24,6 +24,28 @@ import {
 
 const config = loadConfig();
 
+// Simple URL parsing cache for performance optimization
+class RequestContext {
+  private _url: URL | null = null;
+  private _pathname: string | null = null;
+
+  constructor(private req: Request) {}
+
+  get url(): URL {
+    if (!this._url) {
+      this._url = new URL(this.req.url);
+    }
+    return this._url;
+  }
+
+  get pathname(): string {
+    if (!this._pathname) {
+      this._pathname = this.url.pathname;
+    }
+    return this._pathname;
+  }
+}
+
 function validateKongHeaders(
   req: Request
 ): { consumerId: string; username: string } | { error: string } {
@@ -100,13 +122,13 @@ export async function handleTokenRequest(
   });
 
   const requestId = crypto.randomUUID();
-  const url = new URL(req.url);
+  const ctx = new RequestContext(req);
   const startTime = Bun.nanoseconds();
 
-  return telemetryTracer.createHttpSpan(req.method, url.pathname, 200, async () => {
+  return telemetryTracer.createHttpSpan(req.method, ctx.pathname, 200, async () => {
     log("Token request started", {
       method: req.method,
-      url: url.pathname,
+      url: ctx.pathname,
       requestId,
     });
 
@@ -136,7 +158,7 @@ export async function handleTokenRequest(
 
       log("HTTP request processed", {
         method: req.method,
-        url: url.pathname,
+        url: ctx.pathname,
         statusCode: 401,
         duration,
         requestId,
@@ -179,7 +201,7 @@ export async function handleTokenRequest(
 
         log("HTTP request processed", {
           method: req.method,
-          url: url.pathname,
+          url: ctx.pathname,
           statusCode: 503,
           duration,
           requestId,
@@ -226,7 +248,7 @@ export async function handleTokenRequest(
 
         log("HTTP request processed", {
           method: req.method,
-          url: url.pathname,
+          url: ctx.pathname,
           statusCode: 401,
           duration,
           requestId,
@@ -260,7 +282,7 @@ export async function handleTokenRequest(
 
       log("HTTP request processed", {
         method: req.method,
-        url: url.pathname,
+        url: ctx.pathname,
         statusCode: 200,
         duration,
         requestId,
@@ -289,7 +311,7 @@ export async function handleTokenRequest(
 
       log("HTTP request processed", {
         method: req.method,
-        url: url.pathname,
+        url: ctx.pathname,
         statusCode: 500,
         duration,
         requestId,
