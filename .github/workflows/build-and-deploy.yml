@@ -79,6 +79,13 @@ jobs:
       - name: Run unit & integration tests
         run: bun run bun:test:concurrent
 
+      - name: Install Playwright
+        run: bunx playwright install chromium
+
+      - name: Run Kong-independent E2E tests
+        run: bunx playwright test --project=ci-chromium
+        env:
+          API_BASE_URL: http://localhost:3000
 
       - name: Stop application server
         if: always()
