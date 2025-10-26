@@ -14,8 +14,8 @@ import { recordError, recordKongOperation } from "../../telemetry/metrics";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 import { withRetry } from "../../utils/retry";
 import { CacheFactory } from "../cache/cache-factory";
-import type { CircuitBreakerStats } from "../shared-circuit-breaker.service";
-import { SharedCircuitBreakerService } from "../shared-circuit-breaker.service";
+import type { CircuitBreakerStats } from "../circuit-breaker.service";
+import { KongCircuitBreakerService } from "../circuit-breaker.service";
 
 export class KongKonnectService implements IKongService {
   private readonly gatewayAdminUrl: string;
@@ -24,7 +24,7 @@ export class KongKonnectService implements IKongService {
   private readonly controlPlaneId: string;
   private readonly realmId: string;
   private cache: IKongCacheService | null = null;
-  private circuitBreaker: SharedCircuitBreakerService;
+  private circuitBreaker: KongCircuitBreakerService;
 
   constructor(adminUrl: string, adminToken: string) {
     const url = new URL(adminUrl);
@@ -57,7 +57,7 @@ export class KongKonnectService implements IKongService {
       ...kongConfig.circuitBreaker,
       highAvailability: kongConfig.highAvailability,
     };
-    this.circuitBreaker = SharedCircuitBreakerService.getInstance(
+    this.circuitBreaker = new KongCircuitBreakerService(
       circuitBreakerConfig,
       cachingConfig,
       undefined
@@ -68,8 +68,12 @@ export class KongKonnectService implements IKongService {
       .then((cache) => {
         this.cache = cache;
         // Update circuit breaker with cache service for HA mode if needed
-        if (kongConfig.highAvailability) {
-          SharedCircuitBreakerService.updateCacheService(cache);
+        if (kongConfig.highAvailability && cache) {
+          this.circuitBreaker = new KongCircuitBreakerService(
+            circuitBreakerConfig,
+            cachingConfig,
+            cache
+          );
         }
       })
       .catch(console.error);
@@ -136,7 +140,22 @@ export class KongKonnectService implements IKongService {
 
         const secret = data.data[0];
 
-        // Store in cache after successful retrieval
+        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        if (secret.consumer && secret.consumer.id !== consumerUuid) {
+          winstonTelemetryLogger.error(`Consumer UUID mismatch in Kong response, not caching`, {
+            operation: "getConsumerSecret",
+            requestedConsumerId: consumerId,
+            requestedConsumerUuid: consumerUuid,
+            responseConsumerUuid: secret.consumer.id,
+            cacheKey,
+            component: "kong_konnect_service",
+            action: "consumer_uuid_mismatch",
+          });
+          // Don't return wrong consumer data - this prevents cache pollution from propagating
+          return null;
+        }
+
+        // Store in cache after successful retrieval and validation
         if (this.cache) {
           await this.cache.set(cacheKey, secret);
         }
@@ -192,7 +211,24 @@ export class KongKonnectService implements IKongService {
 
         const createdSecret = (await response.json()) as ConsumerSecret;
 
-        // Store in cache after successful creation
+        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        if (createdSecret.consumer && createdSecret.consumer.id !== consumerUuid) {
+          winstonTelemetryLogger.error(
+            `Consumer UUID mismatch in Kong create response, not caching`,
+            {
+              operation: "createConsumerSecret",
+              requestedConsumerId: consumerId,
+              requestedConsumerUuid: consumerUuid,
+              responseConsumerUuid: createdSecret.consumer.id,
+              component: "kong_konnect_service",
+              action: "consumer_uuid_mismatch",
+            }
+          );
+          // Don't return wrong consumer data - this prevents cache pollution from propagating
+          return null;
+        }
+
+        // Store in cache after successful creation and validation
         const cacheKey = `consumer_secret:${consumerId}`;
         if (this.cache) {
           await this.cache.set(cacheKey, createdSecret);

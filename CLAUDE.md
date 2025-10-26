@@ -230,9 +230,11 @@ bun run kill-server && bun run dev    # Clean restart
 ```
 
 ### Testing Rules
+- **ZERO FAILING TESTS POLICY**: We do not accept ANY failing tests. All tests must pass before proceeding with any development work
 - **NEVER apply artificial timeouts to tests**
 - Let K6 performance tests run their full duration
 - Tests are designed to complete naturally
+- **MANDATORY**: Fix all test failures immediately before continuing development
 
 ### CI/CD Workflow Rules
 - **NEVER add timeouts to critical installation steps** (Playwright browsers, dependencies)

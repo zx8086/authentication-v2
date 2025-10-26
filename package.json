@@ -54,6 +54,7 @@
     "playwright:ui": "playwright test --ui",
     "test:clean": "rm -rf test/results/k6/* test/results/playwright/* test/results/bun/* test-results/ playwright-report/",
     "test:suite": "bun run bun:test && bun run playwright:test && bun run k6:quick",
+    "test:suite:ci": "bun run bun:test && bun run playwright:test && bun run k6:quick:ci",
     "k6:smoke:health": "test/k6/run-k6.sh test/k6/smoke/health-only-smoke.ts test/results/k6/smoke-health-only-results.json false",
     "k6:smoke:metrics": "test/k6/run-k6.sh test/k6/smoke/metrics-only-smoke.ts test/results/k6/smoke-metrics-only-results.json false",
     "k6:smoke:openapi": "test/k6/run-k6.sh test/k6/smoke/openapi-only-smoke.ts test/results/k6/smoke-openapi-only-results.json false",
@@ -64,7 +65,9 @@
     "k6:stress": "test/k6/run-k6.sh test/k6/stress/system-stress.ts test/results/k6/stress-system-results.json true",
     "k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
     "k6:info": "bun run test/k6/run-all-tests.ts",
+    "k6:ci": "test/k6/run-k6.sh test/k6/smoke/ci-safe-smoke.ts test/results/k6/ci-safe-results.json false",
     "k6:quick": "bun run k6:smoke:health && bun run k6:smoke:tokens",
+    "k6:quick:ci": "bun run k6:ci",
     "k6:full": "bun run k6:smoke:health && bun run k6:smoke:metrics && bun run k6:smoke:openapi && bun run k6:smoke:tokens && bun run k6:load && bun run k6:stress && bun run k6:spike",
     "k6:soak": "test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-results.json true",
     "k6:soak:quick": "K6_SOAK_DURATION=30m test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-quick-results.json true",
@@ -119,7 +122,13 @@
     "profile:k6:load-test": "PROFILING_ENABLED=true bun src/server.ts & sleep 5 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:load && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
     "profile:k6:smoke": "PROFILING_ENABLED=true bun src/server.ts & sleep 3 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:smoke:profiling && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
     "profile:k6:stress": "PROFILING_ENABLED=true bun src/server.ts & sleep 5 && curl -X POST http://localhost:3000/debug/profiling/start && bun run k6:stress && curl -X POST http://localhost:3000/debug/profiling/stop && curl -X POST http://localhost:3000/debug/profiling/cleanup",
-    "profile:help": "echo 'Profiling Commands:' && echo '  bun run profile:start          - Start server with profiling enabled and Chrome DevTools' && echo '  bun run profile:dev            - Start development server with profiling and Chrome DevTools' && echo '  bun run profile:status         - Check profiling status' && echo '  bun run profile:start-session  - Start profiling session' && echo '  bun run profile:stop-session   - Stop profiling session' && echo '  bun run profile:reports        - List available reports' && echo '  bun run profile:clean          - Clean profiling artifacts' && echo '  bun run profile:k6:smoke       - Profile K6 smoke tests' && echo '  bun run profile:k6:load-test   - Profile K6 load tests' && echo '  bun run profile:k6:stress      - Profile K6 stress tests' && echo 'Chrome DevTools: Navigate to chrome://inspect or use the Bun Inspector URL shown at startup'"
+    "profile:help": "echo 'Profiling Commands:' && echo '  bun run profile:start          - Start server with profiling enabled and Chrome DevTools' && echo '  bun run profile:dev            - Start development server with profiling and Chrome DevTools' && echo '  bun run profile:status         - Check profiling status' && echo '  bun run profile:start-session  - Start profiling session' && echo '  bun run profile:stop-session   - Stop profiling session' && echo '  bun run profile:reports        - List available reports' && echo '  bun run profile:clean          - Clean profiling artifacts' && echo '  bun run profile:k6:smoke       - Profile K6 smoke tests' && echo '  bun run profile:k6:load-test   - Profile K6 load tests' && echo '  bun run profile:k6:stress      - Profile K6 stress tests' && echo 'Chrome DevTools: Navigate to chrome://inspect or use the Bun Inspector URL shown at startup'",
+    "kong:simulator": "bun test/kong-simulator/kong-proxy.ts",
+    "kong:simulator:docker": "docker-compose -f docker-compose.kong.yml up -d",
+    "kong:simulator:stop": "docker-compose -f docker-compose.kong.yml down",
+    "kong:test": "bun run kong:simulator & sleep 2 && curl -H 'X-API-Key: test-api-key-consumer-001' http://localhost:8000/tokens || true && pkill -f kong-proxy.ts",
+    "kong:test:with-auth": "curl -H 'X-API-Key: test-api-key-consumer-001' http://localhost:8000/tokens",
+    "kong:test:health": "curl http://localhost:8000/health"
   },
   "keywords": [
     "authentication",

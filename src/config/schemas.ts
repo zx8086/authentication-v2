@@ -102,6 +102,51 @@ export const CachingConfigSchema = z.strictObject({
     .describe("Tolerance for serving stale cache data in minutes"),
 });
 
+export const OperationCircuitBreakerConfigSchema = z.strictObject({
+  timeout: z
+    .number()
+    .int()
+    .min(100)
+    .max(10000)
+    .describe("Request timeout in milliseconds")
+    .optional(),
+  errorThresholdPercentage: z
+    .number()
+    .min(1)
+    .max(100)
+    .describe("Failure rate threshold percentage")
+    .optional(),
+  resetTimeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(300000)
+    .describe("Circuit reset timeout in milliseconds")
+    .optional(),
+  rollingCountTimeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(60000)
+    .describe("Rolling window duration in milliseconds")
+    .optional(),
+  rollingCountBuckets: z
+    .number()
+    .int()
+    .min(2)
+    .max(50)
+    .describe("Number of buckets for rolling window")
+    .optional(),
+  volumeThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .describe("Minimum requests before circuit can trip")
+    .optional(),
+  fallbackStrategy: z.enum(["cache", "graceful_degradation", "deny"]).optional(),
+});
+
 export const CircuitBreakerConfigSchema = z.strictObject({
   enabled: z.boolean().describe("Enable circuit breaker protection"),
   timeout: z.number().int().min(100).max(10000).describe("Request timeout in milliseconds"),
@@ -134,6 +179,10 @@ export const CircuitBreakerConfigSchema = z.strictObject({
     .min(1)
     .max(1000)
     .describe("Minimum requests before circuit can trip"),
+  operations: z
+    .record(z.string(), OperationCircuitBreakerConfigSchema)
+    .optional()
+    .describe("Per-operation circuit breaker overrides"),
 });
 
 export function addProductionSecurityValidation<
@@ -329,6 +378,7 @@ export const SchemaRegistry = {
   Kong: KongConfigSchema,
   Caching: CachingConfigSchema,
   CircuitBreaker: CircuitBreakerConfigSchema,
+  OperationCircuitBreaker: OperationCircuitBreakerConfigSchema,
   Telemetry: TelemetryConfigSchema,
   Profiling: ProfilingConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
@@ -362,6 +412,7 @@ export interface GenericCacheEntry<T> {
 }
 export type CachingConfig = z.infer<typeof CachingConfigSchema>;
 export type CircuitBreakerConfig = z.infer<typeof CircuitBreakerConfigSchema>;
+export type OperationCircuitBreakerConfig = z.infer<typeof OperationCircuitBreakerConfigSchema>;
 export type ProfilingConfig = z.infer<typeof ProfilingConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema> & {
   telemetry: z.infer<typeof TelemetryConfigSchema> & {

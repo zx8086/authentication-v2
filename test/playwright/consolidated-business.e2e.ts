@@ -19,19 +19,19 @@ const ANONYMOUS_CONSUMER = {
 
 const BASIC_TEST_CONSUMERS = [
   {
-    id: "test-consumer-001",
+    id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
     username: "test-consumer-001",
     custom_id: "test-consumer-001",
     description: "Primary test consumer for basic authentication tests",
   },
   {
-    id: "test-consumer-002",
+    id: "1ff7d425-917a-4858-9e99-c2a911ba1b05",
     username: "test-consumer-002",
     custom_id: "test-consumer-002",
     description: "Secondary test consumer for multi-user scenarios",
   },
   {
-    id: "test-consumer-003",
+    id: "73881280-13b4-40b3-aecf-84d981d6ac35",
     username: "test-consumer-003",
     custom_id: "test-consumer-003",
     description: "Third test consumer for multi-user scenarios",

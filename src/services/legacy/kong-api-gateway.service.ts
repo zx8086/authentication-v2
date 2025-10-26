@@ -12,14 +12,14 @@ import { getCachingConfig, getKongConfig } from "../../config";
 import { recordError, recordKongOperation } from "../../telemetry/metrics";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 import { CacheFactory } from "../cache/cache-factory";
-import type { CircuitBreakerStats } from "../shared-circuit-breaker.service";
-import { SharedCircuitBreakerService } from "../shared-circuit-breaker.service";
+import type { CircuitBreakerStats } from "../circuit-breaker.service";
+import { KongCircuitBreakerService } from "../circuit-breaker.service";
 
 export class KongApiGatewayService implements IKongService {
   private readonly baseUrl: string;
   private readonly adminToken: string;
   private cache: IKongCacheService | null = null;
-  private circuitBreaker?: SharedCircuitBreakerService;
+  private circuitBreaker?: KongCircuitBreakerService;
 
   constructor(adminUrl: string, adminToken: string) {
     this.baseUrl = adminUrl.replace(/\/$/, "");
@@ -33,8 +33,8 @@ export class KongApiGatewayService implements IKongService {
       highAvailability: kongConfig.highAvailability,
     };
 
-    // Initialize shared circuit breaker first
-    this.circuitBreaker = SharedCircuitBreakerService.getInstance(
+    // Initialize per-operation circuit breaker
+    this.circuitBreaker = new KongCircuitBreakerService(
       circuitBreakerConfig,
       cachingConfig,
       undefined
@@ -45,8 +45,12 @@ export class KongApiGatewayService implements IKongService {
       .then((cache) => {
         this.cache = cache;
         // Update circuit breaker with cache service for HA mode
-        if (kongConfig.highAvailability) {
-          SharedCircuitBreakerService.updateCacheService(cache);
+        if (kongConfig.highAvailability && cache) {
+          this.circuitBreaker = new KongCircuitBreakerService(
+            circuitBreakerConfig,
+            cachingConfig,
+            cache
+          );
         }
       })
       .catch((error) => {
@@ -68,14 +72,18 @@ export class KongApiGatewayService implements IKongService {
       return cached;
     }
 
-    // Use shared circuit breaker for consumer operations
+    // Use per-operation circuit breaker for consumer operations
     if (!this.circuitBreaker) {
       const kongConfig = getKongConfig();
       const cachingConfig = getCachingConfig();
-      this.circuitBreaker = SharedCircuitBreakerService.getInstance(
-        kongConfig.circuitBreaker,
+      const circuitBreakerConfig = {
+        ...kongConfig.circuitBreaker,
+        highAvailability: kongConfig.highAvailability,
+      };
+      this.circuitBreaker = new KongCircuitBreakerService(
+        circuitBreakerConfig,
         cachingConfig,
-        undefined
+        this.cache || undefined
       );
     }
 
@@ -83,6 +91,7 @@ export class KongApiGatewayService implements IKongService {
       "getConsumerSecret",
       consumerId,
       async () => {
+        // Kong API Gateway supports consumer lookup by username directly
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
         const headers: Record<string, string> = {
@@ -132,10 +141,14 @@ export class KongApiGatewayService implements IKongService {
     if (!this.circuitBreaker) {
       const kongConfig = getKongConfig();
       const cachingConfig = getCachingConfig();
-      this.circuitBreaker = SharedCircuitBreakerService.getInstance(
-        kongConfig.circuitBreaker,
+      const circuitBreakerConfig = {
+        ...kongConfig.circuitBreaker,
+        highAvailability: kongConfig.highAvailability,
+      };
+      this.circuitBreaker = new KongCircuitBreakerService(
+        circuitBreakerConfig,
         cachingConfig,
-        undefined
+        this.cache || undefined
       );
     }
 
@@ -146,6 +159,7 @@ export class KongApiGatewayService implements IKongService {
         const key = crypto.randomUUID().replace(/-/g, "");
         const secret = this.generateSecureSecret();
 
+        // Kong API Gateway supports consumer lookup by username directly
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
         const headers: Record<string, string> = {
@@ -215,10 +229,14 @@ export class KongApiGatewayService implements IKongService {
     if (!this.circuitBreaker) {
       const kongConfig = getKongConfig();
       const cachingConfig = getCachingConfig();
-      this.circuitBreaker = SharedCircuitBreakerService.getInstance(
-        kongConfig.circuitBreaker,
+      const circuitBreakerConfig = {
+        ...kongConfig.circuitBreaker,
+        highAvailability: kongConfig.highAvailability,
+      };
+      this.circuitBreaker = new KongCircuitBreakerService(
+        circuitBreakerConfig,
         cachingConfig,
-        undefined
+        this.cache || undefined
       );
     }
 

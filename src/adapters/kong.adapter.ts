@@ -10,8 +10,8 @@ import type {
 } from "../config";
 import { getCachingConfig, getKongConfig } from "../config";
 import { CacheFactory } from "../services/cache/cache-factory";
-import type { CircuitBreakerStats } from "../services/shared-circuit-breaker.service";
-import { SharedCircuitBreakerService } from "../services/shared-circuit-breaker.service";
+import type { CircuitBreakerStats } from "../services/circuit-breaker.service";
+import { KongCircuitBreakerService } from "../services/circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import { withRetry } from "../utils/retry";
@@ -43,7 +43,7 @@ import {
 export class KongAdapter implements IAPIGatewayAdapter {
   private readonly strategy: IKongModeStrategy;
   private cache: IKongCacheService | null = null;
-  private circuitBreaker: SharedCircuitBreakerService;
+  private circuitBreaker: KongCircuitBreakerService;
 
   constructor(
     private readonly mode: KongModeType,
@@ -61,7 +61,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
       highAvailability: kongConfig.highAvailability,
     };
 
-    this.circuitBreaker = SharedCircuitBreakerService.getInstance(
+    this.circuitBreaker = new KongCircuitBreakerService(
       circuitBreakerConfig,
       cachingConfig,
       undefined
@@ -77,8 +77,18 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
       // Update circuit breaker with cache service for HA mode
       const kongConfig = getKongConfig();
-      if (kongConfig.highAvailability) {
-        SharedCircuitBreakerService.updateCacheService(this.cache);
+      if (kongConfig.highAvailability && this.cache) {
+        // For KongCircuitBreakerService, we need to recreate it with the cache service
+        const circuitBreakerConfig = {
+          ...kongConfig.circuitBreaker,
+          highAvailability: kongConfig.highAvailability,
+        };
+        const cachingConfig = getCachingConfig();
+        this.circuitBreaker = new KongCircuitBreakerService(
+          circuitBreakerConfig,
+          cachingConfig,
+          this.cache
+        );
       }
     } catch (error) {
       winstonTelemetryLogger.error("Failed to initialize Kong adapter cache", {
@@ -150,7 +160,22 @@ export class KongAdapter implements IAPIGatewayAdapter {
           return null;
         }
 
-        // Store in cache after successful retrieval
+        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        if (secret.consumer && secret.consumer.id !== consumerId) {
+          winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
+            operation: "getConsumerSecret",
+            requestedConsumerId: consumerId,
+            responseConsumerId: secret.consumer.id,
+            cacheKey,
+            component: "kong_adapter",
+            action: "consumer_id_mismatch",
+            mode: this.mode,
+          });
+          // Don't cache wrong consumer data, but still return it (Kong returned it for this request)
+          return secret;
+        }
+
+        // Store in cache after successful retrieval and validation
         await this.cache?.set(cacheKey, secret);
 
         return secret;
@@ -219,7 +244,24 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
         const createdSecret = (await response.json()) as ConsumerSecret;
 
-        // Store in cache after successful creation
+        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {
+          winstonTelemetryLogger.error(
+            `Consumer ID mismatch in Kong create response, not caching`,
+            {
+              operation: "createConsumerSecret",
+              requestedConsumerId: consumerId,
+              responseConsumerId: createdSecret.consumer.id,
+              component: "kong_adapter",
+              action: "consumer_id_mismatch",
+              mode: this.mode,
+            }
+          );
+          // Don't cache wrong consumer data, but still return it (Kong returned it for this request)
+          return createdSecret;
+        }
+
+        // Store in cache after successful creation and validation
         await this.ensureCacheInitialized();
         const cacheKey = generateCacheKey(consumerId);
         await this.cache?.set(cacheKey, createdSecret);

@@ -12,6 +12,7 @@ import {
   getTestConsumer,
 } from "../utils/config.ts";
 import { setupTestConsumers } from "../utils/setup.js";
+import { shouldRunTest, logEnvironmentInfo } from "../utils/environment.ts";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -26,6 +27,14 @@ export const options = {
 
 export function setup() {
   console.log("[K6 Tokens Test] Running setup...");
+  logEnvironmentInfo();
+
+  // Check if this test should run in current environment
+  if (!shouldRunTest(true)) {
+    console.log("[K6 Tokens Test] Skipping - Kong Gateway not available");
+    return { skipTest: true };
+  }
+
   const success = setupTestConsumers();
   if (!success) {
     throw new Error("Failed to setup test consumers");
@@ -34,7 +43,13 @@ export function setup() {
   return { setupComplete: true };
 }
 
-export default function () {
+export default function (data) {
+  // Skip test execution if setup indicated we should skip
+  if (data && data.skipTest) {
+    console.log("[K6 Tokens Test] Skipped - Kong Gateway not available in this environment");
+    return;
+  }
+
   const baseUrl = config.baseUrl;
   const consumer = getTestConsumer(0);
 

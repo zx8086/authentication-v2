@@ -111,6 +111,25 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async set(key: string, value: ConsumerSecret, ttlSeconds?: number): Promise<void> {
+    // CRITICAL FIX: Validate cache key and consumer data consistency to prevent cache pollution
+    if (key.startsWith("consumer_secret:") && value.consumer) {
+      const expectedConsumerId = key.replace("consumer_secret:", "");
+      if (value.consumer.id !== expectedConsumerId) {
+        winstonTelemetryLogger.error(
+          `Cache key and consumer ID mismatch detected, preventing cache pollution`,
+          {
+            cacheKey: key,
+            expectedConsumerId,
+            actualConsumerId: value.consumer.id,
+            component: "shared_redis_cache",
+            action: "cache_pollution_prevention",
+          }
+        );
+        // Don't cache mismatched data
+        return;
+      }
+    }
+
     const redisKey = this.keyPrefix + key;
     const staleRedisKey = this.staleKeyPrefix + key;
     const context: RedisOperationContext = {
