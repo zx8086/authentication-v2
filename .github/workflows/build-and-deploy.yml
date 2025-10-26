@@ -126,23 +126,17 @@ jobs:
           fi
 
       - name: Run Playwright E2E tests
-        run: bun run playwright:test
+        run: bunx playwright test --project=ci-chromium --project=ci-firefox --project=ci-webkit
         env:
-          CI: true
-          SKIP_KONG_TESTS: true
-          SKIP_PLAYWRIGHT_KONG: true
           API_BASE_URL: http://localhost:3000
 
-
-      - name: Upload test results
+      - name: Upload Playwright test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ github.run_number }}
+          name: playwright-report-${{ github.run_number }}
           path: |
             test/results/playwright/
-            test-results/
-            playwright-report/
           retention-days: 30
 
       - name: Stop application server
