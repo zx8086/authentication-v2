@@ -19,7 +19,7 @@ export default defineConfig({
     ["junit", { outputFile: "./test/results/playwright/junit.xml" }],
     ["line"], // Console output
   ],
-  globalSetup: "./test/playwright/global-setup.ts",
+  globalSetup: process.env.CI && process.env.SKIP_KONG_TESTS === "true" ? undefined : "./test/playwright/global-setup.ts",
   use: {
     baseURL: process.env.API_BASE_URL || "http://localhost:3000",
     extraHTTPHeaders: {
@@ -37,66 +37,94 @@ export default defineConfig({
   },
 
   projects: [
-    // Cross-browser testing for authentication flows
-    {
-      name: "chromium",
-      testMatch: /consolidated-business\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
+    // CI-safe projects (Kong-independent tests only)
+    ...(process.env.CI && process.env.SKIP_KONG_TESTS === "true" ? [
+      {
+        name: "ci-chromium",
+        testMatch: /ci-safe\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Chrome"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    {
-      name: "firefox",
-      testMatch: /consolidated-business\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Firefox"],
-        ignoreHTTPSErrors: true,
+      {
+        name: "ci-firefox",
+        testMatch: /ci-safe\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Firefox"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    {
-      name: "webkit",
-      testMatch: /consolidated-business\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Safari"],
-        ignoreHTTPSErrors: true,
+      {
+        name: "ci-webkit",
+        testMatch: /ci-safe\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Safari"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    // Mobile testing for authentication
-    {
-      name: "mobile-chrome",
-      testMatch: /consolidated-business\.e2e\.ts$/,
-      use: {
-        ...devices["Pixel 5"],
-        ignoreHTTPSErrors: true,
+    ] : [
+      // Full test suite for local development (Kong-dependent)
+      {
+        name: "chromium",
+        testMatch: /consolidated-business\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Chrome"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    {
-      name: "mobile-safari",
-      testMatch: /consolidated-business\.e2e\.ts$/,
-      use: {
-        ...devices["iPhone 12"],
-        ignoreHTTPSErrors: true,
+      {
+        name: "firefox",
+        testMatch: /consolidated-business\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Firefox"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    // Profiling tests (Chrome only for performance consistency)
-    {
-      name: "profiling",
-      testMatch: /profiling\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
-        timeout: 60000,
+      {
+        name: "webkit",
+        testMatch: /consolidated-business\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Safari"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
-    // Legacy project for backward compatibility
-    {
-      name: "all-tests",
-      testMatch: /.*\.e2e\.ts$/,
-      use: {
-        ...devices["Desktop Chrome"],
-        ignoreHTTPSErrors: true,
+      // Mobile testing for authentication
+      {
+        name: "mobile-chrome",
+        testMatch: /consolidated-business\.e2e\.ts$/,
+        use: {
+          ...devices["Pixel 5"],
+          ignoreHTTPSErrors: true,
+        },
       },
-    },
+      {
+        name: "mobile-safari",
+        testMatch: /consolidated-business\.e2e\.ts$/,
+        use: {
+          ...devices["iPhone 12"],
+          ignoreHTTPSErrors: true,
+        },
+      },
+      // Profiling tests (Chrome only for performance consistency)
+      {
+        name: "profiling",
+        testMatch: /profiling\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Chrome"],
+          ignoreHTTPSErrors: true,
+          timeout: 60000,
+        },
+      },
+      // Legacy project for backward compatibility
+      {
+        name: "all-tests",
+        testMatch: /.*\.e2e\.ts$/,
+        use: {
+          ...devices["Desktop Chrome"],
+          ignoreHTTPSErrors: true,
+        },
+      },
+    ]),
   ],
 });

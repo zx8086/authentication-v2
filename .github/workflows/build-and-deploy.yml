@@ -128,6 +128,9 @@ jobs:
       - name: Run Playwright E2E tests
         run: bun run playwright:test
         env:
+          CI: true
+          SKIP_KONG_TESTS: true
+          SKIP_PLAYWRIGHT_KONG: true
           API_BASE_URL: http://localhost:3000
 
 
