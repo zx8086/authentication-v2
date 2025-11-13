@@ -191,7 +191,7 @@
   "dependencies": {
     "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.206.0",
+    "@opentelemetry/api-logs": "^0.207.0",
     "@opentelemetry/auto-instrumentations-node": "^0.65.0",
     "@opentelemetry/core": "^2.1.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.206.0",
