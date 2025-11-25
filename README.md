@@ -48,7 +48,7 @@ The Authentication Service is a secure JWT token issuer that bridges Kong API Ga
 
 ### 🛠️ Development
 - **[Getting Started](docs/development/getting-started.md)** - Development setup and workflow
-- **[Testing](docs/development/testing.md)** - Comprehensive testing strategy (260+ tests, 80%+ coverage)
+- **[Testing](docs/development/testing.md)** - Comprehensive testing strategy (460+ tests, 80%+ coverage)
 
 ### 🚀 Deployment
 - **[Docker](docs/deployment/docker.md)** - Container builds and deployment
@@ -74,7 +74,7 @@ bun run quality:check          # Code quality and formatting
 
 ### Testing
 ```bash
-bun run bun:test              # Unit tests (136+ tests)
+bun run bun:test              # Unit tests (392+ tests)
 bun run playwright:test       # E2E tests (68+ tests)
 bun run k6:quick              # Performance smoke tests
 ```
@@ -92,7 +92,8 @@ curl http://localhost:3000/metrics   # Operational metrics
 |----------|--------|-------------|
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
-| `/health` | GET | Service health check |
+| `/health` | GET | Service health check (liveness) |
+| `/health/ready` | GET | Kubernetes readiness probe |
 | `/metrics` | GET | Operational metrics |
 
 ## Environment Configuration
@@ -123,9 +124,10 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 ## Security & Compliance
 
 - **Zero Client Secrets**: JWT signing secrets never leave the server
-- **Circuit Breaker Protection**: Kong API resilience with fallback
+- **OWASP Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options on all responses
+- **Circuit Breaker Protection**: Kong API resilience with stale cache fallback
 - **Security Scanning**: Automated vulnerability detection (Snyk, Trivy, Docker Scout)
-- **Container Security**: Non-root user, minimal base image, read-only filesystem
+- **Container Security**: Non-root user, distroless base image, read-only filesystem
 - **Supply Chain Security**: SBOM generation and build provenance attestations
 
 ## Technology Stack
@@ -137,13 +139,13 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **Caching**: Redis with in-memory fallback
 - **Monitoring**: OpenTelemetry with OTLP
 - **Testing**: Bun Test + Playwright + K6
-- **Container**: Docker multi-stage Alpine builds
+- **Container**: Docker multi-stage distroless builds
 
 ## Support & Contributing
 
 ### Getting Help
 - **Documentation**: See [docs/](docs/) directory for comprehensive guides
-- **Health Checks**: Use `/health` endpoint for service validation
+- **Health Checks**: Use `/health` for liveness, `/health/ready` for readiness probes
 - **Debugging**: Enable `TELEMETRY_MODE=both` for detailed logging
 
 ### Development Workflow
