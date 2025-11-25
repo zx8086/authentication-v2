@@ -22,6 +22,10 @@ This directory contains all project documentation organized by topic.
 - Parallel security scanning documentation
 - Security validation procedures
 
+## Migration Documentation
+
+- **[MIGRATION_GAPS.md](./MIGRATION_GAPS.md)** - Comprehensive analysis of .NET to Bun migration gaps, edge cases, and verification checklist
+
 ## Main Documentation
 
 - **[README.md](../README.md)** - Main project documentation

@@ -1,7 +1,8 @@
 /* src/middleware/error-handler.ts */
 
 import { loadConfig } from "../config/index";
-import { log } from "../utils/logger";
+import { log, logError } from "../utils/logger";
+import { getDefaultHeaders } from "../utils/response";
 
 const config = loadConfig();
 
@@ -19,22 +20,29 @@ export function handleNotFound(url: URL): Response {
     JSON.stringify({
       error: "Not Found",
       message: `Path ${url.pathname} not found`,
+      statusCode: 404,
+      timestamp: new Date().toISOString(),
+      requestId,
     }),
     {
       status: 404,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Request-Id": requestId,
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
+      headers: getDefaultHeaders(requestId),
     }
   );
 }
 
-export function handleServerError(_error: Error): Response {
+export function handleServerError(error: Error, request?: Request): Response {
   const requestId = crypto.randomUUID();
+  const url = request?.url || "unknown";
+  const method = request?.method || "unknown";
+
+  logError("Unhandled server error", error, {
+    requestId,
+    url,
+    method,
+    errorName: error.name,
+    errorMessage: error.message,
+  });
 
   return new Response(
     JSON.stringify({
@@ -46,13 +54,7 @@ export function handleServerError(_error: Error): Response {
     }),
     {
       status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Request-Id": requestId,
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
+      headers: getDefaultHeaders(requestId),
     }
   );
 }

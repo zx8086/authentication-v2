@@ -29,8 +29,25 @@ const kongService: IKongService = KongServiceFactory.create(
 
 try {
   await initializeTelemetry();
-} catch (error) {
-  console.error("Failed to initialize telemetry:", (error as Error).message);
+  log("Telemetry initialized successfully", {
+    component: "telemetry",
+    event: "initialization_success",
+    mode: config.telemetry.mode,
+    serviceName: config.telemetry.serviceName,
+  });
+} catch (initError) {
+  error("Failed to initialize OpenTelemetry - service will continue without telemetry export", {
+    component: "telemetry",
+    event: "initialization_failure",
+    error: initError instanceof Error ? initError.message : "Unknown error",
+    stack: initError instanceof Error ? initError.stack : undefined,
+    mode: config.telemetry.mode,
+    tracesEndpoint: config.telemetry.tracesEndpoint || "not configured",
+    metricsEndpoint: config.telemetry.metricsEndpoint || "not configured",
+    logsEndpoint: config.telemetry.logsEndpoint || "not configured",
+    impact: "Traces, metrics, and logs will not be exported to OTLP endpoint",
+    recovery: "Service continues operating normally, telemetry data will be lost",
+  });
 }
 
 log("Authentication Service starting up", {

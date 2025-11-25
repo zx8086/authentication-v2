@@ -1,6 +1,11 @@
 /* src/routes/router.ts */
 
-import { handleHealthCheck, handleMetricsHealth, handleTelemetryHealth } from "../handlers/health";
+import {
+  handleHealthCheck,
+  handleMetricsHealth,
+  handleReadinessCheck,
+  handleTelemetryHealth,
+} from "../handlers/health";
 import {
   handleDebugMetricsExport,
   handleDebugMetricsTest,
@@ -49,6 +54,13 @@ export function createRoutes(kongService: IKongService) {
       GET: async (req: Request) =>
         await telemetryTracer.createHttpSpan(req.method, "/health/metrics", 200, () =>
           handleMetricsHealth(kongService)
+        ),
+    },
+
+    "/health/ready": {
+      GET: async (req: Request) =>
+        await telemetryTracer.createHttpSpan(req.method, "/health/ready", 200, () =>
+          handleReadinessCheck(kongService)
         ),
     },
 

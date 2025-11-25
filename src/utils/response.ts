@@ -16,6 +16,18 @@ interface SuccessResponseData {
   [key: string]: any;
 }
 
+export function getSecurityHeaders(): Record<string, string> {
+  return {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "0",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+  };
+}
+
 export function getDefaultHeaders(requestId: string): Record<string, string> {
   return {
     "Content-Type": "application/json",
@@ -23,6 +35,7 @@ export function getDefaultHeaders(requestId: string): Record<string, string> {
     "Access-Control-Allow-Origin": config.apiInfo.cors,
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    ...getSecurityHeaders(),
   };
 }
 

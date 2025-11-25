@@ -321,6 +321,106 @@ export function handleTelemetryHealth(): Response {
   }
 }
 
+export async function handleReadinessCheck(kongService: IKongService): Promise<Response> {
+  const requestId = crypto.randomUUID();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing readiness check request", {
+    component: "health",
+    operation: "handle_readiness_check",
+    endpoint: "/health/ready",
+    requestId,
+  });
+
+  try {
+    // Readiness probe specifically checks Kong connectivity
+    // Service is "ready" when it can perform authentication operations
+    const kongHealthStartTime = Bun.nanoseconds();
+    let kongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
+
+    try {
+      kongHealth = await kongService.healthCheck();
+    } catch (kongError) {
+      log("Kong health check failed during readiness probe", {
+        component: "health",
+        operation: "readiness_kong_check",
+        error: kongError instanceof Error ? kongError.message : "Unknown error",
+        requestId,
+      });
+      kongHealth = {
+        healthy: false,
+        responseTime: 0,
+        error: kongError instanceof Error ? kongError.message : "Connection failed",
+      };
+    }
+
+    const kongHealthDuration = (Bun.nanoseconds() - kongHealthStartTime) / 1_000_000;
+    const totalDuration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    const isReady = kongHealth.healthy;
+    const statusCode = isReady ? 200 : 503;
+
+    const readinessData = {
+      ready: isReady,
+      timestamp: new Date().toISOString(),
+      checks: {
+        kong: {
+          status: kongHealth.healthy ? "healthy" : "unhealthy",
+          responseTime: Math.round(kongHealthDuration),
+          details: {
+            adminUrl: config.kong.adminUrl,
+            mode: config.kong.mode,
+            ...(kongHealth.error && { error: kongHealth.error }),
+          },
+        },
+      },
+      responseTime: Math.round(totalDuration),
+      requestId,
+    };
+
+    log("Readiness check completed", {
+      component: "health",
+      operation: "readiness_check_complete",
+      ready: isReady,
+      kongHealthy: kongHealth.healthy,
+      duration: totalDuration,
+      requestId,
+    });
+
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/health/ready",
+      statusCode,
+      duration: totalDuration,
+      requestId,
+    });
+
+    return createHealthResponse(readinessData, statusCode, requestId);
+  } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    log("Readiness check failed", {
+      component: "health",
+      operation: "readiness_check_error",
+      error: error instanceof Error ? error.message : "Unknown error",
+      duration,
+      requestId,
+    });
+
+    return createHealthResponse(
+      {
+        ready: false,
+        error: "Readiness check failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+        requestId,
+      },
+      503,
+      requestId
+    );
+  }
+}
+
 export function handleMetricsHealth(kongService: IKongService): Response {
   try {
     const metricsStatus = getMetricsStatus();

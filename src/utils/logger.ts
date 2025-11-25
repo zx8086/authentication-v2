@@ -120,4 +120,20 @@ export function audit(eventType: string, context: Record<string, any> = {}) {
   });
 }
 
-export const logger = { log, warn, error, audit };
+export function logError(message: string, err: Error, context: Record<string, any> = {}) {
+  const config = getConfig();
+  getWinstonLogger().error(message, {
+    service: {
+      name: config.telemetry.serviceName,
+      environment: config.telemetry.environment,
+    },
+    error: {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    },
+    ...context,
+  });
+}
+
+export const logger = { log, warn, error, audit, logError };
