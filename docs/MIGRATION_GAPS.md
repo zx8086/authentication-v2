@@ -196,9 +196,9 @@ This document provides a comprehensive analysis of behavioral differences, edge 
 }
 ```
 
-**Purpose**: Kubernetes readiness probe - returns 200 when service can perform authentication (Kong is reachable), 503 otherwise.
+**Purpose**: Readiness probe - returns 200 when service can perform authentication (Kong is reachable), 503 otherwise. Use with any orchestration platform or load balancer.
 
-**Client Impact**: None - this is a new additive endpoint for container orchestration.
+**Client Impact**: None - this is a new additive endpoint for orchestration and load balancing.
 
 ---
 

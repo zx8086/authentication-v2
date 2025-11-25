@@ -93,7 +93,7 @@ curl http://localhost:3000/metrics   # Operational metrics
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
 | `/health` | GET | Service health check (liveness) |
-| `/health/ready` | GET | Kubernetes readiness probe |
+| `/health/ready` | GET | Readiness probe (checks Kong connectivity) |
 | `/metrics` | GET | Operational metrics |
 
 ## Environment Configuration

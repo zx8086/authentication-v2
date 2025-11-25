@@ -129,7 +129,7 @@ Host: auth-service.example.com
 ```
 
 ### GET /health/ready
-Kubernetes readiness probe checking Kong connectivity.
+Readiness check verifying service can handle requests (Kong connectivity validated).
 
 **Request**
 ```http
@@ -173,9 +173,10 @@ Host: auth-service.example.com
 ```
 
 **Usage**
-- Use for Kubernetes readiness probes
-- Different from `/health` which checks liveness
-- Pod will not receive traffic until this returns 200
+- Use for readiness probes in any orchestration platform (Kubernetes, Docker Swarm, Nomad, etc.)
+- Use with load balancers to determine if instance should receive traffic
+- Different from `/health` which checks liveness (service is running)
+- Instance should not receive traffic until this returns 200
 
 ### GET /health/telemetry
 Telemetry system health check.

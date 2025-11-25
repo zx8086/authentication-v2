@@ -58,9 +58,12 @@ COPY --from=oven/bun:1.3.0-alpine --chown=65532:65532 \
 COPY --from=deps-base --chown=65532:65532 \
     /usr/bin/dumb-init /usr/bin/dumb-init
 
-# Copy all required shared libraries in single operation
+# Copy musl dynamic linker to /lib (required path for Bun)
 COPY --from=deps-base --chown=65532:65532 \
-    /lib/ld-musl-*.so.1 \
+    /lib/ld-musl-*.so.1 /lib/
+
+# Copy shared libraries to /usr/lib
+COPY --from=deps-base --chown=65532:65532 \
     /usr/lib/libgcc_s.so.1 \
     /usr/lib/libstdc++.so.6 \
     /usr/lib/
@@ -74,11 +77,11 @@ COPY --from=deps-prod --chown=65532:65532 \
 COPY --from=deps-prod --chown=65532:65532 \
     /app/package.json ./package.json
 
-# Copy application source and assets
-COPY --from=builder --chown=65532:65532 \
-    /app/src \
-    /app/public \
-    ./
+# Copy application source
+COPY --from=builder --chown=65532:65532 /app/src ./src
+
+# Copy public assets
+COPY --from=builder --chown=65532:65532 /app/public ./public
 
 # Already running as nonroot user (65532:65532) - distroless default
 
