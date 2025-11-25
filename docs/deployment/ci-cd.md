@@ -7,7 +7,7 @@ The service includes enterprise-grade CI/CD automation with comprehensive securi
 ### Pipeline Features
 - **Optimized Caching Strategy**: Enhanced Playwright browser caching and Bun dependency caching with hierarchical fallback
 - **Consistent Build Pipeline**: All steps run on every build (PRs and main branch) for complete consistency
-- **Automated Testing**: 260 tests (100% pass rate) executed in CI with live server validation
+- **Automated Testing**: 460+ tests (100% pass rate) executed in CI with live server validation
 - **Docker Cloud Builders**: Enhanced build infrastructure with dedicated cloud resources
 - **Multi-platform Builds**: Linux AMD64 and ARM64 with optimized cloud-native compilation
 - **Security Scanning Suite**: Comprehensive vulnerability assessments
@@ -240,10 +240,9 @@ All security scanning results are:
 ```
 
 ### Test Categories in CI
-1. **Unit Tests**: 136+ tests with comprehensive coverage
-2. **Integration Tests**: Kong service integration with mocking
-3. **E2E Tests**: Kong-independent API validation tests
-4. **Performance Tests**: Basic smoke tests for regression detection
+1. **Unit/Integration Tests**: 392+ tests with comprehensive coverage (Bun test runner)
+2. **E2E Tests**: 68+ Kong-independent API validation tests (Playwright)
+3. **Performance Tests**: K6 smoke tests for regression detection
 
 ### Test Results and Artifacts
 - **Coverage Reports**: Uploaded for tracking and analysis

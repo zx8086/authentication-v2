@@ -68,7 +68,7 @@
 - **JWT Generation**: Web Crypto API (crypto.subtle) with HMAC-SHA256
 - **Caching**: Redis with in-memory fallback using unified cache architecture
 - **Circuit Breakers**: Opossum library for Kong API resilience
-- **Container**: Docker with Alpine Linux base (oven/bun:1.2.23-alpine)
+- **Container**: Docker with distroless base (gcr.io/distroless/base:nonroot)
 - **Monitoring**: OpenTelemetry with OTLP protocol
 - **Profiling**: Chrome DevTools integration via Bun inspector
 - **API Documentation**: Dynamic OpenAPI generation
@@ -81,6 +81,6 @@
 - **Memory Usage**: ~50-80MB baseline with optimized telemetry
 - **Cold Start**: <100ms initialization time with hybrid caching
 - **Response Time**: <10ms p99 for token generation (crypto.subtle + response builders)
-- **Container Size**: <100MB with all dependencies (multi-stage Alpine build)
+- **Container Size**: 58MB (distroless multi-stage build)
 - **Cache Performance**: 90%+ hit rate with memory-first hybrid strategy
 - **Resilience**: Circuit breaker protection with Kong Admin API resilience and stale cache fallback

@@ -66,10 +66,10 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 64Mi
+            memory: 512Mi
           limits:
-            cpu: 500m
-            memory: 128Mi
+            cpu: "1.0"
+            memory: 1Gi
         livenessProbe:
           httpGet:
             path: /health
@@ -80,7 +80,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /health/ready
             port: 3000
           initialDelaySeconds: 5
           periodSeconds: 5
@@ -88,8 +88,8 @@ spec:
           failureThreshold: 2
         securityContext:
           runAsNonRoot: true
-          runAsUser: 1001
-          runAsGroup: 1001
+          runAsUser: 65532
+          runAsGroup: 65532
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
@@ -102,7 +102,7 @@ spec:
       - name: tmp
         emptyDir: {}
       securityContext:
-        fsGroup: 1001
+        fsGroup: 65532
 ```
 
 ### Service Manifest
@@ -579,20 +579,21 @@ roleRef:
 
 ### Resource Management
 - **CPU Requests**: 100m (guaranteed baseline)
-- **CPU Limits**: 500m (burst capacity)
-- **Memory Requests**: 64Mi (baseline usage)
-- **Memory Limits**: 128Mi (prevent OOM)
+- **CPU Limits**: 1.0 (burst capacity)
+- **Memory Requests**: 512Mi (baseline usage)
+- **Memory Limits**: 1Gi (production capacity)
 
 ### Health Checks
-- **Liveness Probe**: Detect crashed containers
-- **Readiness Probe**: Control traffic routing
+- **Liveness Probe**: `/health` - Detect crashed containers
+- **Readiness Probe**: `/health/ready` - Control traffic routing (checks Kong connectivity)
 - **Startup Probe**: Handle slow startup scenarios
 
 ### Security Hardening
-- **Non-root user**: UID/GID 1001
+- **Non-root user**: UID/GID 65532 (distroless nonroot)
 - **Read-only filesystem**: Security enhancement
 - **Dropped capabilities**: Minimal privileges
 - **Network policies**: Restrict traffic flow
+- **Distroless base image**: No shell, no package manager
 
 ### High Availability
 - **Pod anti-affinity**: Spread across nodes

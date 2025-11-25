@@ -128,6 +128,55 @@ Host: auth-service.example.com
 }
 ```
 
+### GET /health/ready
+Kubernetes readiness probe checking Kong connectivity.
+
+**Request**
+```http
+GET /health/ready HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Ready (200 OK)**
+```json
+{
+  "status": "ready",
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "checks": {
+    "kong": {
+      "status": "healthy",
+      "mode": "KONNECT",
+      "responseTime": 45
+    },
+    "circuitBreaker": {
+      "state": "CLOSED"
+    }
+  }
+}
+```
+
+**Response - Not Ready (503)**
+```json
+{
+  "status": "not_ready",
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "checks": {
+    "kong": {
+      "status": "unhealthy",
+      "error": "Connection timeout"
+    },
+    "circuitBreaker": {
+      "state": "OPEN"
+    }
+  }
+}
+```
+
+**Usage**
+- Use for Kubernetes readiness probes
+- Different from `/health` which checks liveness
+- Pod will not receive traffic until this returns 200
+
 ### GET /health/telemetry
 Telemetry system health check.
 

@@ -5,9 +5,11 @@
 The authentication service implements a comprehensive testing strategy with automatic test consumer setup across all frameworks. Recent improvements include enhanced test coverage (80.78% overall) and modular test architecture with proper isolation.
 
 ### Test Coverage Achievements
-- **Overall Coverage**: 80.78% line coverage (+16.21% improvement)
-- **Total Test Count**: 260 tests (100% pass rate) across all frameworks
-- **Integration Tests**: 124 tests executing in CI with live server validation
+- **Overall Coverage**: 80%+ line coverage
+- **Total Test Count**: 460+ tests (100% pass rate) across all frameworks
+  - **Bun Unit/Integration Tests**: 392+ tests
+  - **Playwright E2E Tests**: 68+ tests
+- **Integration Tests**: Executing in CI with live server validation
 - **Kong Service Test Suite**: 83 comprehensive test cases across 4 service files (100% coverage)
   - **Kong API Gateway Service**: 33 test cases (100% coverage)
   - **Kong Konnect Service**: 24 test cases covering cloud and self-hosted environments

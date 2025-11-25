@@ -93,7 +93,7 @@ While this service runs on Bun, it maintains Node.js compatibility for:
 - **OpenTelemetry libraries** designed for Node.js runtime
 
 ### System Requirements
-- **Memory**: Minimum 512MB, recommended 1GB
+- **Memory**: Minimum 512MB, recommended 1GB (production limit: 1Gi)
 - **CPU**: Single core sufficient, multi-core for high throughput
-- **Disk**: <100MB for container image
+- **Disk**: 58MB container image (distroless base)
 - **Network**: Outbound HTTPS access for Kong Admin API and telemetry endpoints

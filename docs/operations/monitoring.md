@@ -330,11 +330,13 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /health
+    path: /health/ready    # Dedicated readiness probe checking Kong connectivity
     port: 3000
   initialDelaySeconds: 5
   periodSeconds: 5
 ```
+
+**Note**: Use `/health` for liveness (service is running) and `/health/ready` for readiness (service can accept traffic). The readiness probe verifies Kong connectivity before allowing traffic.
 
 ### Prometheus Integration
 ```yaml
