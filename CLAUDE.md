@@ -4,36 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Documentation Reference
 
-For detailed information, refer to these documentation files:
+For detailed information, refer to the **[Documentation Index](docs/README.md)**.
 
-### Architecture
-- **[System Overview](docs/architecture/system-overview.md)** - High-level architecture and component relationships
-- **[Authentication Flow](docs/architecture/authentication-flow.md)** - JWT token generation and Kong integration
-
-### Configuration
-- **[Environment Setup](docs/configuration/environment-setup.md)** - Environment variables and 4-pillar configuration
-- **[Dependencies](docs/configuration/dependencies.md)** - Package requirements and runtime dependencies
-
-### Development
-- **[Getting Started](docs/development/getting-started.md)** - Development setup and workflow
-- **[Testing](docs/development/testing.md)** - Testing strategy (210+ tests)
-
-### Deployment
-- **[Docker](docs/deployment/docker.md)** - Container builds and deployment
-- **[Kubernetes](docs/deployment/kubernetes.md)** - Production Kubernetes deployment
-- **[CI/CD](docs/deployment/ci-cd.md)** - GitHub Actions pipeline
-
-### API Reference
-- **[Endpoints](docs/api/endpoints.md)** - Complete API documentation (15 endpoints)
-- **[JWT Tokens](docs/api/jwt-tokens.md)** - Token structure and validation
-
-### Operations
-- **[Monitoring](docs/operations/monitoring.md)** - Observability, metrics, and alerting
-- **[Profiling](docs/operations/profiling.md)** - Performance analysis and debugging
-- **[Memory Monitoring](docs/memory/MEMORY_MONITORING_GUIDE.md)** - Bun memory management
-
-### Security
-- **[Parallel Security Scanning](docs/security/PARALLEL-SECURITY-SCANNING.md)** - CI/CD security scanning
+### Quick Links
+| Category | Document | Description |
+|----------|----------|-------------|
+| Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (15 endpoints) |
+| Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
+| Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
+| Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
+| Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
 
 ## Core Practices
 
@@ -165,7 +147,7 @@ bun run kill-server                         # Kill any running server on port 30
 ### Docker Operations
 ```bash
 # Build and Run
-bun run docker:build:enhanced    # Enhanced build with metadata
+bun run docker:build             # Build with metadata and caching
 bun run docker:local             # Build and run locally
 bun run docker:dev               # Build and run for development
 

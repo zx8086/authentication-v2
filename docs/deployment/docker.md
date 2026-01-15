@@ -54,11 +54,8 @@ CMD ["/usr/local/bin/bun", "src/index.ts"]
 
 ### Local Development
 ```bash
-# Build Docker image
+# Build Docker image (with metadata and caching)
 bun run docker:build
-
-# Enhanced build with metadata
-bun run docker:build:enhanced
 
 # Build and run locally
 bun run docker:local

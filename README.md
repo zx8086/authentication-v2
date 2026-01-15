@@ -38,39 +38,27 @@ The Authentication Service is a secure JWT token issuer that bridges Kong API Ga
 
 ## Documentation
 
-### Architecture
-- **[System Overview](docs/architecture/system-overview.md)** - High-level architecture and component relationships
-- **[Authentication Flow](docs/architecture/authentication-flow.md)** - Detailed authentication process and Kong integration
+See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 
-### Configuration
-- **[Environment Setup](docs/configuration/environment-setup.md)** - Environment variables and 4-pillar configuration
-- **[Dependencies](docs/configuration/dependencies.md)** - Package requirements and runtime dependencies
+### Quick Navigation
 
-### Development
-- **[Getting Started](docs/development/getting-started.md)** - Development setup and workflow
-- **[Testing](docs/development/testing.md)** - Comprehensive testing strategy (210+ tests)
+| Category | Document | Description |
+|----------|----------|-------------|
+| Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (15 endpoints) |
+| Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
+| Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
+| Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
+| Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
 
-### Deployment
-- **[Docker](docs/deployment/docker.md)** - Container builds and deployment
-- **[Kubernetes](docs/deployment/kubernetes.md)** - Production Kubernetes deployment
-- **[CI/CD](docs/deployment/ci-cd.md)** - GitHub Actions pipeline with security scanning
+### Additional Documentation
 
-### API Reference
-- **[Endpoints](docs/api/endpoints.md)** - Complete API documentation
-- **[JWT Tokens](docs/api/jwt-tokens.md)** - Token structure and validation
-
-### Operations
-- **[Monitoring](docs/operations/monitoring.md)** - Observability, metrics, and alerting
-- **[Profiling](docs/operations/profiling.md)** - Performance analysis and debugging
-- **[Memory Monitoring](docs/memory/MEMORY_MONITORING_GUIDE.md)** - Bun memory management
-
-### Security
-- **[Parallel Security Scanning](docs/security/PARALLEL-SECURITY-SCANNING.md)** - CI/CD security scanning
-- **[Docker Optimization](docs/docker/docker-optimization-guide.md)** - Container security hardening
-
-### Testing
-- **[Test Suite](test/README.md)** - Complete testing documentation
-- **[K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)** - Performance test configuration
+- **Architecture**: [system-overview.md](docs/architecture/system-overview.md), [authentication-flow.md](docs/architecture/authentication-flow.md)
+- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md)
+- **API**: [jwt-tokens.md](docs/api/jwt-tokens.md)
+- **Operations**: [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
+- **Testing**: [test/README.md](test/README.md), [K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)
 
 ## Quick Commands
 

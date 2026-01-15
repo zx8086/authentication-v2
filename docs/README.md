@@ -83,9 +83,7 @@ Container optimization and security.
 
 | Document | Description |
 |----------|-------------|
-| [docker-optimization-guide.md](docker/docker-optimization-guide.md) | Image size reduction and layer optimization |
 | [DOCKER-VALIDATION.md](docker/DOCKER-VALIDATION.md) | Container security validation procedures |
-| [docker-analysis-report.md](docker/docker-analysis-report.md) | Container analysis and optimization report |
 
 ### Security
 

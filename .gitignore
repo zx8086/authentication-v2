@@ -43,3 +43,7 @@ pids
 # Temporary files
 tmp/
 temp/
+
+CLAUDE.md
+k8s
+docs/MIGRATION_GAPS.md

@@ -99,22 +99,6 @@ License violations: 0
 | **Bun Native** | **0.1s** | **593x faster** |
 | Legacy (license-checker) | 65s | Baseline |
 
-## Test Scripts
-
-### test-license-implementations.ts
-
-Comprehensive testing script that validates the license compliance implementations and provides performance benchmarks.
-
-```bash
-bun scripts/test-license-implementations.ts
-```
-
-**Features:**
-- Performance comparison testing
-- Functionality validation
-- Success criteria verification
-- Detailed reporting
-
 ## Development Guidelines
 
 ### Adding New Scripts
