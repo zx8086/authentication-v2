@@ -61,8 +61,8 @@ X-Anonymous-Consumer: false
 **Response - Success (200 OK)**
 ```json
 {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwdmgtY29uc3VtZXIiLCJrZXkiOiJhYmMxMjNkZWY0NTYiLCJqdGkiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJpYXQiOjE2MzQ1Njc4OTAsIm5hbWUiOiJwdmgtY29uc3VtZXIiLCJ1bmlxdWVfbmFtZSI6InB2aGNvcnAuY29tI3B2aC1jb25zdW1lciIsImV4cCI6MTYzNDU2ODc5MCwiaXNzIjoiaHR0cHM6Ly9zdHMtYXBpLnB2aGNvcnAuY29tLyIsImF1ZCI6Imh0dHA6Ly9hcGkucHZoY29ycC5jb20vIn0.x8f3k9dmvR2K1nP5mX7Q9Z3yL4wB6",
-    "expires_in": 900
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 900
 }
 ```
 
@@ -70,16 +70,35 @@ X-Anonymous-Consumer: false
 | Field | Type | Description |
 |-------|------|-------------|
 | `access_token` | String | JWT token string |
-| `expires_in` | Integer | Token lifetime in seconds |
+| `expires_in` | Integer | Token lifetime in seconds (default: 900 = 15 minutes) |
+
+**Response - Unauthorized (401)**
+```json
+{
+  "error": "Unauthorized",
+  "message": "Missing Kong consumer headers",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+**Response - Service Unavailable (503)**
+```json
+{
+  "error": "Service Unavailable",
+  "message": "Authentication service is temporarily unavailable. Please try again later.",
+  "details": "Kong gateway connectivity issues",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
 
 **Error Responses**
-- **401 Unauthorized**: Missing `X-Consumer-ID` header or `X-Anonymous-Consumer` is "true"
-- **503 Service Unavailable**: Kong Admin API unreachable or consumer secret creation failed
+- **401 Unauthorized**: Missing `X-Consumer-ID` header, missing `X-Consumer-Username`, or `X-Anonymous-Consumer` is "true"
+- **503 Service Unavailable**: Kong Admin API unreachable or consumer secret lookup failed
 
 ## Health Check Endpoints
 
 ### GET /health
-Main health check endpoint with dependency status.
+Main health check endpoint with comprehensive dependency status.
 
 **Request**
 ```http
@@ -92,44 +111,115 @@ Host: auth-service.example.com
 {
   "status": "healthy",
   "timestamp": "2025-01-15T12:00:00.000Z",
-  "uptime": 3600,
   "version": "1.0.0",
   "environment": "production",
+  "uptime": 3600,
+  "highAvailability": false,
   "dependencies": {
     "kong": {
       "status": "healthy",
-      "mode": "KONNECT",
-      "url": "https://us.api.konghq.com/v2/control-planes/abc123",
-      "responseTime": 45
+      "responseTime": 45,
+      "details": {
+        "adminUrl": "http://kong:8001",
+        "mode": "API_GATEWAY"
+      }
+    },
+    "cache": {
+      "status": "healthy",
+      "type": "memory",
+      "responseTime": 1,
+      "staleCache": {
+        "available": true
+      }
     },
     "telemetry": {
-      "status": "healthy",
-      "mode": "otlp",
-      "endpoints": {
-        "traces": "https://otel.example.com/v1/traces",
-        "metrics": "https://otel.example.com/v1/metrics"
+      "traces": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/traces",
+        "responseTime": 10
+      },
+      "metrics": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/metrics",
+        "responseTime": 8
+      },
+      "logs": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/logs",
+        "responseTime": 12
       }
     }
-  }
+  },
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
-**Response - Unhealthy (503)**
+**Response - Degraded (503)**
 ```json
 {
-  "status": "unhealthy",
+  "status": "degraded",
   "timestamp": "2025-01-15T12:00:00.000Z",
+  "version": "1.0.0",
+  "environment": "production",
+  "uptime": 3600,
+  "highAvailability": true,
   "dependencies": {
     "kong": {
       "status": "unhealthy",
-      "error": "Connection timeout"
+      "responseTime": 5000,
+      "details": {
+        "adminUrl": "http://kong:8001",
+        "mode": "API_GATEWAY",
+        "error": "Connection timeout"
+      }
+    },
+    "cache": {
+      "status": "healthy",
+      "type": "redis",
+      "responseTime": 2,
+      "staleCache": {
+        "available": true,
+        "responseTime": 1
+      }
+    },
+    "telemetry": {
+      "traces": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/traces",
+        "responseTime": 10
+      },
+      "metrics": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/metrics",
+        "responseTime": 8
+      },
+      "logs": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/logs",
+        "responseTime": 12
+      }
     }
-  }
+  },
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
+**Response Fields**
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | String | Overall health: "healthy", "degraded", or "unhealthy" |
+| `timestamp` | String | ISO-8601 timestamp |
+| `version` | String | Service version from package.json |
+| `environment` | String | Current NODE_ENV |
+| `uptime` | Integer | Process uptime in seconds |
+| `highAvailability` | Boolean | Whether HA mode is enabled (Redis) |
+| `dependencies.kong` | Object | Kong gateway health status |
+| `dependencies.cache` | Object | Cache system health (memory or redis) |
+| `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
+| `requestId` | String | UUID for request tracing |
+
 ### GET /health/ready
-Readiness check verifying service can handle requests (Kong connectivity validated).
+Readiness probe verifying the service can handle requests (validates Kong connectivity).
 
 **Request**
 ```http
@@ -140,37 +230,52 @@ Host: auth-service.example.com
 **Response - Ready (200 OK)**
 ```json
 {
-  "status": "ready",
+  "ready": true,
   "timestamp": "2025-01-15T12:00:00.000Z",
   "checks": {
     "kong": {
       "status": "healthy",
-      "mode": "KONNECT",
-      "responseTime": 45
-    },
-    "circuitBreaker": {
-      "state": "CLOSED"
+      "responseTime": 45,
+      "details": {
+        "adminUrl": "http://kong:8001",
+        "mode": "API_GATEWAY"
+      }
     }
-  }
+  },
+  "responseTime": 50,
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
 **Response - Not Ready (503)**
 ```json
 {
-  "status": "not_ready",
+  "ready": false,
   "timestamp": "2025-01-15T12:00:00.000Z",
   "checks": {
     "kong": {
       "status": "unhealthy",
-      "error": "Connection timeout"
-    },
-    "circuitBreaker": {
-      "state": "OPEN"
+      "responseTime": 5000,
+      "details": {
+        "adminUrl": "http://kong:8001",
+        "mode": "API_GATEWAY",
+        "error": "Connection timeout"
+      }
     }
-  }
+  },
+  "responseTime": 5010,
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+**Response Fields**
+| Field | Type | Description |
+|-------|------|-------------|
+| `ready` | Boolean | Whether service is ready to accept traffic |
+| `timestamp` | String | ISO-8601 timestamp |
+| `checks.kong` | Object | Kong connectivity check result |
+| `responseTime` | Integer | Total check duration in milliseconds |
+| `requestId` | String | UUID for request tracing |
 
 **Usage**
 - Use for readiness probes in any orchestration platform (Kubernetes, Docker Swarm, Nomad, etc.)
@@ -179,7 +284,7 @@ Host: auth-service.example.com
 - Instance should not receive traffic until this returns 200
 
 ### GET /health/telemetry
-Telemetry system health check.
+Telemetry system health and configuration details.
 
 **Request**
 ```http
@@ -190,23 +295,50 @@ Host: auth-service.example.com
 **Response - Success (200 OK)**
 ```json
 {
-  "status": "healthy",
-  "mode": "otlp",
-  "endpoints": {
-    "traces": "https://otel.example.com/v1/traces",
-    "metrics": "https://otel.example.com/v1/metrics",
-    "logs": "https://otel.example.com/v1/logs"
+  "telemetry": {
+    "mode": "otlp",
+    "status": {
+      "initialized": true,
+      "metricsExportStats": {
+        "totalExports": 100,
+        "successfulExports": 98,
+        "failedExports": 2
+      }
+    },
+    "simple": {
+      "traces": "active",
+      "metrics": "active",
+      "logs": "active"
+    },
+    "configuration": {
+      "serviceName": "authentication-service",
+      "serviceVersion": "1.0.0",
+      "environment": "production",
+      "endpoints": {
+        "traces": "https://otel.example.com/v1/traces",
+        "metrics": "https://otel.example.com/v1/metrics",
+        "logs": "https://otel.example.com/v1/logs"
+      },
+      "timeout": 30000,
+      "batchSize": 2048,
+      "queueSize": 10000
+    }
   },
-  "exporters": {
-    "traces": "active",
-    "metrics": "active",
-    "logs": "active"
-  }
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
 
+**Response Fields**
+| Field | Type | Description |
+|-------|------|-------------|
+| `telemetry.mode` | String | Telemetry mode: "console", "otlp", or "both" |
+| `telemetry.status` | Object | Initialization and export statistics |
+| `telemetry.simple` | Object | Simple status per signal type |
+| `telemetry.configuration` | Object | Current telemetry configuration |
+| `timestamp` | String | ISO-8601 timestamp |
+
 ### GET /health/metrics
-Metrics system health and debugging information.
+Metrics system health with circuit breaker summary.
 
 **Request**
 ```http
@@ -217,19 +349,44 @@ Host: auth-service.example.com
 **Response - Success (200 OK)**
 ```json
 {
-  "status": "healthy",
-  "metricsEnabled": true,
-  "exportInterval": 10000,
-  "lastExport": "2025-01-15T12:00:00.000Z",
-  "counters": {
-    "http_requests_total": 1000,
-    "jwt_tokens_generated": 500,
-    "kong_operations": 600,
-    "cache_hits": 450,
-    "cache_misses": 150
-  }
+  "metrics": {
+    "status": {
+      "initialized": true,
+      "meterProvider": "active"
+    },
+    "exports": {
+      "totalExports": 100,
+      "successfulExports": 98,
+      "failedExports": 2,
+      "lastExportTime": "2025-01-15T11:59:50.000Z"
+    },
+    "configuration": {
+      "exportInterval": 10000,
+      "batchTimeout": 30000,
+      "endpoint": "https://otel.example.com/v1/metrics"
+    }
+  },
+  "circuitBreakers": {
+    "enabled": true,
+    "totalBreakers": 3,
+    "states": {
+      "closed": 3,
+      "open": 0,
+      "halfOpen": 0
+    }
+  },
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
+
+**Response Fields**
+| Field | Type | Description |
+|-------|------|-------------|
+| `metrics.status` | Object | Metrics system initialization status |
+| `metrics.exports` | Object | Export statistics |
+| `metrics.configuration` | Object | Current metrics configuration |
+| `circuitBreakers` | Object | Summary of all circuit breaker states |
+| `timestamp` | String | ISO-8601 timestamp |
 
 ## Metrics Endpoints
 
@@ -245,7 +402,17 @@ Host: auth-service.example.com
 **Query Parameters**
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `view` | String | Metrics view: `operational`, `infrastructure`, `telemetry`, `exports`, `config`, `full` | `operational` |
+| `view` | String | Metrics view type | `operational` |
+
+**Available Views**
+| View | Description |
+|------|-------------|
+| `operational` | Runtime metrics, memory, cache, circuit breakers, consumer volume |
+| `infrastructure` | Infrastructure-level metrics status |
+| `telemetry` | Telemetry system mode and export stats |
+| `exports` | Detailed export statistics |
+| `config` | Configuration summary (Kong, telemetry endpoints) |
+| `full` | All metrics combined |
 
 **Response - Operational View (200 OK)**
 ```json
@@ -261,61 +428,92 @@ Host: auth-service.example.com
   "cache": {
     "strategy": "local-memory",
     "size": 150,
+    "entries": [],
     "activeEntries": 45,
     "hitRate": "0.90",
-    "operations": {
-      "hits": 450,
-      "misses": 50,
-      "sets": 100
+    "averageLatencyMs": 1
+  },
+  "circuitBreakers": {
+    "kong_get_consumer_secret": {
+      "state": "closed",
+      "failures": 0,
+      "successes": 500
+    },
+    "kong_health_check": {
+      "state": "closed",
+      "failures": 0,
+      "successes": 100
+    }
+  },
+  "telemetry": {
+    "mode": "both",
+    "exportStats": {
+      "totalExports": 100,
+      "successfulExports": 98,
+      "failedExports": 2
     }
   },
   "kong": {
-    "mode": "KONNECT",
-    "circuitBreaker": {
-      "state": "CLOSED",
-      "failures": 0,
-      "successes": 500
+    "adminUrl": "http://kong:8001",
+    "mode": "API_GATEWAY"
+  },
+  "consumers": {
+    "volume": {
+      "high": 10,
+      "medium": 50,
+      "low": 200,
+      "total": 260
     }
   }
 }
 ```
 
-**Available Views**
-```bash
-# Operational metrics (default)
-GET /metrics
+**Response - Config View (200 OK)**
+```json
+{
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "configuration": {
+    "kong": {
+      "adminUrl": "http://kong:8001",
+      "mode": "API_GATEWAY"
+    },
+    "telemetry": {
+      "mode": "both",
+      "initialized": true,
+      "serviceName": "authentication-service",
+      "serviceVersion": "1.0.0",
+      "environment": "production",
+      "endpoints": {
+        "traces": "https://otel.example.com/v1/traces",
+        "metrics": "https://otel.example.com/v1/metrics",
+        "logs": "https://otel.example.com/v1/logs"
+      },
+      "timeout": 30000,
+      "batchSize": 2048,
+      "queueSize": 10000
+    }
+  }
+}
+```
 
-# Infrastructure view
-GET /metrics?view=infrastructure
-
-# Telemetry system status
-GET /metrics?view=telemetry
-
-# Export statistics
-GET /metrics?view=exports
-
-# Configuration summary
-GET /metrics?view=config
-
-# Complete metrics data
-GET /metrics?view=full
+**Response - Invalid View (400)**
+```json
+{
+  "error": "Invalid view parameter",
+  "message": "Valid views: operational, infrastructure, telemetry, exports, config, full",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
 ```
 
 ## Debug Endpoints
 
 ### POST /debug/metrics/test
-Record test metrics for verification (development only).
+Record test metrics for verification (development/staging only).
 
 **Request**
 ```http
 POST /debug/metrics/test HTTP/1.1
 Host: auth-service.example.com
-Content-Type: application/json
-
-{
-  "count": 10,
-  "type": "test-metric"
-}
 ```
 
 **Response - Success (200 OK)**
@@ -323,16 +521,23 @@ Content-Type: application/json
 {
   "success": true,
   "message": "Test metrics recorded successfully",
-  "metricsRecorded": {
-    "testCounter": 10,
-    "testHistogram": 5,
-    "timestamp": "2025-01-15T12:00:00.000Z"
-  }
+  "metricsRecorded": 5,
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+**Response - Error (500)**
+```json
+{
+  "success": false,
+  "error": "Failed to record test metrics",
+  "message": "Detailed error message",
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
 
 ### POST /debug/metrics/export
-Force immediate metrics export (development only).
+Force immediate metrics export (development/staging only).
 
 **Request**
 ```http
@@ -344,31 +549,65 @@ Host: auth-service.example.com
 ```json
 {
   "success": true,
-  "exported": {
-    "metrics": 50,
-    "timestamp": "2025-01-15T12:00:00.000Z"
-  }
+  "message": "Metrics exported successfully",
+  "exportedMetrics": 10,
+  "duration": 150,
+  "errors": [],
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
 
-## Profiling Endpoints (Development Only)
+## Profiling Endpoints (Development/Staging Only)
+
+All profiling endpoints require `PROFILING_ENABLED=true` in environment configuration.
 
 ### POST /debug/profiling/start
 Start a profiling session for performance analysis.
 
 **Request**
 ```http
-POST /debug/profiling/start HTTP/1.1
+POST /debug/profiling/start?type=cpu&manual=true HTTP/1.1
 Host: auth-service.example.com
 ```
+
+**Query Parameters**
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `type` | String | Profile type: "cpu" or "heap" | `cpu` |
+| `manual` | Boolean | Manual toggle mode via SIGUSR2 | `true` |
 
 **Response - Success (200 OK)**
 ```json
 {
   "success": true,
-  "message": "Profiling session started",
-  "sessionId": "prof-12345",
-  "devToolsUrl": "chrome-devtools://devtools/bundled/inspector.html?ws=localhost:9229/12345"
+  "message": "Profiling session started successfully",
+  "sessionId": "prof-1705320000000-abc123def",
+  "type": "cpu",
+  "manual": true,
+  "instructions": "Send SIGUSR2 signal to toggle profiling or use the stop endpoint",
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+**Response - Session Already Running (400)**
+```json
+{
+  "error": "Bad Request",
+  "message": "Cannot start profiling session - another session is already running",
+  "statusCode": 400,
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+**Response - Profiling Disabled (200)**
+```json
+{
+  "success": true,
+  "message": "Profiling service is available but disabled via configuration",
+  "enabled": false,
+  "sessionId": null,
+  "instructions": "Enable profiling by setting PROFILING_ENABLED=true in your environment configuration",
+  "requestId": "req-1705320000000-xyz789"
 }
 ```
 
@@ -377,26 +616,29 @@ Stop the current profiling session.
 
 **Request**
 ```http
-POST /debug/profiling/stop HTTP/1.1
+POST /debug/profiling/stop?sessionId=prof-12345 HTTP/1.1
 Host: auth-service.example.com
 ```
+
+**Query Parameters**
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `sessionId` | String | Optional session identifier | `global` |
 
 **Response - Success (200 OK)**
 ```json
 {
   "success": true,
-  "message": "Profiling session stopped",
-  "sessionId": "prof-12345",
-  "duration": "45.2s",
-  "artifacts": [
-    "profiling/profile-12345.cpuprofile",
-    "profiling/heap-12345.heapsnapshot"
-  ]
+  "message": "Profiling session stopped successfully",
+  "sessionId": "global",
+  "instructions": "Profile data is available in Chrome DevTools at chrome://inspect",
+  "note": "Use Chrome DevTools to capture and export CPU/Memory profiles",
+  "requestId": "req-1705320000000-xyz789"
 }
 ```
 
 ### GET /debug/profiling/status
-Check profiling system status.
+Check profiling system status and available commands.
 
 **Request**
 ```http
@@ -407,22 +649,106 @@ Host: auth-service.example.com
 **Response - Success (200 OK)**
 ```json
 {
+  "success": true,
   "enabled": true,
-  "active": false,
-  "lastSession": {
-    "id": "prof-12345",
-    "startTime": "2025-01-15T11:30:00.000Z",
-    "endTime": "2025-01-15T11:35:00.000Z",
-    "duration": "5m"
+  "sessions": [],
+  "environment": "development",
+  "integration": "Chrome DevTools Protocol",
+  "instructions": "Use Chrome DevTools at chrome://inspect for profiling",
+  "availableCommands": {
+    "start": "POST /debug/profiling/start?type=cpu&manual=true",
+    "stop": "POST /debug/profiling/stop?sessionId=<id>",
+    "status": "GET /debug/profiling/status",
+    "cleanup": "POST /debug/profiling/cleanup"
   },
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+### GET /debug/profiling/reports
+List available profiling reports.
+
+**Request**
+```http
+GET /debug/profiling/reports HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
   "reports": [
     {
-      "id": "prof-12345",
-      "type": "cpu",
-      "size": "2.4MB",
-      "created": "2025-01-15T11:35:00.000Z"
+      "path": "/path/to/profiling/profile-12345.html",
+      "name": "profile-12345.html",
+      "url": "/debug/profiling/report?file=%2Fpath%2Fto%2Fprofiling%2Fprofile-12345.html"
     }
-  ]
+  ],
+  "total": 1,
+  "instructions": "Open the HTML files in your browser for interactive flamegraph analysis",
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+### GET /debug/profiling/report
+Retrieve a specific profiling report file.
+
+**Request**
+```http
+GET /debug/profiling/report?file=/path/to/report.html HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Query Parameters**
+| Parameter | Type | Description | Required |
+|-----------|------|-------------|----------|
+| `file` | String | Path to the report file | Yes |
+
+**Response - Success (200 OK)**
+Returns HTML content of the flamegraph report with `Content-Type: text/html`.
+
+**Response - Missing Parameter (400)**
+```json
+{
+  "error": "Bad Request",
+  "message": "File parameter is required",
+  "statusCode": 400,
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+**Response - Not Found (404)**
+```json
+{
+  "error": "Not Found",
+  "message": "Report file not found",
+  "statusCode": 404,
+  "requestId": "req-1705320000000-xyz789"
+}
+```
+
+### POST /debug/profiling/cleanup
+Clean up profiling artifacts.
+
+**Request**
+```http
+POST /debug/profiling/cleanup HTTP/1.1
+Host: auth-service.example.com
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling artifacts cleaned up successfully",
+  "cleaned": [
+    "*.pb files (pprof binary files)",
+    "*.html files (flamegraph reports)",
+    "flame-* artifacts",
+    "profiling/ directory"
+  ],
+  "requestId": "req-1705320000000-xyz789"
 }
 ```
 
@@ -432,8 +758,9 @@ Host: auth-service.example.com
 | Status Code | Scenario | Response Body |
 |-------------|----------|---------------|
 | 200 OK | Successful operation | JSON response with data |
+| 400 Bad Request | Invalid parameters or request | Error details |
 | 401 Unauthorized | Missing consumer ID or anonymous consumer | Error details |
-| 404 Not Found | Endpoint not found | Error details |
+| 404 Not Found | Endpoint or resource not found | Error details |
 | 500 Internal Server Error | Unexpected errors | Error details |
 | 503 Service Unavailable | Kong Admin API unreachable | Error details |
 
@@ -444,7 +771,7 @@ Host: auth-service.example.com
   "message": "Detailed error message",
   "timestamp": "2025-01-15T12:00:00.000Z",
   "statusCode": 401,
-  "requestId": "req-12345-67890"
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -452,28 +779,26 @@ Host: auth-service.example.com
 ```typescript
 // Missing Kong headers
 if (!request.headers.get("x-consumer-id")) {
-  return new Response("Unauthorized", { status: 401 });
+  return createUnauthorizedResponse("Missing Kong consumer headers", requestId);
 }
 
 // Anonymous consumer
 if (request.headers.get("x-anonymous-consumer") === "true") {
-  return new Response("Unauthorized", { status: 401 });
+  return createUnauthorizedResponse("Anonymous consumers are not allowed", requestId);
 }
 
 // Kong API failure
 try {
-  const secret = await kongService.getOrCreateConsumerSecret(consumerId);
+  const secret = await kongService.getConsumerSecret(consumerId);
 } catch (error) {
-  logger.error("Kong API error", { error, consumerId });
   return new Response("Service Unavailable", { status: 503 });
 }
 
 // JWT generation failure
 try {
-  const token = await jwtService.generateToken(username, secret.key, secret.secret);
+  const token = await NativeBunJWT.createToken(...);
 } catch (error) {
-  logger.error("JWT generation error", { error });
-  return new Response("Internal Server Error", { status: 500 });
+  return createInternalErrorResponse("An unexpected error occurred", requestId);
 }
 ```
 
@@ -508,17 +833,26 @@ Access-Control-Allow-Headers: Content-Type, Authorization, X-Consumer-ID, X-Cons
 Access-Control-Max-Age: 86400
 ```
 
-## Rate Limiting
+## Circuit Breaker Protection
 
 Rate limiting is typically handled at the Kong Gateway level, but the service includes circuit breaker protection to prevent overwhelming the Kong Admin API:
 
-### Circuit Breaker Configuration
-- **Timeout**: 500ms for Kong API calls
-- **Error Threshold**: 50% failure rate over 10-second window
-- **Reset Timeout**: 30 seconds for circuit recovery
-- **Stale Data Tolerance**: 30 minutes (in-memory) or 2 hours (Redis HA mode)
+### Circuit Breaker Configuration (Actual Defaults)
+- **Timeout**: 5000ms (5 seconds) for Kong API calls
+- **Error Threshold**: 50% failure rate over rolling window
+- **Reset Timeout**: 60000ms (60 seconds) for circuit recovery
+- **Rolling Count Timeout**: 10000ms (10 seconds)
+- **Rolling Count Buckets**: 10
+- **Volume Threshold**: 3 requests minimum before circuit can open
+- **Stale Data Tolerance**: 30 minutes (default)
 
 ### Circuit Breaker States
-- **CLOSED**: Normal operation, requests pass through
-- **OPEN**: Circuit breaker active, requests use stale cache
-- **HALF_OPEN**: Testing if service has recovered
+- **closed**: Normal operation, requests pass through
+- **open**: Circuit breaker active, requests use stale cache fallback
+- **half-open**: Testing if service has recovered with limited requests
+
+### Per-Operation Circuit Breakers
+The service uses operation-specific circuit breakers:
+- `kong_get_consumer_secret` - Consumer secret lookup
+- `kong_health_check` - Health check operations
+- `kong_list_consumers` - Consumer listing operations

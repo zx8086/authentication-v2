@@ -41,7 +41,7 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 ### OpenTelemetry Configuration
 | Variable | Description | Example | Security Notes | Required |
 |----------|-------------|---------|----------------|----------|
-| `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | Controls telemetry enablement | No (default: `console`) |
+| `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | Controls telemetry enablement | No (default: `both`) |
 | `OTEL_SERVICE_NAME` | Service name for telemetry | `authentication-service` | No localhost/test in production | No |
 | `OTEL_SERVICE_VERSION` | Service version | `1.0.0` | No dev/latest in production | No |
 | `NODE_ENV` | Deployment environment | `production` | Maps to telemetry environment | No |
@@ -56,10 +56,10 @@ The authentication service implements a robust 4-pillar configuration pattern wi
 ### Circuit Breaker Configuration
 | Variable | Description | Example | Security Notes | Required |
 |----------|-------------|---------|----------------|----------|
-| `CIRCUIT_BREAKER_TIMEOUT` | Request timeout in milliseconds | `500` | Range: 100-10000ms | No (default: `500`) |
+| `CIRCUIT_BREAKER_TIMEOUT` | Request timeout in milliseconds | `5000` | Range: 100-10000ms | No (default: `5000`) |
 | `CIRCUIT_BREAKER_ERROR_THRESHOLD` | Error threshold percentage | `50` | Range: 1-100% | No (default: `50`) |
-| `CIRCUIT_BREAKER_RESET_TIMEOUT` | Circuit reset timeout in milliseconds | `30000` | Range: 1000-300000ms | No (default: `30000`) |
-| `STALE_DATA_TOLERANCE_MINUTES` | Stale cache tolerance in minutes | `60` | Range: 1-120 minutes | No (default: `60`) |
+| `CIRCUIT_BREAKER_RESET_TIMEOUT` | Circuit reset timeout in milliseconds | `60000` | Range: 1000-300000ms | No (default: `60000`) |
+| `STALE_DATA_TOLERANCE_MINUTES` | Stale cache tolerance in minutes | `30` | Range: 1-120 minutes | No (default: `30`) |
 | `HIGH_AVAILABILITY` | Enable Redis stale cache integration | `true` | HA mode for extended resilience | No (default: `false`) |
 
 ### Redis Cache Configuration (High-Availability Mode)

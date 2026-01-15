@@ -15,13 +15,13 @@ Previously, K6 tests would fail in CI/CD environments where Kong Gateway is not 
 
 ### Test Categories
 
-#### Gateway-Independent Tests ✅ (CI-Safe)
+#### Gateway-Independent Tests (CI-Safe)
 - `health-only-smoke.ts` - Health endpoint testing
 - `metrics-only-smoke.ts` - Metrics endpoint testing
 - `openapi-only-smoke.ts` - OpenAPI schema testing
 - `ci-safe-smoke.ts` - **NEW**: Combined CI-safe test suite
 
-#### Gateway-Dependent Tests ⚠️ (Requires Kong)
+#### Gateway-Dependent Tests (Requires Kong)
 - `tokens-smoke.ts` - JWT token generation (requires consumer headers)
 - `auth-load.ts` - Load testing with authentication
 - `system-stress.ts` - Stress testing with Kong integration
@@ -189,13 +189,13 @@ Skip Gateway Tests, Run Independent Tests
 ## Troubleshooting
 
 ### Test Skipped in CI
-✅ **Expected**: Gateway-dependent tests should skip in CI without Kong
+**Expected**: Gateway-dependent tests should skip in CI without Kong
 
 ### All Tests Skipped
-❌ **Issue**: Check environment variables and network connectivity
+**Issue**: Check environment variables and network connectivity
 
 ### Kong Tests Fail Locally
-❌ **Issue**: Verify `KONG_ADMIN_URL` and `KONG_ADMIN_TOKEN` are set correctly
+**Issue**: Verify `KONG_ADMIN_URL` and `KONG_ADMIN_TOKEN` are set correctly
 
 ### No K6 Results in CI
-❌ **Issue**: Check K6 installation step and test execution logs
+**Issue**: Check K6 installation step and test execution logs

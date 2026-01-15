@@ -2,6 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentation Reference
+
+For detailed information, refer to these documentation files:
+
+### Architecture
+- **[System Overview](docs/architecture/system-overview.md)** - High-level architecture and component relationships
+- **[Authentication Flow](docs/architecture/authentication-flow.md)** - JWT token generation and Kong integration
+
+### Configuration
+- **[Environment Setup](docs/configuration/environment-setup.md)** - Environment variables and 4-pillar configuration
+- **[Dependencies](docs/configuration/dependencies.md)** - Package requirements and runtime dependencies
+
+### Development
+- **[Getting Started](docs/development/getting-started.md)** - Development setup and workflow
+- **[Testing](docs/development/testing.md)** - Testing strategy (210+ tests)
+
+### Deployment
+- **[Docker](docs/deployment/docker.md)** - Container builds and deployment
+- **[Kubernetes](docs/deployment/kubernetes.md)** - Production Kubernetes deployment
+- **[CI/CD](docs/deployment/ci-cd.md)** - GitHub Actions pipeline
+
+### API Reference
+- **[Endpoints](docs/api/endpoints.md)** - Complete API documentation (15 endpoints)
+- **[JWT Tokens](docs/api/jwt-tokens.md)** - Token structure and validation
+
+### Operations
+- **[Monitoring](docs/operations/monitoring.md)** - Observability, metrics, and alerting
+- **[Profiling](docs/operations/profiling.md)** - Performance analysis and debugging
+- **[Memory Monitoring](docs/memory/MEMORY_MONITORING_GUIDE.md)** - Bun memory management
+
+### Security
+- **[Parallel Security Scanning](docs/security/PARALLEL-SECURITY-SCANNING.md)** - CI/CD security scanning
+
 ## Core Practices
 
 ### Universal Code Standards
@@ -40,24 +73,24 @@ git commit -m "Descriptive commit message"
 
 #### Git Commit Authorization
 **NEVER commit without explicit user authorization**
-- ✅ Stage changes, show status, prepare messages
-- ❌ Auto-commit, auto-push, decide when ready
+- ALLOWED: Stage changes, show status, prepare messages
+- NOT ALLOWED: Auto-commit, auto-push, decide when ready
 - Exception: Slash commands (`/commit-push`) ARE authorization
 
 #### Linear Issue Management
 **NEVER set issues to "Done" without user approval**
-- ✅ Create issues, move to "In Progress", update descriptions
-- ❌ Close issues, mark complete, decide completion
+- ALLOWED: Create issues, move to "In Progress", update descriptions
+- NOT ALLOWED: Close issues, mark complete, decide completion
 - User decides when work is complete and ready for closure
 
 #### Linear Issue Updates
 **ALWAYS preserve existing content when updating**
 ```typescript
-// ✅ CORRECT
+// CORRECT
 const currentIssue = await mcp__linear_server__get_issue({ id: issueId });
 const updatedDescription = currentIssue.description + "\n\n---\n\n" + newContent;
 
-// ❌ WRONG
+// WRONG
 description: newContent  // Destroys existing content!
 ```
 
@@ -74,7 +107,7 @@ High-performance authentication service using Bun runtime with 100% API compatib
 
 ### Key Features
 - Circuit breaker with stale cache fallback (SIO-45)
-- Comprehensive testing (460+ tests across 25 test files, 100% pass rate)
+- Comprehensive testing (178 unit tests + 32 E2E tests + K6 performance suite, 100% pass rate)
 - Security headers + audit logging (v2 only)
 - License compliance check (593x faster than legacy)
 - Multi-stage Docker builds with distroless base (security-hardened)
@@ -101,12 +134,12 @@ bun run quality:fix      # Auto-fix quality issues
 ### Testing
 ```bash
 # Unit Tests (Bun)
-bun run bun:test                # All unit tests (392 tests)
+bun run bun:test                # All unit tests (178 tests across 10 files)
 bun run bun:test:concurrent     # Parallel execution (4 workers)
 bun run bun:test:watch          # Watch mode
 
 # E2E Tests (Playwright)
-bun run playwright:test         # All E2E tests (68 tests)
+bun run playwright:test         # All E2E tests (32 tests across 3 files)
 bun run playwright:ui           # Interactive test UI
 
 # Performance Tests (K6)
@@ -280,7 +313,7 @@ bun run kill-server && bun run dev    # Clean restart
 - **Phase 3 Complete**: Eliminated all 37 `as any` instances from src directory
 - Type-safe OpenTelemetry metrics interfaces with runtime validation
 - Enhanced enum validation patterns for metric attributes
-- Zero breaking changes maintained across 460+ tests
+- Zero breaking changes maintained across 210+ tests
 
 ### Docker Container Optimization
 - **Entry Point Fix**: Changed from `src/server.ts` to `src/index.ts`

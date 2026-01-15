@@ -24,17 +24,17 @@ This guide covers the enhanced memory monitoring system implemented to address B
 
 ## Features
 
-### ✅ Eliminates False Positives
+### Eliminates False Positives
 - Validates `heapUsed > heapTotal` anomalies
 - Uses `bun:jsc` APIs for accurate measurements
 - Reliability scoring tracks measurement quality
 
-### ✅ Adaptive Memory Management
-- Progressive degradation: Normal → Warning → High → Critical → Emergency
+### Adaptive Memory Management
+- Progressive degradation: Normal -> Warning -> High -> Critical -> Emergency
 - Automatic request queuing under memory pressure
 - Smart garbage collection triggering
 
-### ✅ Production Monitoring
+### Production Monitoring
 - Real-time memory health dashboard
 - Memory leak detection with evidence collection
 - Baseline establishment for capacity planning

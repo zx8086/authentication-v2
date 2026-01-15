@@ -111,11 +111,11 @@ docker stop $(docker ps -q --filter ancestor=auth-test:latest)
 ## Security Compliance
 
 The optimized configuration maintains:
-- ✅ Distroless base image
-- ✅ Non-root user (65532:65532)
-- ✅ PID 1 signal handling with dumb-init
-- ✅ Version pinning for all packages
-- ✅ OCI metadata compliance
-- ✅ Security attestation labels
-- ✅ Health check with Bun native fetch
-- ✅ Minimal attack surface
+- [PASS] Distroless base image
+- [PASS] Non-root user (65532:65532)
+- [PASS] PID 1 signal handling with dumb-init
+- [PASS] Version pinning for all packages
+- [PASS] OCI metadata compliance
+- [PASS] Security attestation labels
+- [PASS] Health check with Bun native fetch
+- [PASS] Minimal attack surface

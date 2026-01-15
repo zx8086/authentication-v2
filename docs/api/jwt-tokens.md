@@ -296,6 +296,209 @@ function createJwtMiddleware(secret: string) {
 }
 ```
 
+### Python Application
+```python
+import time
+import requests
+
+class AuthClient:
+    """Authentication client for obtaining and managing JWT tokens."""
+
+    def __init__(self, gateway_url: str, api_key: str):
+        self.gateway_url = gateway_url.rstrip('/')
+        self.api_key = api_key
+        self._token: str | None = None
+        self._token_expiry: float = 0
+
+    def get_token(self) -> str:
+        """Fetch a new JWT token from the authentication service."""
+        response = requests.get(
+            f"{self.gateway_url}/tokens",
+            headers={"apikey": self.api_key}
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        self._token = data["access_token"]
+        self._token_expiry = time.time() + data["expires_in"]
+        return self._token
+
+    def get_valid_token(self) -> str:
+        """Get a valid token, refreshing if necessary."""
+        if not self._token or self._is_token_expired():
+            self.get_token()
+        return self._token
+
+    def _is_token_expired(self) -> bool:
+        """Check if token is expired or will expire within 60 seconds."""
+        return time.time() >= (self._token_expiry - 60)
+
+    def make_authenticated_request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs
+    ) -> requests.Response:
+        """Make an authenticated request to a protected API endpoint."""
+        token = self.get_valid_token()
+        headers = kwargs.pop("headers", {})
+        headers["Authorization"] = f"Bearer {token}"
+
+        return requests.request(
+            method,
+            f"{self.gateway_url}{endpoint}",
+            headers=headers,
+            **kwargs
+        )
+
+
+# Usage example
+if __name__ == "__main__":
+    client = AuthClient(
+        gateway_url="https://gateway.example.com",
+        api_key="your-api-key"
+    )
+
+    # Get a token
+    token = client.get_token()
+    print(f"Token obtained: {token[:50]}...")
+
+    # Make authenticated requests
+    response = client.make_authenticated_request("GET", "/api/protected-resource")
+    print(f"Response: {response.json()}")
+```
+
+### Java Application
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/**
+ * Authentication client for obtaining and managing JWT tokens.
+ */
+public class AuthClient {
+    private final String gatewayUrl;
+    private final String apiKey;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
+
+    private String token;
+    private Instant tokenExpiry;
+
+    public AuthClient(String gatewayUrl, String apiKey) {
+        this.gatewayUrl = gatewayUrl.replaceAll("/$", "");
+        this.apiKey = apiKey;
+        this.httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+        this.objectMapper = new ObjectMapper();
+    }
+
+    /**
+     * Fetch a new JWT token from the authentication service.
+     */
+    public String getToken() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(gatewayUrl + "/tokens"))
+            .header("apikey", apiKey)
+            .GET()
+            .build();
+
+        HttpResponse<String> response = httpClient.send(
+            request,
+            HttpResponse.BodyHandlers.ofString()
+        );
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Failed to get token: " + response.statusCode());
+        }
+
+        JsonNode json = objectMapper.readTree(response.body());
+        this.token = json.get("access_token").asText();
+        int expiresIn = json.get("expires_in").asInt();
+        this.tokenExpiry = Instant.now().plusSeconds(expiresIn);
+
+        return this.token;
+    }
+
+    /**
+     * Get a valid token, refreshing if necessary.
+     */
+    public String getValidToken() throws Exception {
+        if (token == null || isTokenExpired()) {
+            getToken();
+        }
+        return token;
+    }
+
+    /**
+     * Check if token is expired or will expire within 60 seconds.
+     */
+    private boolean isTokenExpired() {
+        return Instant.now().isAfter(tokenExpiry.minusSeconds(60));
+    }
+
+    /**
+     * Make an authenticated GET request to a protected API endpoint.
+     */
+    public HttpResponse<String> makeAuthenticatedRequest(String endpoint) throws Exception {
+        String validToken = getValidToken();
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(gatewayUrl + endpoint))
+            .header("Authorization", "Bearer " + validToken)
+            .header("Content-Type", "application/json")
+            .GET()
+            .build();
+
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
+     * Make an authenticated POST request to a protected API endpoint.
+     */
+    public HttpResponse<String> makeAuthenticatedPostRequest(
+        String endpoint,
+        String body
+    ) throws Exception {
+        String validToken = getValidToken();
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(gatewayUrl + endpoint))
+            .header("Authorization", "Bearer " + validToken)
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build();
+
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    // Usage example
+    public static void main(String[] args) throws Exception {
+        AuthClient client = new AuthClient(
+            "https://gateway.example.com",
+            "your-api-key"
+        );
+
+        // Get a token
+        String token = client.getToken();
+        System.out.println("Token obtained: " + token.substring(0, 50) + "...");
+
+        // Make authenticated requests
+        HttpResponse<String> response = client.makeAuthenticatedRequest(
+            "/api/protected-resource"
+        );
+        System.out.println("Response: " + response.body());
+    }
+}
+```
+
 ## Performance Considerations
 
 ### Token Size

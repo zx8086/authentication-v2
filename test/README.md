@@ -1,20 +1,20 @@
 # Authentication Service Testing Suite
 
-Comprehensive testing for the Bun-based authentication service with three-tier testing strategy: unit/integration (Bun), end-to-end scenarios (Playwright), and performance validation (K6). Current test suite includes 50 test files with 460+ individual tests across 21 Bun unit tests, 3 Playwright E2E suites, and 18 K6 performance tests.
+Comprehensive testing for the Bun-based authentication service with three-tier testing strategy: unit/integration (Bun), end-to-end scenarios (Playwright), and performance validation (K6). Current test suite includes 36 test files with 210+ individual tests across 10 Bun unit test files (178 tests), 3 Playwright E2E suites (32 tests), and 23 K6 performance test files.
 
 ## Directory Structure
 
 ```
 test/
-├── bun/              # Unit & Integration Tests (21 test files, 392+ tests)
-├── k6/               # Performance Tests (K6 Load Testing, 18 test files)
-│   ├── smoke/        # Quick validation tests (6 smoke test variants)
+├── bun/              # Unit & Integration Tests (10 test files, 178 tests)
+├── k6/               # Performance Tests (K6 Load Testing, 23 test files)
+│   ├── smoke/        # Quick validation tests
 │   ├── load/         # Production load simulation
 │   ├── stress/       # Breaking point analysis
 │   ├── spike/        # Traffic burst testing
 │   ├── soak/         # Extended endurance testing
 │   └── utils/        # Shared utilities and configurations
-├── playwright/       # E2E Scenarios (3 test suites, 68+ tests)
+├── playwright/       # E2E Scenarios (3 test suites, 32 tests)
 ├── shared/           # Shared test utilities and consumer setup
 ├── telemetry/        # Telemetry-specific test files
 ├── compatibility/    # Compatibility and migration tests
@@ -30,7 +30,7 @@ test/
 **Framework**: Bun native test runner
 **When to run**: During development, pre-commit, CI/CD
 
-**Test Files** (21 files, 392+ tests):
+**Test Files** (10 files, 178 tests):
 - `jwt.service.test.ts` - JWT generation and validation logic
 - `kong.adapter.test.ts` - Unified Kong adapter testing
 - `kong.service.test.ts` - Kong service integration with mocking
@@ -73,27 +73,27 @@ bun run playwright:ui                     # Interactive test UI
 ```
 
 **What Playwright Tests Cover**:
-- ✅ Health Check endpoint with Kong dependency status
-- ✅ OpenAPI specification serving and validation
-- ✅ Performance metrics and telemetry endpoints
-- ✅ JWT token generation with valid Kong headers
-- ✅ Anonymous consumer rejection and authentication failures
-- ✅ Missing/invalid header validation
-- ✅ Multiple users get unique tokens
-- ✅ API versioning (v1/v2) with Accept-Version headers
-- ✅ V2 security headers and audit logging
-- ✅ Circuit breaker behavior under Kong failures
-- ✅ Memory monitoring and pressure management
-- ✅ Profiling endpoints and session management
-- ✅ Unknown endpoints return 404
-- ✅ Service monitoring endpoint availability
+- Health Check endpoint with Kong dependency status
+- OpenAPI specification serving and validation
+- Performance metrics and telemetry endpoints
+- JWT token generation with valid Kong headers
+- Anonymous consumer rejection and authentication failures
+- Missing/invalid header validation
+- Multiple users get unique tokens
+- API versioning (v1/v2) with Accept-Version headers
+- V2 security headers and audit logging
+- Circuit breaker behavior under Kong failures
+- Memory monitoring and pressure management
+- Profiling endpoints and session management
+- Unknown endpoints return 404
+- Service monitoring endpoint availability
 
 **What Playwright Does NOT Test** (handled by Kong/infrastructure):
-- ❌ CORS headers - Kong handles cross-origin requests
-- ❌ Rate limiting - Kong implements rate limiting policies
-- ❌ Method not allowed (405) - Service returns 404 for unknown routes
-- ❌ Request/response timing headers - Not implemented by service
-- ❌ Custom error formatting - Service uses simple error responses
+- CORS headers - Kong handles cross-origin requests
+- Rate limiting - Kong implements rate limiting policies
+- Method not allowed (405) - Service returns 404 for unknown routes
+- Request/response timing headers - Not implemented by service
+- Custom error formatting - Service uses simple error responses
 
 ### 3. K6 Tests - Performance Testing
 **Purpose**: Load testing, stress testing, performance validation
@@ -398,25 +398,25 @@ bun run k6:spike
 ## Test Coverage Areas
 
 ### Functional Testing Coverage
-- ✅ JWT token generation and validation
-- ✅ Kong consumer authentication
-- ✅ Anonymous consumer rejection
-- ✅ Header validation and error handling
-- ✅ Health and metrics endpoints
-- ✅ OpenAPI specification serving
-- ✅ Multi-user scenarios and token uniqueness
-- ✅ Edge cases and malformed inputs
-- ✅ Service monitoring and availability
+- JWT token generation and validation
+- Kong consumer authentication
+- Anonymous consumer rejection
+- Header validation and error handling
+- Health and metrics endpoints
+- OpenAPI specification serving
+- Multi-user scenarios and token uniqueness
+- Edge cases and malformed inputs
+- Service monitoring and availability
 
 ### Performance Testing Coverage
-- ✅ Response time percentiles (P95, P99)
-- ✅ Throughput validation (requests/second)
-- ✅ Concurrent user handling
-- ✅ System resource usage monitoring
-- ✅ Breaking point analysis
-- ✅ Traffic spike resilience
-- ✅ Kong integration efficiency
-- ✅ Error rate distribution under load
+- Response time percentiles (P95, P99)
+- Throughput validation (requests/second)
+- Concurrent user handling
+- System resource usage monitoring
+- Breaking point analysis
+- Traffic spike resilience
+- Kong integration efficiency
+- Error rate distribution under load
 
 ## Prerequisites
 
@@ -475,15 +475,15 @@ bun run generate-docs:verbose
 
 **Example output with verbose mode**:
 ```
-🎉 OpenAPI Generation Complete!
-📊 Generation Statistics:
-   ⏱️  Duration: 3ms
-   📁 Files: 2 generated
-      ✅ public/openapi.json
-      ✅ public/openapi-generated.yaml
-   📦 Total size: 49.3 KB
-   🛣️  Routes: 9 endpoints
-   📋 Schemas: 8 components
+OpenAPI Generation Complete!
+Generation Statistics:
+   Duration: 3ms
+   Files: 2 generated
+      - public/openapi.json
+      - public/openapi-generated.yaml
+   Total size: 49.3 KB
+   Routes: 9 endpoints
+   Schemas: 8 components
 ```
 
 Generated files are available at:
