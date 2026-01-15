@@ -55,7 +55,7 @@ class TestConsumerSetup {
       const headers = {
         "Content-Type": "application/json",
         "User-Agent": "Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const response = await fetch(endpoint, {
@@ -99,7 +99,7 @@ class TestConsumerSetup {
 
       const headers = {
         "User-Agent": "Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const response = await fetch(endpoint, {
@@ -123,7 +123,7 @@ class TestConsumerSetup {
 
       const headers = {
         "User-Agent": "Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const consumerResponse = await fetch(endpoint, {
@@ -172,18 +172,14 @@ class TestConsumerSetup {
                 `⚠️  Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
               );
             } else {
-              console.log(
-                `✅ Deleted JWT credential ${credential.id} for ${consumer.username}`
-              );
+              console.log(`✅ Deleted JWT credential ${credential.id} for ${consumer.username}`);
             }
           }
         }
       }
 
       // Create new JWT credentials with unique key and secret
-      console.log(
-        `🔑 Creating new unique JWT credentials for: ${consumer.username}`
-      );
+      console.log(`🔑 Creating new unique JWT credentials for: ${consumer.username}`);
 
       const key = `test-key-${consumer.id}-${Date.now()}`;
       const secret = this.generateSecureSecret();
@@ -197,7 +193,7 @@ class TestConsumerSetup {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Test-Setup/1.0",
-          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
         },
         body: JSON.stringify({
           key: key,
@@ -219,10 +215,7 @@ class TestConsumerSetup {
         return false;
       }
     } catch (error) {
-      console.error(
-        `❌ Error ensuring JWT credentials for ${consumer.username}:`,
-        error
-      );
+      console.error(`❌ Error ensuring JWT credentials for ${consumer.username}:`, error);
       return false;
     }
   }
@@ -245,7 +238,7 @@ class TestConsumerSetup {
 
       const headers = {
         "User-Agent": "Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const response = await fetch(endpoint, {

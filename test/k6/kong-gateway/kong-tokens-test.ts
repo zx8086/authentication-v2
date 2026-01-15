@@ -32,7 +32,7 @@ const API_KEYS = {
   "test-consumer-003": "test-api-key-consumer-003",
   "test-consumer-004": "test-api-key-consumer-004",
   "test-consumer-005": "test-api-key-consumer-005",
-  "anonymous": "test-api-key-anonymous",
+  anonymous: "test-api-key-anonymous",
 };
 
 export default function () {

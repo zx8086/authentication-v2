@@ -143,7 +143,7 @@ export default function () {
 
   // Test tokens endpoint (GET) - requires Kong headers
   const headers = getHeaders(consumer, {
-    'X-Authenticated-Groups': 'admin,user',
+    "X-Authenticated-Groups": "admin,user",
   });
   const tokensResponse = http.get(`${baseUrl}/tokens`, { headers });
   check(tokensResponse, {
@@ -151,7 +151,7 @@ export default function () {
     "GET /tokens response time < 100ms": (r) => r.timings.duration < 100,
     "GET /tokens returns JWT token": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"access_token"') && body.includes('eyJ');
+      return body.includes('"access_token"') && body.includes("eyJ");
     },
   });
 
@@ -211,7 +211,9 @@ export default function () {
     "GET /debug/profiling/reports valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"reports"') && (body.includes('"timestamp"') || body.includes('"enabled"'));
+        return (
+          body.includes('"reports"') && (body.includes('"timestamp"') || body.includes('"enabled"'))
+        );
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -227,7 +229,9 @@ export default function () {
     "POST /debug/profiling/start valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
+        return (
+          body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'))
+        );
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -243,7 +247,9 @@ export default function () {
     "POST /debug/profiling/stop valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
+        return (
+          body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'))
+        );
       }
       return true; // 404 is acceptable when profiling is disabled
     },
@@ -254,8 +260,7 @@ export default function () {
   // Test profiling report endpoint (GET) - only if enabled
   const profilingReportResponse = http.get(`${baseUrl}/debug/profiling/report`);
   check(profilingReportResponse, {
-    "GET /debug/profiling/report status is 200 or 404": (r) =>
-      r.status === 200 || r.status === 404,
+    "GET /debug/profiling/report status is 200 or 404": (r) => r.status === 200 || r.status === 404,
     "GET /debug/profiling/report response time < 50ms": (r) => r.timings.duration < 50,
     "GET /debug/profiling/report valid response": (r) => {
       if (r.status === 200) {
@@ -277,7 +282,9 @@ export default function () {
     "POST /debug/profiling/cleanup valid response": (r) => {
       if (r.status === 200) {
         const body = typeof r.body === "string" ? r.body : "";
-        return body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'));
+        return (
+          body.includes('"message"') && (body.includes('"success"') || body.includes('"enabled"'))
+        );
       }
       return true; // 404 is acceptable when profiling is disabled
     },

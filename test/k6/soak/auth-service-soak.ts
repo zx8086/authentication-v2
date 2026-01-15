@@ -5,7 +5,13 @@
 
 import { check, sleep } from "k6";
 import http from "k6/http";
-import { getConfig, getHeaders, getTestConsumer, getScenarioConfig, getPerformanceThresholds } from "../utils/config.ts";
+import {
+  getConfig,
+  getHeaders,
+  getPerformanceThresholds,
+  getScenarioConfig,
+  getTestConsumer,
+} from "../utils/config.ts";
 import { setupTestConsumers } from "../utils/setup.js";
 
 export function setup() {
@@ -38,7 +44,7 @@ export default function () {
 
     const tokenResponse = http.get(`${baseUrl}/tokens`, {
       headers,
-      tags: { endpoint: "tokens" }
+      tags: { endpoint: "tokens" },
     });
 
     check(tokenResponse, {
@@ -59,9 +65,10 @@ export default function () {
   }
 
   // 20% health monitoring (system stability)
-  else if (Math.random() < 0.67) { // 20% of remaining 30%
+  else if (Math.random() < 0.67) {
+    // 20% of remaining 30%
     const healthResponse = http.get(`${baseUrl}/health`, {
-      tags: { endpoint: "health" }
+      tags: { endpoint: "health" },
     });
 
     check(healthResponse, {
@@ -89,7 +96,7 @@ export default function () {
     if (Math.random() < 0.5) {
       // Metrics endpoint
       const metricsResponse = http.get(`${baseUrl}/metrics`, {
-        tags: { endpoint: "metrics" }
+        tags: { endpoint: "metrics" },
       });
 
       check(metricsResponse, {
@@ -103,8 +110,8 @@ export default function () {
     } else {
       // OpenAPI specification
       const openApiResponse = http.get(`${baseUrl}/`, {
-        headers: { "Accept": "application/json" },
-        tags: { endpoint: "openapi" }
+        headers: { Accept: "application/json" },
+        tags: { endpoint: "openapi" },
       });
 
       check(openApiResponse, {
@@ -123,4 +130,3 @@ export default function () {
   // Base think time between operations (realistic user behavior)
   sleep(0.5 + Math.random() * 1); // 0.5-1.5 seconds
 }
-

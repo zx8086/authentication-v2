@@ -1,8 +1,8 @@
 /* test/bun/circuit-breaker-per-operation.test.ts */
 
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { CachingConfig, CircuitBreakerConfig, ConsumerSecret } from "../../src/config/schemas";
 import { KongCircuitBreakerService } from "../../src/services/circuit-breaker.service";
-import type { CircuitBreakerConfig, CachingConfig, ConsumerSecret } from "../../src/config/schemas";
 
 describe("Per-Operation Circuit Breaker", () => {
   let circuitBreaker: KongCircuitBreakerService;
@@ -141,7 +141,7 @@ describe("Per-Operation Circuit Breaker", () => {
       }
 
       // Wait for reset timeout (shortened for testing)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // One operation can recover independently
       const workingOperation = async () => ({ data: "recovered" });
@@ -161,7 +161,7 @@ describe("Per-Operation Circuit Breaker", () => {
       };
 
       // Mock cache to return stale data (using correct cache key format with real consumer ID)
-      circuitBreaker["staleCache"]?.set("consumer_secret:f48534e1-4caf-4106-9103-edf38eae7ebc", {
+      circuitBreaker.staleCache?.set("consumer_secret:f48534e1-4caf-4106-9103-edf38eae7ebc", {
         data: realConsumerSecret,
         timestamp: Date.now(),
       });
@@ -278,7 +278,7 @@ describe("Per-Operation Circuit Breaker", () => {
       // We test this indirectly by ensuring different operations behave differently
       const quickOperation = async () => ({ data: "quick" });
       const slowOperation = async () => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
         return { data: "slow" };
       };
 
@@ -294,7 +294,9 @@ describe("Per-Operation Circuit Breaker", () => {
 
   describe("Circuit Breaker States", () => {
     it("should track states independently per operation", async () => {
-      const alwaysFail = async () => { throw new Error("Always fail"); };
+      const alwaysFail = async () => {
+        throw new Error("Always fail");
+      };
       const alwaysSucceed = async () => ({ data: "success" });
 
       // Fail one operation to open its circuit

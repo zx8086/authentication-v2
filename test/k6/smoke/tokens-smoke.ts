@@ -11,8 +11,8 @@ import {
   getScenarioConfig,
   getTestConsumer,
 } from "../utils/config.ts";
+import { logEnvironmentInfo, shouldRunTest } from "../utils/environment.ts";
 import { setupTestConsumers } from "../utils/setup.js";
-import { shouldRunTest, logEnvironmentInfo } from "../utils/environment.ts";
 
 const config = getConfig();
 const thresholds = getPerformanceThresholds();
@@ -45,7 +45,7 @@ export function setup() {
 
 export default function (data) {
   // Skip test execution if setup indicated we should skip
-  if (data && data.skipTest) {
+  if (data?.skipTest) {
     console.log("[K6 Tokens Test] Skipped - Kong Gateway not available in this environment");
     return;
   }

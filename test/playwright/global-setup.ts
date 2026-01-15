@@ -1,13 +1,12 @@
 /* test/playwright/global-setup.ts */
 
-import type { FullConfig } from "@playwright/test";
 // Load environment variables explicitly for global setup
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { FullConfig } from "@playwright/test";
 import {
   ANONYMOUS_CONSUMER,
   getJobSpecificConsumers,
-  JOB_PREFIXES,
   type JobPrefix,
   TEST_CONSUMERS,
   type TestConsumer,
@@ -56,14 +55,12 @@ class PlaywrightTestSetup {
     this.adminToken = process.env.KONG_ADMIN_TOKEN || "";
 
     if (!this.adminUrl) {
-      throw new Error(
-        "KONG_ADMIN_URL environment variable must be configured"
-      );
+      throw new Error("KONG_ADMIN_URL environment variable must be configured");
     }
 
     // KONG_ADMIN_TOKEN can be empty for API Gateway mode without authentication
     if (!this.adminToken) {
-      console.log("[Playwright Setup] Running with empty Kong Admin Token (API Gateway mode)")
+      console.log("[Playwright Setup] Running with empty Kong Admin Token (API Gateway mode)");
     }
   }
 
@@ -77,7 +74,7 @@ class PlaywrightTestSetup {
 
       const headers = {
         "User-Agent": "Playwright-Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const response = await fetch(endpoint, {
@@ -112,7 +109,7 @@ class PlaywrightTestSetup {
       const headers = {
         "Content-Type": "application/json",
         "User-Agent": "Playwright-Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const response = await fetch(endpoint, {
@@ -156,7 +153,7 @@ class PlaywrightTestSetup {
 
       const headers = {
         "User-Agent": "Playwright-Test-Setup/1.0",
-        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+        ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
       };
 
       const consumerResponse = await fetch(endpoint, {
@@ -230,7 +227,7 @@ class PlaywrightTestSetup {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Playwright-Test-Setup/1.0",
-          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {})
+          ...(this.adminToken ? { Authorization: `Bearer ${this.adminToken}` } : {}),
         },
         body: JSON.stringify({
           key: key,
@@ -331,10 +328,13 @@ async function globalSetup(config: FullConfig) {
 
   // Check if we're in CI and if Kong setup should be skipped
   const isCI = process.env.CI === "true";
-  const skipKongSetup = process.env.SKIP_KONG_TESTS === "true" || process.env.SKIP_PLAYWRIGHT_KONG === "true";
+  const skipKongSetup =
+    process.env.SKIP_KONG_TESTS === "true" || process.env.SKIP_PLAYWRIGHT_KONG === "true";
 
   if (isCI && skipKongSetup) {
-    console.log("[Playwright Setup] CI environment detected with Kong tests disabled - skipping Kong-dependent setup");
+    console.log(
+      "[Playwright Setup] CI environment detected with Kong tests disabled - skipping Kong-dependent setup"
+    );
     console.log("[Playwright Setup] Tests requiring Kong authentication will be skipped");
     return;
   }
@@ -345,7 +345,9 @@ async function globalSetup(config: FullConfig) {
 
     if (!success) {
       if (isCI) {
-        console.warn("[Playwright Setup] Kong consumer setup failed in CI - some tests may be skipped");
+        console.warn(
+          "[Playwright Setup] Kong consumer setup failed in CI - some tests may be skipped"
+        );
         console.log("[Playwright Setup] Continuing with limited test suite");
         return;
       } else {

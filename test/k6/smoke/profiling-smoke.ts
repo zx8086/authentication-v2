@@ -112,7 +112,7 @@ export default function () {
     }
   }
 
-  if (statusData && statusData.enabled && statusData.sessions && statusData.sessions.length > 0) {
+  if (statusData?.enabled && statusData.sessions && statusData.sessions.length > 0) {
     // External session exists, use it instead of starting a new one
     externalSessionExists = true;
     sessionId = statusData.sessions[0].id;

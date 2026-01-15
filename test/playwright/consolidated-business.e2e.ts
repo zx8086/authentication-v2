@@ -191,8 +191,8 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
     test("Handles non-existent consumers", async ({ request }) => {
       const response = await request.get("/tokens", {
         headers: {
-          "X-Consumer-Id": "non-existent-" + Date.now(),
-          "X-Consumer-Username": "ghost-user-" + Date.now(),
+          "X-Consumer-Id": `non-existent-${Date.now()}`,
+          "X-Consumer-Username": `ghost-user-${Date.now()}`,
         },
       });
 

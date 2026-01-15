@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "bun:test";
 import type { IKongService } from "../../src/config";
+import { KongServiceFactory } from "../../src/services/kong.factory";
 import { KongApiGatewayService } from "../../src/services/legacy/kong-api-gateway.service";
 import { KongKonnectService } from "../../src/services/legacy/kong-konnect.service";
-import { KongServiceFactory } from "../../src/services/kong.factory";
 
 describe("KongServiceFactory", () => {
   const testAdminUrl = "http://test-kong:8001";

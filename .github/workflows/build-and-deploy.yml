@@ -79,7 +79,17 @@ jobs:
       - name: Run unit & integration tests
         run: bun run bun:test:concurrent
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install chromium
 
       - name: Run Kong-independent E2E tests
@@ -340,7 +350,7 @@ jobs:
         run: |
           echo "Running Snyk code analysis..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
-          npx --yes snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
+          bunx snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
             echo "Snyk code analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
@@ -359,7 +369,7 @@ jobs:
           echo "Running Snyk container scan..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
           echo "IMAGE_TAG: $IMAGE_TAG"
-          npx --yes snyk@latest container test $IMAGE_TAG \
+          bunx snyk@latest container test $IMAGE_TAG \
             --quiet --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
             --json-file-output=snyk-container-results.json \
             --exclude-base-image-vulns --app-vulns || {
@@ -511,49 +521,49 @@ jobs:
           case "${{ matrix.scan-type }}" in
             "snyk-code")
               if [ -f "snyk-code-results.sarif" ]; then
-                echo "Snyk Code Analysis completed - results uploaded to Security tab"
+                echo "[PASS] Snyk Code Analysis completed - results uploaded to Security tab"
               else
-                echo "❌ Snyk Code Analysis failed or no results generated"
+                echo "[FAILED] Snyk Code Analysis failed or no results generated"
               fi
               ;;
             "snyk-container")
               if [ -f "snyk-container-results.sarif" ]; then
-                echo "Snyk Container Scan completed - results uploaded to Security tab"
+                echo "[PASS] Snyk Container Scan completed - results uploaded to Security tab"
               else
-                echo "❌ Snyk Container Scan failed or no results generated"
+                echo "[FAILED] Snyk Container Scan failed or no results generated"
               fi
               ;;
             "trivy-container")
               if [ -f "trivy-results.sarif" ]; then
-                echo "Trivy Container Scan completed - results uploaded to Security tab"
+                echo "[PASS] Trivy Container Scan completed - results uploaded to Security tab"
               else
-                echo "❌ Trivy Container Scan failed or no results generated"
+                echo "[FAILED] Trivy Container Scan failed or no results generated"
               fi
               ;;
             "docker-scout")
               if [ -f "scout-results.sarif" ]; then
-                echo "Docker Scout Analysis completed - results uploaded to Security tab"
+                echo "[PASS] Docker Scout Analysis completed - results uploaded to Security tab"
               else
-                echo "❌ Docker Scout Analysis failed or no results generated"
+                echo "[FAILED] Docker Scout Analysis failed or no results generated"
               fi
               ;;
             "license-compliance")
               if [ -f "license-report.json" ]; then
-                echo "❌ License Compliance check failed - see artifact for details"
+                echo "[FAILED] License Compliance check failed - see artifact for details"
               else
-                echo "License Compliance check passed - all dependencies use allowed licenses"
+                echo "[PASS] License Compliance check passed - all dependencies use allowed licenses"
               fi
               ;;
             "secrets-detection")
               if [ -f "secrets-scan.json" ]; then
                 secrets_count=$(wc -l < secrets-scan.json 2>/dev/null || echo "0")
                 if [ "$secrets_count" -gt 0 ]; then
-                  echo "❌ Secrets Detection found $secrets_count potential secrets"
+                  echo "[FAILED] Secrets Detection found $secrets_count potential secrets"
                 else
-                  echo "Secrets Detection completed - no secrets found"
+                  echo "[PASS] Secrets Detection completed - no secrets found"
                 fi
               else
-                echo "Secrets Detection completed - no secrets found"
+                echo "[PASS] Secrets Detection completed - no secrets found"
               fi
               ;;
           esac

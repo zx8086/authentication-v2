@@ -2,7 +2,7 @@
 
 // Unit tests for native Bun JWT service implementation
 
-import { beforeAll, describe, expect, it, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import { NativeBunJWT } from "../../src/services/jwt.service";
 
 describe("NativeBunJWT", () => {

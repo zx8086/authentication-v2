@@ -1,6 +1,6 @@
 /* test/kong-simulator/kong-admin.ts */
 
-import { TEST_CONSUMERS, ANONYMOUS_CONSUMER } from "../shared/test-consumers";
+import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "../shared/test-consumers";
 
 /**
  * Kong Admin API simulator for local testing
@@ -51,7 +51,7 @@ export class KongAdminSimulator {
         }),
         {
           status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
@@ -68,27 +68,25 @@ export class KongAdminSimulator {
       return await this.handleConsumer(consumerId, corsHeaders);
     }
 
-    return new Response(
-      JSON.stringify({ message: "Not found" }),
-      {
-        status: 404,
-        headers: { "Content-Type": "application/json", ...corsHeaders }
-      }
-    );
+    return new Response(JSON.stringify({ message: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 
-  private async handleConsumerJWT(consumerId: string, request: Request, corsHeaders: Record<string, string>): Promise<Response> {
+  private async handleConsumerJWT(
+    consumerId: string,
+    request: Request,
+    corsHeaders: Record<string, string>
+  ): Promise<Response> {
     // Find consumer by ID or username
-    let consumer = this.findConsumer(consumerId);
+    const consumer = this.findConsumer(consumerId);
 
     if (!consumer) {
-      return new Response(
-        JSON.stringify({ message: "Not found" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
-        }
-      );
+      return new Response(JSON.stringify({ message: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     // Generate a mock JWT secret for this consumer
@@ -103,29 +101,28 @@ export class KongAdminSimulator {
       updated_at: Math.floor(Date.now() / 1000),
     };
 
-    console.log(`Kong Admin: Generated JWT secret for consumer ${consumer.username} (${consumer.id})`);
-
-    return new Response(
-      JSON.stringify(jwtSecret),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders }
-      }
+    console.log(
+      `Kong Admin: Generated JWT secret for consumer ${consumer.username} (${consumer.id})`
     );
+
+    return new Response(JSON.stringify(jwtSecret), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 
-  private async handleConsumer(consumerId: string, corsHeaders: Record<string, string>): Promise<Response> {
+  private async handleConsumer(
+    consumerId: string,
+    corsHeaders: Record<string, string>
+  ): Promise<Response> {
     // Find consumer by ID or username
-    let consumer = this.findConsumer(consumerId);
+    const consumer = this.findConsumer(consumerId);
 
     if (!consumer) {
-      return new Response(
-        JSON.stringify({ message: "Not found" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
-        }
-      );
+      return new Response(JSON.stringify({ message: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     // Return mock consumer data
@@ -139,13 +136,10 @@ export class KongAdminSimulator {
 
     console.log(`Kong Admin: Retrieved consumer ${consumer.username} (${consumer.id})`);
 
-    return new Response(
-      JSON.stringify(consumerData),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders }
-      }
-    );
+    return new Response(JSON.stringify(consumerData), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 
   private findConsumer(consumerId: string) {
@@ -153,11 +147,11 @@ export class KongAdminSimulator {
     const allConsumers = [...TEST_CONSUMERS, ANONYMOUS_CONSUMER];
 
     // Try to find by ID first
-    let consumer = allConsumers.find(c => c.id === consumerId);
+    let consumer = allConsumers.find((c) => c.id === consumerId);
 
     // If not found by ID, try by username
     if (!consumer) {
-      consumer = allConsumers.find(c => c.username === consumerId);
+      consumer = allConsumers.find((c) => c.username === consumerId);
     }
 
     return consumer;

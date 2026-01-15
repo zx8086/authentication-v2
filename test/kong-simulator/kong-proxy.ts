@@ -1,6 +1,6 @@
 /* test/kong-simulator/kong-proxy.ts */
 
-import { TEST_CONSUMERS, ANONYMOUS_CONSUMER } from "../shared/test-consumers";
+import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "../shared/test-consumers";
 
 interface ApiKeyMapping {
   [key: string]: {
@@ -85,25 +85,19 @@ export class KongSimulator {
     const apiKey = request.headers.get("X-API-Key") || request.headers.get("x-api-key");
 
     if (!apiKey) {
-      return new Response(
-        JSON.stringify({ message: "No API key found" }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ message: "No API key found" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Validate API key and get consumer info
     const consumer = API_KEY_MAPPINGS[apiKey];
     if (!consumer) {
-      return new Response(
-        JSON.stringify({ message: "Invalid API key" }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ message: "Invalid API key" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Forward request to authentication service with Kong headers
@@ -138,13 +132,10 @@ export class KongSimulator {
       });
     } catch (error) {
       console.error("Error proxying request:", error);
-      return new Response(
-        JSON.stringify({ message: "Service unavailable" }),
-        {
-          status: 503,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ message: "Service unavailable" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
     }
   }
 
@@ -159,17 +150,17 @@ export class KongSimulator {
       const consumerId = pathParts[2];
 
       // Find consumer by ID
-      let consumer = Object.values(API_KEY_MAPPINGS).find(c => c.consumerId === consumerId);
+      let consumer = Object.values(API_KEY_MAPPINGS).find((c) => c.consumerId === consumerId);
       if (!consumer) {
         // Try to find by username if ID lookup fails
-        consumer = Object.values(API_KEY_MAPPINGS).find(c => c.username === consumerId);
+        consumer = Object.values(API_KEY_MAPPINGS).find((c) => c.username === consumerId);
       }
 
       if (!consumer) {
-        return new Response(
-          JSON.stringify({ message: "Not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ message: "Not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       // Generate a mock JWT secret for this consumer
@@ -184,13 +175,10 @@ export class KongSimulator {
         updated_at: Math.floor(Date.now() / 1000),
       };
 
-      return new Response(
-        JSON.stringify(jwtSecret),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify(jwtSecret), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Handle /consumers/{id} requests
@@ -198,17 +186,17 @@ export class KongSimulator {
       const consumerId = pathParts[2];
 
       // Find consumer by ID
-      let consumer = Object.values(API_KEY_MAPPINGS).find(c => c.consumerId === consumerId);
+      let consumer = Object.values(API_KEY_MAPPINGS).find((c) => c.consumerId === consumerId);
       if (!consumer) {
         // Try to find by username if ID lookup fails
-        consumer = Object.values(API_KEY_MAPPINGS).find(c => c.username === consumerId);
+        consumer = Object.values(API_KEY_MAPPINGS).find((c) => c.username === consumerId);
       }
 
       if (!consumer) {
-        return new Response(
-          JSON.stringify({ message: "Not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ message: "Not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       // Return mock consumer data
@@ -220,19 +208,16 @@ export class KongSimulator {
         updated_at: Math.floor(Date.now() / 1000),
       };
 
-      return new Response(
-        JSON.stringify(consumerData),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify(consumerData), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ message: "Not found" }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ message: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   private generateSecureSecret(): string {

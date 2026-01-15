@@ -1,6 +1,6 @@
 /* test/bun/config.test.ts */
 
-import { afterEach, beforeEach, describe, expect, it, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, test } from "bun:test";
 import { SchemaRegistry } from "../../src/config/schemas";
 
 describe("Configuration System", () => {
