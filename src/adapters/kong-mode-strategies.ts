@@ -4,22 +4,16 @@ import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import type { IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createStandardHeaders } from "./kong-utils";
 
-/**
- * Kong API Gateway Strategy
- *
- * Handles traditional self-hosted Kong with direct Admin API access.
- * Uses simple endpoint patterns and Kong-Admin-Token authentication.
- */
+// Strategy for traditional self-hosted Kong with direct Admin API access
 export class KongApiGatewayStrategy implements IKongModeStrategy {
   constructor(
     readonly baseUrl: string,
     readonly _adminToken: string
   ) {
-    this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
+    this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
   async buildConsumerUrl(baseUrl: string, consumerId: string): Promise<string> {
-    // Direct consumer ID usage for API Gateway mode
     return `${baseUrl}/consumers/${consumerId}/jwt`;
   }
 
@@ -33,23 +27,16 @@ export class KongApiGatewayStrategy implements IKongModeStrategy {
     });
   }
 
-  // API Gateway doesn't require prerequisites
   async ensurePrerequisites(): Promise<void> {
     // No prerequisites needed for API Gateway mode
   }
 
-  // API Gateway uses consumer ID directly
   async resolveConsumerId(consumerId: string): Promise<string | null> {
     return consumerId;
   }
 }
 
-/**
- * Kong Konnect Strategy
- *
- * Handles cloud-native Kong Konnect with control planes and realm management.
- * Uses versioned API endpoints and Bearer token authentication.
- */
+// Strategy for cloud-native Kong Konnect with control planes and realm management
 export class KongKonnectStrategy implements IKongModeStrategy {
   private readonly gatewayAdminUrl: string;
   private readonly consumerAdminUrl: string;
@@ -63,7 +50,6 @@ export class KongKonnectStrategy implements IKongModeStrategy {
     const url = new URL(adminUrl);
 
     if (url.hostname.includes("konghq.com")) {
-      // Parse Kong Konnect URL format
       const pathMatch = url.pathname.match(/\/v2\/control-planes\/([a-f0-9-]+)/);
       if (!pathMatch) {
         throw new Error(
@@ -85,12 +71,11 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   }
 
   async buildConsumerUrl(baseUrl: string, consumerId: string): Promise<string> {
-    // Consumer ID should already be resolved UUID for Konnect
     return `${baseUrl}/core-entities/consumers/${consumerId}/jwt`;
   }
 
   buildHealthUrl(baseUrl: string): string {
-    return baseUrl; // Konnect uses root endpoint for health
+    return baseUrl;
   }
 
   createAuthHeaders(token: string): Record<string, string> {
@@ -104,7 +89,6 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   }
 
   async resolveConsumerId(consumerId: string): Promise<string | null> {
-    // Try direct ID lookup first
     let checkUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerId}`;
 
     try {
@@ -131,9 +115,7 @@ export class KongKonnectStrategy implements IKongModeStrategy {
 
         if (response.ok) {
           const result = await response.json();
-          // Ensure we have valid data array and at least one consumer
           if (result?.data && Array.isArray(result.data) && result.data.length > 0) {
-            // Verify the returned consumer actually matches our search
             const consumer = result.data[0];
             if (consumer?.id && consumer.username === consumerId) {
               return consumer.id;
@@ -180,14 +162,13 @@ export class KongKonnectStrategy implements IKongModeStrategy {
       });
 
       if (checkResponse.ok) {
-        return; // Realm already exists
+        return;
       }
 
       if (checkResponse.status !== 404) {
         throw new Error(`Unexpected error checking realm: ${checkResponse.status}`);
       }
 
-      // Create realm if it doesn't exist
       await this.createRealm();
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -225,7 +206,7 @@ export class KongKonnectStrategy implements IKongModeStrategy {
       if (createResponse.status === 400) {
         const errorText = await createResponse.text();
         if (errorText.includes("realm name must be unique")) {
-          // Realm already exists (race condition)
+          // Race condition - realm already exists
           return;
         }
       }
@@ -241,13 +222,6 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   }
 }
 
-/**
- * Factory function to create appropriate Kong mode strategy
- * @param mode - Kong deployment mode
- * @param adminUrl - Kong admin URL
- * @param adminToken - Kong admin token
- * @returns Appropriate strategy instance
- */
 export function createKongModeStrategy(
   mode: "API_GATEWAY" | "KONNECT",
   adminUrl: string,

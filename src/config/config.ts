@@ -3,7 +3,6 @@
 import { defaultConfig } from "./defaults";
 import { envVarMapping } from "./envMapping";
 import { initializeConfig } from "./loader";
-// 4-Pillar Configuration Architecture Orchestrator
 import type {
   ApiInfoConfig,
   AppConfig,

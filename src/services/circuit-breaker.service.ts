@@ -48,19 +48,15 @@ export class KongCircuitBreakerService {
     this.config = config;
     this.staleDataToleranceMinutes = cachingConfig.staleDataToleranceMinutes;
 
-    // Initialize operation-specific configurations
     this.initializeOperationConfigs();
 
-    // Only initialize in-memory cache for non-HA mode
     if (!config.highAvailability) {
       this.staleCache = new Map();
     }
   }
 
   private initializeOperationConfigs(): void {
-    // Default operation configurations based on operation type
     const defaultConfigs: Record<string, OperationCircuitBreakerConfig> = {
-      // Consumer operations - standard data retrieval
       getConsumerSecret: {
         timeout: 3000,
         errorThresholdPercentage: 50,
@@ -73,7 +69,6 @@ export class KongCircuitBreakerService {
         resetTimeout: 120000,
         fallbackStrategy: "deny",
       },
-      // Health check operations - fast recovery
       healthCheck: {
         timeout: 1000,
         errorThresholdPercentage: 75,
@@ -82,12 +77,10 @@ export class KongCircuitBreakerService {
       },
     };
 
-    // Set defaults first
     for (const [operation, opConfig] of Object.entries(defaultConfigs)) {
       this.operationConfigs.set(operation, opConfig);
     }
 
-    // Apply any user-defined overrides from config
     if (this.config.operations) {
       for (const [operation, overrides] of Object.entries(this.config.operations)) {
         const existing = this.operationConfigs.get(operation) || {};
@@ -101,7 +94,6 @@ export class KongCircuitBreakerService {
     action: (...args: any[]) => Promise<T>
   ): CircuitBreaker<any[], T> {
     if (!this.breakers.has(operation)) {
-      // Get operation-specific configuration or fallback to global defaults
       const operationConfig = this.operationConfigs.get(operation);
 
       const circuitBreakerOptions = {
@@ -215,7 +207,6 @@ export class KongCircuitBreakerService {
     }
 
     const breaker = this.getOrCreateBreaker(operation, action);
-    // Use consistent cache key format with Kong services: consumer_secret:consumerId
     const cacheKey = `consumer_secret:${consumerId}`;
 
     try {
@@ -223,7 +214,7 @@ export class KongCircuitBreakerService {
       recordCircuitBreakerRequest(operation, "closed");
 
       if (result) {
-        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        // Prevent cache pollution - validate consumer ID matches before caching
         if (result.consumer && result.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
             operation,
@@ -233,13 +224,10 @@ export class KongCircuitBreakerService {
             component: "circuit_breaker",
             action: "consumer_id_mismatch",
           });
-          // Don't cache wrong consumer data, and don't return it either (would cause auth failures)
-          // Return null to indicate consumer not found rather than returning wrong consumer data
           return null;
         }
         this.updateStaleCache(cacheKey, result);
       } else if (this.staleCache) {
-        // Explicitly cache null results to prevent serving stale data for non-existent consumers
         this.staleCache.delete(cacheKey);
       }
 
@@ -313,7 +301,6 @@ export class KongCircuitBreakerService {
 
     recordCircuitBreakerRequest(operation, "half_open");
 
-    // Return operation-specific degraded responses
     switch (operation) {
       case "healthCheck":
         return {
@@ -339,7 +326,6 @@ export class KongCircuitBreakerService {
     const operationConfig = this.operationConfigs.get(operation);
     const fallbackStrategy = operationConfig?.fallbackStrategy || "deny";
 
-    // For operations with deny strategy, don't attempt cache fallback
     if (fallbackStrategy === "deny") {
       winstonTelemetryLogger.warn(
         `Circuit breaker open, denying consumer operation for ${operation}`,
@@ -355,7 +341,6 @@ export class KongCircuitBreakerService {
       return null;
     }
 
-    // For graceful degradation, return a standardized response indicating unavailability
     if (fallbackStrategy === "graceful_degradation") {
       winstonTelemetryLogger.info(`Circuit breaker open, graceful degradation for ${operation}`, {
         operation,
@@ -365,20 +350,17 @@ export class KongCircuitBreakerService {
         fallbackStrategy: "graceful_degradation",
       });
       recordCircuitBreakerRequest(operation, "half_open");
-      return null; // For consumer operations, graceful degradation means returning null
+      return null;
     }
 
-    // Continue with cache-based fallback for cache strategy
     if (this.config.highAvailability && this.cacheService) {
-      // HA Mode: Use Redis stale cache
       const start = performance.now();
       try {
         const extractedKey = this.extractKeyFromCacheKey(cacheKey);
         const redisStale = await this.cacheService.getStale?.(extractedKey);
 
         if (redisStale) {
-          // CRITICAL FIX: Validate that the cached consumer data actually belongs to the requested consumer
-          // This prevents cache pollution where one consumer gets another consumer's data
+          // Prevent cache pollution - validate consumer ID matches before returning
           if (redisStale.consumer && redisStale.consumer.id !== consumerId) {
             winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
               operation,
@@ -391,7 +373,7 @@ export class KongCircuitBreakerService {
               tier: "redis-stale",
             });
             recordCacheTierError("redis-stale", operation, "cache_pollution");
-            return null; // Don't return wrong consumer's data
+            return null;
           }
 
           const latency = performance.now() - start;
@@ -428,15 +410,12 @@ export class KongCircuitBreakerService {
           action: "redis_stale_error",
           tier: "redis-stale",
         });
-        // Fall through to in-memory fallback
       }
     } else {
-      // Non-HA Mode: Use in-memory cache
       const start = performance.now();
       const inMemoryStale = this.getStaleData(cacheKey);
       if (inMemoryStale) {
-        // CRITICAL FIX: Validate that the cached consumer data actually belongs to the requested consumer
-        // This prevents cache pollution where one consumer gets another consumer's data
+        // Prevent cache pollution - validate consumer ID matches before returning
         if (inMemoryStale.data.consumer && inMemoryStale.data.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
             operation,
@@ -448,9 +427,8 @@ export class KongCircuitBreakerService {
             tier: "in-memory",
           });
           recordCacheTierError("in-memory", operation, "cache_pollution");
-          // Remove the polluted cache entry
           this.staleCache?.delete(cacheKey);
-          return null; // Don't return wrong consumer's data
+          return null;
         }
 
         const latency = performance.now() - start;
@@ -475,7 +453,6 @@ export class KongCircuitBreakerService {
       }
     }
 
-    // No fallback available - return null
     winstonTelemetryLogger.warn(`Circuit breaker open, no cache fallback available`, {
       operation,
       originalConsumerId: consumerId,
@@ -489,8 +466,6 @@ export class KongCircuitBreakerService {
   }
 
   private extractKeyFromCacheKey(cacheKey: string): string {
-    // For consumer operations, the cache key is already in the correct format: "consumer_secret:consumerId"
-    // Return the cache key as-is for Redis operations
     return cacheKey;
   }
 
@@ -564,7 +539,7 @@ export class KongCircuitBreakerService {
     const info: Array<{ key: string; ageMinutes: number }> = [];
 
     if (!this.staleCache) {
-      return info; // Return empty array for HA mode
+      return info;
     }
 
     const now = Date.now();

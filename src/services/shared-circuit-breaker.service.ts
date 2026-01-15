@@ -49,7 +49,6 @@ export class SharedCircuitBreakerService {
     this.staleDataToleranceMinutes = cachingConfig.staleDataToleranceMinutes;
     this.cacheService = cacheService;
 
-    // Only initialize in-memory cache for non-HA mode
     if (!config.highAvailability) {
       this.staleCache = new Map();
     }
@@ -146,57 +145,40 @@ export class SharedCircuitBreakerService {
       });
     }
 
-    // Update the action for this specific call
     (this.kongBreaker as CircuitBreaker & { action?: () => Promise<unknown> }).action = action;
     return this.kongBreaker as CircuitBreaker<any[], T>;
   }
 
-  /**
-   * Determines if an HTTP status code represents an infrastructure error
-   * vs a business logic response
-   */
+  // Infrastructure errors (5xx, rate limits) trigger circuit breaker; business errors (4xx) do not
   private isInfrastructureError(status: number): boolean {
-    // Infrastructure failures that should trigger circuit breaker
-    if (status >= 500 && status < 600) return true; // 5xx server errors
-    if (status === 429) return true; // Rate limiting (infrastructure constraint)
-    if (status === 502) return true; // Bad gateway
-    if (status === 503) return true; // Service unavailable
-    if (status === 504) return true; // Gateway timeout
+    if (status >= 500 && status < 600) return true;
+    if (status === 429) return true;
+    if (status === 502) return true;
+    if (status === 503) return true;
+    if (status === 504) return true;
 
-    // Business logic responses that should NOT trigger circuit breaker
-    if (status === 404) return false; // Consumer not found - expected business response
-    if (status === 401) return false; // Unauthorized - expected business response
-    if (status === 403) return false; // Forbidden - expected business response
-    if (status === 409) return false; // Conflict - expected business response
-    if (status === 422) return false; // Unprocessable entity - expected business response
+    if (status === 404) return false;
+    if (status === 401) return false;
+    if (status === 403) return false;
+    if (status === 409) return false;
+    if (status === 422) return false;
 
-    // 4xx client errors (except rate limiting) are generally business logic
     if (status >= 400 && status < 500) return false;
-
-    // 2xx/3xx are successful responses
     if (status >= 200 && status < 400) return false;
 
-    // Default: treat unknown status codes as infrastructure errors (conservative)
     return true;
   }
 
-  /**
-   * Determines if an error is a business logic error that should not trigger circuit breaker
-   */
   private isBusinessLogicError(error: any): boolean {
-    // Handle KongApiError (our custom error with status information)
     if (error?.name === "KongApiError" && typeof error.isInfrastructureError === "boolean") {
-      return !error.isInfrastructureError; // Business logic errors are NOT infrastructure errors
+      return !error.isInfrastructureError;
     }
 
-    // Handle Response objects (fetch API errors)
     if (error && typeof error.status === "number") {
       return !this.isInfrastructureError(error.status);
     }
 
-    // Handle Error objects with response status
     if (error instanceof Error) {
-      // Check if error message contains HTTP status information
       const statusMatch = error.message.match(/(\d{3})/);
       if (statusMatch) {
         const status = Number.parseInt(statusMatch[1], 10);
@@ -204,7 +186,6 @@ export class SharedCircuitBreakerService {
       }
     }
 
-    // Default: treat unknown errors as infrastructure errors (they should trigger circuit breaker)
     return false;
   }
 
@@ -217,12 +198,10 @@ export class SharedCircuitBreakerService {
       return await action();
     }
 
-    // Create a wrapper action that handles business logic errors
     const wrappedAction = async (): Promise<T> => {
       try {
         return await action();
       } catch (error) {
-        // Check if this is a business logic error that shouldn't trigger circuit breaker
         if (this.isBusinessLogicError(error)) {
           winstonTelemetryLogger.debug(
             `Business logic error for ${operation}, not triggering circuit breaker`,
@@ -238,11 +217,9 @@ export class SharedCircuitBreakerService {
             }
           );
 
-          // For business logic errors, return null as success (don't throw)
           return null as T;
         }
 
-        // For infrastructure errors, re-throw to trigger circuit breaker
         throw error;
       }
     };
@@ -281,12 +258,10 @@ export class SharedCircuitBreakerService {
 
     const cacheKey = `${operation}:${consumerId}`;
 
-    // Create a wrapper action that handles business logic errors
     const wrappedAction = async (): Promise<ConsumerSecret | null> => {
       try {
         const result = await action();
 
-        // Success - update cache if result exists
         if (result) {
           this.updateStaleCache(cacheKey, result);
         } else if (this.staleCache) {
@@ -295,7 +270,6 @@ export class SharedCircuitBreakerService {
 
         return result;
       } catch (error) {
-        // Check if this is a business logic error that shouldn't trigger circuit breaker
         if (this.isBusinessLogicError(error)) {
           winstonTelemetryLogger.debug(
             `Business logic error for ${operation}, not triggering circuit breaker`,
@@ -312,16 +286,13 @@ export class SharedCircuitBreakerService {
             }
           );
 
-          // Clear cache entry if it exists
           if (this.staleCache) {
             this.staleCache.delete(cacheKey);
           }
 
-          // For business logic errors, return null as success (don't throw)
           return null;
         }
 
-        // For infrastructure errors, re-throw to trigger circuit breaker
         throw error;
       }
     };
@@ -489,21 +460,15 @@ export class SharedCircuitBreakerService {
   }
 
   private extractKeyFromCacheKey(cacheKey: string): string {
-    // cacheKey format: "operation:consumerId"
-    // We need to map the operation to the actual cache key format used by Kong services
-    // Example: "getConsumerSecret:demo_user" -> "consumer_secret:demo_user"
-    // Example: "createConsumerSecret:demo_user" -> "consumer_secret:demo_user"
     const parts = cacheKey.split(":");
     if (parts.length !== 2) return cacheKey;
 
     const [operation, consumerId] = parts;
 
-    // Both getConsumerSecret and createConsumerSecret use the same cache key format
     if (operation === "getConsumerSecret" || operation === "createConsumerSecret") {
       return `consumer_secret:${consumerId}`;
     }
 
-    // For other operations, return the original format
     return cacheKey;
   }
 

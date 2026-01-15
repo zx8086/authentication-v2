@@ -18,19 +18,15 @@ export class LifecycleObservabilityLogger {
   }> = [];
   private shutdownInProgress = false;
 
-  /**
-   * Batch shutdown message logging to eliminate race conditions
-   * All messages are queued then flushed together before system shutdown
-   */
+  // Batch shutdown logging to prevent race conditions - all messages queued then flushed together
   public logShutdownSequence(messages: ShutdownMessage[]): void {
     this.shutdownInProgress = true;
 
-    // Phase 1: Queue all shutdown messages with consistent timing
     const baseTimestamp = Date.now();
     messages.forEach((msg, index) => {
       const logData = {
         message: msg.message,
-        timestamp: baseTimestamp + index, // Sequential timing
+        timestamp: baseTimestamp + index,
         step: msg.step,
         metadata: {
           signal: process.env.SHUTDOWN_SIGNAL || "SIGINT",
@@ -44,7 +40,6 @@ export class LifecycleObservabilityLogger {
 
       this.pendingShutdownMessages.push(logData);
 
-      // Emit to structured logger immediately (buffered)
       log(logData.message, {
         component: "lifecycle",
         operation: "shutdown_sequence",
@@ -55,9 +50,6 @@ export class LifecycleObservabilityLogger {
     });
   }
 
-  /**
-   * Force flush all shutdown messages with timing buffer for OTLP transmission
-   */
   public async flushShutdownMessages(): Promise<void> {
     if (!this.shutdownInProgress || this.pendingShutdownMessages.length === 0) {
       return;
@@ -67,11 +59,10 @@ export class LifecycleObservabilityLogger {
       const telemetryStatus = getTelemetryStatus();
 
       if (telemetryStatus.initialized) {
-        // Force flush telemetry system
         const { forceMetricsFlush } = await import("./instrumentation");
         await forceMetricsFlush();
 
-        // Wait for OTLP transmission (critical for message delivery)
+        // Wait for OTLP transmission
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         log(
@@ -100,9 +91,6 @@ export class LifecycleObservabilityLogger {
     }
   }
 
-  /**
-   * Generate standard shutdown sequence for authentication service
-   */
   public static generateShutdownSequence(signal: string): ShutdownMessage[] {
     return [
       {

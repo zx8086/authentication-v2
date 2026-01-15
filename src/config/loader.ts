@@ -16,7 +16,6 @@ import {
   TelemetryMode,
 } from "./schemas";
 
-// Comprehensive Environment Variable Schema
 const envSchema = z
   .object({
     // Server Configuration
@@ -126,7 +125,6 @@ const envSchema = z
     };
   });
 
-// Infrastructure Detection Helper (4-Pillar Compliant)
 function detectInfrastructure() {
   const envSource = typeof Bun !== "undefined" ? Bun.env : process.env;
 
@@ -141,7 +139,6 @@ function detectInfrastructure() {
   };
 }
 
-// Pillar 4: Type-Safe Environment Configuration Loading
 function loadConfigFromEnv() {
   const envSource = typeof Bun !== "undefined" ? Bun.env : process.env;
 
@@ -163,7 +160,6 @@ function loadConfigFromEnv() {
   return result.data;
 }
 
-// Configuration Initialization with Default Merging
 export function initializeConfig(): AppConfig {
   const envConfig = loadConfigFromEnv();
 

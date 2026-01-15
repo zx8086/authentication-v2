@@ -28,18 +28,7 @@ import {
   isSuccessResponse,
 } from "./kong-utils";
 
-/**
- * Kong Adapter
- *
- * Unified adapter for Kong API Gateway and Kong Konnect that consolidates
- * the previously duplicated logic from KongApiGatewayService and KongKonnectService.
- *
- * This adapter:
- * - Encapsulates Kong mode-specific differences using strategy pattern
- * - Centralizes cache management and circuit breaker integration
- * - Provides consistent error handling and logging across Kong modes
- * - Maintains backward compatibility with existing IKongService interface
- */
+// Unified adapter for Kong API Gateway and Kong Konnect using strategy pattern
 export class KongAdapter implements IAPIGatewayAdapter {
   private readonly strategy: IKongModeStrategy;
   private cache: IKongCacheService | null = null;
@@ -50,10 +39,8 @@ export class KongAdapter implements IAPIGatewayAdapter {
     private readonly adminUrl: string,
     private readonly adminToken: string
   ) {
-    // Create mode-specific strategy
     this.strategy = createKongModeStrategy(mode, adminUrl, adminToken);
 
-    // Initialize shared circuit breaker with configuration
     const kongConfig = getKongConfig();
     const cachingConfig = getCachingConfig();
     const circuitBreakerConfig = {
@@ -67,7 +54,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
       undefined
     );
 
-    // Initialize cache asynchronously
     this.initializeCache();
   }
 
@@ -75,10 +61,8 @@ export class KongAdapter implements IAPIGatewayAdapter {
     try {
       this.cache = await CacheFactory.createKongCache();
 
-      // Update circuit breaker with cache service for HA mode
       const kongConfig = getKongConfig();
       if (kongConfig.highAvailability && this.cache) {
-        // For KongCircuitBreakerService, we need to recreate it with the cache service
         const circuitBreakerConfig = {
           ...kongConfig.circuitBreaker,
           highAvailability: kongConfig.highAvailability,
@@ -100,38 +84,32 @@ export class KongAdapter implements IAPIGatewayAdapter {
   }
 
   async getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null> {
-    // Ensure cache is initialized
     await this.ensureCacheInitialized();
 
     const cacheKey = generateCacheKey(consumerId);
 
-    // Check cache first
     const cached = await this.cache?.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Use circuit breaker for Kong operations
     return await this.circuitBreaker.wrapKongConsumerOperation(
       "getConsumerSecret",
       consumerId,
       async () => {
-        // Ensure prerequisites (realm for Konnect)
         if (this.strategy.ensurePrerequisites) {
           await this.strategy.ensurePrerequisites();
         }
 
-        // Resolve consumer ID if needed (UUID for Konnect)
         let resolvedConsumerId = consumerId;
         if (this.strategy.resolveConsumerId) {
           const resolved = await this.strategy.resolveConsumerId(consumerId);
           if (!resolved) {
-            return null; // Consumer doesn't exist
+            return null;
           }
           resolvedConsumerId = resolved;
         }
 
-        // Build consumer URL using strategy
         const url = await this.strategy.buildConsumerUrl(this.adminUrl, resolvedConsumerId);
 
         const response = await withRetry(
@@ -149,7 +127,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
             return null;
           }
 
-          // Use KongApiError to preserve status information for circuit breaker
           throw await createKongApiError(response);
         }
 
@@ -160,7 +137,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
           return null;
         }
 
-        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        // Prevent cache pollution - validate consumer ID matches before caching
         if (secret.consumer && secret.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
             operation: "getConsumerSecret",
@@ -171,11 +148,9 @@ export class KongAdapter implements IAPIGatewayAdapter {
             action: "consumer_id_mismatch",
             mode: this.mode,
           });
-          // Don't cache wrong consumer data, but still return it (Kong returned it for this request)
           return secret;
         }
 
-        // Store in cache after successful retrieval and validation
         await this.cache?.set(cacheKey, secret);
 
         return secret;
@@ -188,17 +163,15 @@ export class KongAdapter implements IAPIGatewayAdapter {
       "createConsumerSecret",
       consumerId,
       async () => {
-        // Ensure prerequisites (realm for Konnect)
         if (this.strategy.ensurePrerequisites) {
           await this.strategy.ensurePrerequisites();
         }
 
-        // Resolve consumer ID if needed (UUID for Konnect)
         let resolvedConsumerId = consumerId;
         if (this.strategy.resolveConsumerId) {
           const resolved = await this.strategy.resolveConsumerId(consumerId);
           if (!resolved) {
-            return null; // Consumer doesn't exist
+            return null;
           }
           resolvedConsumerId = resolved;
         }
@@ -206,7 +179,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
         const key = generateJwtKey();
         const secret = generateSecureSecret();
 
-        // Build consumer URL using strategy
         const url = await this.strategy.buildConsumerUrl(this.adminUrl, resolvedConsumerId);
 
         const response = await fetch(url, {
@@ -230,7 +202,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
             return null;
           }
 
-          // Use KongApiError to preserve status information for circuit breaker
           const kongError = await createKongApiError(response);
           winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
             consumerId,
@@ -244,7 +215,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
         const createdSecret = (await response.json()) as ConsumerSecret;
 
-        // CRITICAL FIX: Validate consumer data before caching to prevent cache pollution
+        // Prevent cache pollution - validate consumer ID matches before caching
         if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(
             `Consumer ID mismatch in Kong create response, not caching`,
@@ -257,11 +228,9 @@ export class KongAdapter implements IAPIGatewayAdapter {
               mode: this.mode,
             }
           );
-          // Don't cache wrong consumer data, but still return it (Kong returned it for this request)
           return createdSecret;
         }
 
-        // Store in cache after successful creation and validation
         await this.ensureCacheInitialized();
         const cacheKey = generateCacheKey(consumerId);
         await this.cache?.set(cacheKey, createdSecret);
@@ -318,7 +287,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
               mode: this.mode,
             });
 
-            // For health checks, we want to throw to trigger circuit breaker if it's an infrastructure error
+            // Throw infrastructure errors to trigger circuit breaker
             if (kongError.isInfrastructureError) {
               throw kongError;
             }
@@ -333,7 +302,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
       );
 
       if (result === null) {
-        // Circuit breaker is open and rejected the request
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
         recordKongOperation("health_check", responseTime, false);
         recordError("kong_health_check_circuit_breaker", {
@@ -351,7 +319,6 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
       return result;
     } catch (error) {
-      // Handle errors when circuit breaker is disabled or other unexpected errors
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 

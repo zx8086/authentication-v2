@@ -1,20 +1,8 @@
 /* src/telemetry/consumer-volume.ts */
 
-/**
- * KISS Consumer Volume Classification
- *
- * Simple 3-bucket classification based on requests per hour:
- * - high: >5K requests/hour (enterprise level)
- * - medium: 100-5K requests/hour (business level)
- * - low: <100 requests/hour (basic usage)
- */
-
-// Simple in-memory consumer request tracking
+// 3-bucket classification: high (>5K/hr), medium (100-5K/hr), low (<100/hr)
 const consumerRequestCounts = new Map<string, number>();
 
-/**
- * Increment request count for a consumer
- */
 export function incrementConsumerRequest(consumerId: string): void {
   if (!consumerId) return;
 
@@ -22,22 +10,16 @@ export function incrementConsumerRequest(consumerId: string): void {
   consumerRequestCounts.set(consumerId, current + 1);
 }
 
-/**
- * Get volume bucket classification for a consumer
- */
 export function getVolumeBucket(consumerId: string): string {
   if (!consumerId) return "low";
 
   const hourlyCount = consumerRequestCounts.get(consumerId) || 0;
 
-  if (hourlyCount > 5000) return "high"; // >5K/hour (enterprise)
-  if (hourlyCount > 100) return "medium"; // 100-5K/hour (business)
-  return "low"; // <100/hour (basic)
+  if (hourlyCount > 5000) return "high";
+  if (hourlyCount > 100) return "medium";
+  return "low";
 }
 
-/**
- * Get consumer count by volume bucket
- */
 export function getConsumerCountByVolume(volume: "high" | "medium" | "low"): number {
   let count = 0;
 
@@ -50,9 +32,6 @@ export function getConsumerCountByVolume(volume: "high" | "medium" | "low"): num
   return count;
 }
 
-/**
- * Get all consumer volume statistics
- */
 export function getConsumerVolumeStats(): {
   high: number;
   medium: number;
@@ -67,7 +46,7 @@ export function getConsumerVolumeStats(): {
   };
 }
 
-// Reset counts every hour to maintain hourly classification
+// Reset counts hourly to maintain hourly classification
 const HOUR_IN_MS = 60 * 60 * 1000;
 setInterval(() => {
   consumerRequestCounts.clear();
