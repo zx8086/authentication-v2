@@ -167,8 +167,76 @@ function loadConfigFromEnv() {
 export function initializeConfig(): AppConfig {
   const envConfig = loadConfigFromEnv();
 
+  // Define intermediate type for structured environment config with proper literal types
+  type KongModeType = "API_GATEWAY" | "KONNECT";
+  type EnvironmentTypeValue = "local" | "development" | "staging" | "production" | "test";
+  type TelemetryModeValue = "console" | "otlp" | "both";
+
+  interface StructuredEnvConfig {
+    server: Partial<{ port: number; nodeEnv: string }>;
+    jwt: Partial<{
+      authority: string;
+      audience: string;
+      issuer: string;
+      keyClaimName: string;
+      expirationMinutes: number;
+    }>;
+    kong: {
+      mode?: KongModeType;
+      adminUrl?: string;
+      adminToken?: string;
+      consumerIdHeader?: string;
+      consumerUsernameHeader?: string;
+      anonymousHeader?: string;
+      highAvailability?: boolean;
+      circuitBreaker: Partial<{
+        enabled: boolean;
+        timeout: number;
+        errorThresholdPercentage: number;
+        resetTimeout: number;
+        volumeThreshold: number;
+        rollingCountTimeout: number;
+        rollingCountBuckets: number;
+      }>;
+    };
+    caching: Partial<{
+      highAvailability: boolean;
+      redisUrl: string;
+      redisPassword: string;
+      redisDb: number;
+      staleDataToleranceMinutes: number;
+    }>;
+    telemetry: {
+      serviceName?: string;
+      serviceVersion?: string;
+      environment?: EnvironmentTypeValue;
+      mode?: TelemetryModeValue;
+      endpoint?: string;
+      exportTimeout?: number;
+      batchSize?: number;
+      maxQueueSize?: number;
+      infrastructure: {
+        isKubernetes: boolean;
+        isEcs: boolean;
+        podName?: string;
+        namespace?: string;
+      };
+    };
+    profiling: Partial<{ enabled: boolean }>;
+    apiInfo: Partial<{
+      title: string;
+      description: string;
+      version: string;
+      contactName: string;
+      contactEmail: string;
+      licenseName: string;
+      licenseIdentifier: string;
+      cors: string;
+    }>;
+  }
+
   // Convert environment config to structured format for merging (simplified with proper filtering)
-  const structuredEnvConfig = {
+  const structuredEnvConfig: StructuredEnvConfig = {
     server: Object.fromEntries(
       Object.entries({
         port: envConfig.PORT,
@@ -268,7 +336,7 @@ export function initializeConfig(): AppConfig {
       ...structuredEnvConfig.kong,
       circuitBreaker: {
         ...defaultConfig.kong.circuitBreaker,
-        ...(structuredEnvConfig.kong as any)?.circuitBreaker,
+        ...structuredEnvConfig.kong.circuitBreaker,
       },
     },
     caching: { ...defaultConfig.caching, ...structuredEnvConfig.caching },
@@ -277,27 +345,27 @@ export function initializeConfig(): AppConfig {
       ...structuredEnvConfig.telemetry,
       // Handle derived OTLP endpoints
       logsEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        structuredEnvConfig.telemetry.endpoint,
         envConfig.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
         "/v1/logs"
       ),
       tracesEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        structuredEnvConfig.telemetry.endpoint,
         envConfig.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
         "/v1/traces"
       ),
       metricsEndpoint: deriveOtlpEndpoint(
-        (structuredEnvConfig.telemetry as any).endpoint,
+        structuredEnvConfig.telemetry.endpoint,
         envConfig.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
         "/v1/metrics"
       ),
       // Handle computed properties - ensure boolean values
       enabled:
-        (((structuredEnvConfig.telemetry as any).mode ??
-          defaultConfig.telemetry.mode) as string) !== "console",
+        ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
+        "console",
       enableOpenTelemetry:
-        (((structuredEnvConfig.telemetry as any).mode ??
-          defaultConfig.telemetry.mode) as string) !== "console",
+        ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
+        "console",
     },
     profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },

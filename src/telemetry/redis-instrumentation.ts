@@ -1,7 +1,7 @@
 /* src/telemetry/redis-instrumentation.ts */
 
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
+import { ATTR_DB_OPERATION_NAME, ATTR_DB_SYSTEM_NAME } from "@opentelemetry/semantic-conventions";
 import { recordRedisOperation } from "./metrics";
 
 const tracer = trace.getTracer("redis-bun-instrumentation", "1.0.0");
@@ -48,8 +48,8 @@ export class BunRedisInstrumentation {
     const span = tracer.startSpan(spanName, {
       kind: SpanKind.CLIENT,
       attributes: {
-        [SemanticAttributes.DB_SYSTEM]: "redis",
-        [SemanticAttributes.DB_OPERATION]: context.operation.toUpperCase(),
+        [ATTR_DB_SYSTEM_NAME]: "redis",
+        [ATTR_DB_OPERATION_NAME]: context.operation.toUpperCase(),
         ...(sanitizedKey && { "db.redis.key": sanitizedKey }),
         ...(context.connectionUrl && {
           "db.connection_string": this.sanitizeConnectionString(context.connectionUrl),

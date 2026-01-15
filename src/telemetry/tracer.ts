@@ -1,7 +1,11 @@
 /* src/telemetry/tracer.ts */
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { SemanticAttributes } from "@opentelemetry/semantic-conventions";
+import {
+  ATTR_HTTP_REQUEST_METHOD,
+  ATTR_HTTP_RESPONSE_STATUS_CODE,
+  ATTR_URL_FULL,
+} from "@opentelemetry/semantic-conventions";
 import { loadConfig } from "../config/index";
 
 const config = loadConfig();
@@ -85,9 +89,9 @@ class BunTelemetryTracer {
     }
   ): T | Promise<T> {
     const baseAttributes: Record<string, string | number | boolean> = {
-      [SemanticAttributes.HTTP_METHOD]: method,
-      [SemanticAttributes.HTTP_URL]: url,
-      [SemanticAttributes.HTTP_STATUS_CODE]: statusCode,
+      [ATTR_HTTP_REQUEST_METHOD]: method,
+      [ATTR_URL_FULL]: url,
+      [ATTR_HTTP_RESPONSE_STATUS_CODE]: statusCode,
       "http.server.type": "bun_serve",
     };
 
@@ -120,8 +124,8 @@ class BunTelemetryTracer {
         operationName: `http.client.kong.${operation}`,
         kind: SpanKind.CLIENT,
         attributes: {
-          [SemanticAttributes.HTTP_METHOD]: method,
-          [SemanticAttributes.HTTP_URL]: url,
+          [ATTR_HTTP_REQUEST_METHOD]: method,
+          [ATTR_URL_FULL]: url,
           "kong.operation": operation,
           "kong.api.type": "admin_api",
           "http.client.type": "kong_gateway",

@@ -229,7 +229,10 @@ export class SharedCircuitBreakerService {
             {
               operation,
               error: error instanceof Error ? error.message : "Unknown error",
-              errorStatus: (error as any)?.status,
+              errorStatus:
+                error && typeof error === "object" && "status" in error
+                  ? (error as { status: unknown }).status
+                  : undefined,
               component: "shared_circuit_breaker",
               action: "business_logic_error",
             }
@@ -300,7 +303,10 @@ export class SharedCircuitBreakerService {
               operation,
               consumerId,
               error: error instanceof Error ? error.message : "Unknown error",
-              errorStatus: (error as any)?.status,
+              errorStatus:
+                error && typeof error === "object" && "status" in error
+                  ? (error as { status: unknown }).status
+                  : undefined,
               component: "shared_circuit_breaker",
               action: "business_logic_error",
             }

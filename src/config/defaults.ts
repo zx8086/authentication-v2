@@ -2,6 +2,9 @@
 
 import type { AppConfig } from "./schemas";
 
+// Type for the telemetry config with required enabled fields
+type TelemetryConfigWithEnabled = AppConfig["telemetry"];
+
 // Pillar 1: Default Configuration Object
 export const defaultConfig: AppConfig = {
   server: {
@@ -60,7 +63,7 @@ export const defaultConfig: AppConfig = {
       podName: undefined,
       namespace: undefined,
     },
-  } as any,
+  } satisfies TelemetryConfigWithEnabled,
   profiling: {
     enabled: false,
   },
