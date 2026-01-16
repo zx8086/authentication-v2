@@ -1,0 +1,1285 @@
+# OpenAPI 3.1.1 specification for Authentication Service
+# Generated on: 2026-01-16T11:30:21.915Z
+# This file is auto-generated. Do not edit manually.
+# Compliant with JSON Schema Draft 2020-12
+
+
+components:
+  parameters:
+    AnonymousConsumerHeader:
+      required: false
+      description: Indicates if the request is from an anonymous consumer
+      in: header
+      name: x-anonymous-consumer
+      schema:
+        type: string
+        enum: ["true", "false"]
+        example: "false"
+    ConsumerIdHeader:
+      required: true
+      description: Kong consumer ID
+      in: header
+      name: x-consumer-id
+      schema:
+        type: string
+        example: demo_user
+    ConsumerUsernameHeader:
+      required: true
+      description: Kong consumer username
+      in: header
+      name: x-consumer-username
+      schema:
+        type: string
+        example: demo_user
+  schemas:
+    DebugResponse:
+      type: object
+      required: [timestamp, message, success]
+      properties:
+        details:
+          type: object
+          description: Additional operation details
+          additionalProperties: true
+        message:
+          type: string
+          description: Operation result message
+          example: Test metrics recorded successfully
+        success:
+          type: boolean
+          description: Operation success status
+          example: true
+        timestamp:
+          type: string
+          description: Operation timestamp
+          example: "2026-01-16T11:30:21.912Z"
+          format: date-time
+      description: Debug operation response
+    ErrorCodeReference:
+      type: object
+      properties:
+        AUTH_001:
+          description: Missing Consumer Headers - Required Kong consumer headers are missing from the request
+          httpStatus: 401
+        AUTH_002:
+          description: Consumer Not Found - The specified consumer was not found or has no JWT credentials
+          httpStatus: 401
+        AUTH_003:
+          description: JWT Creation Failed - Failed to create JWT token due to an internal error
+          httpStatus: 500
+        AUTH_004:
+          description: Kong API Unavailable - The Kong gateway API is temporarily unavailable
+          httpStatus: 503
+        AUTH_005:
+          description: Circuit Breaker Open - Service is temporarily unavailable due to circuit breaker protection
+          httpStatus: 503
+        AUTH_006:
+          description: Rate Limit Exceeded - Request rate limit has been exceeded
+          httpStatus: 429
+        AUTH_007:
+          description: Invalid Request Format - The request format is invalid or malformed
+          httpStatus: 400
+        AUTH_008:
+          description: Internal Server Error - An unexpected internal server error occurred
+          httpStatus: 500
+        AUTH_009:
+          description: Anonymous Consumer - Anonymous consumers are not allowed to request tokens
+          httpStatus: 401
+        AUTH_010:
+          description: Token Expired - The provided JWT token has expired
+          httpStatus: 401
+        AUTH_011:
+          description: Invalid Token - The provided JWT token is invalid or malformed
+          httpStatus: 400
+        AUTH_012:
+          description: Missing Authorization - Authorization header with Bearer token is required
+          httpStatus: 400
+      description: Reference table of all structured error codes
+    ErrorResponse:
+      type: object
+      required: [error, statusCode, timestamp, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, title, message]
+          properties:
+            code:
+              type: string
+              description: Structured error code for client handling
+              enum: 
+                - AUTH_001
+                - AUTH_002
+                - AUTH_003
+                - AUTH_004
+                - AUTH_005
+                - AUTH_006
+                - AUTH_007
+                - AUTH_008
+                - AUTH_009
+                - AUTH_010
+                - AUTH_011
+                - AUTH_012
+              example: AUTH_001
+              pattern: ^AUTH_\d{3}$
+            details:
+              type: object
+              description: Additional error context and details
+              additionalProperties: true
+              example:
+                reason: Missing Kong consumer headers
+            message:
+              type: string
+              description: Detailed human-readable error message
+              example: Required Kong consumer headers are missing from the request
+            title:
+              type: string
+              description: Short human-readable error title
+              example: Missing Consumer Headers
+          description: Structured error information
+        requestId:
+          type: string
+          description: Unique request identifier for tracing
+          example: 550e8400-e29b-41d4-a716-446655440000
+          format: uuid
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 401
+          maximum: 599
+          minimum: 400
+        timestamp:
+          type: string
+          description: Error occurrence timestamp
+          example: "2026-01-16T11:30:21.912Z"
+          format: date-time
+      description: Structured error response with typed error codes for client consumption
+    HealthResponse:
+      type: object
+      required: 
+        - status
+        - timestamp
+        - version
+        - uptime
+        - environment
+        - dependencies
+      properties:
+        dependencies:
+          type: object
+          properties:
+            kong:
+              type: object
+              required: [status, response_time, url]
+              properties:
+                response_time:
+                  type: integer
+                  description: Kong response time in milliseconds
+                  example: 45
+                  minimum: 0
+                status:
+                  type: string
+                  description: Kong Admin API status
+                  enum: [healthy, unhealthy]
+                  example: healthy
+                url:
+                  type: string
+                  description: Kong Admin API URL
+                  example: "https://kong-admin.example.com"
+                  format: uri
+        environment:
+          type: string
+          description: Deployment environment
+          example: local
+        status:
+          type: string
+          description: Overall system health status
+          enum: [healthy, degraded, unhealthy]
+          example: healthy
+        timestamp:
+          type: string
+          description: Health check timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+        uptime:
+          type: integer
+          description: Service uptime in seconds
+          example: 3600
+          minimum: 0
+        version:
+          type: string
+          description: Service version
+          example: 1.0.0
+      description: System health status with dependency information
+    MetricsHealth:
+      type: object
+      required: [timestamp, telemetry, metrics, export_statistics, circuitBreakers]
+      properties:
+        circuitBreakers:
+          type: object
+          required: [enabled, totalBreakers, states]
+          properties:
+            enabled:
+              type: boolean
+              description: Whether circuit breaker protection is enabled
+              example: true
+            states:
+              type: object
+              required: [closed, open, halfOpen]
+              properties:
+                closed:
+                  type: integer
+                  description: Number of circuit breakers in closed state (healthy)
+                  example: 2
+                  minimum: 0
+                halfOpen:
+                  type: integer
+                  description: Number of circuit breakers in half-open state (testing)
+                  example: 1
+                  minimum: 0
+                open:
+                  type: integer
+                  description: Number of circuit breakers in open state (failing)
+                  example: 0
+                  minimum: 0
+              description: Circuit breaker state distribution
+            totalBreakers:
+              type: integer
+              description: Total number of circuit breakers configured
+              example: 3
+              minimum: 0
+          description: Circuit breaker configuration and state summary
+        export_statistics:
+          type: object
+          properties:
+            failureCount:
+              type: integer
+              description: Number of failed exports
+              example: 2
+              minimum: 0
+            lastExportTime:
+              type: string
+              description: Last successful export timestamp
+              example: "2026-01-16T11:30:06.913Z"
+              format: date-time
+            successCount:
+              type: integer
+              description: Number of successful exports
+              example: 143
+              minimum: 0
+            successRate:
+              type: number
+              description: Export success rate percentage
+              example: 98.62
+              maximum: 100
+              minimum: 0
+            totalExports:
+              type: integer
+              description: Total number of metric exports
+              example: 145
+              minimum: 0
+        metrics:
+          type: object
+          properties:
+            total_instruments:
+              type: integer
+              description: Total number of metric instruments
+              example: 23
+              minimum: 0
+        telemetry:
+          $ref: "#/components/schemas/TelemetryStatus"
+        timestamp:
+          type: string
+          description: Metrics health check timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+      description: Comprehensive metrics system health information
+    MetricsStats:
+      type: object
+      required: [timestamp, message, export_statistics, metrics_status]
+      properties:
+        export_statistics:
+          type: object
+          properties:
+            failureCount:
+              type: integer
+              description: Number of failed exports
+              example: 2
+              minimum: 0
+            lastExportTime:
+              type: string
+              description: Last successful export timestamp
+              example: "2026-01-16T11:30:06.913Z"
+              format: date-time
+            successCount:
+              type: integer
+              description: Number of successful exports
+              example: 143
+              minimum: 0
+            successRate:
+              type: number
+              description: Export success rate percentage
+              example: 98.62
+              maximum: 100
+              minimum: 0
+            totalExports:
+              type: integer
+              description: Total number of metric exports
+              example: 145
+              minimum: 0
+        message:
+          type: string
+          description: Status message
+          example: Metrics statistics retrieved successfully
+        metrics_status:
+          type: object
+          properties:
+            total_instruments:
+              type: integer
+              description: Total number of metric instruments
+              example: 23
+              minimum: 0
+        timestamp:
+          type: string
+          description: Statistics retrieval timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+      description: Detailed metrics export statistics and status
+    PerformanceMetrics:
+      type: object
+      required: [timestamp, uptime, metrics, circuitBreakers]
+      properties:
+        circuitBreakers:
+          type: object
+          description: Detailed circuit breaker statistics by operation name
+          additionalProperties:
+            type: object
+            required: 
+              - state
+              - failures
+              - successes
+              - timeout
+              - errorThreshold
+              - resetTimeout
+            properties:
+              errorThreshold:
+                type: integer
+                description: Failure threshold before opening circuit
+                example: 5
+                minimum: 1
+              failures:
+                type: integer
+                description: Number of consecutive failures
+                example: 0
+                minimum: 0
+              nextAttempt:
+                type: string
+                description: Next attempt time when circuit is open
+                example: "2026-01-16T11:30:51.913Z"
+                format: date-time
+              resetTimeout:
+                type: integer
+                description: Time before attempting reset in milliseconds
+                example: 30000
+                minimum: 0
+              state:
+                type: string
+                description: Current circuit breaker state
+                enum: [closed, open, half-open]
+                example: closed
+              successes:
+                type: integer
+                description: Number of consecutive successes
+                example: 15
+                minimum: 0
+              timeout:
+                type: integer
+                description: Operation timeout in milliseconds
+                example: 5000
+                minimum: 0
+            description: Individual circuit breaker statistics and configuration
+        metrics:
+          type: object
+          properties:
+            requests:
+              type: object
+              properties:
+                rate:
+                  type: number
+                  description: Requests per second
+                  example: 4.28
+                  minimum: 0
+                total:
+                  type: integer
+                  description: Total requests processed
+                  example: 15420
+                  minimum: 0
+            response_time:
+              type: object
+              properties:
+                avg:
+                  type: number
+                  description: Average response time in milliseconds
+                  example: 12.5
+                  minimum: 0
+                p95:
+                  type: number
+                  description: 95th percentile response time in milliseconds
+                  example: 45.2
+                  minimum: 0
+        timestamp:
+          type: string
+          description: Metrics collection timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+        uptime:
+          type: integer
+          description: Service uptime in seconds
+          example: 3600
+          minimum: 0
+      description: Service performance metrics and statistics
+    ProfilingReports:
+      type: object
+      required: [timestamp, reports]
+      properties:
+        count:
+          type: integer
+          description: Number of available reports
+          example: 3
+          minimum: 0
+        reports:
+          type: array
+          description: List of available profiling report file paths
+          example: 
+            - profiling/profile-report-1697463842234.html
+            - profiling/profile-report-1697463734521.txt
+            - profiling/profile-cpu-1697463642123.cpuprofile
+          items:
+            type: string
+        timestamp:
+          type: string
+          description: Report retrieval timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+      description: List of available profiling reports and analysis files
+    ProfilingResponse:
+      type: object
+      required: [timestamp, message, success]
+      properties:
+        details:
+          type: object
+          description: Additional profiling operation details
+          additionalProperties: true
+        message:
+          type: string
+          description: Profiling operation result message
+          example: Profiling session started successfully
+        sessionId:
+          type: string
+          description: Profiling session identifier
+          example: profile-1697463842234-abc123def
+        success:
+          type: boolean
+          description: Operation success status
+          example: true
+        timestamp:
+          type: string
+          description: Operation timestamp
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+      description: Profiling operation response
+    ProfilingStatus:
+      type: object
+      required: [enabled, sessions, outputDirectory, autoGenerate]
+      properties:
+        autoGenerate:
+          type: boolean
+          description: Whether reports are auto-generated
+          example: false
+        enabled:
+          type: boolean
+          description: Whether profiling service is enabled
+          example: true
+        outputDirectory:
+          type: string
+          description: Directory where profiling outputs are stored
+          example: profiling
+        sessions:
+          type: array
+          description: List of profiling sessions
+          items:
+            type: object
+            required: [id, type, startTime, status]
+            properties:
+              type:
+                type: string
+                description: Profiling type
+                enum: [cpu, heap]
+                example: cpu
+              endTime:
+                type: string
+                description: Session end timestamp (if completed)
+                example: "2026-01-16T11:30:21.913Z"
+                format: date-time
+              htmlFile:
+                type: string
+                description: HTML report file path (if available)
+                example: profiling/profile-report-1697463842234.html
+              id:
+                type: string
+                description: Session identifier
+                example: profile-1697463842234-abc123def
+              outputFile:
+                type: string
+                description: Output file path (if available)
+                example: profiling/profile-report-1697463842234.txt
+              pid:
+                type: integer
+                description: Process ID of profiled session
+                example: 12345
+                minimum: 1
+              startTime:
+                type: string
+                description: Session start timestamp
+                example: "2026-01-16T11:30:21.913Z"
+                format: date-time
+              status:
+                type: string
+                description: Session status
+                enum: [running, stopped, completed, failed]
+                example: running
+      description: Profiling service status and session information
+    TelemetryStatus:
+      type: object
+      required: [initialized, config]
+      properties:
+        config:
+          type: object
+          properties:
+            environment:
+              type: string
+              description: Deployment environment
+              enum: [local, development, staging, production]
+              example: local
+            logsEndpoint:
+              type: string
+              description: OTLP logs endpoint
+              example: "https://otel-http.example.com/v1/logs"
+              format: uri
+            metricsEndpoint:
+              type: string
+              description: OTLP metrics endpoint
+              example: "https://otel-http.example.com/v1/metrics"
+              format: uri
+            mode:
+              type: string
+              description: Telemetry output mode
+              enum: [console, otlp, both]
+              example: both
+            serviceName:
+              type: string
+              description: OpenTelemetry service name
+              example: authentication-service
+            serviceVersion:
+              type: string
+              description: Service version for telemetry
+              example: 1.0.0
+            tracesEndpoint:
+              type: string
+              description: OTLP traces endpoint
+              example: "https://otel-http.example.com/v1/traces"
+              format: uri
+        initialized:
+          type: boolean
+          description: Whether OpenTelemetry is initialized
+          example: true
+      description: OpenTelemetry configuration and status
+    TokenResponse:
+      type: object
+      required: [access_token, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3Njg1NjM5MjEsImlhdCI6MTc2ODU2MzAyMSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+          example: 900
+          minimum: 1
+      description: JWT token response
+    TokenValidationResponse:
+      type: object
+      required: 
+        - valid
+        - tokenId
+        - subject
+        - issuer
+        - audience
+        - issuedAt
+        - expiresAt
+        - expiresIn
+      properties:
+        audience:
+          description: Token audience (aud claim)
+          example: pvh-api
+          oneOf: 
+            -
+               type: string
+            -
+               type: array
+              items:
+                type: string
+        expiresAt:
+          type: string
+          description: Token expiration timestamp (exp claim)
+          example: "2026-01-16T11:45:21.913Z"
+          format: date-time
+        expiresIn:
+          type: integer
+          description: Seconds until token expires
+          example: 850
+          minimum: 0
+        issuedAt:
+          type: string
+          description: Token issue timestamp (iat claim)
+          example: "2026-01-16T11:30:21.913Z"
+          format: date-time
+        issuer:
+          type: string
+          description: Token issuer (iss claim)
+          example: "https://api.pvhcorp.com"
+        subject:
+          type: string
+          description: Token subject (sub claim) - typically the username
+          example: demo_user
+        tokenId:
+          type: string
+          description: Unique token identifier (jti claim)
+          example: 550e8400-e29b-41d4-a716-446655440000
+          format: uuid
+        valid:
+          type: boolean
+          description: Whether the token is valid
+          example: true
+      description: Token validation response with claims
+  securitySchemes:
+    KongAdminToken:
+      type: apiKey
+      description: Kong Admin API authentication token
+      in: header
+      name: Kong-Admin-Token
+info:
+  description: High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring
+  contact:
+    email: simonowusu@pvh.com
+    name: Simon Owusu
+  license:
+    identifier: UNLICENSED
+    name: Proprietary
+  title: Authentication Service API
+  version: 1.0.0
+jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema"
+openapi: 3.1.1
+paths:
+  /:
+    get:
+      description: Returns the OpenAPI 3.0.3 specification in JSON or YAML format
+      operationId: get
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                description: OpenAPI 3.0.3 specification object
+            application/yaml:
+              schema:
+                type: string
+                description: OpenAPI 3.0.3 specification in YAML format
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Open A P I Spec
+      tags: [Documentation]
+  /debug/metrics/export:
+    post:
+      description: Trigger immediate metrics export to OTLP endpoint
+      operationId: createDebugMetricsExport
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Force Metrics Export
+      tags: [Debug, Metrics]
+  /debug/metrics/test:
+    post:
+      description: Manually record test metrics for debugging purposes
+      operationId: createDebugMetricsTest
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Record Test Metrics
+      tags: [Debug, Metrics]
+  /debug/profiling/cleanup:
+    post:
+      description: Clean up profiling artifacts and session data
+      operationId: createDebugProfilingCleanup
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Cleanup Profiling
+      tags: [Debug, Profiling]
+  /debug/profiling/report:
+    get:
+      description: Get specific profiling report data and analysis
+      operationId: getDebugProfilingReport
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Profiling Report
+      tags: [Debug, Profiling]
+  /debug/profiling/reports:
+    get:
+      description: List available profiling reports and analysis files
+      operationId: getDebugProfilingReports
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingReports"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Profiling Reports
+      tags: [Debug, Profiling]
+  /debug/profiling/start:
+    post:
+      description: Start CPU and memory profiling session for performance analysis
+      operationId: createDebugProfilingStart
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Start Profiling
+      tags: [Debug, Profiling]
+  /debug/profiling/status:
+    get:
+      description: Get current profiling service status and active sessions
+      operationId: getDebugProfilingStatus
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingStatus"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Profiling Status
+      tags: [Debug, Profiling]
+  /debug/profiling/stop:
+    post:
+      description: Stop active profiling session and generate reports
+      operationId: createDebugProfilingStop
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilingResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Stop Profiling
+      tags: [Debug, Profiling]
+  /health:
+    get:
+      description: Get comprehensive system health status including dependency checks
+      operationId: getHealth
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Health Check
+      tags: [Health]
+  /health/metrics:
+    get:
+      description: Get metrics system health including export statistics
+      operationId: getHealthMetrics
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsHealth"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Metrics Health
+      tags: [Health, Metrics]
+  /health/telemetry:
+    get:
+      description: Get OpenTelemetry configuration and initialization status
+      operationId: getHealthTelemetry
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelemetryStatus"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Telemetry Health
+      tags: [Health]
+  /memory/actions:
+    post:
+      description: Execute memory management actions (garbage collection, queue clearing, reset)
+      operationId: createMemoryActions
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Execute Memory Actions
+      tags: [Memory, Actions]
+  /memory/baseline:
+    get:
+      description: Get memory baseline establishment and reporting data
+      operationId: getMemoryBaseline
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Memory Baseline
+      tags: [Memory, Baseline]
+  /memory/health:
+    get:
+      description: Get enhanced memory health status with leak detection and reliability scoring
+      operationId: getMemoryHealth
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Memory Health
+      tags: [Memory, Health]
+  /memory/metrics:
+    get:
+      description: Get detailed memory metrics including JSC heap stats and trends
+      operationId: getMemoryMetrics
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Memory Metrics
+      tags: [Memory, Metrics]
+  /metrics:
+    get:
+      description: Get service performance metrics and operational statistics
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMetrics"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Get Metrics
+      tags: [Metrics]
+  /tokens:
+    get:
+      description: Generate JWT access token for authenticated Kong consumers
+      operationId: getTokens
+      parameters: 
+        -
+           required: true
+          description: Kong consumer ID
+          in: header
+          name: x-consumer-id
+          schema:
+            type: string
+            example: demo_user
+        -
+           required: true
+          description: Kong consumer username
+          in: header
+          name: x-consumer-username
+          schema:
+            type: string
+            example: demo_user
+        -
+           required: false
+          description: Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)
+          in: header
+          name: x-anonymous-consumer
+          schema:
+            type: string
+            enum: ["true", "false"]
+            example: "false"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - Missing or invalid Kong consumer headers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden - Anonymous consumers are not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Issue Token
+      tags: [Authentication]
+  /tokens/validate:
+    get:
+      description: Validate a JWT access token and return its claims if valid
+      operationId: getTokensValidate
+      parameters: 
+        -
+           required: true
+          description: Bearer token to validate
+          in: header
+          name: Authorization
+          schema:
+            type: string
+            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            pattern: ^Bearer .+$
+        -
+           required: true
+          description: Kong consumer ID
+          in: header
+          name: x-consumer-id
+          schema:
+            type: string
+            example: demo_user
+        -
+           required: true
+          description: Kong consumer username
+          in: header
+          name: x-consumer-username
+          schema:
+            type: string
+            example: demo_user
+        -
+           required: false
+          description: Indicates if the request is from an anonymous consumer
+          in: header
+          name: x-anonymous-consumer
+          schema:
+            type: string
+            enum: ["true", "false"]
+            example: "false"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenValidationResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - Token expired or invalid consumer credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Validate Token
+      tags: [Authentication]
+security: 
+  -
+     KongAdminToken: []
+servers: 
+  -
+     description: Local development server (current)
+    environment: local
+    url: "http://localhost:3000"
+  -
+     description: Development server
+    environment: development
+    url: "http://localhost:3000"
+  -
+     description: Staging server
+    environment: staging
+    url: "https://auth-staging.example.com"
+  -
+     description: Production server
+    environment: production
+    url: "https://auth.example.com"
+tags: 
+  -
+     description: API documentation and specification endpoints
+    name: Documentation
+  -
+     description: JWT token issuance and authentication operations
+    name: Authentication
+  -
+     description: System health and dependency status monitoring
+    name: Health
+  -
+     description: Performance metrics and operational statistics
+    name: Metrics
+  -
+     description: Debug endpoints for development and troubleshooting
+    name: Debug
+  -
+     description: CPU and memory profiling for performance analysis
+    name: Profiling

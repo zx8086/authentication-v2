@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**/*", "scripts/**/*", "test/**/*.ts", "*.ts", "*.js", "*.json"]
+    "includes": ["src/**/*", "scripts/**/*", "test/**/*.ts", "*.ts", "*.js"]
   },
   "formatter": {
     "enabled": true,

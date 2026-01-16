@@ -1,0 +1,1952 @@
+{
+  "openapi": "3.1.1",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Authentication Service API",
+    "description": "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Simon Owusu",
+      "email": "simonowusu@pvh.com"
+    },
+    "license": {
+      "name": "Proprietary",
+      "identifier": "UNLICENSED"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server (current)",
+      "environment": "local"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server",
+      "environment": "development"
+    },
+    {
+      "url": "https://auth-staging.example.com",
+      "description": "Staging server",
+      "environment": "staging"
+    },
+    {
+      "url": "https://auth.example.com",
+      "description": "Production server",
+      "environment": "production"
+    }
+  ],
+  "security": [
+    {
+      "KongAdminToken": []
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Get Open A P I Spec",
+        "description": "Returns the OpenAPI 3.0.3 specification in JSON or YAML format",
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenAPI 3.0.3 specification object"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "type": "string",
+                  "description": "OpenAPI 3.0.3 specification in YAML format"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens": {
+      "get": {
+        "summary": "Issue Token",
+        "description": "Generate JWT access token for authenticated Kong consumers",
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "getTokens",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Kong consumer headers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Anonymous consumers are not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-consumer-id",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer ID",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-consumer-username",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer username",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-anonymous-consumer",
+            "in": "header",
+            "required": false,
+            "description": "Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "example": "false"
+            }
+          }
+        ]
+      }
+    },
+    "/tokens/validate": {
+      "get": {
+        "summary": "Validate Token",
+        "description": "Validate a JWT access token and return its claims if valid",
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "getTokensValidate",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenValidationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token expired or invalid consumer credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "description": "Bearer token to validate",
+            "schema": {
+              "type": "string",
+              "pattern": "^Bearer .+$",
+              "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+          },
+          {
+            "name": "x-consumer-id",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer ID",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-consumer-username",
+            "in": "header",
+            "required": true,
+            "description": "Kong consumer username",
+            "schema": {
+              "type": "string",
+              "example": "demo_user"
+            }
+          },
+          {
+            "name": "x-anonymous-consumer",
+            "in": "header",
+            "required": false,
+            "description": "Indicates if the request is from an anonymous consumer",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "example": "false"
+            }
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Get comprehensive system health status including dependency checks",
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/telemetry": {
+      "get": {
+        "summary": "Get Telemetry Health",
+        "description": "Get OpenTelemetry configuration and initialization status",
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealthTelemetry",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/metrics": {
+      "get": {
+        "summary": "Get Metrics Health",
+        "description": "Get metrics system health including export statistics",
+        "tags": [
+          "Health",
+          "Metrics"
+        ],
+        "operationId": "getHealthMetrics",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsHealth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Get Metrics",
+        "description": "Get service performance metrics and operational statistics",
+        "tags": [
+          "Metrics"
+        ],
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerformanceMetrics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/metrics/test": {
+      "post": {
+        "summary": "Record Test Metrics",
+        "description": "Manually record test metrics for debugging purposes",
+        "tags": [
+          "Debug",
+          "Metrics"
+        ],
+        "operationId": "createDebugMetricsTest",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/metrics/export": {
+      "post": {
+        "summary": "Force Metrics Export",
+        "description": "Trigger immediate metrics export to OTLP endpoint",
+        "tags": [
+          "Debug",
+          "Metrics"
+        ],
+        "operationId": "createDebugMetricsExport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/report": {
+      "get": {
+        "summary": "Get Profiling Report",
+        "description": "Get specific profiling report data and analysis",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "getDebugProfilingReport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/start": {
+      "post": {
+        "summary": "Start Profiling",
+        "description": "Start CPU and memory profiling session for performance analysis",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingStart",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/stop": {
+      "post": {
+        "summary": "Stop Profiling",
+        "description": "Stop active profiling session and generate reports",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingStop",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/status": {
+      "get": {
+        "summary": "Get Profiling Status",
+        "description": "Get current profiling service status and active sessions",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "getDebugProfilingStatus",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/reports": {
+      "get": {
+        "summary": "Get Profiling Reports",
+        "description": "List available profiling reports and analysis files",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "getDebugProfilingReports",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilingReports"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/profiling/cleanup": {
+      "post": {
+        "summary": "Cleanup Profiling",
+        "description": "Clean up profiling artifacts and session data",
+        "tags": [
+          "Debug",
+          "Profiling"
+        ],
+        "operationId": "createDebugProfilingCleanup",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/health": {
+      "get": {
+        "summary": "Get Memory Health",
+        "description": "Get enhanced memory health status with leak detection and reliability scoring",
+        "tags": [
+          "Memory",
+          "Health"
+        ],
+        "operationId": "getMemoryHealth",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/metrics": {
+      "get": {
+        "summary": "Get Memory Metrics",
+        "description": "Get detailed memory metrics including JSC heap stats and trends",
+        "tags": [
+          "Memory",
+          "Metrics"
+        ],
+        "operationId": "getMemoryMetrics",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/baseline": {
+      "get": {
+        "summary": "Get Memory Baseline",
+        "description": "Get memory baseline establishment and reporting data",
+        "tags": [
+          "Memory",
+          "Baseline"
+        ],
+        "operationId": "getMemoryBaseline",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory/actions": {
+      "post": {
+        "summary": "Execute Memory Actions",
+        "description": "Execute memory management actions (garbage collection, queue clearing, reset)",
+        "tags": [
+          "Memory",
+          "Actions"
+        ],
+        "operationId": "createMemoryActions",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3Njg1NjM5MjEsImlhdCI6MTc2ODU2MzAyMSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token expiration time in seconds",
+            "example": 900,
+            "minimum": 1
+          }
+        },
+        "description": "JWT token response"
+      },
+      "TokenValidationResponse": {
+        "type": "object",
+        "required": [
+          "valid",
+          "tokenId",
+          "subject",
+          "issuer",
+          "audience",
+          "issuedAt",
+          "expiresAt",
+          "expiresIn"
+        ],
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "Whether the token is valid",
+            "example": true
+          },
+          "tokenId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique token identifier (jti claim)",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Token subject (sub claim) - typically the username",
+            "example": "demo_user"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "Token issuer (iss claim)",
+            "example": "https://api.pvhcorp.com"
+          },
+          "audience": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "Token audience (aud claim)",
+            "example": "pvh-api"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Token issue timestamp (iat claim)",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Token expiration timestamp (exp claim)",
+            "example": "2026-01-16T11:45:21.913Z"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Seconds until token expires",
+            "example": 850,
+            "minimum": 0
+          }
+        },
+        "description": "Token validation response with claims"
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp",
+          "version",
+          "uptime",
+          "environment",
+          "dependencies"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "description": "Overall system health status",
+            "example": "healthy"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Health check timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "version": {
+            "type": "string",
+            "description": "Service version",
+            "example": "1.0.0"
+          },
+          "uptime": {
+            "type": "integer",
+            "description": "Service uptime in seconds",
+            "example": 3600,
+            "minimum": 0
+          },
+          "environment": {
+            "type": "string",
+            "description": "Deployment environment",
+            "example": "local"
+          },
+          "dependencies": {
+            "type": "object",
+            "properties": {
+              "kong": {
+                "type": "object",
+                "required": [
+                  "status",
+                  "response_time",
+                  "url"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "healthy",
+                      "unhealthy"
+                    ],
+                    "description": "Kong Admin API status",
+                    "example": "healthy"
+                  },
+                  "response_time": {
+                    "type": "integer",
+                    "description": "Kong response time in milliseconds",
+                    "example": 45,
+                    "minimum": 0
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Kong Admin API URL",
+                    "example": "https://kong-admin.example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "System health status with dependency information"
+      },
+      "TelemetryStatus": {
+        "type": "object",
+        "required": [
+          "initialized",
+          "config"
+        ],
+        "properties": {
+          "initialized": {
+            "type": "boolean",
+            "description": "Whether OpenTelemetry is initialized",
+            "example": true
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "serviceName": {
+                "type": "string",
+                "description": "OpenTelemetry service name",
+                "example": "authentication-service"
+              },
+              "serviceVersion": {
+                "type": "string",
+                "description": "Service version for telemetry",
+                "example": "1.0.0"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "development",
+                  "staging",
+                  "production"
+                ],
+                "description": "Deployment environment",
+                "example": "local"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "console",
+                  "otlp",
+                  "both"
+                ],
+                "description": "Telemetry output mode",
+                "example": "both"
+              },
+              "tracesEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP traces endpoint",
+                "example": "https://otel-http.example.com/v1/traces"
+              },
+              "metricsEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP metrics endpoint",
+                "example": "https://otel-http.example.com/v1/metrics"
+              },
+              "logsEndpoint": {
+                "type": "string",
+                "format": "uri",
+                "description": "OTLP logs endpoint",
+                "example": "https://otel-http.example.com/v1/logs"
+              }
+            }
+          }
+        },
+        "description": "OpenTelemetry configuration and status"
+      },
+      "MetricsHealth": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "telemetry",
+          "metrics",
+          "export_statistics",
+          "circuitBreakers"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Metrics health check timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryStatus"
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "total_instruments": {
+                "type": "integer",
+                "description": "Total number of metric instruments",
+                "example": 23,
+                "minimum": 0
+              }
+            }
+          },
+          "export_statistics": {
+            "type": "object",
+            "properties": {
+              "totalExports": {
+                "type": "integer",
+                "description": "Total number of metric exports",
+                "example": 145,
+                "minimum": 0
+              },
+              "successCount": {
+                "type": "integer",
+                "description": "Number of successful exports",
+                "example": 143,
+                "minimum": 0
+              },
+              "failureCount": {
+                "type": "integer",
+                "description": "Number of failed exports",
+                "example": 2,
+                "minimum": 0
+              },
+              "successRate": {
+                "type": "number",
+                "description": "Export success rate percentage",
+                "example": 98.62,
+                "minimum": 0,
+                "maximum": 100
+              },
+              "lastExportTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last successful export timestamp",
+                "example": "2026-01-16T11:30:06.913Z"
+              }
+            }
+          },
+          "circuitBreakers": {
+            "type": "object",
+            "required": [
+              "enabled",
+              "totalBreakers",
+              "states"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether circuit breaker protection is enabled",
+                "example": true
+              },
+              "totalBreakers": {
+                "type": "integer",
+                "description": "Total number of circuit breakers configured",
+                "example": 3,
+                "minimum": 0
+              },
+              "states": {
+                "type": "object",
+                "required": [
+                  "closed",
+                  "open",
+                  "halfOpen"
+                ],
+                "properties": {
+                  "closed": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in closed state (healthy)",
+                    "example": 2,
+                    "minimum": 0
+                  },
+                  "open": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in open state (failing)",
+                    "example": 0,
+                    "minimum": 0
+                  },
+                  "halfOpen": {
+                    "type": "integer",
+                    "description": "Number of circuit breakers in half-open state (testing)",
+                    "example": 1,
+                    "minimum": 0
+                  }
+                },
+                "description": "Circuit breaker state distribution"
+              }
+            },
+            "description": "Circuit breaker configuration and state summary"
+          }
+        },
+        "description": "Comprehensive metrics system health information"
+      },
+      "PerformanceMetrics": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "uptime",
+          "metrics",
+          "circuitBreakers"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Metrics collection timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "uptime": {
+            "type": "integer",
+            "description": "Service uptime in seconds",
+            "example": 3600,
+            "minimum": 0
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "description": "Total requests processed",
+                    "example": 15420,
+                    "minimum": 0
+                  },
+                  "rate": {
+                    "type": "number",
+                    "description": "Requests per second",
+                    "example": 4.28,
+                    "minimum": 0
+                  }
+                }
+              },
+              "response_time": {
+                "type": "object",
+                "properties": {
+                  "avg": {
+                    "type": "number",
+                    "description": "Average response time in milliseconds",
+                    "example": 12.5,
+                    "minimum": 0
+                  },
+                  "p95": {
+                    "type": "number",
+                    "description": "95th percentile response time in milliseconds",
+                    "example": 45.2,
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "circuitBreakers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "state",
+                "failures",
+                "successes",
+                "timeout",
+                "errorThreshold",
+                "resetTimeout"
+              ],
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "closed",
+                    "open",
+                    "half-open"
+                  ],
+                  "description": "Current circuit breaker state",
+                  "example": "closed"
+                },
+                "failures": {
+                  "type": "integer",
+                  "description": "Number of consecutive failures",
+                  "example": 0,
+                  "minimum": 0
+                },
+                "successes": {
+                  "type": "integer",
+                  "description": "Number of consecutive successes",
+                  "example": 15,
+                  "minimum": 0
+                },
+                "timeout": {
+                  "type": "integer",
+                  "description": "Operation timeout in milliseconds",
+                  "example": 5000,
+                  "minimum": 0
+                },
+                "errorThreshold": {
+                  "type": "integer",
+                  "description": "Failure threshold before opening circuit",
+                  "example": 5,
+                  "minimum": 1
+                },
+                "resetTimeout": {
+                  "type": "integer",
+                  "description": "Time before attempting reset in milliseconds",
+                  "example": 30000,
+                  "minimum": 0
+                },
+                "nextAttempt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Next attempt time when circuit is open",
+                  "example": "2026-01-16T11:30:51.913Z"
+                }
+              },
+              "description": "Individual circuit breaker statistics and configuration"
+            },
+            "description": "Detailed circuit breaker statistics by operation name"
+          }
+        },
+        "description": "Service performance metrics and statistics"
+      },
+      "MetricsStats": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "export_statistics",
+          "metrics_status"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Statistics retrieval timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Status message",
+            "example": "Metrics statistics retrieved successfully"
+          },
+          "export_statistics": {
+            "type": "object",
+            "properties": {
+              "totalExports": {
+                "type": "integer",
+                "description": "Total number of metric exports",
+                "example": 145,
+                "minimum": 0
+              },
+              "successCount": {
+                "type": "integer",
+                "description": "Number of successful exports",
+                "example": 143,
+                "minimum": 0
+              },
+              "failureCount": {
+                "type": "integer",
+                "description": "Number of failed exports",
+                "example": 2,
+                "minimum": 0
+              },
+              "successRate": {
+                "type": "number",
+                "description": "Export success rate percentage",
+                "example": 98.62,
+                "minimum": 0,
+                "maximum": 100
+              },
+              "lastExportTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last successful export timestamp",
+                "example": "2026-01-16T11:30:06.913Z"
+              }
+            }
+          },
+          "metrics_status": {
+            "type": "object",
+            "properties": {
+              "total_instruments": {
+                "type": "integer",
+                "description": "Total number of metric instruments",
+                "example": 23,
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "description": "Detailed metrics export statistics and status"
+      },
+      "ProfilingResponse": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "success"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Operation timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Profiling operation result message",
+            "example": "Profiling session started successfully"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status",
+            "example": true
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Profiling session identifier",
+            "example": "profile-1697463842234-abc123def"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional profiling operation details",
+            "additionalProperties": true
+          }
+        },
+        "description": "Profiling operation response"
+      },
+      "ProfilingStatus": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "sessions",
+          "outputDirectory",
+          "autoGenerate"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether profiling service is enabled",
+            "example": true
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "startTime",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Session identifier",
+                  "example": "profile-1697463842234-abc123def"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "cpu",
+                    "heap"
+                  ],
+                  "description": "Profiling type",
+                  "example": "cpu"
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Session start timestamp",
+                  "example": "2026-01-16T11:30:21.913Z"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Session end timestamp (if completed)",
+                  "example": "2026-01-16T11:30:21.913Z"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "running",
+                    "stopped",
+                    "completed",
+                    "failed"
+                  ],
+                  "description": "Session status",
+                  "example": "running"
+                },
+                "outputFile": {
+                  "type": "string",
+                  "description": "Output file path (if available)",
+                  "example": "profiling/profile-report-1697463842234.txt"
+                },
+                "htmlFile": {
+                  "type": "string",
+                  "description": "HTML report file path (if available)",
+                  "example": "profiling/profile-report-1697463842234.html"
+                },
+                "pid": {
+                  "type": "integer",
+                  "description": "Process ID of profiled session",
+                  "example": 12345,
+                  "minimum": 1
+                }
+              }
+            },
+            "description": "List of profiling sessions"
+          },
+          "outputDirectory": {
+            "type": "string",
+            "description": "Directory where profiling outputs are stored",
+            "example": "profiling"
+          },
+          "autoGenerate": {
+            "type": "boolean",
+            "description": "Whether reports are auto-generated",
+            "example": false
+          }
+        },
+        "description": "Profiling service status and session information"
+      },
+      "ProfilingReports": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "reports"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Report retrieval timestamp",
+            "example": "2026-01-16T11:30:21.913Z"
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of available profiling report file paths",
+            "example": [
+              "profiling/profile-report-1697463842234.html",
+              "profiling/profile-report-1697463734521.txt",
+              "profiling/profile-cpu-1697463642123.cpuprofile"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of available reports",
+            "example": 3,
+            "minimum": 0
+          }
+        },
+        "description": "List of available profiling reports and analysis files"
+      },
+      "DebugResponse": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message",
+          "success"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Operation timestamp",
+            "example": "2026-01-16T11:30:21.912Z"
+          },
+          "message": {
+            "type": "string",
+            "description": "Operation result message",
+            "example": "Test metrics recorded successfully"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status",
+            "example": true
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional operation details",
+            "additionalProperties": true
+          }
+        },
+        "description": "Debug operation response"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error",
+          "statusCode",
+          "timestamp",
+          "requestId"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "title",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Structured error code for client handling",
+                "pattern": "^AUTH_\\d{3}$",
+                "example": "AUTH_001",
+                "enum": [
+                  "AUTH_001",
+                  "AUTH_002",
+                  "AUTH_003",
+                  "AUTH_004",
+                  "AUTH_005",
+                  "AUTH_006",
+                  "AUTH_007",
+                  "AUTH_008",
+                  "AUTH_009",
+                  "AUTH_010",
+                  "AUTH_011",
+                  "AUTH_012"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "description": "Short human-readable error title",
+                "example": "Missing Consumer Headers"
+              },
+              "message": {
+                "type": "string",
+                "description": "Detailed human-readable error message",
+                "example": "Required Kong consumer headers are missing from the request"
+              },
+              "details": {
+                "type": "object",
+                "description": "Additional error context and details",
+                "additionalProperties": true,
+                "example": {
+                  "reason": "Missing Kong consumer headers"
+                }
+              }
+            },
+            "description": "Structured error information"
+          },
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "example": 401,
+            "minimum": 400,
+            "maximum": 599
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Error occurrence timestamp",
+            "example": "2026-01-16T11:30:21.912Z"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique request identifier for tracing",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        },
+        "description": "Structured error response with typed error codes for client consumption"
+      },
+      "ErrorCodeReference": {
+        "type": "object",
+        "description": "Reference table of all structured error codes",
+        "properties": {
+          "AUTH_001": {
+            "description": "Missing Consumer Headers - Required Kong consumer headers are missing from the request",
+            "httpStatus": 401
+          },
+          "AUTH_002": {
+            "description": "Consumer Not Found - The specified consumer was not found or has no JWT credentials",
+            "httpStatus": 401
+          },
+          "AUTH_003": {
+            "description": "JWT Creation Failed - Failed to create JWT token due to an internal error",
+            "httpStatus": 500
+          },
+          "AUTH_004": {
+            "description": "Kong API Unavailable - The Kong gateway API is temporarily unavailable",
+            "httpStatus": 503
+          },
+          "AUTH_005": {
+            "description": "Circuit Breaker Open - Service is temporarily unavailable due to circuit breaker protection",
+            "httpStatus": 503
+          },
+          "AUTH_006": {
+            "description": "Rate Limit Exceeded - Request rate limit has been exceeded",
+            "httpStatus": 429
+          },
+          "AUTH_007": {
+            "description": "Invalid Request Format - The request format is invalid or malformed",
+            "httpStatus": 400
+          },
+          "AUTH_008": {
+            "description": "Internal Server Error - An unexpected internal server error occurred",
+            "httpStatus": 500
+          },
+          "AUTH_009": {
+            "description": "Anonymous Consumer - Anonymous consumers are not allowed to request tokens",
+            "httpStatus": 401
+          },
+          "AUTH_010": {
+            "description": "Token Expired - The provided JWT token has expired",
+            "httpStatus": 401
+          },
+          "AUTH_011": {
+            "description": "Invalid Token - The provided JWT token is invalid or malformed",
+            "httpStatus": 400
+          },
+          "AUTH_012": {
+            "description": "Missing Authorization - Authorization header with Bearer token is required",
+            "httpStatus": 400
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "KongAdminToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Kong-Admin-Token",
+        "description": "Kong Admin API authentication token"
+      }
+    },
+    "parameters": {
+      "ConsumerIdHeader": {
+        "name": "x-consumer-id",
+        "in": "header",
+        "required": true,
+        "description": "Kong consumer ID",
+        "schema": {
+          "type": "string",
+          "example": "demo_user"
+        }
+      },
+      "ConsumerUsernameHeader": {
+        "name": "x-consumer-username",
+        "in": "header",
+        "required": true,
+        "description": "Kong consumer username",
+        "schema": {
+          "type": "string",
+          "example": "demo_user"
+        }
+      },
+      "AnonymousConsumerHeader": {
+        "name": "x-anonymous-consumer",
+        "in": "header",
+        "required": false,
+        "description": "Indicates if the request is from an anonymous consumer",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "example": "false"
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Documentation",
+      "description": "API documentation and specification endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "JWT token issuance and authentication operations"
+    },
+    {
+      "name": "Health",
+      "description": "System health and dependency status monitoring"
+    },
+    {
+      "name": "Metrics",
+      "description": "Performance metrics and operational statistics"
+    },
+    {
+      "name": "Debug",
+      "description": "Debug endpoints for development and troubleshooting"
+    },
+    {
+      "name": "Profiling",
+      "description": "CPU and memory profiling for performance analysis"
+    }
+  ]
+}
