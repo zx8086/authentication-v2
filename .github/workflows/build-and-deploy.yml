@@ -67,10 +67,23 @@ jobs:
 
       - name: Start application server for testing
         run: |
-          bun run start &
+          echo "=== Bun version ==="
+          bun --version
+          echo "=== Node version (if any) ==="
+          node --version || echo "Node not available"
+          echo "=== Starting server ==="
+
+          # Start server with output capture
+          bun src/index.ts > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           echo "Started server with PID: $SERVER_PID"
+
+          # Give it a moment to start or fail
+          sleep 2
+          echo "=== Server output so far ==="
+          cat /tmp/server.log || echo "No output yet"
+          echo "=== End server output ==="
 
           # Wait for server to respond (accepts 200 or 503 degraded mode)
           echo "Waiting for server to start..."
@@ -81,10 +94,19 @@ jobs:
               break
             fi
             echo "Attempt $i: Server not ready yet (HTTP $HTTP_CODE)..."
+            # Show any new server output
+            if [ $((i % 5)) -eq 0 ]; then
+              echo "=== Server output check ==="
+              tail -20 /tmp/server.log || echo "No output"
+            fi
             sleep 1
           done
 
           # Check final status
+          echo "=== Final server output ==="
+          cat /tmp/server.log || echo "No output"
+          echo "=== End final output ==="
+
           FINAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
           if [ "$FINAL_CODE" = "200" ]; then
             echo "Server is fully healthy"
@@ -93,6 +115,14 @@ jobs:
             echo "Continuing with tests that don't require Kong..."
           else
             echo "Server failed to start (HTTP $FINAL_CODE)"
+            # Check if process is still running
+            if ps -p $SERVER_PID > /dev/null 2>&1; then
+              echo "Server process is still running but not responding"
+            else
+              echo "Server process has exited"
+              echo "Exit code check:"
+              wait $SERVER_PID 2>/dev/null || echo "Process already waited or failed"
+            fi
             exit 1
           fi
 
