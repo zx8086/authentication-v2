@@ -127,4 +127,144 @@ export class NativeBunJWT {
     const binaryString = String.fromCharCode(...buffer);
     return NativeBunJWT.base64urlEncode(binaryString);
   }
+
+  private static base64urlDecode(data: string): Uint8Array {
+    // Add padding if necessary
+    let base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) {
+      base64 += "=";
+    }
+
+    if (typeof Buffer !== "undefined" && Buffer.from) {
+      return new Uint8Array(Buffer.from(base64, "base64"));
+    }
+
+    // Fallback: use atob
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  static async validateToken(
+    token: string,
+    secret: string
+  ): Promise<{
+    valid: boolean;
+    payload?: JWTPayload;
+    error?: string;
+    expired?: boolean;
+  }> {
+    const startTime = Bun.nanoseconds();
+
+    const tracer = trace.getTracer("authentication-service");
+    const span = tracer.startSpan("jwt_validate", {
+      attributes: {
+        "jwt.operation": "validate",
+      },
+    });
+
+    try {
+      const parts = token.split(".");
+
+      if (parts.length !== 3) {
+        span.setAttributes({
+          "jwt.validation_error": "invalid_format",
+          "jwt.parts_count": parts.length,
+        });
+        return { valid: false, error: "Invalid token format: expected 3 parts" };
+      }
+
+      const [headerB64, payloadB64, signatureB64] = parts;
+
+      // Verify signature using crypto.subtle
+      const message = NativeBunJWT.encoder.encode(`${headerB64}.${payloadB64}`);
+      const key = await crypto.subtle.importKey(
+        "raw",
+        NativeBunJWT.encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"]
+      );
+
+      const signatureBytes = NativeBunJWT.base64urlDecode(signatureB64);
+      const isValid = await crypto.subtle.verify(
+        "HMAC",
+        key,
+        new Uint8Array(signatureBytes).buffer as ArrayBuffer,
+        message
+      );
+
+      if (!isValid) {
+        span.setAttributes({
+          "jwt.validation_error": "invalid_signature",
+        });
+        return { valid: false, error: "Invalid signature" };
+      }
+
+      // Decode payload
+      let payloadJson: string;
+      try {
+        payloadJson = atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"));
+      } catch {
+        span.setAttributes({
+          "jwt.validation_error": "invalid_payload_encoding",
+        });
+        return { valid: false, error: "Invalid payload encoding" };
+      }
+
+      let payload: JWTPayload;
+      try {
+        payload = JSON.parse(payloadJson);
+      } catch {
+        span.setAttributes({
+          "jwt.validation_error": "invalid_payload_json",
+        });
+        return { valid: false, error: "Invalid payload JSON" };
+      }
+
+      // Check expiration
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        span.setAttributes({
+          "jwt.validation_error": "token_expired",
+          "jwt.token_id": payload.jti,
+          "jwt.expired_at": payload.exp,
+          "jwt.duration_ms": duration,
+        });
+        return {
+          valid: false,
+          error: "Token has expired",
+          payload,
+          expired: true,
+        };
+      }
+
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      span.setAttributes({
+        "jwt.valid": true,
+        "jwt.token_id": payload.jti,
+        "jwt.subject": payload.sub,
+        "jwt.duration_ms": duration,
+      });
+
+      return { valid: true, payload };
+    } catch (err) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      span.setAttributes({
+        "error.type": "jwt_validation_error",
+        "error.message": (err as Error).message,
+        "jwt.duration_ms": duration,
+      });
+      return {
+        valid: false,
+        error: `Token validation failed: ${(err as Error).message}`,
+      };
+    } finally {
+      span.end();
+    }
+  }
 }

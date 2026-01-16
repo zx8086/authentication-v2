@@ -145,4 +145,139 @@ describe("NativeBunJWT", () => {
       expect(duration).toBeLessThan(200);
     });
   });
+
+  describe("validateToken", () => {
+    test.concurrent("should validate a valid token", async () => {
+      const tokenResponse = await NativeBunJWT.createToken(
+        testUsername,
+        testConsumerKey,
+        testSecret,
+        testAuthority,
+        testAudience
+      );
+
+      const result = await NativeBunJWT.validateToken(tokenResponse.access_token, testSecret);
+
+      expect(result.valid).toBe(true);
+      expect(result.payload).toBeDefined();
+      expect(result.payload?.sub).toBe(testUsername);
+      expect(result.payload?.key).toBe(testConsumerKey);
+      expect(result.payload?.iss).toBe(testAuthority);
+      expect(result.payload?.aud).toBe(testAudience);
+      expect(result.payload?.jti).toBeDefined();
+    });
+
+    test.concurrent("should reject token with invalid signature", async () => {
+      const tokenResponse = await NativeBunJWT.createToken(
+        testUsername,
+        testConsumerKey,
+        testSecret,
+        testAuthority,
+        testAudience
+      );
+
+      const wrongSecret = "wrong-secret-key-that-is-different";
+      const result = await NativeBunJWT.validateToken(tokenResponse.access_token, wrongSecret);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("Invalid signature");
+    });
+
+    test.concurrent("should reject token with invalid format - missing parts", async () => {
+      const result = await NativeBunJWT.validateToken("invalid.token", testSecret);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Invalid token format");
+    });
+
+    test.concurrent("should reject token with invalid format - no dots", async () => {
+      const result = await NativeBunJWT.validateToken("invalidtoken", testSecret);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Invalid token format");
+    });
+
+    test.concurrent("should detect expired tokens", async () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const expiredPayload = {
+        sub: testUsername,
+        key: testConsumerKey,
+        jti: crypto.randomUUID(),
+        iat: Math.floor(Date.now() / 1000) - 1800,
+        exp: Math.floor(Date.now() / 1000) - 900,
+        iss: testAuthority,
+        aud: testAudience,
+        name: testUsername,
+        unique_name: `pvhcorp.com#${testUsername}`,
+      };
+
+      const payloadB64 = btoa(JSON.stringify(expiredPayload))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const message = `${header}.${payloadB64}`;
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(testSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+      const signatureB64 = Buffer.from(signature)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const expiredToken = `${message}.${signatureB64}`;
+
+      const result = await NativeBunJWT.validateToken(expiredToken, testSecret);
+
+      expect(result.valid).toBe(false);
+      expect(result.expired).toBe(true);
+      expect(result.error).toBe("Token has expired");
+      expect(result.payload).toBeDefined();
+      expect(result.payload?.sub).toBe(testUsername);
+    });
+
+    test.concurrent("should complete validation within performance threshold", async () => {
+      const tokenResponse = await NativeBunJWT.createToken(
+        testUsername,
+        testConsumerKey,
+        testSecret,
+        testAuthority,
+        testAudience
+      );
+
+      const start = Bun.nanoseconds();
+      await NativeBunJWT.validateToken(tokenResponse.access_token, testSecret);
+      const duration = (Bun.nanoseconds() - start) / 1_000_000;
+
+      expect(duration).toBeLessThan(50);
+    });
+
+    test.concurrent("should handle multiple audience values", async () => {
+      const multiAudience = "audience1,audience2,audience3";
+      const tokenResponse = await NativeBunJWT.createToken(
+        testUsername,
+        testConsumerKey,
+        testSecret,
+        testAuthority,
+        multiAudience
+      );
+
+      const result = await NativeBunJWT.validateToken(tokenResponse.access_token, testSecret);
+
+      expect(result.valid).toBe(true);
+      expect(result.payload?.aud).toEqual(["audience1", "audience2", "audience3"]);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 /* src/handlers/tokens.ts */
 
 import { loadConfig } from "../config/index";
+import { ErrorCodes } from "../errors/error-codes";
 import { NativeBunJWT } from "../services/jwt.service";
 import type { IKongService } from "../services/kong.service";
 import { getVolumeBucket, incrementConsumerRequest } from "../telemetry/consumer-volume";
@@ -17,7 +18,11 @@ import {
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
 import {
+  createErrorResponse,
   createInternalErrorResponse,
+  createStructuredErrorResponse,
+  createStructuredErrorWithMessage,
+  createSuccessResponse,
   createTokenResponse,
   createUnauthorizedResponse,
 } from "../utils/response";
@@ -46,19 +51,35 @@ class RequestContext {
   }
 }
 
-function validateKongHeaders(
-  req: Request
-): { consumerId: string; username: string } | { error: string } {
+type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+
+interface HeaderValidationSuccess {
+  consumerId: string;
+  username: string;
+}
+
+interface HeaderValidationError {
+  error: string;
+  errorCode: ErrorCode;
+}
+
+function validateKongHeaders(req: Request): HeaderValidationSuccess | HeaderValidationError {
   const consumerId = req.headers.get(config.kong.consumerIdHeader);
   const username = req.headers.get(config.kong.consumerUsernameHeader);
   const isAnonymous = req.headers.get(config.kong.anonymousHeader);
 
   if (!consumerId || !username) {
-    return { error: "Missing Kong consumer headers" };
+    return {
+      error: "Missing Kong consumer headers",
+      errorCode: ErrorCodes.AUTH_001,
+    };
   }
 
   if (isAnonymous === "true") {
-    return { error: "Anonymous consumers are not allowed" };
+    return {
+      error: "Anonymous consumers are not allowed",
+      errorCode: ErrorCodes.AUTH_009,
+    };
   }
 
   return { consumerId, username };
@@ -142,6 +163,7 @@ export async function handleTokenRequest(
       recordAuthenticationAttempt("header_validation_failed", false);
       recordError("kong_header_validation_failed", {
         error: headerValidation.error,
+        errorCode: headerValidation.errorCode,
         headers: {
           consumerId: req.headers.get(config.kong.consumerIdHeader) || "missing",
           username: req.headers.get(config.kong.consumerUsernameHeader) || "missing",
@@ -163,9 +185,12 @@ export async function handleTokenRequest(
         duration,
         requestId,
         error: headerValidation.error,
+        errorCode: headerValidation.errorCode,
       });
 
-      return createUnauthorizedResponse(headerValidation.error, requestId);
+      return createStructuredErrorResponse(headerValidation.errorCode, requestId, {
+        reason: headerValidation.error,
+      });
     }
 
     try {
@@ -186,6 +211,7 @@ export async function handleTokenRequest(
           consumerId,
           username,
           error: kongError instanceof Error ? kongError.message : "Kong service unavailable",
+          errorCode: ErrorCodes.AUTH_004,
         });
 
         // Record consumer error metrics
@@ -196,6 +222,7 @@ export async function handleTokenRequest(
           consumerId,
           username,
           error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
+          errorCode: ErrorCodes.AUTH_004,
           requestId,
         });
 
@@ -206,22 +233,18 @@ export async function handleTokenRequest(
           duration,
           requestId,
           error: "Service temporarily unavailable",
+          errorCode: ErrorCodes.AUTH_004,
         });
 
-        return new Response(
-          JSON.stringify({
-            error: "Service Unavailable",
-            message: "Authentication service is temporarily unavailable. Please try again later.",
-            details: "Kong gateway connectivity issues",
-            timestamp: new Date().toISOString(),
-          }),
+        return createStructuredErrorResponse(
+          ErrorCodes.AUTH_004,
+          requestId,
           {
-            status: 503,
-            headers: {
-              "Content-Type": "application/json",
-              "X-Request-Id": requestId,
-              "Retry-After": "30",
-            },
+            reason: "Kong gateway connectivity issues",
+            retryAfter: 30,
+          },
+          {
+            "Retry-After": "30",
           }
         );
       }
@@ -233,6 +256,7 @@ export async function handleTokenRequest(
           consumerId,
           username,
           error: "Consumer not found or no JWT credentials",
+          errorCode: ErrorCodes.AUTH_002,
         });
 
         // Record consumer error metrics
@@ -243,6 +267,7 @@ export async function handleTokenRequest(
           consumerId,
           username,
           error: "Invalid consumer credentials",
+          errorCode: ErrorCodes.AUTH_002,
           requestId,
         });
 
@@ -253,9 +278,12 @@ export async function handleTokenRequest(
           duration,
           requestId,
           error: "Invalid consumer credentials",
+          errorCode: ErrorCodes.AUTH_002,
         });
 
-        return createUnauthorizedResponse("Invalid consumer credentials", requestId);
+        return createStructuredErrorResponse(ErrorCodes.AUTH_002, requestId, {
+          consumerId,
+        });
       }
 
       // Use original username for JWT claims
@@ -306,6 +334,7 @@ export async function handleTokenRequest(
         stack: err instanceof Error ? err.stack : undefined,
         consumerId: headerValidation.consumerId,
         username: headerValidation.username,
+        errorCode: ErrorCodes.AUTH_008,
         requestId,
       });
 
@@ -316,10 +345,162 @@ export async function handleTokenRequest(
         duration,
         requestId,
         error: "Unexpected error",
+        errorCode: ErrorCodes.AUTH_008,
       });
 
-      return createInternalErrorResponse(
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_008,
         "An unexpected error occurred during token generation",
+        requestId
+      );
+    }
+  });
+}
+
+export async function handleTokenValidation(
+  req: Request,
+  kongService: IKongService
+): Promise<Response> {
+  log("Processing token validation request", {
+    component: "tokens",
+    operation: "handle_token_validation",
+    endpoint: "/tokens/validate",
+  });
+
+  const requestId = crypto.randomUUID();
+  const startTime = Bun.nanoseconds();
+
+  return telemetryTracer.createHttpSpan(req.method, "/tokens/validate", 200, async () => {
+    // Extract token from Authorization header
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("Token validation failed: missing Authorization header", {
+        duration,
+        requestId,
+        errorCode: ErrorCodes.AUTH_012,
+      });
+      return createStructuredErrorResponse(ErrorCodes.AUTH_012, requestId);
+    }
+
+    const token = authHeader.substring(7);
+
+    if (!token || token.trim() === "") {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("Token validation failed: empty token", {
+        duration,
+        requestId,
+        errorCode: ErrorCodes.AUTH_011,
+      });
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_011,
+        "Token cannot be empty",
+        requestId
+      );
+    }
+
+    // Validate Kong headers for consumer identification
+    const headerValidation = validateKongHeaders(req);
+
+    if ("error" in headerValidation) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("Token validation failed: missing Kong headers", {
+        duration,
+        requestId,
+        error: headerValidation.error,
+        errorCode: headerValidation.errorCode,
+      });
+      return createStructuredErrorResponse(headerValidation.errorCode, requestId, {
+        reason: headerValidation.error,
+      });
+    }
+
+    const { consumerId, username } = headerValidation;
+
+    try {
+      // Get consumer secret to validate signature
+      const secretResult = await lookupConsumerSecret(consumerId, username, kongService);
+
+      if (!secretResult) {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        log("Token validation failed: consumer not found", {
+          consumerId,
+          username,
+          duration,
+          requestId,
+          errorCode: ErrorCodes.AUTH_002,
+        });
+        return createStructuredErrorResponse(ErrorCodes.AUTH_002, requestId, {
+          consumerId,
+        });
+      }
+
+      // Validate the token
+      const validationResult = await NativeBunJWT.validateToken(token, secretResult.secret);
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+      if (validationResult.valid && validationResult.payload) {
+        log("Token validation successful", {
+          consumerId,
+          username,
+          tokenId: validationResult.payload.jti,
+          duration,
+          requestId,
+        });
+
+        return createSuccessResponse(
+          {
+            valid: true,
+            tokenId: validationResult.payload.jti,
+            subject: validationResult.payload.sub,
+            issuer: validationResult.payload.iss,
+            audience: validationResult.payload.aud,
+            issuedAt: new Date(validationResult.payload.iat * 1000).toISOString(),
+            expiresAt: new Date(validationResult.payload.exp * 1000).toISOString(),
+            expiresIn: validationResult.payload.exp - Math.floor(Date.now() / 1000),
+          },
+          requestId
+        );
+      }
+
+      // Token is invalid
+      const errorCode = validationResult.expired ? ErrorCodes.AUTH_010 : ErrorCodes.AUTH_011;
+      log("Token validation failed", {
+        consumerId,
+        username,
+        error: validationResult.error,
+        expired: validationResult.expired,
+        duration,
+        requestId,
+        errorCode,
+      });
+
+      const details: Record<string, unknown> = {};
+      if (validationResult.expired && validationResult.payload) {
+        details.expiredAt = new Date(validationResult.payload.exp * 1000).toISOString();
+      }
+      if (validationResult.error) {
+        details.reason = validationResult.error;
+      }
+
+      return createStructuredErrorResponse(errorCode, requestId, details);
+    } catch (err) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      recordException(err as Error);
+
+      error("Unexpected error during token validation", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        stack: err instanceof Error ? err.stack : undefined,
+        consumerId,
+        username,
+        errorCode: ErrorCodes.AUTH_008,
+        requestId,
+      });
+
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_008,
+        "An unexpected error occurred during token validation",
         requestId
       );
     }

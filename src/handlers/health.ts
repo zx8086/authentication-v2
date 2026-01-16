@@ -154,6 +154,35 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
     const [tracesHealth, metricsHealth, logsHealth] = otlpChecks;
 
+    // Get telemetry export stats for health summary
+    const exportStats = getMetricsExportStats();
+
+    // Get circuit breaker stats for telemetry health summary
+    let circuitBreakerStats: Record<
+      string,
+      import("../services/circuit-breaker.service").CircuitBreakerStats
+    > = {};
+    try {
+      circuitBreakerStats = kongService.getCircuitBreakerStats();
+    } catch (error) {
+      log("Circuit breaker stats retrieval failed (non-critical)", {
+        component: "health",
+        operation: "circuit_breaker_stats",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    // Calculate circuit breaker summary for telemetry export health
+    let circuitBreakerState: "closed" | "open" | "half-open" = "closed";
+    for (const breakerStat of Object.values(circuitBreakerStats)) {
+      if (breakerStat.state === "open") {
+        circuitBreakerState = "open";
+        break;
+      } else if (breakerStat.state === "half-open") {
+        circuitBreakerState = "half-open";
+      }
+    }
+
     const cacheHealthy = cacheHealth.status === "healthy";
     const allHealthy =
       kongHealth.healthy &&
@@ -222,6 +251,13 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
             endpoint: telemetryConfig.logsEndpoint || "not configured",
             responseTime: logsHealth.responseTime,
             ...("error" in logsHealth && logsHealth.error && { error: logsHealth.error }),
+          },
+          exportHealth: {
+            successRate: exportStats.successRate / 100, // Convert percentage to decimal
+            totalExports: exportStats.totalExports,
+            recentFailures: exportStats.failureCount,
+            circuitBreakerState: circuitBreakerState,
+            ...(exportStats.lastExportTime && { lastExportTime: exportStats.lastExportTime }),
           },
         },
       },

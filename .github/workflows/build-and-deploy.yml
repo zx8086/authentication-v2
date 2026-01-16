@@ -96,8 +96,28 @@ jobs:
             exit 1
           fi
 
-      - name: Run unit & integration tests
-        run: bun run bun:test:concurrent
+      - name: Run unit & integration tests with coverage
+        run: bun run bun:test:coverage:ci
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: bun-coverage
+          fail_ci_if_error: false
+          verbose: true
+        continue-on-error: true
+
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_number }}
+          path: coverage/
+          retention-days: 14
         continue-on-error: true
 
       - name: Cache Playwright browsers
@@ -118,6 +138,30 @@ jobs:
         continue-on-error: true
         env:
           API_BASE_URL: http://localhost:3000
+
+      - name: Install K6 for performance testing
+        run: |
+          curl -sSL https://github.com/grafana/k6/releases/download/v0.55.0/k6-v0.55.0-linux-amd64.tar.gz | tar -xzf -
+          sudo mv k6-v0.55.0-linux-amd64/k6 /usr/local/bin/
+          k6 version
+
+      - name: Run K6 smoke tests
+        run: |
+          echo "Running K6 CI-safe smoke tests..."
+          mkdir -p test/results/k6
+          k6 run --out json=test/results/k6/ci-safe-results.json test/k6/smoke/ci-safe-smoke.ts
+        continue-on-error: true
+        env:
+          K6_THRESHOLDS_NON_BLOCKING: "true"
+
+      - name: Upload K6 test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-smoke-results-${{ github.run_number }}
+          path: test/results/k6/
+          retention-days: 14
+        continue-on-error: true
 
       - name: Stop application server
         if: always()
@@ -287,6 +331,12 @@ jobs:
           echo "### Cache Performance" >> $GITHUB_STEP_SUMMARY
           echo "- **Bun Cache Hit:** ${{ steps.bun-setup.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Playwright Cache Hit:** ${{ steps.playwright-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Testing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Unit/Integration Tests:** Bun test runner with coverage" >> $GITHUB_STEP_SUMMARY
+          echo "- **Coverage Report:** lcov format uploaded to Codecov" >> $GITHUB_STEP_SUMMARY
+          echo "- **E2E Tests:** Playwright (Kong-independent)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Performance Tests:** K6 smoke tests (30s, 2 VUs)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Security Scanning" >> $GITHUB_STEP_SUMMARY
           if [ "${{ github.event_name }}" = "pull_request" ]; then

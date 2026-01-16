@@ -1,10 +1,28 @@
 /* src/utils/response.ts */
 
 import { loadConfig } from "../config/index";
+import {
+  type ErrorCode,
+  type ErrorDefinition,
+  ErrorDefinitions,
+  getErrorDefinition,
+} from "../errors/error-codes";
 
 const config = loadConfig();
 
 interface ErrorResponseData {
+  error: {
+    code: string;
+    title: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+  statusCode: number;
+  timestamp: string;
+  requestId: string;
+}
+
+interface LegacyErrorResponseData {
   error: string;
   message: string;
   statusCode: number;
@@ -75,7 +93,7 @@ export function createErrorResponse(
   requestId: string,
   additionalHeaders?: Record<string, string>
 ): Response {
-  const errorData: ErrorResponseData = {
+  const errorData: LegacyErrorResponseData = {
     error,
     message,
     statusCode,
@@ -90,6 +108,69 @@ export function createErrorResponse(
 
   return new Response(JSON.stringify(errorData), {
     status: statusCode,
+    headers,
+  });
+}
+
+export function createStructuredErrorResponse(
+  errorCode: ErrorCode,
+  requestId: string,
+  details?: Record<string, unknown>,
+  additionalHeaders?: Record<string, string>
+): Response {
+  const errorDef = getErrorDefinition(errorCode);
+
+  const errorData: ErrorResponseData = {
+    error: {
+      code: errorDef.code,
+      title: errorDef.title,
+      message: errorDef.description,
+      ...(details && { details }),
+    },
+    statusCode: errorDef.httpStatus,
+    timestamp: new Date().toISOString(),
+    requestId,
+  };
+
+  const headers = {
+    ...getDefaultHeaders(requestId),
+    ...additionalHeaders,
+  };
+
+  return new Response(JSON.stringify(errorData), {
+    status: errorDef.httpStatus,
+    headers,
+  });
+}
+
+export function createStructuredErrorWithMessage(
+  errorCode: ErrorCode,
+  customMessage: string,
+  requestId: string,
+  details?: Record<string, unknown>,
+  additionalHeaders?: Record<string, string>
+): Response {
+  const errorDef = getErrorDefinition(errorCode);
+
+  const errorData: ErrorResponseData = {
+    error: {
+      code: errorDef.code,
+      title: errorDef.title,
+      message: customMessage,
+      ...(details && { details }),
+    },
+    statusCode: errorDef.httpStatus,
+    timestamp: new Date().toISOString(),
+    requestId,
+  };
+
+  const headers = {
+    ...getDefaultHeaders(requestId),
+    ...additionalHeaders,
+  };
+
+  return new Response(JSON.stringify(errorData), {
+    status: errorDef.httpStatus,
     headers,
   });
 }

@@ -1,5 +1,6 @@
 /* src/adapters/kong-utils.ts */
 
+import { context, propagation } from "@opentelemetry/api";
 import type { ConsumerSecret } from "../config";
 
 // Custom error class that preserves HTTP status for circuit breaker classification
@@ -85,9 +86,14 @@ async function parseKongApiErrorMessage(response: Response): Promise<string> {
 export function createStandardHeaders(
   baseHeaders: Record<string, string> = {}
 ): Record<string, string> {
+  // Inject W3C Trace Context headers for distributed tracing
+  const traceHeaders: Record<string, string> = {};
+  propagation.inject(context.active(), traceHeaders);
+
   return {
     "Content-Type": "application/json",
     "User-Agent": "Authentication-Service/1.0",
+    ...traceHeaders,
     ...baseHeaders,
   };
 }

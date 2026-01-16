@@ -1,6 +1,7 @@
 /* src/telemetry/instrumentation.ts */
 
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import type { ExportResult } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -8,7 +9,12 @@ import { HostMetrics } from "@opentelemetry/host-metrics";
 import { RedisInstrumentation } from "@opentelemetry/instrumentation-redis";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
-import { type MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import {
+  type MeterProvider,
+  PeriodicExportingMetricReader,
+  type PushMetricExporter,
+  type ResourceMetrics,
+} from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import {
@@ -22,13 +28,19 @@ import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conven
 import { loadConfig } from "../config/index";
 import { initializeMetrics } from "./metrics";
 
+interface MetricReaderLike {
+  forceFlush(): Promise<void>;
+  shutdown(): Promise<void>;
+  collect?(): Promise<unknown>;
+}
+
 const config = loadConfig();
 const telemetryConfig = config.telemetry;
 
 let sdk: NodeSDK | undefined;
 let hostMetrics: HostMetrics | undefined;
-let metricExporter: OTLPMetricExporter | undefined;
-let metricReader: PeriodicExportingMetricReader | undefined;
+let metricExporter: PushMetricExporter | undefined;
+let metricReader: MetricReaderLike | undefined;
 let _meterProvider: MeterProvider | undefined;
 
 // Enhanced export stats for debugging
@@ -72,24 +84,25 @@ export async function initializeTelemetry(): Promise<void> {
   // Skip OTLP setup only if explicitly disabled or in console-only mode
   if (!telemetryConfig.enableOpenTelemetry || telemetryConfig.mode === "console") {
     // Still initialize export tracking for console mode
-    const noOpExporter = {
-      export: (_metrics: any, resultCallback: any) => {
+    const noOpExporter: PushMetricExporter = {
+      export: (_metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void => {
         metricExportStats.recordExportAttempt();
         // Simulate successful export for console mode
         metricExportStats.recordExportSuccess();
         resultCallback({ code: 0 }); // ExportResultCode.SUCCESS
       },
-      forceFlush: () => Promise.resolve(),
-      shutdown: () => Promise.resolve(),
+      forceFlush: (): Promise<void> => Promise.resolve(),
+      shutdown: (): Promise<void> => Promise.resolve(),
+      selectAggregationTemporality: () => 1, // CUMULATIVE
     };
-    metricExporter = noOpExporter as unknown as typeof metricExporter;
+    metricExporter = noOpExporter;
 
     // Create no-op metric reader for console mode
-    const noOpReader = {
-      forceFlush: () => Promise.resolve(),
-      shutdown: () => Promise.resolve(),
+    const noOpReader: MetricReaderLike = {
+      forceFlush: (): Promise<void> => Promise.resolve(),
+      shutdown: (): Promise<void> => Promise.resolve(),
     };
-    metricReader = noOpReader as unknown as typeof metricReader;
+    metricReader = noOpReader;
     return;
   }
 
@@ -122,24 +135,28 @@ export async function initializeTelemetry(): Promise<void> {
   });
 
   // Create wrapper to track export stats
-  const trackingMetricExporter = {
-    export: (metrics: any, resultCallback: any) => {
+  const trackingMetricExporter: PushMetricExporter = {
+    export: (metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void => {
       metricExportStats.recordExportAttempt();
-      baseOtlpMetricExporter.export(metrics, (result: any) => {
+      baseOtlpMetricExporter.export(metrics, (result: ExportResult) => {
         if (result.code === 0) {
           // ExportResultCode.SUCCESS
           metricExportStats.recordExportSuccess();
         } else {
-          metricExportStats.recordExportFailure(result.error?.message || "Export failed");
+          const errorMessage =
+            result.error instanceof Error ? result.error.message : "Export failed";
+          metricExportStats.recordExportFailure(errorMessage);
         }
         resultCallback(result);
       });
     },
-    forceFlush: () => baseOtlpMetricExporter.forceFlush(),
-    shutdown: () => baseOtlpMetricExporter.shutdown(),
+    forceFlush: (): Promise<void> => baseOtlpMetricExporter.forceFlush(),
+    shutdown: (): Promise<void> => baseOtlpMetricExporter.shutdown(),
+    selectAggregationTemporality: (instrumentType) =>
+      baseOtlpMetricExporter.selectAggregationTemporality(instrumentType),
   };
 
-  metricExporter = trackingMetricExporter as unknown as typeof metricExporter;
+  metricExporter = trackingMetricExporter;
 
   const otlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
@@ -157,10 +174,11 @@ export async function initializeTelemetry(): Promise<void> {
     );
   }
 
-  metricReader = new PeriodicExportingMetricReader({
-    exporter: metricExporter, // trackingMetricExporter implements PushMetricExporter interface
+  const periodicReader = new PeriodicExportingMetricReader({
+    exporter: metricExporter,
     exportIntervalMillis: 10000,
   });
+  metricReader = periodicReader;
 
   const logProcessor = new BatchLogRecordProcessor(otlpLogExporter);
 
@@ -218,7 +236,7 @@ export async function initializeTelemetry(): Promise<void> {
   sdk = new NodeSDK({
     resource,
     spanProcessors: [traceProcessor],
-    metricReaders: [metricReader],
+    metricReaders: [periodicReader],
     logRecordProcessors: [logProcessor],
     instrumentations: [instrumentations],
   });
@@ -262,15 +280,13 @@ export async function forceMetricsFlush(): Promise<void> {
   if (metricExporter) {
     // For console mode, simulate metric export to trigger tracking
     if (telemetryConfig.mode === "console") {
-      metricExporter.export(
-        {
-          resource: {},
-          scopeMetrics: [],
-        } as unknown as import("@opentelemetry/sdk-metrics").ResourceMetrics,
-        (_result: unknown) => {
-          // No-op callback, tracking already happened in export method
-        }
-      );
+      const emptyMetrics: ResourceMetrics = {
+        resource: resourceFromAttributes({}),
+        scopeMetrics: [],
+      };
+      metricExporter.export(emptyMetrics, () => {
+        // No-op callback, tracking already happened in export method
+      });
     } else {
       await metricExporter.forceFlush();
     }
@@ -285,15 +301,10 @@ export async function triggerImmediateMetricsExport(): Promise<void> {
   if (!metricReader) {
     throw new Error("Metrics reader not initialized");
   }
-  if (
-    typeof (metricReader as unknown as { collect?: () => Promise<unknown> }).collect === "function"
-  ) {
-    await (metricReader as unknown as { collect: () => Promise<unknown> }).collect();
-  } else if (
-    typeof (metricReader as unknown as { forceFlush?: () => Promise<void> }).forceFlush ===
-    "function"
-  ) {
-    await (metricReader as unknown as { forceFlush: () => Promise<void> }).forceFlush();
+  if (typeof metricReader.collect === "function") {
+    await metricReader.collect();
+  } else {
+    await metricReader.forceFlush();
   }
 }
 

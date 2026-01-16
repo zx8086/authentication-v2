@@ -6,6 +6,7 @@ import {
   metrics,
 } from "@opentelemetry/api";
 import { error, log as info, warn } from "../utils/logger";
+import { getBoundedConsumerId, getCardinalityStats } from "./cardinality-guard";
 
 // ===========================
 // TYPE-SAFE ATTRIBUTE DEFINITIONS
@@ -24,6 +25,7 @@ interface HttpRequestAttributes extends Attributes {
 interface ProcessAttributes extends Attributes {
   component: string;
   pid?: string;
+  gc_type?: string;
 }
 
 // Authentication Attributes
@@ -810,8 +812,11 @@ export function recordHttpResponseSize(
 export function recordJwtTokenCreation(durationMs: number, consumerId: string): void {
   if (!isInitialized) return;
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = getBoundedConsumerId(consumerId);
+
   const attributes: AuthAttributes = {
-    consumer_id: consumerId,
+    consumer_id: boundedConsumerId,
     operation: "token_generation",
     result: "success",
   };
@@ -936,9 +941,12 @@ export function recordKongCacheHit(consumerId: string, operation: string): void 
       ? (operation as "get_consumer" | "create_credential" | "health_check")
       : "health_check";
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = getBoundedConsumerId(consumerId);
+
   const attributes: KongAttributes = {
     operation: validOperation,
-    consumer_id: consumerId,
+    consumer_id: boundedConsumerId,
     cache_status: "hit",
     status: "success",
   };
@@ -964,9 +972,12 @@ export function recordKongCacheMiss(consumerId: string, operation: string): void
       ? (operation as "get_consumer" | "create_credential" | "health_check")
       : "health_check";
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = getBoundedConsumerId(consumerId);
+
   const attributes: KongAttributes = {
     operation: validOperation,
-    consumer_id: consumerId,
+    consumer_id: boundedConsumerId,
     cache_status: "miss",
     status: "failure",
   };
@@ -1265,11 +1276,14 @@ export function recordSecurityEvent(
 ): void {
   if (!isInitialized) return;
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = consumerId ? getBoundedConsumerId(consumerId) : undefined;
+
   const attributes: SecurityAttributes = {
     event_type: eventType,
     severity,
     version: "v2",
-    ...(consumerId && { consumer_id: consumerId }),
+    ...(boundedConsumerId && { consumer_id: boundedConsumerId }),
   };
 
   try {
@@ -1527,8 +1541,11 @@ export function recordJwtTokenIssued(username: string, creationTimeMs?: number):
 export function recordAuthenticationSuccess(username?: string): void {
   if (!isInitialized) return;
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = username ? getBoundedConsumerId(username) : "unknown";
+
   const attributes: AuthAttributes = {
-    consumer_id: username || "unknown",
+    consumer_id: boundedConsumerId,
     operation: "validation",
     result: "success",
   };
@@ -1546,8 +1563,11 @@ export function recordAuthenticationSuccess(username?: string): void {
 export function recordAuthenticationFailure(username?: string, reason?: string): void {
   if (!isInitialized) return;
 
+  // Use bounded consumer ID to prevent metric cardinality explosion
+  const boundedConsumerId = username ? getBoundedConsumerId(username) : "unknown";
+
   const attributes: AuthAttributes = {
-    consumer_id: username || "unknown",
+    consumer_id: boundedConsumerId,
     operation: "validation",
     result: "failure",
   };
@@ -1575,8 +1595,11 @@ function recordAuthenticationAttemptImpl(
 
   // Handle the single-parameter case (test signature)
   if (success === undefined && username === undefined) {
+    // Use bounded consumer ID to prevent metric cardinality explosion
+    const boundedConsumerId = typeOrUsername ? getBoundedConsumerId(typeOrUsername) : "unknown";
+
     const attributes: AuthAttributes = {
-      consumer_id: typeOrUsername || "unknown",
+      consumer_id: boundedConsumerId,
       operation: "validation",
       result: "success", // Default assumption for simple call
     };
@@ -1591,8 +1614,11 @@ function recordAuthenticationAttemptImpl(
     }
   } else {
     // Handle the three-parameter case (existing signature)
+    // Use bounded consumer ID to prevent metric cardinality explosion
+    const boundedConsumerId = username ? getBoundedConsumerId(username) : "unknown";
+
     const attributes: AuthAttributes = {
-      consumer_id: username || "unknown",
+      consumer_id: boundedConsumerId,
       operation: "validation",
       result: success ? "success" : "failure",
     };
@@ -1969,3 +1995,82 @@ export function recordApiVersionRoutingDuration(
     });
   }
 }
+
+// ===========================
+// GC METRICS RECORDING FUNCTIONS
+// ===========================
+
+export function recordGCCollection(gcType: string): void {
+  if (!isInitialized) return;
+
+  const attributes: ProcessAttributes = {
+    component: "gc",
+    gc_type: gcType,
+  };
+
+  try {
+    gcCollectionCounter.add(1, attributes);
+  } catch (err) {
+    error("Failed to record GC collection metric", {
+      error: (err as Error).message,
+      gcType,
+    });
+  }
+}
+
+export function recordGCDuration(durationSeconds: number, gcType: string): void {
+  if (!isInitialized) return;
+
+  const attributes: ProcessAttributes = {
+    component: "gc",
+    gc_type: gcType,
+  };
+
+  try {
+    gcDurationHistogram.record(durationSeconds, attributes);
+  } catch (err) {
+    error("Failed to record GC duration metric", {
+      error: (err as Error).message,
+      durationSeconds,
+      gcType,
+    });
+  }
+}
+
+export function recordGCHeapSizes(
+  oldGenBefore: number,
+  oldGenAfter: number,
+  youngGenBefore: number,
+  youngGenAfter: number
+): void {
+  if (!isInitialized) return;
+
+  const attributes: ProcessAttributes = {
+    component: "gc",
+  };
+
+  try {
+    gcOldGenerationSizeBeforeGauge.record(oldGenBefore, attributes);
+    gcOldGenerationSizeAfterGauge.record(oldGenAfter, attributes);
+    gcYoungGenerationSizeBeforeGauge.record(youngGenBefore, attributes);
+    gcYoungGenerationSizeAfterGauge.record(youngGenAfter, attributes);
+  } catch (err) {
+    error("Failed to record GC heap size metrics", {
+      error: (err as Error).message,
+      oldGenBefore,
+      oldGenAfter,
+      youngGenBefore,
+      youngGenAfter,
+    });
+  }
+}
+
+// ===========================
+// CARDINALITY MONITORING
+// ===========================
+
+/**
+ * Get cardinality statistics for monitoring and health checks.
+ * Re-exported from cardinality-guard module.
+ */
+export { getCardinalityStats } from "./cardinality-guard";

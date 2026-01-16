@@ -20,7 +20,7 @@ import {
   handleProfilingStatus,
   handleProfilingStop,
 } from "../handlers/profiling";
-import { handleTokenRequest } from "../handlers/tokens";
+import { handleTokenRequest, handleTokenValidation } from "../handlers/tokens";
 import { handleOptionsRequest } from "../middleware/cors";
 import { handleNotFound } from "../middleware/error-handler";
 import type { IKongService } from "../services/kong.service";
@@ -78,6 +78,10 @@ export function createRoutes(kongService: IKongService) {
 
     "/tokens": {
       GET: (req: Request) => handleTokenRequest(req, kongService),
+    },
+
+    "/tokens/validate": {
+      GET: (req: Request) => handleTokenValidation(req, kongService),
     },
 
     "/debug/metrics/test": {

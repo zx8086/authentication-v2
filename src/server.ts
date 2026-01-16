@@ -8,13 +8,20 @@ import { createRoutes } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
 import { profilingService } from "./services/profiling.service";
+import { type GCEvent, initializeGCMetrics, shutdownGCMetrics } from "./telemetry/gc-metrics";
 import {
   getSimpleTelemetryStatus,
   initializeTelemetry,
   shutdownSimpleTelemetry,
 } from "./telemetry/instrumentation";
 import { LifecycleObservabilityLogger, lifecycleLogger } from "./telemetry/lifecycle-logger";
-import { recordKongOperation, shutdownMetrics } from "./telemetry/metrics";
+import {
+  recordGCCollection,
+  recordGCDuration,
+  recordGCHeapSizes,
+  recordKongOperation,
+  shutdownMetrics,
+} from "./telemetry/metrics";
 import { error, log, warn } from "./utils/logger";
 
 const config = loadConfig();
@@ -34,6 +41,25 @@ try {
     event: "initialization_success",
     mode: config.telemetry.mode,
     serviceName: config.telemetry.serviceName,
+  });
+
+  // Initialize GC metrics collection after telemetry is ready
+  const gcMetricsCallback = (event: GCEvent): void => {
+    recordGCCollection(event.type);
+    recordGCDuration(event.durationMs / 1000, event.type);
+    recordGCHeapSizes(
+      event.heapBefore,
+      event.heapAfter,
+      event.heapBefore * 0.3,
+      event.heapAfter * 0.3
+    );
+  };
+
+  initializeGCMetrics(gcMetricsCallback, 30000);
+  log("GC metrics collection started", {
+    component: "gc_metrics",
+    event: "initialization_success",
+    intervalMs: 30000,
   });
 } catch (initError) {
   error("Failed to initialize OpenTelemetry - service will continue without telemetry export", {
@@ -286,6 +312,7 @@ const gracefulShutdown = async (signal: string) => {
       server.stop();
     }
 
+    shutdownGCMetrics();
     await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
 
     clearTimeout(shutdownTimeout);

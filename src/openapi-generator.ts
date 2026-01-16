@@ -86,6 +86,12 @@ class OpenAPIGenerator {
     const routes = [
       { path: "/", method: "GET", handler: "getOpenAPISpec", tags: ["Documentation"] },
       { path: "/tokens", method: "GET", handler: "issueToken", tags: ["Authentication"] },
+      {
+        path: "/tokens/validate",
+        method: "GET",
+        handler: "validateToken",
+        tags: ["Authentication"],
+      },
       { path: "/health", method: "GET", handler: "healthCheck", tags: ["Health"] },
       { path: "/health/telemetry", method: "GET", handler: "getTelemetryHealth", tags: ["Health"] },
       {
@@ -193,6 +199,7 @@ class OpenAPIGenerator {
     const descriptions = {
       getOpenAPISpec: "Returns the OpenAPI 3.0.3 specification in JSON or YAML format",
       issueToken: "Generate JWT access token for authenticated Kong consumers",
+      validateToken: "Validate a JWT access token and return its claims if valid",
       healthCheck: "Get comprehensive system health status including dependency checks",
       getTelemetryHealth: "Get OpenTelemetry configuration and initialization status",
       getMetricsHealth: "Get metrics system health including export statistics",
@@ -246,6 +253,17 @@ class OpenAPIGenerator {
     };
 
     // Add specific responses based on handler
+    if (handlerName === "validateToken") {
+      responses["401"] = {
+        description: "Unauthorized - Token expired or invalid consumer credentials",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" },
+          },
+        },
+      };
+    }
+
     if (handlerName === "issueToken") {
       responses["401"] = {
         description: "Unauthorized - Missing or invalid Kong consumer headers",
@@ -289,6 +307,7 @@ class OpenAPIGenerator {
     const schemaMap = {
       getOpenAPISpec: { type: "object", description: "OpenAPI 3.0.3 specification object" },
       issueToken: { $ref: "#/components/schemas/TokenResponse" },
+      validateToken: { $ref: "#/components/schemas/TokenValidationResponse" },
       healthCheck: { $ref: "#/components/schemas/HealthResponse" },
       getTelemetryHealth: { $ref: "#/components/schemas/TelemetryStatus" },
       getMetricsHealth: { $ref: "#/components/schemas/MetricsHealth" },
@@ -404,6 +423,9 @@ class OpenAPIGenerator {
         ...(route.parameters && { parameters: Object.freeze([...route.parameters]) }),
         ...(route.path === "/tokens" && {
           parameters: Object.freeze(this._getTokensParametersImmutable()),
+        }),
+        ...(route.path === "/tokens/validate" && {
+          parameters: Object.freeze(this._getTokensValidateParametersImmutable()),
         }),
         ...(route.requestBody && { requestBody: Object.freeze(route.requestBody) }),
         ...(route.requiresAuth && {
@@ -521,6 +543,62 @@ class OpenAPIGenerator {
     return params;
   }
 
+  private _getTokensValidateParametersImmutable(): readonly any[] {
+    const cacheKey = "tokensValidateParameters";
+
+    if (this._immutableCache.has(cacheKey)) {
+      return this._immutableCache.get(cacheKey);
+    }
+
+    const params = Object.freeze([
+      Object.freeze({
+        name: "Authorization",
+        in: "header",
+        required: true,
+        description: "Bearer token to validate",
+        schema: Object.freeze({
+          type: "string",
+          pattern: "^Bearer .+$",
+          example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        }),
+      }),
+      Object.freeze({
+        name: "x-consumer-id",
+        in: "header",
+        required: true,
+        description: "Kong consumer ID",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      Object.freeze({
+        name: "x-consumer-username",
+        in: "header",
+        required: true,
+        description: "Kong consumer username",
+        schema: Object.freeze({
+          type: "string",
+          example: "demo_user",
+        }),
+      }),
+      Object.freeze({
+        name: "x-anonymous-consumer",
+        in: "header",
+        required: false,
+        description: "Indicates if the request is from an anonymous consumer",
+        schema: Object.freeze({
+          type: "string",
+          enum: Object.freeze(["true", "false"]),
+          example: "false",
+        }),
+      }),
+    ]);
+
+    this._immutableCache.set(cacheKey, params);
+    return params;
+  }
+
   private _generateDefaultResponsesImmutable(route: RouteDefinition): any {
     const cacheKey = `responses_${route.path}_${route.method}`;
 
@@ -582,6 +660,17 @@ class OpenAPIGenerator {
       });
     }
 
+    if (route.path === "/tokens/validate") {
+      responses["401"] = Object.freeze({
+        description: "Unauthorized - Token expired or invalid consumer credentials",
+        content: Object.freeze({
+          "application/json": Object.freeze({
+            schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
+          }),
+        }),
+      });
+    }
+
     const frozenResponses = Object.freeze(responses);
     this._immutableCache.set(cacheKey, frozenResponses);
     return frozenResponses;
@@ -598,6 +687,8 @@ class OpenAPIGenerator {
     // Map endpoints to their response schemas
     if (path === "/tokens" && method === "GET") {
       schema = Object.freeze({ $ref: "#/components/schemas/TokenResponse" });
+    } else if (path === "/tokens/validate" && method === "GET") {
+      schema = Object.freeze({ $ref: "#/components/schemas/TokenValidationResponse" });
     } else if (path === "/health" && method === "GET") {
       schema = Object.freeze({ $ref: "#/components/schemas/HealthResponse" });
     } else if (path === "/health/telemetry" && method === "GET") {
@@ -745,22 +836,57 @@ class OpenAPIGenerator {
       }),
       ErrorResponse: Object.freeze({
         type: "object",
-        required: Object.freeze(["error", "message", "statusCode", "timestamp"]),
+        required: Object.freeze(["error", "statusCode", "timestamp", "requestId"]),
         properties: Object.freeze({
           error: Object.freeze({
-            type: "string",
-            description: "Error type or code",
-            example: "VALIDATION_ERROR",
-          }),
-          message: Object.freeze({
-            type: "string",
-            description: "Human-readable error message",
-            example: "Missing required Kong consumer headers",
+            type: "object",
+            required: Object.freeze(["code", "title", "message"]),
+            properties: Object.freeze({
+              code: Object.freeze({
+                type: "string",
+                description: "Structured error code for client handling",
+                pattern: "^AUTH_\\d{3}$",
+                example: "AUTH_001",
+                enum: Object.freeze([
+                  "AUTH_001",
+                  "AUTH_002",
+                  "AUTH_003",
+                  "AUTH_004",
+                  "AUTH_005",
+                  "AUTH_006",
+                  "AUTH_007",
+                  "AUTH_008",
+                  "AUTH_009",
+                  "AUTH_010",
+                  "AUTH_011",
+                  "AUTH_012",
+                ]),
+              }),
+              title: Object.freeze({
+                type: "string",
+                description: "Short human-readable error title",
+                example: "Missing Consumer Headers",
+              }),
+              message: Object.freeze({
+                type: "string",
+                description: "Detailed human-readable error message",
+                example: "Required Kong consumer headers are missing from the request",
+              }),
+              details: Object.freeze({
+                type: "object",
+                description: "Additional error context and details",
+                additionalProperties: true,
+                example: Object.freeze({
+                  reason: "Missing Kong consumer headers",
+                }),
+              }),
+            }),
+            description: "Structured error information",
           }),
           statusCode: Object.freeze({
             type: "integer",
             description: "HTTP status code",
-            example: 400,
+            example: 401,
             minimum: 400,
             maximum: 599,
           }),
@@ -776,13 +902,68 @@ class OpenAPIGenerator {
             description: "Unique request identifier for tracing",
             example: "550e8400-e29b-41d4-a716-446655440000",
           }),
-          details: Object.freeze({
-            type: "object",
-            description: "Additional error context",
-            additionalProperties: true,
+        }),
+        description: "Structured error response with typed error codes for client consumption",
+      }),
+      ErrorCodeReference: Object.freeze({
+        type: "object",
+        description: "Reference table of all structured error codes",
+        properties: Object.freeze({
+          AUTH_001: Object.freeze({
+            description:
+              "Missing Consumer Headers - Required Kong consumer headers are missing from the request",
+            httpStatus: 401,
+          }),
+          AUTH_002: Object.freeze({
+            description:
+              "Consumer Not Found - The specified consumer was not found or has no JWT credentials",
+            httpStatus: 401,
+          }),
+          AUTH_003: Object.freeze({
+            description:
+              "JWT Creation Failed - Failed to create JWT token due to an internal error",
+            httpStatus: 500,
+          }),
+          AUTH_004: Object.freeze({
+            description: "Kong API Unavailable - The Kong gateway API is temporarily unavailable",
+            httpStatus: 503,
+          }),
+          AUTH_005: Object.freeze({
+            description:
+              "Circuit Breaker Open - Service is temporarily unavailable due to circuit breaker protection",
+            httpStatus: 503,
+          }),
+          AUTH_006: Object.freeze({
+            description: "Rate Limit Exceeded - Request rate limit has been exceeded",
+            httpStatus: 429,
+          }),
+          AUTH_007: Object.freeze({
+            description: "Invalid Request Format - The request format is invalid or malformed",
+            httpStatus: 400,
+          }),
+          AUTH_008: Object.freeze({
+            description: "Internal Server Error - An unexpected internal server error occurred",
+            httpStatus: 500,
+          }),
+          AUTH_009: Object.freeze({
+            description:
+              "Anonymous Consumer - Anonymous consumers are not allowed to request tokens",
+            httpStatus: 401,
+          }),
+          AUTH_010: Object.freeze({
+            description: "Token Expired - The provided JWT token has expired",
+            httpStatus: 401,
+          }),
+          AUTH_011: Object.freeze({
+            description: "Invalid Token - The provided JWT token is invalid or malformed",
+            httpStatus: 400,
+          }),
+          AUTH_012: Object.freeze({
+            description:
+              "Missing Authorization - Authorization header with Bearer token is required",
+            httpStatus: 400,
           }),
         }),
-        description: "Standard error response format",
       }),
     });
   }
@@ -812,6 +993,72 @@ class OpenAPIGenerator {
           }),
         }),
         description: "JWT token response",
+      }),
+      TokenValidationResponse: Object.freeze({
+        type: "object",
+        required: Object.freeze([
+          "valid",
+          "tokenId",
+          "subject",
+          "issuer",
+          "audience",
+          "issuedAt",
+          "expiresAt",
+          "expiresIn",
+        ]),
+        properties: Object.freeze({
+          valid: Object.freeze({
+            type: "boolean",
+            description: "Whether the token is valid",
+            example: true,
+          }),
+          tokenId: Object.freeze({
+            type: "string",
+            format: "uuid",
+            description: "Unique token identifier (jti claim)",
+            example: "550e8400-e29b-41d4-a716-446655440000",
+          }),
+          subject: Object.freeze({
+            type: "string",
+            description: "Token subject (sub claim) - typically the username",
+            example: "demo_user",
+          }),
+          issuer: Object.freeze({
+            type: "string",
+            description: "Token issuer (iss claim)",
+            example: this.config.jwt.authority,
+          }),
+          audience: Object.freeze({
+            oneOf: Object.freeze([
+              Object.freeze({ type: "string" }),
+              Object.freeze({
+                type: "array",
+                items: Object.freeze({ type: "string" }),
+              }),
+            ]),
+            description: "Token audience (aud claim)",
+            example: this.config.jwt.audience,
+          }),
+          issuedAt: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Token issue timestamp (iat claim)",
+            example: new Date().toISOString(),
+          }),
+          expiresAt: Object.freeze({
+            type: "string",
+            format: "date-time",
+            description: "Token expiration timestamp (exp claim)",
+            example: new Date(Date.now() + 900000).toISOString(),
+          }),
+          expiresIn: Object.freeze({
+            type: "integer",
+            description: "Seconds until token expires",
+            example: 850,
+            minimum: 0,
+          }),
+        }),
+        description: "Token validation response with claims",
       }),
     });
 

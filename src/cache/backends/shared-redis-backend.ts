@@ -2,6 +2,7 @@
 
 import type { KongCacheStats } from "../../config/schemas";
 import { SharedRedisCache } from "../../services/cache/shared-redis-cache";
+import { log } from "../../utils/logger";
 import type { CacheStrategy, ICacheBackend } from "../cache.interface";
 
 interface SharedRedisBackendConfig {
@@ -32,11 +33,7 @@ export class SharedRedisBackend implements ICacheBackend {
   }
 
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
-    await this.cache.set(
-      key,
-      value as unknown as import("../../config/schemas").ConsumerSecret,
-      ttl
-    );
+    await this.cache.set(key, value, ttl);
   }
 
   async delete(key: string): Promise<void> {
@@ -55,7 +52,12 @@ export class SharedRedisBackend implements ICacheBackend {
     try {
       await this.cache.getStats();
       return true;
-    } catch {
+    } catch (error) {
+      log("Redis cache health check failed", {
+        component: "shared_redis_backend",
+        operation: "health_check",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
       return false;
     }
   }
