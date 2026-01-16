@@ -89,10 +89,15 @@ High-performance authentication service using Bun runtime with 100% API compatib
 
 ### Key Features
 - Circuit breaker with stale cache fallback (SIO-45)
-- Comprehensive testing (178 unit tests + 32 E2E tests + K6 performance suite, 100% pass rate)
+- Comprehensive testing (272 unit tests + 32 E2E tests + K6 performance suite, 100% pass rate)
 - Security headers + audit logging (v2 only)
 - License compliance check (593x faster than legacy)
 - Multi-stage Docker builds with distroless base (security-hardened)
+
+### External Dependencies (Not Implemented in This Service)
+- **Rate Limiting**: Handled by Kong API Gateway - DO NOT implement in this service
+- **Authentication Routing**: Managed by Kong - this service only generates/validates JWTs
+- **Traffic Management**: Kong handles load balancing, retries at gateway level
 
 ## Critical Runtime Requirements
 
