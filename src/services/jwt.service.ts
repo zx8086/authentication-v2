@@ -15,7 +15,8 @@ export class NativeBunJWT {
     consumerSecret: string,
     authority: string,
     audience: string,
-    issuer?: string
+    issuer?: string,
+    expirationSeconds = 900 // Default 15 minutes, can be overridden by config
   ): Promise<TokenResponse> {
     const startTime = Bun.nanoseconds();
 
@@ -37,7 +38,7 @@ export class NativeBunJWT {
       );
 
       const now = Math.floor(Date.now() / 1000);
-      const expirationTime = now + 900;
+      const expirationTime = now + expirationSeconds;
 
       const audiences = audience.split(",").map((a) => a.trim());
       const issuers = (issuer || authority).split(",").map((i) => i.trim());
@@ -69,12 +70,12 @@ export class NativeBunJWT {
         "jwt.authority": authority,
         "jwt.audience": audience,
         "jwt.duration_ms": duration,
-        "jwt.expires_in": 900,
+        "jwt.expires_in": expirationSeconds,
       });
 
       return {
         access_token: token,
-        expires_in: 900,
+        expires_in: expirationSeconds,
       };
     } catch (error) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;

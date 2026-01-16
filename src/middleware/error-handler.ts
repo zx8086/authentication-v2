@@ -2,12 +2,12 @@
 
 import { loadConfig } from "../config/index";
 import { log, logError } from "../utils/logger";
-import { getDefaultHeaders } from "../utils/response";
+import { generateRequestId, getDefaultHeaders } from "../utils/response";
 
 const config = loadConfig();
 
 export function handleNotFound(url: URL): Response {
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
 
   log("HTTP request processed", {
     method: "GET",
@@ -32,7 +32,7 @@ export function handleNotFound(url: URL): Response {
 }
 
 export function handleServerError(error: Error, request?: Request): Response {
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const url = request?.url || "unknown";
   const method = request?.method || "unknown";
 

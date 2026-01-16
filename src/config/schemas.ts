@@ -1,7 +1,7 @@
 /* src/config/schemas.ts */
 
 import { z } from "zod";
-import type { CircuitBreakerStats } from "../services/circuit-breaker.service";
+import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export const ConsumerSecretSchema = z.strictObject({
   id: z.string(),

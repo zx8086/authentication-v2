@@ -1,5 +1,6 @@
 /* src/services/kong-api-gateway.service.ts */
 
+import { createStandardHeaders } from "../../adapters/kong-utils";
 import type {
   ConsumerResponse,
   ConsumerSecret,
@@ -11,6 +12,7 @@ import type {
 import { getCachingConfig, getKongConfig } from "../../config";
 import { recordError, recordKongOperation } from "../../telemetry/metrics";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { generateKeyId } from "../../utils/response";
 import { CacheFactory } from "../cache/cache-factory";
 import type { CircuitBreakerStats } from "../circuit-breaker.service";
 import { KongCircuitBreakerService } from "../circuit-breaker.service";
@@ -94,14 +96,10 @@ export class KongApiGatewayService implements IKongService {
         // Kong API Gateway supports consumer lookup by username directly
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          "User-Agent": "Authentication-Service/1.0",
-        };
-
-        if (this.adminToken) {
-          headers["Kong-Admin-Token"] = this.adminToken;
-        }
+        // Use createStandardHeaders for W3C trace context propagation
+        const headers = createStandardHeaders(
+          this.adminToken ? { "Kong-Admin-Token": this.adminToken } : {}
+        );
 
         const response = await fetch(url, {
           method: "GET",
@@ -156,20 +154,16 @@ export class KongApiGatewayService implements IKongService {
       "createConsumerSecret",
       consumerId,
       async () => {
-        const key = crypto.randomUUID().replace(/-/g, "");
+        const key = generateKeyId();
         const secret = this.generateSecureSecret();
 
         // Kong API Gateway supports consumer lookup by username directly
         const url = `${this.baseUrl}/consumers/${consumerId}/jwt`;
 
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          "User-Agent": "Authentication-Service/1.0",
-        };
-
-        if (this.adminToken) {
-          headers["Kong-Admin-Token"] = this.adminToken;
-        }
+        // Use createStandardHeaders for W3C trace context propagation
+        const headers = createStandardHeaders(
+          this.adminToken ? { "Kong-Admin-Token": this.adminToken } : {}
+        );
 
         const response = await fetch(url, {
           method: "POST",
@@ -244,13 +238,10 @@ export class KongApiGatewayService implements IKongService {
       const result = await this.circuitBreaker.wrapKongOperation<KongHealthCheckResult>(
         "healthCheck",
         async () => {
-          const headers: Record<string, string> = {
-            "User-Agent": "Authentication-Service/1.0",
-          };
-
-          if (this.adminToken) {
-            headers["Kong-Admin-Token"] = this.adminToken;
-          }
+          // Use createStandardHeaders for W3C trace context propagation
+          const headers = createStandardHeaders(
+            this.adminToken ? { "Kong-Admin-Token": this.adminToken } : {}
+          );
 
           const response = await fetch(`${this.baseUrl}/status`, {
             method: "GET",

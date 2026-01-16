@@ -6,7 +6,7 @@ import {
   metrics,
 } from "@opentelemetry/api";
 import { error, log as info, warn } from "../utils/logger";
-import { getBoundedConsumerId, getCardinalityStats } from "./cardinality-guard";
+import { getBoundedConsumerId } from "./cardinality-guard";
 
 // ===========================
 // TYPE-SAFE ATTRIBUTE DEFINITIONS

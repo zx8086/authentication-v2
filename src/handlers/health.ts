@@ -12,7 +12,7 @@ import {
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
 import { log } from "../utils/logger";
-import { createHealthResponse } from "../utils/response";
+import { createHealthResponse, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
 
@@ -55,7 +55,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     endpoint: "/health",
   });
 
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const startTime = Bun.nanoseconds();
 
   try {
@@ -343,7 +343,7 @@ export function handleTelemetryHealth(): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return createHealthResponse(responseData, 200, crypto.randomUUID());
+    return createHealthResponse(responseData, 200, generateRequestId());
   } catch (error) {
     return createHealthResponse(
       {
@@ -352,13 +352,13 @@ export function handleTelemetryHealth(): Response {
         timestamp: new Date().toISOString(),
       },
       500,
-      crypto.randomUUID()
+      generateRequestId()
     );
   }
 }
 
 export async function handleReadinessCheck(kongService: IKongService): Promise<Response> {
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const startTime = Bun.nanoseconds();
 
   log("Processing readiness check request", {
@@ -517,7 +517,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return createHealthResponse(responseData, 200, crypto.randomUUID());
+    return createHealthResponse(responseData, 200, generateRequestId());
   } catch (error) {
     return createHealthResponse(
       {
@@ -526,7 +526,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
         timestamp: new Date().toISOString(),
       },
       500,
-      crypto.randomUUID()
+      generateRequestId()
     );
   }
 }

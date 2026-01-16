@@ -1,7 +1,7 @@
 /* src/adapters/api-gateway-adapter.interface.ts */
 
 import type { ConsumerSecret, KongCacheStats, KongHealthCheckResult } from "../config";
-import type { CircuitBreakerStats } from "../services/shared-circuit-breaker.service";
+import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
 // Unified interface for API gateway operations (Kong API Gateway, Kong Konnect, etc.)
 export interface IAPIGatewayAdapter {

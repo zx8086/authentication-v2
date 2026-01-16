@@ -1,5 +1,6 @@
 /* src/services/kong-konnect.service.ts */
 
+import { createStandardHeaders } from "../../adapters/kong-utils";
 import type {
   Consumer,
   ConsumerResponse,
@@ -12,6 +13,7 @@ import type {
 import { getCachingConfig, getKongConfig } from "../../config";
 import { recordError, recordKongOperation } from "../../telemetry/metrics";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { generateKeyId } from "../../utils/response";
 import { withRetry } from "../../utils/retry";
 import { CacheFactory } from "../cache/cache-factory";
 import type { CircuitBreakerStats } from "../circuit-breaker.service";
@@ -109,15 +111,16 @@ export class KongKonnectService implements IKongService {
 
         const keysUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
 
+        // Use createStandardHeaders for W3C trace context propagation
+        const headers = createStandardHeaders({
+          Authorization: `Bearer ${this.adminToken}`,
+        });
+
         const response = await withRetry(
           () =>
             fetch(keysUrl, {
               method: "GET",
-              headers: {
-                Authorization: `Bearer ${this.adminToken}`,
-                "Content-Type": "application/json",
-                "User-Agent": "Authentication-Service/1.0",
-              },
+              headers,
               signal: AbortSignal.timeout(5000),
             }),
           { maxAttempts: 2, baseDelayMs: 100 }
@@ -178,18 +181,19 @@ export class KongKonnectService implements IKongService {
           return null;
         }
 
-        const key = crypto.randomUUID().replace(/-/g, "");
+        const key = generateKeyId();
         const secret = this.generateSecureSecret();
 
         const url = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
 
+        // Use createStandardHeaders for W3C trace context propagation
+        const createHeaders = createStandardHeaders({
+          Authorization: `Bearer ${this.adminToken}`,
+        });
+
         const response = await fetch(url, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${this.adminToken}`,
-            "Content-Type": "application/json",
-            "User-Agent": "Authentication-Service/1.0",
-          },
+          headers: createHeaders,
           body: JSON.stringify({
             key: key,
             secret: secret,
@@ -242,12 +246,14 @@ export class KongKonnectService implements IKongService {
   private async ensureRealmExists(): Promise<void> {
     const checkUrl = `${this.consumerAdminUrl}/realms/${this.realmId}`;
 
+    // Use createStandardHeaders for W3C trace context propagation
+    const realmCheckHeaders = createStandardHeaders({
+      Authorization: `Bearer ${this.adminToken}`,
+    });
+
     const checkResponse = await fetch(checkUrl, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${this.adminToken}`,
-        "User-Agent": "Authentication-Service/1.0",
-      },
+      headers: realmCheckHeaders,
       signal: AbortSignal.timeout(5000),
     });
 
@@ -266,13 +272,14 @@ export class KongKonnectService implements IKongService {
       allowed_control_planes: [this.controlPlaneId],
     };
 
+    // Use createStandardHeaders for W3C trace context propagation
+    const createRealmHeaders = createStandardHeaders({
+      Authorization: `Bearer ${this.adminToken}`,
+    });
+
     const createResponse = await fetch(createUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.adminToken}`,
-        "Content-Type": "application/json",
-        "User-Agent": "Authentication-Service/1.0",
-      },
+      headers: createRealmHeaders,
       body: JSON.stringify(createRealmRequest),
       signal: AbortSignal.timeout(10000),
     });
@@ -291,12 +298,14 @@ export class KongKonnectService implements IKongService {
   private async getConsumerId(consumerId: string): Promise<string | null> {
     const checkUrl = `${this.gatewayAdminUrl}/core-entities/consumers/${consumerId}`;
 
+    // Use createStandardHeaders for W3C trace context propagation
+    const consumerCheckHeaders = createStandardHeaders({
+      Authorization: `Bearer ${this.adminToken}`,
+    });
+
     const checkResponse = await fetch(checkUrl, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${this.adminToken}`,
-        "User-Agent": "Authentication-Service/1.0",
-      },
+      headers: consumerCheckHeaders,
       signal: AbortSignal.timeout(5000),
     });
 
@@ -334,14 +343,16 @@ export class KongKonnectService implements IKongService {
     const result = await this.circuitBreaker.wrapKongOperation<KongHealthCheckResult>(
       "healthCheck",
       async () => {
+        // Use createStandardHeaders for W3C trace context propagation
+        const healthHeaders = createStandardHeaders({
+          Authorization: `Bearer ${this.adminToken}`,
+        });
+
         const response = await withRetry(
           () =>
             fetch(`${this.gatewayAdminUrl}`, {
               method: "GET",
-              headers: {
-                Authorization: `Bearer ${this.adminToken}`,
-                "User-Agent": "Authentication-Service/1.0",
-              },
+              headers: healthHeaders,
               signal: AbortSignal.timeout(5000),
             }),
           { maxAttempts: 2, baseDelayMs: 50 }

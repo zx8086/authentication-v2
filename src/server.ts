@@ -8,6 +8,8 @@ import { createRoutes } from "./routes/router";
 import type { IKongService } from "./services/kong.service";
 import { KongServiceFactory } from "./services/kong.service";
 import { profilingService } from "./services/profiling.service";
+import { shutdownCardinalityGuard } from "./telemetry/cardinality-guard";
+import { shutdownConsumerVolume } from "./telemetry/consumer-volume";
 import { type GCEvent, initializeGCMetrics, shutdownGCMetrics } from "./telemetry/gc-metrics";
 import {
   getSimpleTelemetryStatus,
@@ -22,6 +24,7 @@ import {
   recordKongOperation,
   shutdownMetrics,
 } from "./telemetry/metrics";
+import { shutdownTelemetryCircuitBreakers } from "./telemetry/telemetry-circuit-breaker";
 import { error, log, warn } from "./utils/logger";
 
 const config = loadConfig();
@@ -312,7 +315,12 @@ const gracefulShutdown = async (signal: string) => {
       server.stop();
     }
 
+    // Clear all intervals to prevent memory leaks
     shutdownGCMetrics();
+    shutdownConsumerVolume();
+    shutdownCardinalityGuard();
+    shutdownTelemetryCircuitBreakers();
+
     await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
 
     clearTimeout(shutdownTimeout);

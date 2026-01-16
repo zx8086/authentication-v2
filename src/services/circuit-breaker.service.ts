@@ -19,19 +19,10 @@ import {
 } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 
-export interface CircuitBreakerStats {
-  state: "closed" | "open" | "half-open";
-  stats: {
-    fires: number;
-    rejections: number;
-    timeouts: number;
-    failures: number;
-    successes: number;
-    fallbacks: number;
-    semaphoreRejections: number;
-    percentiles: Record<string, number>;
-  };
-}
+// Re-export for backwards compatibility
+export type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+
+import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export class KongCircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();

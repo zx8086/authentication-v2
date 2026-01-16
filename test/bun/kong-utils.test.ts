@@ -1,6 +1,6 @@
 /* test/bun/kong-utils.test.ts */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { context, propagation, trace } from "@opentelemetry/api";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -65,7 +65,7 @@ describe("kong-utils", () => {
 
       expect(headers["Content-Type"]).toBe("application/json");
       expect(headers["User-Agent"]).toBe("Authentication-Service/1.0");
-      expect(headers["Authorization"]).toBe("Bearer test-token");
+      expect(headers.Authorization).toBe("Bearer test-token");
       expect(headers["X-Custom-Header"]).toBe("custom-value");
     });
 
@@ -93,10 +93,10 @@ describe("kong-utils", () => {
 
       // When there's an active span context, traceparent header should be present
       // The format is: version-traceId-spanId-flags (e.g., "00-abc123...-def456...-01")
-      expect(headers["traceparent"]).toBeDefined();
-      expect(headers["traceparent"]).toMatch(/^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$/);
-      expect(headers["traceparent"]).toContain(spanContext.traceId);
-      expect(headers["traceparent"]).toContain(spanContext.spanId);
+      expect(headers.traceparent).toBeDefined();
+      expect(headers.traceparent).toMatch(/^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$/);
+      expect(headers.traceparent).toContain(spanContext.traceId);
+      expect(headers.traceparent).toContain(spanContext.spanId);
 
       span.end();
     });
@@ -110,7 +110,7 @@ describe("kong-utils", () => {
       expect(headers["User-Agent"]).toBe("Authentication-Service/1.0");
 
       // Without a span context, traceparent should not be present
-      expect(headers["traceparent"]).toBeUndefined();
+      expect(headers.traceparent).toBeUndefined();
     });
 
     it("should preserve trace context through nested operations", () => {
@@ -128,8 +128,8 @@ describe("kong-utils", () => {
       propagation.inject(childContext, childHeaders);
 
       // Child span's headers should contain the same trace ID as parent
-      expect(childHeaders["traceparent"]).toBeDefined();
-      expect(childHeaders["traceparent"]).toContain(parentTraceId);
+      expect(childHeaders.traceparent).toBeDefined();
+      expect(childHeaders.traceparent).toContain(parentTraceId);
 
       childSpan.end();
       parentSpan.end();

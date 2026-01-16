@@ -2,6 +2,7 @@
 
 import { context, propagation } from "@opentelemetry/api";
 import type { ConsumerSecret } from "../config";
+import { generateKeyId } from "../utils/response";
 
 // Custom error class that preserves HTTP status for circuit breaker classification
 export class KongApiError extends Error {
@@ -39,7 +40,7 @@ export function generateSecureSecret(): string {
 }
 
 export function generateJwtKey(): string {
-  return crypto.randomUUID().replace(/-/g, "");
+  return generateKeyId();
 }
 
 export async function createKongApiError(response: Response): Promise<KongApiError> {

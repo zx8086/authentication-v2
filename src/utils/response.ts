@@ -1,14 +1,25 @@
 /* src/utils/response.ts */
 
 import { loadConfig } from "../config/index";
-import {
-  type ErrorCode,
-  type ErrorDefinition,
-  ErrorDefinitions,
-  getErrorDefinition,
-} from "../errors/error-codes";
+import { type ErrorCode, getErrorDefinition } from "../errors/error-codes";
 
 const config = loadConfig();
+
+/**
+ * Generate a unique request ID using crypto.randomUUID().
+ * This is the standard format for request IDs across the service.
+ */
+export function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
+/**
+ * Generate a key ID without dashes (for Kong consumer keys).
+ * Uses UUID with dashes stripped for compatibility.
+ */
+export function generateKeyId(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
 
 interface ErrorResponseData {
   error: {

@@ -23,6 +23,9 @@ const trackedConsumerIds = new Set<string>();
 let cardinalityLimitExceeded = false;
 let lastResetTime = Date.now();
 
+// Store interval ID for cleanup on shutdown
+let cardinalityResetIntervalId: ReturnType<typeof setInterval> | null = null;
+
 // Cardinality statistics
 const cardinalityStats = {
   uniqueConsumersTracked: 0,
@@ -184,7 +187,19 @@ export function getCardinalityWarningLevel(): "ok" | "warning" | "critical" {
 // Set up periodic reset (hourly by default)
 // Only in non-test environments
 if (config.server.nodeEnv !== "test") {
-  setInterval(() => {
+  cardinalityResetIntervalId = setInterval(() => {
     resetCardinalityTracking();
   }, CARDINALITY_CONFIG.resetIntervalMs);
+}
+
+/**
+ * Shutdown cardinality guard - clears interval to prevent memory leaks.
+ * Called during graceful shutdown.
+ */
+export function shutdownCardinalityGuard(): void {
+  if (cardinalityResetIntervalId) {
+    clearInterval(cardinalityResetIntervalId);
+    cardinalityResetIntervalId = null;
+  }
+  trackedConsumerIds.clear();
 }

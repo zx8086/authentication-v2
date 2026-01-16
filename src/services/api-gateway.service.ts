@@ -7,7 +7,7 @@ import type {
   KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
-import type { CircuitBreakerStats } from "./shared-circuit-breaker.service";
+import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
 // Adapter pattern service - delegates all operations to the underlying adapter
 export class APIGatewayService implements IKongService {

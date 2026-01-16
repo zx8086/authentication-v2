@@ -37,13 +37,25 @@ export class TelemetryCircuitBreaker {
   private rejectedRequests = 0;
   private lastStateChange = Date.now();
   private halfOpenSuccesses = 0;
+  private monitoringIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly operation: string,
     private readonly config: CircuitBreakerConfig
   ) {
     // Start monitoring circuit breaker state
-    setInterval(() => this.checkRecovery(), config.monitoringInterval);
+    this.monitoringIntervalId = setInterval(() => this.checkRecovery(), config.monitoringInterval);
+  }
+
+  /**
+   * Shutdown this circuit breaker - clears interval to prevent memory leaks.
+   * Called during graceful shutdown.
+   */
+  public shutdown(): void {
+    if (this.monitoringIntervalId) {
+      clearInterval(this.monitoringIntervalId);
+      this.monitoringIntervalId = null;
+    }
   }
 
   public canExecute(): boolean {
@@ -220,5 +232,20 @@ export function resetTelemetryCircuitBreakers(): void {
   log("All telemetry circuit breakers reset", {
     component: "telemetry_circuit_breaker",
     operation: "reset_all",
+  });
+}
+
+/**
+ * Shutdown all telemetry circuit breakers - clears all intervals to prevent memory leaks.
+ * Called during graceful shutdown.
+ */
+export function shutdownTelemetryCircuitBreakers(): void {
+  Object.values(telemetryCircuitBreakers).forEach((cb) => {
+    cb.shutdown();
+  });
+
+  log("All telemetry circuit breakers shutdown", {
+    component: "telemetry_circuit_breaker",
+    operation: "shutdown_all",
   });
 }

@@ -1,11 +1,7 @@
 /* src/handlers/profiling.ts */
 
 import { profilingService } from "../services/profiling.service";
-import { createErrorResponse, createSuccessResponse } from "../utils/response";
-
-function generateRequestId(): string {
-  return `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+import { createErrorResponse, createSuccessResponse, generateRequestId } from "../utils/response";
 
 export async function handleProfilingStart(req: Request): Promise<Response> {
   const requestId = generateRequestId();

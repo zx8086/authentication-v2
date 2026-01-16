@@ -18,13 +18,11 @@ import {
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
 import {
-  createErrorResponse,
-  createInternalErrorResponse,
   createStructuredErrorResponse,
   createStructuredErrorWithMessage,
   createSuccessResponse,
   createTokenResponse,
-  createUnauthorizedResponse,
+  generateRequestId,
 } from "../utils/response";
 
 const config = loadConfig();
@@ -63,6 +61,9 @@ interface HeaderValidationError {
   errorCode: ErrorCode;
 }
 
+// Maximum allowed header length to prevent injection attacks
+const MAX_HEADER_LENGTH = 256;
+
 function validateKongHeaders(req: Request): HeaderValidationSuccess | HeaderValidationError {
   const consumerId = req.headers.get(config.kong.consumerIdHeader);
   const username = req.headers.get(config.kong.consumerUsernameHeader);
@@ -72,6 +73,14 @@ function validateKongHeaders(req: Request): HeaderValidationSuccess | HeaderVali
     return {
       error: "Missing Kong consumer headers",
       errorCode: ErrorCodes.AUTH_001,
+    };
+  }
+
+  // Validate header length to prevent injection attacks
+  if (consumerId.length > MAX_HEADER_LENGTH || username.length > MAX_HEADER_LENGTH) {
+    return {
+      error: "Header value exceeds maximum allowed length",
+      errorCode: ErrorCodes.AUTH_007,
     };
   }
 
@@ -109,6 +118,7 @@ async function generateJWTToken(
   secret: string
 ): Promise<{ access_token: string; expires_in: number }> {
   const jwtStartTime = Bun.nanoseconds();
+  const expirationSeconds = config.jwt.expirationMinutes * 60;
   const tokenResponse = await telemetryTracer.createJWTSpan(
     "createToken",
     () =>
@@ -118,7 +128,8 @@ async function generateJWTToken(
         secret,
         config.jwt.authority,
         config.jwt.audience,
-        config.jwt.issuer
+        config.jwt.issuer,
+        expirationSeconds
       ),
     username
   );
@@ -128,7 +139,7 @@ async function generateJWTToken(
 
   return {
     access_token: tokenResponse.access_token,
-    expires_in: config.jwt.expirationMinutes * 60,
+    expires_in: tokenResponse.expires_in,
   };
 }
 
@@ -142,7 +153,7 @@ export async function handleTokenRequest(
     endpoint: "/tokens",
   });
 
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const ctx = new RequestContext(req);
   const startTime = Bun.nanoseconds();
 
@@ -367,7 +378,7 @@ export async function handleTokenValidation(
     endpoint: "/tokens/validate",
   });
 
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const startTime = Bun.nanoseconds();
 
   return telemetryTracer.createHttpSpan(req.method, "/tokens/validate", 200, async () => {
