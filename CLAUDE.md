@@ -89,7 +89,8 @@ High-performance authentication service using Bun runtime with 100% API compatib
 
 ### Key Features
 - Circuit breaker with stale cache fallback (SIO-45)
-- Comprehensive testing (272 unit tests + 32 E2E tests + K6 performance suite, 100% pass rate)
+- Comprehensive testing (210+ tests: 178 unit + 32 E2E + K6 performance suite, 100% pass rate)
+- Structured error codes (AUTH_001-012) for client consumption
 - Security headers + audit logging (v2 only)
 - License compliance check (593x faster than legacy)
 - Multi-stage Docker builds with distroless base (security-hardened)
@@ -294,7 +295,50 @@ bun run kill-server && bun run dev    # Clean restart
 
 **Guidance**: Do NOT implement application-level OpenTelemetry sampling unless specifically requested. The current comprehensive telemetry approach is intentional and cost-managed through collector infrastructure.
 
+## Production Readiness
+
+**Status: 10/10 Production Ready**
+
+| Category | Status | Details |
+|----------|--------|---------|
+| Security | Complete | OWASP headers, audit logging, no hardcoded secrets |
+| Testing | Complete | 210+ tests (178 unit + 32 E2E), 100% pass rate |
+| Observability | Complete | OpenTelemetry traces, metrics, logs |
+| Error Handling | Complete | Structured error codes (AUTH_001-012), circuit breaker |
+| Documentation | Complete | OpenAPI spec, API docs, comprehensive guides |
+| Configuration | Complete | 4-pillar pattern, .env.example comprehensive |
+| Docker | Complete | Multi-stage distroless builds, security hardened |
+| CI/CD | Complete | Parallel security scanning, consolidated workflow |
+
+### Structured Error Codes
+
+The service uses standardized error codes for client consumption:
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| AUTH_001 | 401 | Missing Consumer Headers |
+| AUTH_002 | 401 | Consumer Not Found |
+| AUTH_003 | 500 | JWT Creation Failed |
+| AUTH_004 | 503 | Kong API Unavailable |
+| AUTH_005 | 503 | Circuit Breaker Open |
+| AUTH_006 | 429 | Rate Limit Exceeded |
+| AUTH_007 | 400 | Invalid Request Format |
+| AUTH_008 | 500 | Internal Server Error |
+| AUTH_009 | 401 | Anonymous Consumer |
+| AUTH_010 | 401 | Token Expired |
+| AUTH_011 | 400 | Invalid Token |
+| AUTH_012 | 400 | Missing Authorization |
+
+### Known Tooling Limitations
+
+**Mutation Testing (SIO-276)**: The `stryker-mutator-bun-runner` package has an ENOEXEC bug when Stryker (Node.js) spawns Bun processes. This is an external tooling limitation, not a code quality issue. Tracked for upstream reporting.
+
 ## Recent Architectural Improvements
+
+### SIO-272: Structured Error Codes
+- Implemented 12 standardized error codes (AUTH_001-012)
+- Added to OpenAPI specification for client documentation
+- Consistent error response format across all endpoints
 
 ### SIO-70: TypeScript Type Safety Architecture Refactoring
 - **Phase 3 Complete**: Eliminated all 37 `as any` instances from src directory

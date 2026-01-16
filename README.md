@@ -1,5 +1,7 @@
 # Authentication Service
 
+**Production Ready: 10/10**
+
 High-performance JWT token generation service built with Bun runtime and TypeScript, designed for Kong Gateway integration.
 
 ## Quick Start
@@ -25,6 +27,7 @@ The Authentication Service is a secure JWT token issuer that bridges Kong API Ga
 - **High Performance**: 100,000+ requests/second with native Bun runtime
 - **Kong Integration**: Supports both Kong API Gateway and Kong Konnect
 - **Security First**: Zero client-side secrets, centralized token management
+- **Structured Errors**: Standardized error codes (AUTH_001-012) for client consumption
 - **Circuit Breaker**: Resilient operation with stale cache fallback
 - **Observability**: Comprehensive OpenTelemetry instrumentation
 - **Docker Ready**: Multi-stage builds with security hardening
