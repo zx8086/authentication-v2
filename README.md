@@ -120,26 +120,6 @@ curl http://localhost:3000/tokens \
   -H "X-Consumer-Username: consumer-name"
 ```
 
-## Overview
-
-The Authentication Service is a secure JWT token issuer that bridges Kong API Gateway's consumer management with standardized token generation. It provides centralized authentication without distributing secrets to client applications.
-
-### Key Features
-- **High Performance**: 100,000+ requests/second with native Bun runtime
-- **Kong Integration**: Supports both Kong API Gateway and Kong Konnect
-- **Security First**: Zero client-side secrets, centralized token management
-- **Structured Errors**: Standardized error codes (AUTH_001-012) for client consumption
-- **Circuit Breaker**: Resilient operation with stale cache fallback
-- **Observability**: Comprehensive OpenTelemetry instrumentation
-- **Docker Ready**: Multi-stage builds with security hardening
-
-### Performance Characteristics
-- **Throughput**: 100,000+ req/sec capability
-- **Memory**: ~50-80MB baseline usage
-- **Response Time**: <10ms p99 latency
-- **Container Size**: <100MB
-- **Cold Start**: <100ms
-
 ## Documentation
 
 See the **[Documentation Index](docs/README.md)** for comprehensive guides.
@@ -152,7 +132,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (15 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
+| Testing | [testing.md](docs/development/testing.md) | Testing strategy (390+ tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Operational runbook and diagnostics |
@@ -163,7 +143,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 - **Architecture**: [system-overview.md](docs/architecture/system-overview.md), [authentication-flow.md](docs/architecture/authentication-flow.md)
 - **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md)
 - **API**: [jwt-tokens.md](docs/api/jwt-tokens.md)
-- **Operations**: [SLA.md](docs/operations/SLA.md), [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md), [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
+- **Operations**: [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
 - **Testing**: [test/README.md](test/README.md), [K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)
 
 ## Quick Commands
@@ -177,7 +157,7 @@ bun run quality:check          # Code quality and formatting
 
 ### Testing
 ```bash
-bun run bun:test              # Unit tests (178 tests)
+bun run bun:test              # Unit tests (356 tests)
 bun run playwright:test       # E2E tests (32 tests)
 bun run k6:quick              # Performance smoke tests
 ```
