@@ -64,11 +64,13 @@ Container builds and production deployment.
 
 ### Operations
 
-Monitoring, observability, and performance.
+Monitoring, observability, SLAs, and performance.
 
 | Document | Description |
 |----------|-------------|
 | [monitoring.md](operations/monitoring.md) | OpenTelemetry observability, metrics, and alerting |
+| [SLA.md](operations/SLA.md) | Performance SLAs, availability targets, and monitoring thresholds |
+| [TROUBLESHOOTING.md](operations/TROUBLESHOOTING.md) | Runbook-style troubleshooting guide with common issues |
 | [profiling.md](operations/profiling.md) | Performance analysis and debugging endpoints |
 
 ### Memory Management

@@ -9,10 +9,17 @@ The service implements cost-optimized observability using vendor-neutral OpenTel
 #### Distributed Tracing
 - HTTP request tracing with automatic span correlation
 - Request ID generation for end-to-end tracing
-- Kong API call instrumentation
+- Kong API call instrumentation with W3C Trace Context propagation
 - JWT generation timing
 - Circuit breaker state transitions
 - Cache tier usage tracking
+
+#### W3C Trace Context Propagation
+All outbound HTTP requests (particularly to Kong Admin API) include W3C Trace Context headers for distributed tracing:
+- `traceparent`: Trace ID, parent span ID, and trace flags
+- `tracestate`: Vendor-specific trace information
+
+This is implemented via `createStandardHeaders()` in `src/adapters/kong-utils.ts`, which automatically injects trace context from the active OpenTelemetry context.
 
 #### Consolidated Metrics Collection
 - **Runtime Metrics**: Event loop delay, memory usage, CPU utilization
@@ -356,6 +363,45 @@ spec:
     params:
       view: ["infrastructure"]
 ```
+
+## Graceful Shutdown
+
+The service implements proper resource cleanup during shutdown to prevent memory leaks and ensure telemetry data is flushed.
+
+### Shutdown Sequence
+
+When receiving SIGTERM or SIGINT:
+
+1. **Log shutdown sequence** - Batch log all shutdown steps to OTLP
+2. **Stop HTTP server** - Stop accepting new requests
+3. **Clear intervals** - Clean up all background intervals:
+   - `shutdownGCMetrics()` - GC monitoring interval
+   - `shutdownConsumerVolume()` - Consumer tracking interval
+   - `shutdownCardinalityGuard()` - Cardinality cleanup interval
+   - `shutdownTelemetryCircuitBreakers()` - Circuit breaker intervals
+4. **Flush telemetry** - Export pending metrics, traces, logs
+5. **Exit process** - Clean exit with code 0
+
+### Shutdown Timeout
+
+- **Grace period**: 10 seconds
+- **Force exit**: If shutdown exceeds timeout, process exits with code 1
+
+### Cardinality Guard
+
+The service implements a cardinality guard to prevent metric explosion:
+
+- **Max unique consumers**: 1000 tracked consumers
+- **Hash buckets**: 256 buckets for overflow consumers
+- **Cleanup interval**: Periodic cleanup of stale entries
+- **Classification**: High (>5K/hr), Medium (100-5K/hr), Low (<100/hr)
+
+### Related Documentation
+
+- [Performance SLA](SLA.md) - SLA definitions and monitoring thresholds
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and resolutions
+
+---
 
 ## Troubleshooting
 

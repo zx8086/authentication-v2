@@ -208,6 +208,8 @@ CIRCUIT_BREAKER_ERROR_THRESHOLD=25
 
 ## Troubleshooting
 
+For comprehensive troubleshooting including error codes, diagnostics, and runbook procedures, see the [Troubleshooting Guide](../operations/TROUBLESHOOTING.md).
+
 ### Common Issues
 
 #### Port Already in Use

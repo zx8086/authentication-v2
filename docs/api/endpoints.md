@@ -58,6 +58,11 @@ X-Anonymous-Consumer: false
 | `X-Consumer-Username` | String | Kong consumer username |
 | `X-Anonymous-Consumer` | Boolean | Must be "false" or absent |
 
+**Header Validation**
+- Maximum header length: **256 characters** for `X-Consumer-ID` and `X-Consumer-Username`
+- Headers exceeding this limit return `AUTH_007` (Invalid Request Format)
+- This is a security measure to prevent injection attacks
+
 **Response - Success (200 OK)**
 ```json
 {
@@ -771,9 +776,31 @@ Host: auth-service.example.com
   "message": "Detailed error message",
   "timestamp": "2025-01-15T12:00:00.000Z",
   "statusCode": 401,
-  "requestId": "550e8400-e29b-41d4-a716-446655440000"
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "errorCode": "AUTH_001"
 }
 ```
+
+### Structured Error Codes
+
+The service uses standardized error codes for programmatic error handling:
+
+| Code | HTTP | Title | Description |
+|------|------|-------|-------------|
+| `AUTH_001` | 401 | Missing Consumer Headers | Required Kong consumer headers not present |
+| `AUTH_002` | 401 | Consumer Not Found | Consumer not found or has no JWT credentials |
+| `AUTH_003` | 500 | JWT Creation Failed | Internal error during token generation |
+| `AUTH_004` | 503 | Kong API Unavailable | Kong gateway temporarily unavailable |
+| `AUTH_005` | 503 | Circuit Breaker Open | Service protected by circuit breaker |
+| `AUTH_006` | 429 | Rate Limit Exceeded | Request rate limit exceeded |
+| `AUTH_007` | 400 | Invalid Request Format | Request format invalid (e.g., header too long) |
+| `AUTH_008` | 500 | Internal Server Error | Unexpected internal error |
+| `AUTH_009` | 401 | Anonymous Consumer | Anonymous consumers not allowed |
+| `AUTH_010` | 401 | Token Expired | JWT token has expired |
+| `AUTH_011` | 400 | Invalid Token | JWT token is invalid or malformed |
+| `AUTH_012` | 400 | Missing Authorization | Bearer token required but not provided |
+
+For detailed troubleshooting of each error code, see the [Troubleshooting Guide](../operations/TROUBLESHOOTING.md).
 
 ### Common Error Scenarios
 ```typescript

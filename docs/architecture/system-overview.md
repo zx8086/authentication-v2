@@ -35,6 +35,8 @@
 ### Internal Components
 - **HTTP Server**: Native Bun.serve() Routes API for maximum performance (100k+ req/sec)
 - **JWT Service**: Token generation using crypto.subtle Web API with response builders
+- **Type Definitions**: Shared types module (`src/types/`)
+  - `circuit-breaker.types.ts`: Shared CircuitBreakerStats interface (avoids circular dependencies)
 - **API Gateway Adapter**: Unified Kong adapter supporting both API Gateway and Konnect modes
   - `kong.adapter.ts`: Consolidated Kong integration with strategy pattern
   - Mode-specific strategies for different Kong deployments

@@ -15,6 +15,8 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
 | Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
+| SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
+| Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook for common operational issues |
 | Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
 
 ## Core Practices
@@ -357,3 +359,14 @@ The service uses standardized error codes for client consumption:
 - Single comprehensive CI/CD pipeline in `build-and-deploy.yml`
 - Parallel security scanning matrix (5 concurrent scans)
 - ~60-70% improvement in pipeline execution time
+
+### Production Readiness Improvements (Latest)
+- **Circular Dependency Fix**: Created `src/types/circuit-breaker.types.ts` to break config -> service -> metrics cycle
+- **Memory Leak Fixes**: Added shutdown functions for all intervals:
+  - `shutdownConsumerVolume()` - Consumer tracking cleanup
+  - `shutdownCardinalityGuard()` - Cardinality guard cleanup
+  - `shutdownTelemetryCircuitBreakers()` - Circuit breaker cleanup
+- **W3C Trace Context Propagation**: Kong API calls now include `traceparent` and `tracestate` headers via `createStandardHeaders()`
+- **Dead Code Removal**: Removed unused files (`metrics-backup.ts`, `shared-circuit-breaker.service.ts`)
+- **Header Validation**: Added 256 character max length validation for consumer headers (security hardening)
+- **Documentation**: Added SLA.md and TROUBLESHOOTING.md for operations teams
