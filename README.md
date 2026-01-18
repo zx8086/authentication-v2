@@ -129,10 +129,10 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | Category | Document | Description |
 |----------|----------|-------------|
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
-| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (15 endpoints) |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [testing.md](docs/development/testing.md) | Testing strategy (390+ tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (1500+ tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Operational runbook and diagnostics |
@@ -157,8 +157,8 @@ bun run quality:check          # Code quality and formatting
 
 ### Testing
 ```bash
-bun run bun:test              # Unit tests (356 tests)
-bun run playwright:test       # E2E tests (32 tests)
+bun run bun:test              # Unit + integration tests (1400+ tests)
+bun run playwright:test       # E2E tests (3 suites)
 bun run k6:quick              # Performance smoke tests
 ```
 
@@ -175,8 +175,10 @@ curl http://localhost:3000/metrics   # Operational metrics
 |----------|--------|-------------|
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
+| `/tokens/validate` | GET | Validate JWT token |
 | `/health` | GET | Service health check (liveness) |
 | `/health/ready` | GET | Readiness probe (checks Kong connectivity) |
+| `/health/metrics` | GET | Metrics system health |
 | `/metrics` | GET | Operational metrics |
 
 ## Environment Configuration

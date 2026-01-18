@@ -1,24 +1,33 @@
 # Authentication Service Testing Suite
 
-Comprehensive testing for the Bun-based authentication service with three-tier testing strategy: unit/integration (Bun), end-to-end scenarios (Playwright), and performance validation (K6). Current test suite includes 36 test files with 210+ individual tests across 10 Bun unit test files (178 tests), 3 Playwright E2E suites (32 tests), and 23 K6 performance test files.
+Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
+
+**Current Test Suite**: 1523 tests across 52 files (100% pass rate)
+
+| Category | Files | Tests | Framework |
+|----------|-------|-------|-----------|
+| Unit Tests | 48 | 1400+ | Bun |
+| Integration Tests | 4 | 50+ | Bun |
+| E2E Tests | 3 | 32 | Playwright |
+| Performance Tests | 19 | - | K6 |
 
 ## Directory Structure
 
 ```
 test/
-├── bun/              # Unit & Integration Tests (10 test files, 178 tests)
-├── k6/               # Performance Tests (K6 Load Testing, 23 test files)
+├── bun/              # Unit Tests (48 test files)
+├── integration/      # Integration Tests (4 test files)
+├── k6/               # Performance Tests (19 test files)
 │   ├── smoke/        # Quick validation tests
 │   ├── load/         # Production load simulation
 │   ├── stress/       # Breaking point analysis
 │   ├── spike/        # Traffic burst testing
 │   ├── soak/         # Extended endurance testing
 │   └── utils/        # Shared utilities and configurations
-├── playwright/       # E2E Scenarios (3 test suites, 32 tests)
+├── playwright/       # E2E Scenarios (3 test suites)
+├── kong-simulator/   # Kong proxy simulator for testing
 ├── shared/           # Shared test utilities and consumer setup
 ├── telemetry/        # Telemetry-specific test files
-├── compatibility/    # Compatibility and migration tests
-├── unit/             # Legacy unit test directory
 ├── results/          # Test execution results and reports
 └── README.md         # This file
 ```
@@ -30,23 +39,54 @@ test/
 **Framework**: Bun native test runner
 **When to run**: During development, pre-commit, CI/CD
 
-**Test Files** (10 files, 178 tests):
+**Test Files** (48 files organized by domain):
+
+**Core Services**:
 - `jwt.service.test.ts` - JWT generation and validation logic
-- `kong.adapter.test.ts` - Unified Kong adapter testing
-- `kong.service.test.ts` - Kong service integration with mocking
-- `kong.factory.test.ts` - Kong service factory patterns
-- `server.test.ts` - Full server integration tests with HTTP requests
-- `config.test.ts` - Configuration validation and schema testing
-- `api-versioning.*.test.ts` - API versioning middleware and routing (3 files)
-- `v2-*.test.ts` - API v2 specific features (3 files)
-- `memory-pressure.test.ts` - Memory management and pressure testing
-- `metrics.test.ts` - Telemetry and metrics collection
-- `profiling.test.ts` - Performance profiling capabilities
-- `circuit-breaker-error-classification.test.ts` - Circuit breaker resilience
-- `*-cache.test.ts` - Caching strategies (2 files)
+- `kong.adapter.test.ts`, `kong-adapter-fetch.test.ts` - Kong adapter with fetch mocking
+- `kong-mode-strategies.test.ts`, `kong-utils.test.ts` - Kong mode strategies and utilities
+- `api-gateway.service.test.ts` - API gateway service layer
+
+**Configuration**:
+- `config.test.ts`, `config-getters.test.ts`, `config-helpers.test.ts` - Configuration validation
+- `defaults.test.ts` - Default value handling
+
+**Circuit Breaker & Resilience**:
+- `circuit-breaker-per-operation.test.ts`, `circuit-breaker-thresholds.test.ts` - Circuit breaker patterns
+- `circuit-breaker.mutation.test.ts` - Mutation-resistant circuit breaker tests
+- `retry.test.ts` - Retry logic testing
+
+**Caching**:
+- `cache-factory.test.ts`, `cache-manager.test.ts` - Cache infrastructure
+- `cache-health.service.test.ts`, `cache-stale-operations.test.ts` - Cache health and stale data
+- `local-memory-cache.test.ts` - In-memory cache implementation
+
+**Telemetry & Observability**:
+- `metrics.test.ts`, `metrics-attributes.test.ts`, `metrics-initialized.test.ts` - Metrics collection
+- `gc-metrics.test.ts`, `gc-metrics-operations.test.ts` - Garbage collection metrics
+- `cardinality-guard.test.ts` - Cardinality protection
+- `tracer-operations.test.ts`, `instrumentation-operations.test.ts` - Tracing
+- `logger.test.ts`, `logger-output.test.ts`, `winston-logger-methods.test.ts` - Logging
+
+**Request Handlers**:
+- `health-handlers.test.ts`, `health-branches.test.ts`, `health-fetch-spy.test.ts` - Health endpoints
+- `health-telemetry-branches.test.ts`, `health-mutation-killers.test.ts` - Health telemetry
+- `health.mutation.test.ts` - Mutation-resistant health tests
+- `tokens-handler.test.ts`, `tokens.mutation.test.ts` - Token endpoint handling
+- `openapi-handler.test.ts`, `openapi-generator.test.ts` - OpenAPI specification
+- `header-validation.test.ts` - Request header validation
+
+**Error Handling & Types**:
+- `error-codes.test.ts` - Structured error code validation
 - `type-validation.test.ts` - TypeScript type safety
-- `logger.test.ts` - Logging infrastructure
-- `config-helpers.test.ts` - Configuration utility functions
+- `response.mutation.test.ts` - Response handling mutations
+
+**Mutation Testing**:
+- `jwt.mutation.test.ts`, `mutation-killer.test.ts` - Mutation-resistant test patterns
+
+**Lifecycle**:
+- `shutdown-cleanup.test.ts` - Graceful shutdown testing
+- `api-versioning.test.ts` - API versioning (v1/v2)
 
 **Commands**:
 ```bash
@@ -56,14 +96,31 @@ bun test --watch                           # Watch mode
 bun test --coverage                        # With coverage
 ```
 
-### 2. Playwright Tests - E2E Scenarios
+### 2. Integration Tests
+**Purpose**: Service-to-service integration validation, real dependency testing
+**Framework**: Bun native test runner
+**When to run**: After unit tests pass, before E2E tests
+
+**Test Files** (4 files):
+- `kong-adapter.integration.test.ts` - Kong adapter integration with real API calls
+- `kong-service.integration.test.ts` - Kong service layer integration
+- `circuit-breaker.integration.test.ts` - Circuit breaker behavior with real failures
+- `redis-cache.integration.test.ts` - Redis cache integration patterns
+
+**Commands**:
+```bash
+bun test test/integration/           # All integration tests
+bun test test/integration/kong*.ts   # Kong-specific integration
+```
+
+### 3. Playwright Tests - E2E Scenarios
 **Purpose**: End-to-end business logic validation, real API testing
 **Framework**: Playwright for API testing
 **When to run**: Pre-deployment, staging validation, comprehensive testing
 
-**Test Files** (3 suites, 68+ tests):
+**Test Files** (3 suites):
 - `consolidated-business.e2e.ts` - Core business logic and JWT token flows
-- `api-versioning.e2e.ts` - API versioning and backward compatibility
+- `ci-safe.e2e.ts` - CI-safe subset of E2E tests
 - `profiling.e2e.ts` - Performance profiling endpoint testing
 
 **Commands**:
@@ -95,7 +152,7 @@ bun run playwright:ui                     # Interactive test UI
 - Request/response timing headers - Not implemented by service
 - Custom error formatting - Service uses simple error responses
 
-### 3. K6 Tests - Performance Testing
+### 4. K6 Tests - Performance Testing
 **Purpose**: Load testing, stress testing, performance validation
 **Framework**: K6 performance testing tool
 **When to run**: Performance validation, capacity planning, pre-production
@@ -362,10 +419,10 @@ Expected JWT response format:
 
 ### Comprehensive Testing Strategy
 ```bash
-# 1. Unit & Integration (fastest) - 30 seconds, 392+ tests
+# 1. Unit & Integration (fastest) - ~45 seconds, 1400+ tests
 bun test
 
-# 2. E2E Scenarios (thorough) - 2-3 minutes, 68+ tests
+# 2. E2E Scenarios (thorough) - 2-3 minutes
 bun run playwright:test
 
 # 3. Performance Testing (selective)

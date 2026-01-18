@@ -9,15 +9,15 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 ### Quick Links
 | Category | Document | Description |
 |----------|----------|-------------|
-| Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
-| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (15 endpoints) |
+| Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup, commands, and workflow |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (1500+ tests) |
 | Kong Test Setup | [kong-test-setup.md](docs/development/kong-test-setup.md) | Test consumers, API keys, and Kong configuration |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
-| Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook for common operational issues |
+| Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook, error codes, and FAQ |
 | Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
 
 ## Core Practices
@@ -100,17 +100,18 @@ High-performance authentication service using Bun runtime with 100% API compatib
 - **API Versioning**: Header-based (`Accept-Version: v1|v2`)
 
 ### Key Features
-- Circuit breaker with stale cache fallback (SIO-45)
-- Comprehensive testing (210+ tests: 178 unit + 32 E2E + K6 performance suite, 100% pass rate)
-- Structured error codes (AUTH_001-012) for client consumption
+- Circuit breaker with stale cache fallback
+- Comprehensive testing (1500+ tests, 100% pass rate)
+- Structured error codes (AUTH_001-012)
 - Security headers + audit logging (v2 only)
-- License compliance check (593x faster than legacy)
-- Multi-stage Docker builds with distroless base (security-hardened)
+- Multi-stage Docker builds with distroless base
 
 ### External Dependencies (Not Implemented in This Service)
-- **Rate Limiting**: Handled by Kong API Gateway - DO NOT implement in this service
-- **Authentication Routing**: Managed by Kong - this service only generates/validates JWTs
-- **Traffic Management**: Kong handles load balancing, retries at gateway level
+- **Rate Limiting**: Handled by Kong API Gateway
+- **Authentication Routing**: Managed by Kong
+- **Traffic Management**: Kong handles load balancing, retries
+
+For detailed architecture, see [system-overview.md](docs/architecture/system-overview.md).
 
 ## Critical Runtime Requirements
 
@@ -120,328 +121,89 @@ High-performance authentication service using Bun runtime with 100% API compatib
 - Lockfile: `bun.lockb`
 - Entry point: `src/index.ts` (uses `import.meta.main` for conditional execution)
 
-## Quick Commands
+## Essential Commands
 
-### Development
 ```bash
+# Development
 bun run dev              # Development server with hot reload
-bun run start            # Production server (src/index.ts)
-bun run typecheck        # TypeScript checking
+bun run start            # Production server
 bun run quality:check    # Full quality check (TypeScript + Biome + YAML)
-bun run quality:fix      # Auto-fix quality issues
+
+# Testing (see test/README.md for complete documentation)
+bun run bun:test         # Unit + integration tests (1400+ tests)
+bun run playwright:test  # E2E tests (3 suites)
+bun run k6:quick         # Performance smoke tests
+
+# Docker
+bun run docker:build     # Build container
+bun run docker:local     # Build and run locally
 ```
 
-### Testing
-```bash
-# Unit Tests (Bun)
-bun run bun:test                # All unit tests (178 tests across 10 files)
-bun run bun:test:concurrent     # Parallel execution (4 workers)
-bun run bun:test:watch          # Watch mode
-
-# E2E Tests (Playwright)
-bun run playwright:test         # All E2E tests (32 tests across 3 files)
-bun run playwright:ui           # Interactive test UI
-
-# Performance Tests (K6)
-bun run k6:quick               # Health + tokens smoke tests
-bun run k6:smoke:health        # Health endpoint only
-bun run k6:smoke:tokens        # JWT token generation
-bun run k6:load                # Load testing
-bun run k6:stress              # Stress testing
-
-# Full Test Suite
-bun run test:suite             # All tests: Bun + Playwright + K6
-```
-
-### Debugging
-```bash
-curl http://localhost:3000/health           # Health check
-curl -H "Accept-Version: v2" http://localhost:3000/health  # V2 with security headers
-curl http://localhost:3000/metrics          # Performance metrics
-bun run health-check                        # Automated health check
-bun run kill-server                         # Kill any running server on port 3000
-```
-
-### Docker Operations
-```bash
-# Build and Run
-bun run docker:build             # Build with metadata and caching
-bun run docker:local             # Build and run locally
-bun run docker:dev               # Build and run for development
-
-# Security Validation
-bun run docker:security:full     # Complete security validation
-bun run docker:security:trivy    # Trivy vulnerability scan
-```
-
-## Environment Configuration
-
-### Structure
-```
-.env         # Local development (NODE_ENV=local)
-.env.dev     # Development environment
-.env.stg     # Staging environment
-.env.prod    # Production environment
-.env.test    # Test environment
-```
-
-### Key Variables
-```bash
-NODE_ENV=local|development|staging|production|test
-PORT=3000
-KONG_MODE=API_GATEWAY|KONNECT
-KONG_ADMIN_URL=https://kong-admin:8001
-TELEMETRY_MODE=console|otlp|both
-```
+For complete command reference, see [getting-started.md](docs/development/getting-started.md).
 
 ## API Versioning
 
-### V1 (Original)
-- Standard headers only
-- No security enhancements
-- Backward compatible
+| Version | Features |
+|---------|----------|
+| V1 | Standard headers, backward compatible |
+| V2 | V1 + OWASP security headers, audit logging |
 
-### V2 (Enhanced Security - SIO-58)
-- All v1 features PLUS:
-- OWASP security headers (HSTS, CSP, X-Frame-Options, etc.)
-- Enhanced JWT audit logging
-- Security event monitoring
-- **No configuration needed - works out of the box**
-
-### Usage
 ```bash
-# V1 endpoint
-curl -H "Accept-Version: v1" http://localhost:3000/health
-
-# V2 endpoint (with security headers)
-curl -H "Accept-Version: v2" http://localhost:3000/health
+curl -H "Accept-Version: v1" http://localhost:3000/health  # V1
+curl -H "Accept-Version: v2" http://localhost:3000/health  # V2 with security headers
 ```
 
 ## Specialized Agents
 
 When working on specific areas, use these agents:
 
-### Primary Agents
-- `config-reviewer` - 4-pillar configuration patterns
-- `bun-reviewer` - Bun runtime optimization
-- `test-orchestrator` - Comprehensive testing strategy
-- `observability-engineer` - OpenTelemetry monitoring
-
-### Testing Agents
-- `bun-test-specialist` - Unit/integration tests
-- `playwright-specialist` - E2E browser tests
-- `k6-specialist` - Performance/load testing
-
-### Infrastructure Agents
-- `docker-reviewer` - Container optimization
-- `github-deployment-specialist` - CI/CD workflows
-- `kong-konnect-engineer` - Kong configuration
+| Agent | Use Case |
+|-------|----------|
+| `config-reviewer` | 4-pillar configuration patterns |
+| `bun-reviewer` | Bun runtime optimization |
+| `test-orchestrator` | Comprehensive testing strategy |
+| `observability-engineer` | OpenTelemetry monitoring |
+| `bun-test-specialist` | Unit/integration tests |
+| `playwright-specialist` | E2E browser tests |
+| `k6-specialist` | Performance/load testing |
+| `docker-reviewer` | Container optimization |
+| `github-deployment-specialist` | CI/CD workflows |
+| `kong-konnect-engineer` | Kong configuration |
 
 ## Development Guidelines
 
 ### Code Quality
-- **ABSOLUTELY NO EMOJIS ANYWHERE** - code, logs, comments, documentation, commits
+- **ABSOLUTELY NO EMOJIS ANYWHERE**
 - Minimal comments (no excessive JSDoc)
 - Run `bun run biome:check` before commits
 
 ### Security
 - NEVER hardcode secrets in tests
 - Use `TestConsumerSecretFactory` from `test/shared/test-consumer-secrets.ts`
-- Run `bunx snyk test` for security scanning
 
 ### Server Management
 **ALWAYS check if service is running before starting new processes**
 ```bash
-# Check first
-curl -s http://localhost:3000/health > /dev/null 2>&1
-
-# Only start if not running
-bun src/index.ts &
-
-# Or use helper commands
-bun run kill-server && bun run dev    # Clean restart
+curl -s http://localhost:3000/health > /dev/null 2>&1  # Check first
+bun run kill-server && bun run dev                      # Clean restart
 ```
 
 ### Testing Rules
-- **ZERO FAILING TESTS POLICY**: We do not accept ANY failing tests. All tests must pass before proceeding with any development work
+- **ZERO FAILING TESTS POLICY**: All tests must pass before proceeding
 - **NEVER apply artificial timeouts to tests**
-- Let K6 performance tests run their full duration
-- Tests are designed to complete naturally
-- **MANDATORY**: Fix all test failures immediately before continuing development
+- **MANDATORY**: Fix all test failures immediately
 
-### Mutation Testing Guidelines (Stryker)
+For mutation testing guidelines, see [testing.md](docs/development/testing.md#4-mutation-testing-with-strykerjs).
 
-**IMPORTANT**: All tests must be written with mutation testing in mind. Tests should create "killable mutations" - meaning they should fail if the code logic is mutated.
+### CI/CD Rules
+- **NEVER add timeouts to critical installation steps**
+- Let operations complete naturally
+- Single consolidated workflow in `build-and-deploy.yml`
 
-#### Mutation-Resistant Test Patterns
+## Structured Error Codes
 
-**1. Assert Specific Values, Not Just Truthiness**
-```typescript
-// BAD - Survives mutations (value could be changed)
-expect(result).toBeDefined();
-expect(response.status).toBeTruthy();
-
-// GOOD - Kills mutations (exact value required)
-expect(result).toBe("expected-value");
-expect(response.status).toBe(200);
-```
-
-**2. Test Boundary Conditions**
-```typescript
-// BAD - Doesn't catch off-by-one mutations
-expect(items.length).toBeGreaterThan(0);
-
-// GOOD - Catches boundary mutations
-expect(items.length).toBe(3);
-// Or test both boundaries:
-expect(value).toBeGreaterThanOrEqual(0);
-expect(value).toBeLessThanOrEqual(100);
-```
-
-**3. Verify Return Values Are Used**
-```typescript
-// BAD - Function could return anything
-const result = calculate(input);
-expect(result).toBeDefined();
-
-// GOOD - Verify the actual computation
-const result = calculate(5);
-expect(result).toBe(25); // 5 * 5
-```
-
-**4. Test Error Paths With Specific Messages**
-```typescript
-// BAD - Only checks that it throws
-expect(() => validate(null)).toThrow();
-
-// GOOD - Verifies the specific error
-expect(() => validate(null)).toThrow("Input cannot be null");
-```
-
-**5. Test All Branches of Conditionals**
-```typescript
-// Test BOTH paths of: if (isValid) { return success } else { return failure }
-it("should return success when valid", () => {
-  expect(process(validInput)).toEqual({ status: "success" });
-});
-
-it("should return failure when invalid", () => {
-  expect(process(invalidInput)).toEqual({ status: "failure" });
-});
-```
-
-**6. Verify Object Properties Individually**
-```typescript
-// BAD - Object could have wrong internal values
-expect(user).toBeDefined();
-
-// GOOD - Check each property
-expect(user.id).toBe("user-123");
-expect(user.email).toBe("test@example.com");
-expect(user.role).toBe("admin");
-```
-
-**7. Test Numeric Operations Precisely**
-```typescript
-// BAD - Doesn't catch arithmetic mutations (+, -, *, /)
-expect(total).toBeGreaterThan(0);
-
-// GOOD - Verify exact calculation
-expect(calculateTotal(10, 5)).toBe(15);  // Tests addition
-expect(calculateDiscount(100, 0.2)).toBe(80);  // Tests multiplication
-```
-
-**8. Test Array/Collection Contents**
-```typescript
-// BAD - Only checks length
-expect(results.length).toBe(3);
-
-// GOOD - Verify actual contents
-expect(results).toEqual(["a", "b", "c"]);
-// Or for objects:
-expect(results).toContainEqual({ id: 1, name: "first" });
-```
-
-#### Common Surviving Mutations to Watch For
-
-| Mutation Type | Example | How to Kill It |
-|--------------|---------|----------------|
-| Arithmetic | `a + b` -> `a - b` | Assert exact numeric results |
-| Comparison | `>` -> `>=` | Test boundary values |
-| Boolean | `true` -> `false` | Test both conditions explicitly |
-| String | `"error"` -> `""` | Assert exact string values |
-| Return | `return x` -> `return null` | Assert return value is used |
-| Conditional | `if(a)` -> `if(true)` | Test both branches |
-
-#### Running Mutation Tests
-```bash
-# Note: Currently blocked by stryker-mutator-bun-runner ENOEXEC bug (SIO-276)
-# When available:
-bun run stryker        # Run mutation testing
-bun run stryker:report # View mutation report
-```
-
-**Target**: Aim for >80% mutation score. Surviving mutants indicate weak tests.
-
-### CI/CD Workflow Rules
-- **NEVER add timeouts to critical installation steps** (Playwright browsers, dependencies)
-- Failing workflows due to artificial timeouts is counterproductive
-- Let operations complete naturally - optimize the operation, not restrict the time
-- Only use timeouts for known quick operations (cache, checkout, etc.)
-
-### CI/CD Architecture
-**Single Consolidated Workflow**: All quality checks, testing, building, and security scanning in one optimized pipeline:
-- **build-and-deploy.yml**: Comprehensive CI/CD with parallel security scans
-- **security-audit.yml**: Dedicated security auditing workflow
-- No duplicate workflows - quality checks run once per build
-- 5 parallel security scans: Snyk (code + container), Trivy, Docker Scout, License compliance
-
-## Production Considerations
-
-### Performance
-- Memory: ~50-80MB baseline
-- CPU: <2% overhead with full observability
-- Cold start: <100ms
-
-### Monitoring Alerts
-- Event loop delay >100ms
-- Memory usage >80%
-- HTTP error rate >5%
-- Kong API failures
-- Circuit breaker state changes
-
-### Observability Cost Management
-**CONTEXT**: This service has telemetry collectors in place that manage data volume and costs at the infrastructure level.
-
-**Current Status**: OpenTelemetry sampling is NOT needed at the application level because:
-- Telemetry collectors handle intelligent sampling upstream
-- Infrastructure-level cost controls are already implemented
-- Application maintains full observability for debugging and business metrics
-- Cost optimization is managed by the collector pipeline, not application configuration
-
-**Guidance**: Do NOT implement application-level OpenTelemetry sampling unless specifically requested. The current comprehensive telemetry approach is intentional and cost-managed through collector infrastructure.
-
-## Production Readiness
-
-**Status: 10/10 Production Ready**
-
-| Category | Status | Details |
-|----------|--------|---------|
-| Security | Complete | OWASP headers, audit logging, no hardcoded secrets |
-| Testing | Complete | 210+ tests (178 unit + 32 E2E), 100% pass rate |
-| Observability | Complete | OpenTelemetry traces, metrics, logs |
-| Error Handling | Complete | Structured error codes (AUTH_001-012), circuit breaker |
-| Documentation | Complete | OpenAPI spec, API docs, comprehensive guides |
-| Configuration | Complete | 4-pillar pattern, .env.example comprehensive |
-| Docker | Complete | Multi-stage distroless builds, security hardened |
-| CI/CD | Complete | Parallel security scanning, consolidated workflow |
-
-### Structured Error Codes
-
-The service uses standardized error codes for client consumption:
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
+| Code | HTTP | Description |
+|------|------|-------------|
 | AUTH_001 | 401 | Missing Consumer Headers |
 | AUTH_002 | 401 | Consumer Not Found |
 | AUTH_003 | 500 | JWT Creation Failed |
@@ -455,42 +217,27 @@ The service uses standardized error codes for client consumption:
 | AUTH_011 | 400 | Invalid Token |
 | AUTH_012 | 400 | Missing Authorization |
 
-### Known Tooling Limitations
+For troubleshooting each error, see [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md).
 
-**Mutation Testing (SIO-276)**: The `stryker-mutator-bun-runner` package has an ENOEXEC bug when Stryker (Node.js) spawns Bun processes. This is an external tooling limitation, not a code quality issue. Tracked for upstream reporting.
+## Production Readiness
 
-## Recent Architectural Improvements
+**Status: 10/10 Production Ready**
 
-### SIO-272: Structured Error Codes
-- Implemented 12 standardized error codes (AUTH_001-012)
-- Added to OpenAPI specification for client documentation
-- Consistent error response format across all endpoints
+| Category | Status |
+|----------|--------|
+| Security | OWASP headers, audit logging, no hardcoded secrets |
+| Testing | 1500+ tests (48 unit + 4 integration + 3 E2E + 15 K6), 100% pass rate |
+| Observability | OpenTelemetry traces, metrics, logs |
+| Error Handling | Structured error codes, circuit breaker |
+| Documentation | OpenAPI spec, comprehensive guides |
+| Docker | Multi-stage distroless builds |
+| CI/CD | Parallel security scanning |
 
-### SIO-70: TypeScript Type Safety Architecture Refactoring
-- **Phase 3 Complete**: Eliminated all 37 `as any` instances from src directory
-- Type-safe OpenTelemetry metrics interfaces with runtime validation
-- Enhanced enum validation patterns for metric attributes
-- Zero breaking changes maintained across 210+ tests
+For detailed production considerations, see [SLA.md](docs/operations/SLA.md) and [monitoring.md](docs/operations/monitoring.md).
 
-### Docker Container Optimization
-- **Entry Point Fix**: Changed from `src/server.ts` to `src/index.ts`
-- Eliminates double startup issues and circular import problems
-- Uses proper conditional execution via `import.meta.main`
-- Multi-stage distroless builds for security hardening
+### Observability Cost Management
+OpenTelemetry sampling is NOT needed at the application level - telemetry collectors handle intelligent sampling upstream. Do NOT implement application-level sampling unless specifically requested.
 
-### Workflow Consolidation
-- Eliminated duplicate code quality workflows
-- Single comprehensive CI/CD pipeline in `build-and-deploy.yml`
-- Parallel security scanning matrix (5 concurrent scans)
-- ~60-70% improvement in pipeline execution time
+## Known Tooling Limitations
 
-### Production Readiness Improvements (Latest)
-- **Circular Dependency Fix**: Created `src/types/circuit-breaker.types.ts` to break config -> service -> metrics cycle
-- **Memory Leak Fixes**: Added shutdown functions for all intervals:
-  - `shutdownConsumerVolume()` - Consumer tracking cleanup
-  - `shutdownCardinalityGuard()` - Cardinality guard cleanup
-  - `shutdownTelemetryCircuitBreakers()` - Circuit breaker cleanup
-- **W3C Trace Context Propagation**: Kong API calls now include `traceparent` and `tracestate` headers via `createStandardHeaders()`
-- **Dead Code Removal**: Removed unused files (`metrics-backup.ts`, `shared-circuit-breaker.service.ts`)
-- **Header Validation**: Added 256 character max length validation for consumer headers (security hardening)
-- **Documentation**: Added SLA.md and TROUBLESHOOTING.md for operations teams
+**Mutation Testing (SIO-276)**: The `stryker-mutator-bun-runner` package has an ENOEXEC bug when Stryker (Node.js) spawns Bun processes. This is an external tooling limitation.

@@ -9,10 +9,10 @@ Comprehensive documentation for the Authentication Service - a high-performance 
 | Category | Key Document | Description |
 |----------|-------------|-------------|
 | Getting Started | [getting-started.md](development/getting-started.md) | Development setup and workflow |
-| API Reference | [endpoints.md](api/endpoints.md) | Complete API documentation (15 endpoints) |
+| API Reference | [endpoints.md](api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](deployment/docker.md) | Container builds and deployment |
-| Testing | [testing.md](development/testing.md) | Testing strategy (210+ tests) |
+| Testing | [test/README.md](../test/README.md) | Comprehensive testing documentation (1500+ tests) |
 
 ## Documentation Structure
 
@@ -31,7 +31,7 @@ Complete API documentation and specifications.
 
 | Document | Description |
 |----------|-------------|
-| [endpoints.md](api/endpoints.md) | All 15 API endpoints with request/response formats |
+| [endpoints.md](api/endpoints.md) | All 16 API endpoints with request/response formats |
 | [jwt-tokens.md](api/jwt-tokens.md) | JWT token structure, claims, and validation |
 
 ### Configuration
@@ -50,7 +50,7 @@ Development workflow and testing documentation.
 | Document | Description |
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
-| [testing.md](development/testing.md) | Testing strategy (178 unit + 32 E2E + K6 performance) |
+| [test/README.md](../test/README.md) | Testing strategy (1400+ unit + 4 integration + 3 E2E + 15 K6) |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
 
 ### Deployment
@@ -131,7 +131,7 @@ Legacy system migration documentation.
 | Category | Status |
 |----------|--------|
 | Security | Complete - OWASP headers, audit logging, no hardcoded secrets |
-| Testing | Complete - 210+ tests (178 unit + 32 E2E), 100% pass rate |
+| Testing | Complete - 1500+ tests (48 unit + 4 integration + 3 E2E + 15 K6), 100% pass rate |
 | Observability | Complete - OpenTelemetry traces, metrics, logs |
 | Error Handling | Complete - Structured error codes, circuit breaker |
 | Documentation | Complete - OpenAPI spec, API docs, comprehensive guides |
@@ -154,11 +154,13 @@ Legacy system migration documentation.
 |----------|--------|-------------|
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
+| `/tokens/validate` | GET | Validate JWT token |
 | `/health` | GET | Service health (liveness) |
 | `/health/ready` | GET | Readiness probe |
 | `/health/telemetry` | GET | Telemetry status |
+| `/health/metrics` | GET | Metrics system health |
 | `/metrics` | GET | Performance metrics |
-| `/memory/*` | GET/POST | Memory monitoring |
+| `/debug/metrics/*` | POST | Metrics debugging |
 | `/debug/profiling/*` | GET/POST | Profiling endpoints |
 
 See [endpoints.md](api/endpoints.md) for complete API documentation.
