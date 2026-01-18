@@ -517,18 +517,26 @@ TEST_CONSUMER_USERNAME=test-consumer-001
 ## Test Data Management
 
 ### Test Consumers
-Shared test consumer definitions in `test/shared/test-consumers.ts`:
-```typescript
-export const BASIC_TEST_CONSUMERS = [
-  {
-    id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
-    username: "test-consumer-001",
-    custom_id: "test-consumer-001",
-    description: "Primary test consumer for basic authentication tests",
-  },
-  // Additional test consumers...
-];
-```
+
+The authentication service uses 6 predefined test consumers for consistent testing across all frameworks. For comprehensive documentation on consumer setup, API keys, JWT credentials, and Kong configuration, see:
+
+**[Kong Test Consumer Setup Guide](kong-test-setup.md)**
+
+Key files:
+- `test/shared/test-consumers.ts` - Consumer definitions (source of truth)
+- `test/shared/test-consumer-secrets.ts` - Secure test secret generation
+- `scripts/seed-test-consumers.ts` - Automated Kong seeding script
+
+### Quick Reference
+
+| Consumer | Purpose |
+|----------|---------|
+| test-consumer-001 | Primary test consumer for basic auth tests |
+| test-consumer-002 | Multi-user scenarios |
+| test-consumer-003 | Multi-user scenarios |
+| test-consumer-004 | Load/performance testing |
+| test-consumer-005 | Load/performance testing |
+| anonymous | Testing rejection scenarios |
 
 ### Test Secrets
 Secure test secret management in `test/shared/test-consumer-secrets.ts`:

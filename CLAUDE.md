@@ -14,6 +14,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
 | Testing | [testing.md](docs/development/testing.md) | Testing strategy (210+ tests) |
+| Kong Test Setup | [kong-test-setup.md](docs/development/kong-test-setup.md) | Test consumers, API keys, and Kong configuration |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook for common operational issues |

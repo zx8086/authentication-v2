@@ -51,6 +51,7 @@ Development workflow and testing documentation.
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
 | [testing.md](development/testing.md) | Testing strategy (178 unit + 32 E2E + K6 performance) |
+| [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
 
 ### Deployment
 

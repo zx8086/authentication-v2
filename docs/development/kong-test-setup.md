@@ -1,0 +1,437 @@
+# Kong Test Consumer Setup
+
+This guide documents the test consumers used for testing the authentication service and how to configure them in Kong API Gateway.
+
+## Test Consumers Overview
+
+The authentication service uses 6 predefined test consumers for consistent testing across unit tests, E2E tests, and integration tests.
+
+### Consumer Definitions
+
+All consumers are defined in `test/shared/test-consumers.ts`:
+
+| Username | UUID | Purpose |
+|----------|------|---------|
+| `test-consumer-001` | `f48534e1-4caf-4106-9103-edf38eae7ebc` | Primary test consumer for basic authentication tests |
+| `test-consumer-002` | `1ff7d425-917a-4858-9e99-c2a911ba1b05` | Secondary consumer for multi-user scenarios |
+| `test-consumer-003` | `73881280-13b4-40b3-aecf-84d981d6ac35` | Third consumer for multi-user scenarios |
+| `test-consumer-004` | `10f37f4d-99b2-4b93-8e10-4f9090d62ee0` | Load testing consumer for performance tests |
+| `test-consumer-005` | `2df241f5-11db-49a3-b9fb-c797135db9c3` | Load testing consumer for performance tests |
+| `anonymous` | `56456a01-65ec-4415-aec8-49fec6403c9c` | Anonymous consumer for testing rejection scenarios |
+
+### API Key Mappings
+
+Each consumer has a corresponding API key for authentication:
+
+| API Key | Consumer |
+|---------|----------|
+| `test-api-key-consumer-001` | test-consumer-001 |
+| `test-api-key-consumer-002` | test-consumer-002 |
+| `test-api-key-consumer-003` | test-consumer-003 |
+| `test-api-key-consumer-004` | test-consumer-004 |
+| `test-api-key-consumer-005` | test-consumer-005 |
+| `anonymous-key` | anonymous |
+
+### JWT Credentials
+
+Each consumer has JWT credentials for token validation:
+
+| Consumer | JWT Key | Algorithm |
+|----------|---------|-----------|
+| test-consumer-001 | `test-jwt-key-001` | HS256 |
+| test-consumer-002 | `test-jwt-key-002` | HS256 |
+| test-consumer-003 | `test-jwt-key-003` | HS256 |
+| test-consumer-004 | `test-jwt-key-004` | HS256 |
+| test-consumer-005 | `test-jwt-key-005` | HS256 |
+| anonymous | `anonymous-jwt-key` | HS256 |
+
+JWT secrets follow the pattern: `test-jwt-secret-{number}-minimum-32-characters-long`
+
+---
+
+## Setting Up Consumers in Kong
+
+### Option 1: Automated Seeding Script (Recommended)
+
+The project includes a seeding script that automatically configures Kong with all test consumers:
+
+```bash
+# Set Kong Admin URL and run the script
+KONG_ADMIN_URL=http://localhost:8001 bun scripts/seed-test-consumers.ts
+```
+
+#### What the Script Does
+
+1. **Waits for Kong** - Polls `/status` endpoint until Kong is ready (up to 30 retries)
+2. **Enables key-auth plugin** - Configures API key authentication globally
+   - Accepts keys via `X-API-Key` or `apikey` headers
+   - Hides credentials from upstream services
+3. **Enables jwt plugin** - Configures JWT validation globally
+   - Verifies `exp` (expiration) claim
+4. **Creates consumers** - Creates all 6 test consumers with tags
+5. **Creates API keys** - Associates API keys with each consumer
+6. **Creates JWT credentials** - Sets up JWT signing credentials for each consumer
+
+#### Script Output Example
+
+```
+=== Kong Test Consumer Seeding Script ===
+Kong Admin URL: http://localhost:8001
+
+Waiting for Kong at http://localhost:8001...
+Kong is ready!
+
+--- Enabling Plugins ---
+Enabled key-auth plugin globally
+Enabled jwt plugin globally
+
+--- Creating Test Consumers ---
+Created consumer: test-consumer-001 (f48534e1-4caf-4106-9103-edf38eae7ebc)
+Created consumer: test-consumer-002 (1ff7d425-917a-4858-9e99-c2a911ba1b05)
+...
+
+--- Creating API Keys ---
+Created API key for consumer: f48534e1-4caf-4106-9103-edf38eae7ebc
+...
+
+--- Creating JWT Credentials ---
+Created JWT credential for consumer: f48534e1-4caf-4106-9103-edf38eae7ebc
+...
+
+=== Seeding Complete ===
+Created 6 consumers
+Created 6 API keys
+Created 6 JWT credentials
+```
+
+### Option 2: Manual Kong Admin API Setup
+
+If you prefer manual setup or need to understand the individual API calls:
+
+#### Step 1: Enable Plugins
+
+```bash
+# Enable key-auth plugin globally
+curl -X POST http://localhost:8001/plugins \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "key-auth",
+    "config": {
+      "key_names": ["X-API-Key", "apikey"],
+      "hide_credentials": true
+    }
+  }'
+
+# Enable jwt plugin globally
+curl -X POST http://localhost:8001/plugins \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "jwt",
+    "config": {
+      "claims_to_verify": ["exp"]
+    }
+  }'
+```
+
+#### Step 2: Create Consumers
+
+```bash
+# Create test-consumer-001
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "f48534e1-4caf-4106-9103-edf38eae7ebc",
+    "username": "test-consumer-001",
+    "custom_id": "test-consumer-001",
+    "tags": ["test", "integration"]
+  }'
+
+# Create test-consumer-002
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "1ff7d425-917a-4858-9e99-c2a911ba1b05",
+    "username": "test-consumer-002",
+    "custom_id": "test-consumer-002",
+    "tags": ["test", "integration"]
+  }'
+
+# Create test-consumer-003
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "73881280-13b4-40b3-aecf-84d981d6ac35",
+    "username": "test-consumer-003",
+    "custom_id": "test-consumer-003",
+    "tags": ["test", "integration"]
+  }'
+
+# Create test-consumer-004
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "10f37f4d-99b2-4b93-8e10-4f9090d62ee0",
+    "username": "test-consumer-004",
+    "custom_id": "test-consumer-004",
+    "tags": ["test", "integration"]
+  }'
+
+# Create test-consumer-005
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "2df241f5-11db-49a3-b9fb-c797135db9c3",
+    "username": "test-consumer-005",
+    "custom_id": "test-consumer-005",
+    "tags": ["test", "integration"]
+  }'
+
+# Create anonymous consumer
+curl -X POST http://localhost:8001/consumers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "56456a01-65ec-4415-aec8-49fec6403c9c",
+    "username": "anonymous",
+    "custom_id": "anonymous",
+    "tags": ["test", "integration"]
+  }'
+```
+
+#### Step 3: Create API Keys
+
+```bash
+# API key for test-consumer-001
+curl -X POST http://localhost:8001/consumers/test-consumer-001/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "test-api-key-consumer-001"}'
+
+# API key for test-consumer-002
+curl -X POST http://localhost:8001/consumers/test-consumer-002/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "test-api-key-consumer-002"}'
+
+# API key for test-consumer-003
+curl -X POST http://localhost:8001/consumers/test-consumer-003/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "test-api-key-consumer-003"}'
+
+# API key for test-consumer-004
+curl -X POST http://localhost:8001/consumers/test-consumer-004/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "test-api-key-consumer-004"}'
+
+# API key for test-consumer-005
+curl -X POST http://localhost:8001/consumers/test-consumer-005/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "test-api-key-consumer-005"}'
+
+# API key for anonymous consumer
+curl -X POST http://localhost:8001/consumers/anonymous/key-auth \
+  -H "Content-Type: application/json" \
+  -d '{"key": "anonymous-key"}'
+```
+
+#### Step 4: Create JWT Credentials
+
+```bash
+# JWT credential for test-consumer-001
+curl -X POST http://localhost:8001/consumers/test-consumer-001/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "test-jwt-key-001",
+    "secret": "test-jwt-secret-001-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+
+# JWT credential for test-consumer-002
+curl -X POST http://localhost:8001/consumers/test-consumer-002/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "test-jwt-key-002",
+    "secret": "test-jwt-secret-002-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+
+# JWT credential for test-consumer-003
+curl -X POST http://localhost:8001/consumers/test-consumer-003/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "test-jwt-key-003",
+    "secret": "test-jwt-secret-003-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+
+# JWT credential for test-consumer-004
+curl -X POST http://localhost:8001/consumers/test-consumer-004/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "test-jwt-key-004",
+    "secret": "test-jwt-secret-004-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+
+# JWT credential for test-consumer-005
+curl -X POST http://localhost:8001/consumers/test-consumer-005/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "test-jwt-key-005",
+    "secret": "test-jwt-secret-005-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+
+# JWT credential for anonymous consumer
+curl -X POST http://localhost:8001/consumers/anonymous/jwt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "anonymous-jwt-key",
+    "secret": "anonymous-jwt-secret-minimum-32-characters-long",
+    "algorithm": "HS256"
+  }'
+```
+
+### Option 3: Kong Simulator (Local Development)
+
+For local development without a real Kong instance, the project includes simulators that mock Kong behavior:
+
+#### Starting the Simulators
+
+```bash
+# Terminal 1: Start Kong Admin API simulator (port 8001)
+bun test/kong-simulator/kong-admin.ts
+
+# Terminal 2: Start Kong Proxy simulator (port 8000)
+bun test/kong-simulator/kong-proxy.ts
+```
+
+#### What the Simulators Provide
+
+**Kong Admin Simulator** (`test/kong-simulator/kong-admin.ts`):
+- `/status` - Returns Kong status information
+- `/consumers/{id}` - Returns consumer details
+- `/consumers/{id}/jwt` - Generates mock JWT secrets
+
+**Kong Proxy Simulator** (`test/kong-simulator/kong-proxy.ts`):
+- Validates API keys against the predefined mappings
+- Adds consumer headers (`X-Consumer-ID`, `X-Consumer-Username`, `X-Consumer-Custom-ID`)
+- Proxies requests to the authentication service
+
+---
+
+## CI/CD Integration
+
+### Parallel Job Isolation
+
+For CI/CD workflows running tests in parallel, the consumer module provides job-specific consumer generation to prevent conflicts:
+
+```typescript
+import {
+  generateJobSpecificConsumers,
+  JOB_PREFIXES
+} from "test/shared/test-consumers";
+
+// Generate isolated consumers for E2E tests
+const e2eConsumers = generateJobSpecificConsumers(JOB_PREFIXES.E2E_TESTS);
+// Results in: e2e-test-consumer-001, e2e-test-consumer-002, etc.
+
+// Generate isolated consumers for performance tests
+const perfConsumers = generateJobSpecificConsumers(JOB_PREFIXES.PERFORMANCE_TESTS);
+// Results in: perf-test-consumer-001, perf-test-consumer-002, etc.
+```
+
+### Available Job Prefixes
+
+| Prefix | Use Case |
+|--------|----------|
+| `unit` | Unit tests |
+| `e2e` | End-to-end tests |
+| `perf` | Performance tests |
+| `local` | Local development |
+
+---
+
+## Verification
+
+### Verify Consumer Setup
+
+```bash
+# List all consumers
+curl http://localhost:8001/consumers
+
+# Get specific consumer
+curl http://localhost:8001/consumers/test-consumer-001
+
+# List consumer's API keys
+curl http://localhost:8001/consumers/test-consumer-001/key-auth
+
+# List consumer's JWT credentials
+curl http://localhost:8001/consumers/test-consumer-001/jwt
+```
+
+### Test Authentication Flow
+
+```bash
+# Test with valid API key
+curl -H "X-API-Key: test-api-key-consumer-001" http://localhost:8000/tokens
+
+# Test with invalid API key (should return 401)
+curl -H "X-API-Key: invalid-key" http://localhost:8000/tokens
+
+# Test without API key (should return 401)
+curl http://localhost:8000/tokens
+```
+
+---
+
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `test/shared/test-consumers.ts` | Consumer definitions (source of truth) |
+| `test/shared/test-consumer-secrets.ts` | Secure test secret generation |
+| `scripts/seed-test-consumers.ts` | Automated Kong seeding script |
+| `test/kong-simulator/kong-admin.ts` | Kong Admin API simulator |
+| `test/kong-simulator/kong-proxy.ts` | Kong Proxy simulator |
+| `test/k6/kong-gateway/kong-tokens-test.ts` | K6 performance tests for Kong |
+
+---
+
+## Troubleshooting
+
+### Consumer Already Exists
+
+The seeding script handles "already exists" errors gracefully. To force recreation:
+
+```bash
+# Delete existing consumer
+curl -X DELETE http://localhost:8001/consumers/test-consumer-001
+
+# Re-run seeding script
+KONG_ADMIN_URL=http://localhost:8001 bun scripts/seed-test-consumers.ts
+```
+
+### Kong Not Ready
+
+If the seeding script times out waiting for Kong:
+
+```bash
+# Check Kong status manually
+curl http://localhost:8001/status
+
+# Check Kong logs
+docker logs kong-gateway
+
+# Increase retry attempts (edit script or wait longer)
+```
+
+### API Key Not Working
+
+```bash
+# Verify key-auth plugin is enabled
+curl http://localhost:8001/plugins | jq '.data[] | select(.name=="key-auth")'
+
+# Verify API key exists for consumer
+curl http://localhost:8001/consumers/test-consumer-001/key-auth
+
+# Check if key is correct (case-sensitive)
+curl -v -H "X-API-Key: test-api-key-consumer-001" http://localhost:8000/tokens
+```
