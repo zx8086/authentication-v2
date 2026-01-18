@@ -317,6 +317,16 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 }
 
 export function handleTelemetryHealth(): Response {
+  const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing telemetry health request", {
+    component: "health",
+    operation: "handle_telemetry_health",
+    endpoint: "/health/telemetry",
+    requestId,
+  });
+
   try {
     const telemetryStatus = getTelemetryStatus();
     const simpleTelemetryStatus = getSimpleTelemetryStatus();
@@ -343,8 +353,27 @@ export function handleTelemetryHealth(): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return createHealthResponse(responseData, 200, generateRequestId());
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/health/telemetry",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
+
+    return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/health/telemetry",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return createHealthResponse(
       {
         error: "Failed to get telemetry status",
@@ -352,7 +381,7 @@ export function handleTelemetryHealth(): Response {
         timestamp: new Date().toISOString(),
       },
       500,
-      generateRequestId()
+      requestId
     );
   }
 }
@@ -458,6 +487,16 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
 }
 
 export function handleMetricsHealth(kongService: IKongService): Response {
+  const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing metrics health request", {
+    component: "health",
+    operation: "handle_metrics_health",
+    endpoint: "/health/metrics",
+    requestId,
+  });
+
   try {
     const metricsStatus = getMetricsStatus();
     const exportStats = getMetricsExportStats();
@@ -517,8 +556,27 @@ export function handleMetricsHealth(kongService: IKongService): Response {
       timestamp: new Date().toISOString(),
     };
 
-    return createHealthResponse(responseData, 200, generateRequestId());
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/health/metrics",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
+
+    return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/health/metrics",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return createHealthResponse(
       {
         error: "Failed to get metrics status",
@@ -526,7 +584,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
         timestamp: new Date().toISOString(),
       },
       500,
-      generateRequestId()
+      requestId
     );
   }
 }

@@ -4,13 +4,31 @@
 // These handlers are tested via E2E tests and manual profiling sessions.
 
 import { profilingService } from "../services/profiling.service";
+import { log } from "../utils/logger";
 import { createErrorResponse, createSuccessResponse, generateRequestId } from "../utils/response";
 
 export async function handleProfilingStart(req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling start request", {
+    component: "profiling",
+    operation: "handle_profiling_start",
+    endpoint: "/debug/profiling/start",
+    requestId,
+  });
+
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/start",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
     return createSuccessResponse(
       {
         message: "Profiling service is available but disabled via configuration",
@@ -31,6 +49,14 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     const sessionId = await profilingService.startProfiling(type, manual);
 
     if (!sessionId) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "POST",
+        url: "/debug/profiling/start",
+        statusCode: 400,
+        duration,
+        requestId,
+      });
       return createErrorResponse(
         400,
         "Bad Request",
@@ -38,6 +64,15 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
         requestId
       );
     }
+
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/start",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
 
     return createSuccessResponse(
       {
@@ -52,6 +87,15 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/start",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",
@@ -63,9 +107,26 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
 
 export async function handleProfilingStop(req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling stop request", {
+    component: "profiling",
+    operation: "handle_profiling_stop",
+    endpoint: "/debug/profiling/stop",
+    requestId,
+  });
+
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/stop",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
     return createSuccessResponse(
       {
         message: "Profiling service is available but disabled via configuration",
@@ -85,6 +146,14 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     const success = await profilingService.stopProfiling(sessionId || undefined);
 
     if (!success) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "POST",
+        url: "/debug/profiling/stop",
+        statusCode: 500,
+        duration,
+        requestId,
+      });
       return createErrorResponse(
         500,
         "Internal Server Error",
@@ -92,6 +161,15 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
         requestId
       );
     }
+
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/stop",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
 
     return createSuccessResponse(
       {
@@ -103,6 +181,15 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/stop",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",
@@ -114,9 +201,26 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
 
 export async function handleProfilingStatus(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling status request", {
+    component: "profiling",
+    operation: "handle_profiling_status",
+    endpoint: "/debug/profiling/status",
+    requestId,
+  });
 
   try {
     const status = profilingService.getStatus();
+
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/status",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
 
     return createSuccessResponse(
       {
@@ -135,6 +239,15 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/status",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",
@@ -146,9 +259,26 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
 
 export async function handleProfilingReports(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling reports request", {
+    component: "profiling",
+    operation: "handle_profiling_reports",
+    endpoint: "/debug/profiling/reports",
+    requestId,
+  });
+
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/reports",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
     return createSuccessResponse(
       {
         reports: [],
@@ -165,6 +295,15 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   try {
     const reports = profilingService.getReports();
 
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/reports",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
+
     return createSuccessResponse(
       {
         reports: reports.map((file) => ({
@@ -178,6 +317,15 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/reports",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",
@@ -189,9 +337,26 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
 
 export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling cleanup request", {
+    component: "profiling",
+    operation: "handle_profiling_cleanup",
+    endpoint: "/debug/profiling/cleanup",
+    requestId,
+  });
+
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/cleanup",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
     return createSuccessResponse(
       {
         message: "Profiling service is available but disabled via configuration",
@@ -207,6 +372,15 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   try {
     await profilingService.cleanup();
 
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/cleanup",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
+
     return createSuccessResponse(
       {
         message: "Profiling artifacts cleaned up successfully",
@@ -220,6 +394,15 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/profiling/cleanup",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",
@@ -231,9 +414,26 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
 
 export async function handleProfilingReport(req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const startTime = Bun.nanoseconds();
+
+  log("Processing profiling report request", {
+    component: "profiling",
+    operation: "handle_profiling_report",
+    endpoint: "/debug/profiling/report",
+    requestId,
+  });
+
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/report",
+      statusCode: 200,
+      duration,
+      requestId,
+    });
     return createSuccessResponse(
       {
         message: "Profiling service is available but disabled via configuration",
@@ -251,6 +451,14 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     const filePath = url.searchParams.get("file");
 
     if (!filePath) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "GET",
+        url: "/debug/profiling/report",
+        statusCode: 400,
+        duration,
+        requestId,
+      });
       return createErrorResponse(400, "Bad Request", "File parameter is required", requestId);
     }
 
@@ -258,12 +466,29 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     const requestedReport = reports.find((report) => report === filePath);
 
     if (!requestedReport) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "GET",
+        url: "/debug/profiling/report",
+        statusCode: 404,
+        duration,
+        requestId,
+      });
       return createErrorResponse(404, "Not Found", "Report file not found", requestId);
     }
 
     try {
       const file = Bun.file(requestedReport);
       const content = await file.text();
+
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "GET",
+        url: "/debug/profiling/report",
+        statusCode: 200,
+        duration,
+        requestId,
+      });
 
       return new Response(content, {
         status: 200,
@@ -276,6 +501,15 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         },
       });
     } catch (_fileError) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("HTTP request processed", {
+        method: "GET",
+        url: "/debug/profiling/report",
+        statusCode: 500,
+        duration,
+        requestId,
+        error: "Failed to read report file",
+      });
       return createErrorResponse(
         500,
         "Internal Server Error",
@@ -284,6 +518,15 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       );
     }
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/debug/profiling/report",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
     return createErrorResponse(
       500,
       "Internal Server Error",

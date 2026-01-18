@@ -14,6 +14,16 @@ import { log } from "../utils/logger";
 const config = loadConfig();
 
 export function handleDebugMetricsTest(): Response {
+  const startTime = Bun.nanoseconds();
+  const requestId = crypto.randomUUID();
+
+  log("Processing debug metrics test request", {
+    component: "debug",
+    operation: "handle_debug_metrics_test",
+    endpoint: "/debug/metrics/test",
+    requestId,
+  });
+
   try {
     testMetricRecording();
     const testResult = { success: true, metricsRecorded: 5 };
@@ -23,6 +33,15 @@ export function handleDebugMetricsTest(): Response {
       operation: "test_metrics",
       success: testResult.success,
       metricsRecorded: testResult.metricsRecorded,
+    });
+
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/test",
+      statusCode: 200,
+      duration,
+      requestId,
     });
 
     return new Response(
@@ -43,6 +62,16 @@ export function handleDebugMetricsTest(): Response {
       }
     );
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/test",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return new Response(
       JSON.stringify({
         success: false,
@@ -65,6 +94,14 @@ export function handleDebugMetricsTest(): Response {
 
 export async function handleDebugMetricsExport(): Promise<Response> {
   const startTime = Bun.nanoseconds();
+  const requestId = crypto.randomUUID();
+
+  log("Processing debug metrics export request", {
+    component: "debug",
+    operation: "handle_debug_metrics_export",
+    endpoint: "/debug/metrics/export",
+    requestId,
+  });
 
   try {
     await forceMetricsFlush();
@@ -78,6 +115,14 @@ export async function handleDebugMetricsExport(): Promise<Response> {
       duration,
       exportedMetrics: flushResult.exportedMetrics,
       errors: flushResult.errors,
+    });
+
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/export",
+      statusCode: flushResult.success ? 200 : 500,
+      duration,
+      requestId,
     });
 
     return new Response(
@@ -103,6 +148,15 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     );
   } catch (error) {
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+
+    log("HTTP request processed", {
+      method: "POST",
+      url: "/debug/metrics/export",
+      statusCode: 500,
+      duration,
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
 
     return new Response(
       JSON.stringify({
@@ -244,8 +298,19 @@ function collectConfigData() {
 }
 
 export async function handleMetricsUnified(kongService: IKongService, url: URL): Promise<Response> {
+  const startTime = Bun.nanoseconds();
+  const requestId = crypto.randomUUID();
+  const view = (url.searchParams.get("view") as MetricsView) || "operational";
+
+  log("Processing unified metrics request", {
+    component: "metrics",
+    operation: "handle_unified_metrics",
+    endpoint: "/metrics",
+    view,
+    requestId,
+  });
+
   try {
-    const view = (url.searchParams.get("view") as MetricsView) || "operational";
     const timestamp = new Date().toISOString();
 
     let responseData: any = { timestamp };
@@ -302,7 +367,15 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
         break;
       }
 
-      default:
+      default: {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        log("HTTP request processed", {
+          method: "GET",
+          url: "/metrics",
+          statusCode: 400,
+          duration,
+          requestId,
+        });
         return new Response(
           JSON.stringify({
             error: "Invalid view parameter",
@@ -319,13 +392,16 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
             },
           }
         );
+      }
     }
 
-    log(`Processing unified metrics request`, {
-      component: "metrics",
-      operation: "handle_unified_metrics",
-      endpoint: "/metrics",
-      view,
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/metrics",
+      statusCode: 200,
+      duration,
+      requestId,
     });
 
     return new Response(JSON.stringify(responseData, null, 2), {
@@ -339,9 +415,19 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       },
     });
   } catch (error) {
+    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
     log("Failed to generate unified metrics", {
       component: "metrics",
       operation: "unified_metrics",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+
+    log("HTTP request processed", {
+      method: "GET",
+      url: "/metrics",
+      statusCode: 500,
+      duration,
+      requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
