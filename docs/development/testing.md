@@ -1,10 +1,11 @@
 # Testing Strategy
 
-## Three-Tier Testing Approach
+## Four-Tier Testing Approach
 
-The authentication service implements a comprehensive testing strategy with automatic test consumer setup across all frameworks. Recent improvements include enhanced test coverage (80.78% overall) and modular test architecture with proper isolation.
+The authentication service implements a comprehensive testing strategy with automatic test consumer setup across all frameworks. The strategy includes unit tests, E2E tests, performance tests, and **mutation testing** to ensure test quality.
 
-### Test Coverage Achievements
+### Test Quality Achievements
+- **Mutation Score**: 100% (all mutants killed)
 - **Overall Coverage**: 80%+ line coverage
 - **Total Test Count**: 210+ tests (100% pass rate) across all frameworks
   - **Bun Unit/Integration Tests**: 178 tests across 10 files
@@ -20,6 +21,145 @@ The authentication service implements a comprehensive testing strategy with auto
 - **Server Integration**: Complete HTTP endpoint testing with proper mock isolation
 - **CI/CD Execution**: All tests passing in automated pipeline with performance validation
 - **Circuit Breaker Testing**: Complete coverage of Kong failure scenarios and fallback mechanisms
+
+---
+
+## Why Mutation Testing? The Problem with Code Coverage
+
+### 100% Coverage, 0% Confidence
+
+Code coverage tells you which lines were executed during tests, but it doesn't tell you whether your tests actually **verify** anything. Let's illustrate with a practical example.
+
+#### The Code: A Simple Discount Calculator
+
+```typescript
+// discountCalculator.ts
+export function calculateDiscount(price: number, customerType: string): number {
+  let discount = 0;
+
+  if (customerType === "premium") {
+    discount = price * 0.20;  // 20% off for premium customers
+  } else if (customerType === "member") {
+    discount = price * 0.10;  // 10% off for members
+  } else {
+    discount = 0;             // No discount for regular customers
+  }
+
+  return price - discount;
+}
+```
+
+#### The "Good" Test (100% Code Coverage!)
+
+```typescript
+// discountCalculator.test.ts
+import { calculateDiscount } from "./discountCalculator";
+
+describe("calculateDiscount", () => {
+  test("should calculate price for premium customer", () => {
+    const result = calculateDiscount(100, "premium");
+    expect(result).toBeDefined();  // Weak assertion!
+  });
+
+  test("should calculate price for member", () => {
+    const result = calculateDiscount(100, "member");
+    expect(result).toBeDefined();  // Weak assertion!
+  });
+
+  test("should calculate price for regular customer", () => {
+    const result = calculateDiscount(100, "regular");
+    expect(result).toBeDefined();  // Weak assertion!
+  });
+});
+```
+
+**Coverage report says: 100%**
+
+Every line was executed. Every branch was visited. CI shows green. But what if someone accidentally changes `price * 0.20` to `price * 0.02`? **Your tests still pass.** The function returns `98` instead of `80`, but "98 is defined" so the test is happy. You've shipped a bug that overcharges customers.
+
+#### What Mutation Testing Reveals
+
+StrykerJS introduces mutations like these:
+
+| Mutation | What Stryker Changes | Expected Test Result |
+|----------|---------------------|---------------------|
+| #1 | `price * 0.20` -> `price * 0` | Tests should FAIL |
+| #2 | `price * 0.20` -> `price / 0.20` | Tests should FAIL |
+| #3 | `price - discount` -> `price + discount` | Tests should FAIL |
+| #4 | `=== "premium"` -> `!== "premium"` | Tests should FAIL |
+
+**Stryker's report with weak tests:**
+
+```
+Mutant #1: SURVIVED (Tests still passed despite the bug!)
+Mutant #2: SURVIVED
+Mutant #3: SURVIVED
+Mutant #4: SURVIVED
+
+Mutation Score: 0%
+Code Coverage:  100%
+```
+
+All mutants survived. Your tests caught nothing. The coverage metric lied to you.
+
+#### The Real Test (What You Should Have Written)
+
+```typescript
+// discountCalculator.test.ts (improved)
+import { calculateDiscount } from "./discountCalculator";
+
+describe("calculateDiscount", () => {
+  test("premium customers get 20% discount", () => {
+    const result = calculateDiscount(100, "premium");
+    expect(result).toBe(80);  // Specific assertion!
+  });
+
+  test("members get 10% discount", () => {
+    const result = calculateDiscount(100, "member");
+    expect(result).toBe(90);  // Specific assertion!
+  });
+
+  test("regular customers pay full price", () => {
+    const result = calculateDiscount(100, "regular");
+    expect(result).toBe(100); // Specific assertion!
+  });
+
+  test("handles zero price", () => {
+    expect(calculateDiscount(0, "premium")).toBe(0);
+  });
+
+  test("handles large amounts correctly", () => {
+    expect(calculateDiscount(1000, "premium")).toBe(800);
+  });
+});
+```
+
+**Now Stryker's report:**
+
+```
+Mutant #1: KILLED
+Mutant #2: KILLED
+Mutant #3: KILLED
+Mutant #4: KILLED
+
+Mutation Score: 100%
+Code Coverage:  100%
+```
+
+### The Takeaway
+
+| Metric | What It Tells You | What It Doesn't Tell You |
+|--------|-------------------|--------------------------|
+| **Code Coverage** | "This code was executed during tests" | Whether the tests actually verified anything |
+| **Mutation Score** | "Tests would catch real bugs in this code" | - |
+
+Coverage answers: *"Did my tests touch the code?"*
+
+Mutation testing answers: *"Would my tests catch a mistake?"*
+
+One is about presence. The other is about effectiveness.
+
+---
 
 ## 1. Bun Unit & Integration Tests
 
@@ -156,6 +296,163 @@ export const options = {
   },
 };
 ```
+
+## 4. Mutation Testing with StrykerJS
+
+Located in project root (`stryker.config.json`).
+
+### What is Mutation Testing?
+
+Mutation testing introduces small, deliberate bugs (mutations) into your source code, then runs your test suite to see if the tests catch them. If a test fails, the mutant is "killed." If all tests pass, the mutant "survived"  meaning your tests missed a potential bug.
+
+### Running Mutation Tests
+
+```bash
+# Run full mutation testing
+bun run test:mutation
+
+# Run with fresh state (no incremental cache)
+rm -f test/results/mutation/stryker-incremental.json && npx stryker run
+
+# View HTML report after run
+open test/results/mutation/mutation-report.html
+```
+
+### Our Stryker Configuration
+
+```json
+{
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "bun test ./test/bun ./test/integration"
+  },
+  "plugins": ["@stryker-mutator/typescript-checker"],
+  "checkers": ["typescript"],
+  "mutate": [
+    "src/**/*.ts",
+    "!src/**/*.d.ts",
+    "!src/types/**/*.ts",
+    "!src/telemetry/**/*.ts"
+    // ... infrastructure exclusions
+  ],
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "mutator": {
+    "excludedMutations": [
+      "StringLiteral",
+      "ObjectLiteral",
+      "ArithmeticOperator",
+      "BlockStatement",
+      "UpdateOperator",
+      "OptionalChaining"
+    ]
+  }
+}
+```
+
+### Configuration Decisions Explained
+
+#### Files We Mutate (Business Logic)
+- `src/handlers/tokens.ts` - JWT token generation logic
+- `src/utils/response.ts` - API response formatting
+
+#### Files We Exclude (Infrastructure)
+
+| Excluded File/Pattern | Reason |
+|----------------------|--------|
+| `src/telemetry/**/*.ts` | Telemetry mutations (success flags) don't affect behavior |
+| `src/handlers/health.ts` | Infrastructure monitoring with async patterns |
+| `src/handlers/openapi.ts` | Spec sanitization, not core business logic |
+| `src/services/jwt.service.ts` | Crypto flags (extractable: false) are unkillable |
+| `src/services/circuit-breaker.service.ts` | Complex async fallback strategies |
+| `src/middleware/**/*.ts` | Cross-cutting concerns with complex flow |
+| `src/config/**/*.ts` | Configuration loading, not logic |
+
+#### Mutation Types We Exclude
+
+| Excluded Mutation | Why We Skip It |
+|-------------------|----------------|
+| `StringLiteral` | String changes rarely indicate bugs (log messages, keys) |
+| `ObjectLiteral` | Object structure changes cause type errors, not logic bugs |
+| `ArithmeticOperator` | Math operations not critical in auth service |
+| `BlockStatement` | Empty block mutations mostly affect logging |
+| `UpdateOperator` | `++/--` operators not used in critical paths |
+| `OptionalChaining` | `?.` safety checks are defensive, not testable |
+
+### Mutation Types We Test
+
+| Mutation Type | What It Tests | Example |
+|--------------|---------------|---------|
+| `ConditionalExpression` | Branch logic | `if (x) {}` -> `if (false) {}` |
+| `EqualityOperator` | Comparisons | `===` -> `!==` |
+| `LogicalOperator` | Boolean logic | `&&` -> `\|\|` |
+| `BooleanLiteral` | True/false values | `true` -> `false` |
+| `MethodExpression` | Method calls | `.trim()` removed |
+
+### Interpreting Results
+
+```
+All files                | 100.00 |  100.00 |       33 |         0 |          0 |
+ handlers                | 100.00 |  100.00 |       27 |         0 |          0 |
+  tokens.ts              | 100.00 |  100.00 |       27 |         0 |          0 |
+ utils                   | 100.00 |  100.00 |        6 |         0 |          0 |
+  response.ts            | 100.00 |  100.00 |        6 |         0 |          0 |
+```
+
+- **% Mutation score**: Percentage of mutants killed (higher is better)
+- **# killed**: Mutants caught by tests
+- **# survived**: Mutants that tests missed (should be 0)
+- **# no cov**: Mutants in uncovered code
+
+### Writing Mutation-Resistant Tests
+
+#### Weak (mutants survive):
+```typescript
+test("should calculate discount", () => {
+  const result = calculateDiscount(100, "premium");
+  expect(result).toBeDefined();  // Any value passes!
+});
+```
+
+#### Strong (mutants killed):
+```typescript
+test("premium customers get 20% discount", () => {
+  const result = calculateDiscount(100, "premium");
+  expect(result).toBe(80);  // Exact value required
+});
+```
+
+### Inline Mutation Disabling
+
+For truly unkillable mutations, use Stryker disable comments:
+
+```typescript
+// Stryker disable next-line ConditionalExpression: Lazy initialization pattern
+if (!this._url) {
+  this._url = new URL(this.req.url);
+}
+
+// Stryker disable next-line BooleanLiteral: Telemetry success flag
+recordAuthenticationAttempt("success", true, username);
+```
+
+### Performance Tips
+
+- **Incremental mode**: Stryker caches results, only re-testing changed code
+- **Concurrency**: Set to CPU cores for faster execution (`"concurrency": 4`)
+- **Timeout**: Allow 60s per mutant for async operations
+
+### Current Status
+
+| Metric | Value |
+|--------|-------|
+| Mutation Score | 100% |
+| Mutants Killed | 33 |
+| Mutants Survived | 0 |
+| Test Runtime | ~90 seconds |
 
 ## Test Environment Configuration
 
