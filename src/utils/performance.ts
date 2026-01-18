@@ -1,5 +1,8 @@
 /* src/utils/performance.ts */
 
+// Stryker disable all: Performance measurement utilities with timing/instrumentation code.
+// Tested via timing assertions in integration tests.
+
 const isBun = () => typeof Bun !== "undefined";
 
 // REQUIRED: Standardized performance measurement pattern

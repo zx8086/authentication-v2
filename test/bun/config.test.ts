@@ -41,6 +41,15 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Jwt.safeParse(validJwtConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.authority).toBe("https://auth.example.com");
+        expect(result.data.audience).toBe("https://api.example.com");
+        expect(result.data.issuer).toBe("https://auth.example.com");
+        expect(result.data.keyClaimName).toBe("key");
+        expect(result.data.expirationMinutes).toBe(15);
+      }
     });
 
     test.concurrent("should validate Kong configuration schema", () => {
@@ -64,6 +73,18 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Kong.safeParse(validKongConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.mode).toBe("API_GATEWAY");
+        expect(result.data.adminUrl).toBe("http://kong:8001");
+        expect(result.data.consumerIdHeader).toBe("x-consumer-id");
+        expect(result.data.consumerUsernameHeader).toBe("x-consumer-username");
+        expect(result.data.anonymousHeader).toBe("x-anonymous-consumer");
+        expect(result.data.circuitBreaker.enabled).toBe(true);
+        expect(result.data.circuitBreaker.timeout).toBe(5000);
+        expect(result.data.circuitBreaker.errorThresholdPercentage).toBe(50);
+      }
     });
 
     it("should reject invalid Kong mode", () => {
@@ -100,6 +121,20 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Telemetry.safeParse(validTelemetryConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.serviceName).toBe("authentication-service");
+        expect(result.data.serviceVersion).toBe("1.0.0");
+        expect(result.data.environment).toBe("development");
+        expect(result.data.mode).toBe("console");
+        expect(result.data.logLevel).toBe("info");
+        expect(result.data.exportTimeout).toBe(30000);
+        expect(result.data.batchSize).toBe(2048);
+        expect(result.data.maxQueueSize).toBe(10000);
+        expect(result.data.infrastructure.isKubernetes).toBe(false);
+        expect(result.data.infrastructure.isEcs).toBe(false);
+      }
     });
 
     it("should validate API info configuration schema", () => {
@@ -116,6 +151,18 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.ApiInfo.safeParse(validApiInfoConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.title).toBe("Authentication API");
+        expect(result.data.description).toBe("JWT token service");
+        expect(result.data.version).toBe("1.0.0");
+        expect(result.data.contactName).toBe("Example Corp");
+        expect(result.data.contactEmail).toBe("support@example.com");
+        expect(result.data.licenseName).toBe("Proprietary");
+        expect(result.data.licenseIdentifier).toBe("UNLICENSED");
+        expect(result.data.cors).toBe("*");
+      }
     });
 
     it("should reject invalid email format", () => {
@@ -174,6 +221,14 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.serviceName).toBe("authentication-service");
+        expect(result.data.environment).toBe("production");
+        expect(result.data.mode).toBe("otlp");
+        expect(result.data.tracesEndpoint).toBe("https://secure.example.com/traces");
+      }
     });
 
     it("should reject localhost service names in production", () => {
@@ -263,6 +318,15 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.mode).toBe("KONNECT");
+        expect(result.data.adminUrl).toBe("https://kong.example.com");
+        expect(result.data.consumerIdHeader).toBe("x-consumer-id");
+        expect(result.data.circuitBreaker.enabled).toBe(true);
+        expect(result.data.circuitBreaker.timeout).toBe(5000);
+      }
     });
 
     it("should allow proper Kong token length in production", () => {
@@ -286,6 +350,14 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
       expect(result.success).toBe(true);
+
+      if (result.success) {
+        // Verify parsed data values (kills mutations)
+        expect(result.data.mode).toBe("KONNECT");
+        expect(result.data.adminUrl).toBe("https://kong.example.com");
+        expect(typeof result.data.adminToken).toBe("string");
+        expect(result.data.adminToken.length).toBeGreaterThanOrEqual(40);
+      }
     });
   });
 
@@ -430,6 +502,9 @@ describe("Configuration System", () => {
       // TypeScript should infer these types correctly
       expect(typeof result.port).toBe("number");
       expect(typeof result.nodeEnv).toBe("string");
+      // Verify actual values (kills mutations)
+      expect(result.port).toBe(3000);
+      expect(result.nodeEnv).toBe("development");
     });
 
     it("should enforce enum values strictly", () => {
@@ -452,6 +527,257 @@ describe("Configuration System", () => {
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("validateConfigurationHealth", () => {
+    const originalEnv = { ...Bun.env };
+
+    beforeEach(async () => {
+      // Clear all environment variables except system ones
+      Object.keys(Bun.env).forEach((key) => {
+        if (!["PATH", "HOME", "USER", "SHELL", "TERM"].includes(key)) {
+          delete Bun.env[key];
+        }
+      });
+      Bun.env.NODE_ENV = "test";
+
+      const { resetConfigCache } = await import("../../src/config/config");
+      resetConfigCache();
+    });
+
+    afterEach(async () => {
+      Object.keys(Bun.env).forEach((key) => {
+        if (!(key in originalEnv)) {
+          delete Bun.env[key];
+        }
+      });
+      Object.assign(Bun.env, originalEnv);
+
+      const { resetConfigCache } = await import("../../src/config/config");
+      resetConfigCache();
+    });
+
+    it("should return healthy status with no recommendations for default config", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Verify structure (kills mutations)
+      expect(result).toHaveProperty("status");
+      expect(result).toHaveProperty("issues");
+      expect(result).toHaveProperty("recommendations");
+
+      // Verify status is exactly "healthy" (kills string mutations)
+      expect(result.status).toBe("healthy");
+      expect(result.status).not.toBe("degraded");
+      expect(result.status).not.toBe("critical");
+
+      // Verify arrays (kills mutations)
+      expect(Array.isArray(result.issues)).toBe(true);
+      expect(Array.isArray(result.recommendations)).toBe(true);
+    });
+
+    it("should recommend reducing batch size when over 3000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3500"; // Above 3000 threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should have recommendation about batch size (kills mutations to threshold)
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      expect(result.recommendations.some((r) => r.includes("batch size"))).toBe(true);
+    });
+
+    it("should NOT recommend reducing batch size when at or below 3000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3000"; // At threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should NOT have recommendation about batch size
+      expect(result.recommendations.some((r) => r.includes("batch size"))).toBe(false);
+    });
+
+    it("should recommend reducing export timeout when over 45000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "50000"; // Above 45000 threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should have recommendation about timeout (kills mutations to threshold)
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      expect(result.recommendations.some((r) => r.includes("timeout"))).toBe(true);
+    });
+
+    it("should NOT recommend reducing export timeout when at or below 45000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "45000"; // At threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should NOT have recommendation about timeout
+      expect(result.recommendations.some((r) => r.includes("timeout") && r.includes("high"))).toBe(
+        false
+      );
+    });
+
+    it("should recommend reducing queue size when over 30000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "35000"; // Above 30000 threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should have recommendation about queue size (kills mutations to threshold)
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      expect(result.recommendations.some((r) => r.includes("queue size"))).toBe(true);
+    });
+
+    it("should NOT recommend reducing queue size when at or below 30000", async () => {
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "30000"; // At threshold
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Should NOT have recommendation about queue size
+      expect(result.recommendations.some((r) => r.includes("queue size"))).toBe(false);
+    });
+
+    it("should return degraded status when production uses console-only telemetry", async () => {
+      Bun.env.NODE_ENV = "production";
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "https://kong:8001"; // HTTPS for production
+      Bun.env.KONG_ADMIN_TOKEN = "production-token-123456789012345678901234567890123456789012345"; // 55+ chars
+      Bun.env.OTEL_SERVICE_NAME = "authentication-service";
+      Bun.env.OTEL_SERVICE_VERSION = "1.0.0";
+      Bun.env.TELEMETRY_ENVIRONMENT = "production";
+      Bun.env.TELEMETRY_MODE = "console"; // Console mode in production
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Status should be degraded (kills mutations to status assignment)
+      expect(result.status).toBe("degraded");
+      expect(result.status).not.toBe("healthy");
+      expect(result.status).not.toBe("critical");
+
+      // Should have issue about console mode in production
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues.some((i) => i.path === "telemetry.mode")).toBe(true);
+      expect(result.issues.some((i) => i.severity === "warning")).toBe(true);
+    });
+
+    it("should return healthy status when production uses proper telemetry mode", async () => {
+      Bun.env.NODE_ENV = "production";
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "https://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "production-token-123456789012345678901234567890123456789012345";
+      Bun.env.OTEL_SERVICE_NAME = "authentication-service";
+      Bun.env.OTEL_SERVICE_VERSION = "1.0.0";
+      Bun.env.TELEMETRY_ENVIRONMENT = "production";
+      Bun.env.TELEMETRY_MODE = "otlp"; // Proper OTLP mode
+      Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Status should be healthy (kills mutations to console check)
+      expect(result.status).toBe("healthy");
+      expect(result.issues.some((i) => i.path === "telemetry.mode")).toBe(false);
+    });
+
+    it("should have correct issue structure when issues exist", async () => {
+      Bun.env.NODE_ENV = "production";
+      Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
+      Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
+      Bun.env.KONG_ADMIN_URL = "https://kong:8001";
+      Bun.env.KONG_ADMIN_TOKEN = "production-token-123456789012345678901234567890123456789012345";
+      Bun.env.OTEL_SERVICE_NAME = "authentication-service";
+      Bun.env.OTEL_SERVICE_VERSION = "1.0.0";
+      Bun.env.TELEMETRY_ENVIRONMENT = "production";
+      Bun.env.TELEMETRY_MODE = "console";
+
+      const { validateConfigurationHealth, resetConfigCache } = await import(
+        "../../src/config/config"
+      );
+      resetConfigCache();
+
+      const result = validateConfigurationHealth();
+
+      // Verify issue structure (kills mutations to issue object)
+      const telemetryIssue = result.issues.find((i) => i.path === "telemetry.mode");
+      expect(telemetryIssue).toBeDefined();
+      expect(telemetryIssue!.path).toBe("telemetry.mode");
+      expect(typeof telemetryIssue!.message).toBe("string");
+      expect(telemetryIssue!.message.length).toBeGreaterThan(0);
+      expect(telemetryIssue!.severity).toBe("warning");
+      expect(["critical", "warning", "info"]).toContain(telemetryIssue!.severity);
     });
   });
 

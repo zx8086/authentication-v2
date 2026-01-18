@@ -1,0 +1,117 @@
+# Docker Compose for Integration Testing
+# Usage: docker compose -f docker-compose.test.yml up -d
+# This creates a complete Kong + PostgreSQL + Redis environment for integration tests
+
+# Note: version is obsolete in Docker Compose V2
+
+services:
+  # PostgreSQL database for Kong
+  kong-database:
+    image: postgres:13
+    container_name: kong-test-db
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+      POSTGRES_DB: kong
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflicts with local postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kong-test-net
+
+  # Kong database migrations
+  kong-bootstrap:
+    image: kong/kong-gateway:3.9
+    container_name: kong-test-bootstrap
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+    depends_on:
+      kong-database:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - kong-test-net
+
+  # Kong Gateway
+  kong:
+    image: kong/kong-gateway:3.9
+    container_name: kong-test-gateway
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PORT: 5432
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    ports:
+      - "8100:8000"  # Kong proxy port (use 8100 to avoid conflicts)
+      - "8101:8001"  # Kong admin port (use 8101 to avoid conflicts)
+    depends_on:
+      kong-database:
+        condition: service_healthy
+      kong-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kong-test-net
+
+  # Redis for cache testing
+  redis:
+    image: redis:7-alpine
+    container_name: kong-test-redis
+    ports:
+      - "6380:6379"  # Use 6380 to avoid conflicts with local redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - kong-test-net
+
+  # Consumer seeding service - runs once to set up test data
+  kong-seed:
+    image: oven/bun:1.1.35-alpine
+    container_name: kong-test-seed
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./test/shared:/app/test/shared:ro
+    environment:
+      KONG_ADMIN_URL: http://kong:8001
+    command: >
+      sh -c "
+        echo 'Waiting for Kong to be ready...' &&
+        sleep 10 &&
+        bun /app/scripts/seed-test-consumers.ts
+      "
+    depends_on:
+      kong:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - kong-test-net
+
+networks:
+  kong-test-net:
+    driver: bridge

@@ -118,7 +118,9 @@ describe("cardinality-guard", () => {
       }
 
       // Should have reasonable distribution (not all same bucket)
+      // With 256 buckets and 1000 IDs, we expect good distribution
       expect(buckets.size).toBeGreaterThan(50);
+      expect(buckets.size).toBeLessThanOrEqual(256); // Cannot exceed total bucket count
     });
   });
 
@@ -174,6 +176,7 @@ describe("cardinality-guard", () => {
       expect(stats.limitExceeded).toBe(true);
       expect(stats.limitExceededAt).not.toBeNull();
       expect(stats.bucketsUsed).toBeGreaterThan(0);
+      expect(stats.bucketsUsed).toBeLessThanOrEqual(256); // Cannot exceed total bucket count
     });
   });
 
@@ -251,6 +254,7 @@ describe("cardinality-guard", () => {
       // Check that not all went to same bucket
       const uniqueBuckets = new Set(buckets.values());
       expect(uniqueBuckets.size).toBeGreaterThan(1);
+      expect(uniqueBuckets.size).toBeLessThanOrEqual(5); // 5 similar IDs should go to at most 5 buckets
     });
   });
 });

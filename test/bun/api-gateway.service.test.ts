@@ -281,27 +281,42 @@ describe("APIGatewayService", () => {
       expect(typeof service.getCircuitBreakerStats).toBe("function");
     });
 
-    it("should return correct types for all methods", async () => {
+    it("should return correct types and values for all methods", async () => {
       const secret = await service.getConsumerSecret("test");
       expect(secret).toHaveProperty("id");
+      expect(secret?.id).toBe("jwt-credential-123"); // Match mockConsumerSecret
       expect(secret).toHaveProperty("key");
+      expect(secret?.key).toBe("test-key-abc"); // Match mockConsumerSecret
       expect(secret).toHaveProperty("secret");
+      expect(secret?.secret).toBe("test-secret-xyz"); // Match mockConsumerSecret
       expect(secret).toHaveProperty("consumer");
+      expect(secret?.consumer.id).toBe("consumer-456"); // Match mockConsumerSecret
 
       const created = await service.createConsumerSecret("test");
       expect(created).toHaveProperty("id");
+      expect(created?.id).toBe("jwt-credential-123"); // Match mockConsumerSecret
 
       const health = await service.healthCheck();
       expect(health).toHaveProperty("healthy");
+      expect(health.healthy).toBe(true); // Match mockHealthResult
       expect(health).toHaveProperty("responseTime");
+      expect(health.responseTime).toBe(42); // Match mockHealthResult
 
       const cacheStats = await service.getCacheStats();
       expect(cacheStats).toHaveProperty("size");
+      expect(cacheStats.size).toBe(10); // Match mockCacheStats
       expect(cacheStats).toHaveProperty("hits");
+      expect(cacheStats.hits).toBe(100); // Match mockCacheStats
       expect(cacheStats).toHaveProperty("misses");
+      expect(cacheStats.misses).toBe(20); // Match mockCacheStats
+      expect(cacheStats.hitRate).toBe(0.833); // Match mockCacheStats
 
       const cbStats = service.getCircuitBreakerStats();
       expect(typeof cbStats).toBe("object");
+      expect(cbStats.getConsumerSecret).toBeDefined();
+      expect(cbStats.getConsumerSecret?.state).toBe("closed"); // Match mockCircuitBreakerStats
+      expect(cbStats.getConsumerSecret?.failures).toBe(0);
+      expect(cbStats.getConsumerSecret?.successes).toBe(50);
     });
   });
 

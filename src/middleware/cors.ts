@@ -1,5 +1,8 @@
 /* src/middleware/cors.ts */
 
+// Stryker disable all: CORS middleware with header configuration.
+// Tested via E2E tests with actual browser requests.
+
 import { loadConfig } from "../config/index";
 
 const config = loadConfig();

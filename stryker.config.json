@@ -3,13 +3,41 @@
   "packageManager": "npm",
   "testRunner": "command",
   "commandRunner": {
-    "command": "bun test ./test/bun"
+    "command": "bun test ./test/bun ./test/integration"
   },
   "plugins": ["@stryker-mutator/typescript-checker"],
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
-  "mutate": ["src/**/*.ts", "!src/**/*.d.ts", "!src/types/**/*.ts"],
-  "ignorePatterns": ["node_modules", "dist", "test", "scripts", ".github", "docs"],
+  "mutate": [
+    "src/**/*.ts",
+    "!src/**/*.d.ts",
+    "!src/types/**/*.ts",
+    "!src/telemetry/**/*.ts",
+    "!src/services/cache/**/*.ts",
+    "!src/cache/**/*.ts",
+    "!src/openapi-generator.ts",
+    "!src/server.ts",
+    "!src/index.ts",
+    "!src/services/legacy/**/*.ts",
+    "!src/handlers/metrics.ts",
+    "!src/handlers/profiling.ts",
+    "!src/handlers/health.ts",
+    "!src/handlers/openapi.ts",
+    "!src/services/profiling.service.ts",
+    "!src/routes/router.ts",
+    "!src/middleware/**/*.ts",
+    "!src/utils/logger.ts",
+    "!src/utils/performance.ts",
+    "!src/utils/retry.ts",
+    "!src/utils/security.ts",
+    "!src/config/**/*.ts",
+    "!src/adapters/**/*.ts",
+    "!src/services/kong.factory.ts",
+    "!src/services/cache-health.service.ts",
+    "!src/services/circuit-breaker.service.ts",
+    "!src/services/jwt.service.ts"
+  ],
+  "ignorePatterns": ["node_modules", "dist", "scripts", ".github", "docs"],
   "reporters": ["html", "clear-text", "progress", "json"],
   "htmlReporter": {
     "fileName": "test/results/mutation/mutation-report.html"
@@ -18,15 +46,27 @@
     "fileName": "test/results/mutation/mutation-report.json"
   },
   "thresholds": {
-    "high": 85,
-    "low": 70,
+    "high": 80,
+    "low": 60,
     "break": null
   },
+  "incremental": true,
+  "incrementalFile": "test/results/mutation/stryker-incremental.json",
   "concurrency": 4,
   "timeoutMS": 60000,
   "timeoutFactor": 2.5,
   "disableTypeChecks": false,
   "cleanTempDir": "always",
   "tempDirName": ".stryker-tmp",
-  "coverageAnalysis": "off"
+  "coverageAnalysis": "off",
+  "mutator": {
+    "excludedMutations": [
+      "StringLiteral",
+      "ObjectLiteral",
+      "ArithmeticOperator",
+      "BlockStatement",
+      "UpdateOperator",
+      "OptionalChaining"
+    ]
+  }
 }

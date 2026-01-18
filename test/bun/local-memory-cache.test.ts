@@ -181,7 +181,9 @@ describe("LocalMemoryCache", () => {
       const stats = await cache.getStats();
       expect(stats.strategy).toBe("local-memory");
       expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
+      expect(Number.parseFloat(stats.hitRate)).toBeLessThanOrEqual(100); // Hit rate cannot exceed 100%
       expect(stats.averageLatencyMs).toBeGreaterThanOrEqual(0);
+      expect(stats.averageLatencyMs).toBeLessThan(50); // Memory cache should be very fast
     });
 
     it("should calculate hit rate correctly", async () => {
@@ -286,6 +288,7 @@ describe("LocalMemoryCache", () => {
     it("should provide memory usage estimates", async () => {
       const stats = await cache.getStats();
       expect(stats.memoryUsageMB).toBeGreaterThanOrEqual(0);
+      expect(stats.memoryUsageMB).toBeLessThan(100); // Should not exceed 100MB for empty cache
 
       // Add some data
       for (let i = 0; i < 100; i++) {
@@ -295,6 +298,7 @@ describe("LocalMemoryCache", () => {
       const statsWithData = await cache.getStats();
       expect(typeof statsWithData.memoryUsageMB).toBe("number");
       expect(statsWithData.memoryUsageMB).toBeGreaterThanOrEqual(0);
+      expect(statsWithData.memoryUsageMB).toBeLessThan(100); // Should not exceed 100MB for 100 entries
     });
   });
 
@@ -396,6 +400,7 @@ describe("LocalMemoryCache", () => {
       const stats = await cache.getStats();
       expect(stats.size).toBeLessThanOrEqual(numOperations);
       expect(stats.averageLatencyMs).toBeGreaterThan(0);
+      expect(stats.averageLatencyMs).toBeLessThan(50); // Memory cache should be fast
     });
 
     it("should maintain performance under mixed workloads", async () => {
@@ -422,7 +427,9 @@ describe("LocalMemoryCache", () => {
 
       const stats = await cache.getStats();
       expect(stats.averageLatencyMs).toBeGreaterThan(0);
+      expect(stats.averageLatencyMs).toBeLessThan(50); // Memory cache should be fast
       expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
+      expect(Number.parseFloat(stats.hitRate)).toBeLessThanOrEqual(100); // Hit rate cannot exceed 100%
     });
   });
 });

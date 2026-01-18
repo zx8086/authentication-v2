@@ -203,15 +203,16 @@ export class KongKonnectStrategy implements IKongModeStrategy {
         return;
       }
 
+      // Read error text once to avoid "Body already used" error
+      const errorText = await createResponse.text();
+
       if (createResponse.status === 400) {
-        const errorText = await createResponse.text();
         if (errorText.includes("realm name must be unique")) {
           // Race condition - realm already exists
           return;
         }
       }
 
-      const errorText = await createResponse.text();
       throw new Error(`Failed to create realm: ${createResponse.status} ${errorText}`);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {

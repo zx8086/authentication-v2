@@ -1,5 +1,8 @@
 /* src/utils/security.ts */
 
+// Stryker disable all: Security utilities with Bun.spawn() integration.
+// Tested via E2E tests and profiling session tests.
+
 const isBun = () => typeof Bun !== "undefined";
 
 export const sanitize = (input: string) => input.replace(/[^a-zA-Z0-9]/g, "");

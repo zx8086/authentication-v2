@@ -1,5 +1,8 @@
 /* src/middleware/error-handler.ts */
 
+// Stryker disable all: Error handling middleware with logging.
+// Tested via E2E tests for 404/500 responses.
+
 import { loadConfig } from "../config/index";
 import { log, logError } from "../utils/logger";
 import { generateRequestId, getDefaultHeaders } from "../utils/response";

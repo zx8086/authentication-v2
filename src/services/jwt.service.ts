@@ -93,60 +93,29 @@ export class NativeBunJWT {
   }
 
   private static base64urlEncode(data: string): string {
-    // Use native base64 encoding if available, otherwise fallback to btoa
-    if (typeof Buffer !== "undefined" && Buffer.from) {
-      const buffer = Buffer.from(data, "utf8");
-      return buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-    }
-
-    // Optimize string replacements to avoid multiple passes
-    const base64 = btoa(data);
-    let result = "";
-    // Using traditional for loop for performance (need character-by-character processing)
-    // biome-ignore lint/style/useForOf: Performance-critical loop needs index access
-    for (let i = 0; i < base64.length; i++) {
-      const char = base64[i];
-      if (char === "=") break; // Stop at padding
-      if (char === "+") result += "-";
-      else if (char === "/") result += "_";
-      else result += char;
-    }
-    return result;
+    // Bun always has native Buffer support
+    const buffer = Buffer.from(data, "utf8");
+    return buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 
   private static base64urlEncodeBuffer(buffer: Uint8Array): string {
-    // Directly encode Uint8Array without string conversion overhead
-    if (typeof Buffer !== "undefined" && Buffer.from) {
-      return Buffer.from(buffer)
-        .toString("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
-    }
-
-    // Fallback: convert to string and use btoa
-    const binaryString = String.fromCharCode(...buffer);
-    return NativeBunJWT.base64urlEncode(binaryString);
+    // Bun always has native Buffer support - directly encode Uint8Array
+    return Buffer.from(buffer)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
   }
 
   private static base64urlDecode(data: string): Uint8Array {
     // Add padding if necessary
     let base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+    // Stryker disable next-line ConditionalExpression: Base64 padding is required by spec
     while (base64.length % 4) {
       base64 += "=";
     }
-
-    if (typeof Buffer !== "undefined" && Buffer.from) {
-      return new Uint8Array(Buffer.from(base64, "base64"));
-    }
-
-    // Fallback: use atob
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
+    // Bun always has native Buffer support
+    return new Uint8Array(Buffer.from(base64, "base64"));
   }
 
   static async validateToken(

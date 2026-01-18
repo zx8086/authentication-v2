@@ -44,6 +44,6 @@ pids
 tmp/
 temp/
 
-CLAUDE.md
+# CLAUDE.md
 k8s
 docs/MIGRATION_GAPS.md

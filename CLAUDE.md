@@ -78,6 +78,13 @@ const updatedDescription = currentIssue.description + "\n\n---\n\n" + newContent
 description: newContent  // Destroys existing content!
 ```
 
+#### Plan Mode and Linear Issues
+**ALWAYS create/update a Linear issue when a plan is approved**
+- When exiting plan mode with an approved plan, ensure a Linear issue exists with the full plan details
+- Include: phases, milestones, acceptance criteria, files to modify/create
+- Update existing issues if one already exists for the work
+- This provides traceability between approved plans and implementation
+
 ## Architecture Overview
 
 High-performance authentication service using Bun runtime with 100% API compatibility.

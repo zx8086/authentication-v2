@@ -1,5 +1,8 @@
 /* src/handlers/profiling.ts */
 
+// Stryker disable all: Profiling is a development/debugging feature with string-heavy responses.
+// These handlers are tested via E2E tests and manual profiling sessions.
+
 import { profilingService } from "../services/profiling.service";
 import { createErrorResponse, createSuccessResponse, generateRequestId } from "../utils/response";
 

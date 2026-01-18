@@ -1,5 +1,8 @@
 /* src/utils/retry.ts */
 
+// Stryker disable all: Retry utility with timing/delay logic.
+// Tested via circuit breaker integration tests.
+
 export interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;

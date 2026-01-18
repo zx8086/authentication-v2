@@ -6,6 +6,34 @@ import { type ErrorCode, getErrorDefinition } from "../errors/error-codes";
 const config = loadConfig();
 
 /**
+ * API Versioning Constants and Functions
+ * Supports header-based versioning via Accept-Version header
+ */
+export type ApiVersion = "v1" | "v2";
+
+export const SUPPORTED_API_VERSIONS: ApiVersion[] = ["v1", "v2"];
+export const DEFAULT_API_VERSION: ApiVersion = "v1";
+
+/**
+ * Check if a version string is a valid API version
+ */
+export function isValidApiVersion(version: string): version is ApiVersion {
+  return SUPPORTED_API_VERSIONS.includes(version as ApiVersion);
+}
+
+/**
+ * Extract API version from request Accept-Version header
+ * Returns default version if header is missing or invalid
+ */
+export function getApiVersion(request: Request): ApiVersion {
+  const acceptVersion = request.headers.get("Accept-Version");
+  if (acceptVersion && isValidApiVersion(acceptVersion)) {
+    return acceptVersion;
+  }
+  return DEFAULT_API_VERSION;
+}
+
+/**
  * Generate a unique request ID using crypto.randomUUID().
  * This is the standard format for request IDs across the service.
  */
@@ -57,15 +85,29 @@ export function getSecurityHeaders(): Record<string, string> {
   };
 }
 
-export function getDefaultHeaders(requestId: string): Record<string, string> {
-  return {
+export function getDefaultHeaders(
+  requestId: string,
+  apiVersion?: ApiVersion
+): Record<string, string> {
+  const baseHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Request-Id": requestId,
     "Access-Control-Allow-Origin": config.apiInfo.cors,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept-Version",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    ...getSecurityHeaders(),
   };
+
+  // V2 includes security headers and API-Version response header
+  if (apiVersion === "v2") {
+    return {
+      ...baseHeaders,
+      ...getSecurityHeaders(),
+      "API-Version": "v2",
+    };
+  }
+
+  // V1 (default) - no security headers for backward compatibility
+  return baseHeaders;
 }
 
 export function getCacheHeaders(): Record<string, string> {

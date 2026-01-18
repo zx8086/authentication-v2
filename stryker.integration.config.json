@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "bun test ./test/bun ./test/integration"
+  },
+  "plugins": ["@stryker-mutator/typescript-checker"],
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "mutate": [
+    "src/**/*.ts",
+    "!src/**/*.d.ts",
+    "!src/types/**/*.ts",
+    "!src/telemetry/**/*.ts",
+    "!src/services/cache/**/*.ts",
+    "!src/openapi-generator.ts"
+  ],
+  "ignorePatterns": ["node_modules", "dist", "scripts", ".github", "docs"],
+  "reporters": ["html", "clear-text", "progress", "json"],
+  "htmlReporter": {
+    "fileName": "test/results/mutation/mutation-integration-report.html"
+  },
+  "jsonReporter": {
+    "fileName": "test/results/mutation/mutation-integration-report.json"
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "incremental": true,
+  "incrementalFile": "test/results/mutation/stryker-integration-incremental.json",
+  "concurrency": 2,
+  "timeoutMS": 120000,
+  "timeoutFactor": 3,
+  "disableTypeChecks": false,
+  "cleanTempDir": "always",
+  "tempDirName": ".stryker-tmp",
+  "coverageAnalysis": "off",
+  "mutator": {
+    "excludedMutations": [
+      "StringLiteral"
+    ]
+  }
+}

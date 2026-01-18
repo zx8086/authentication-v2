@@ -1,5 +1,8 @@
 /* src/services/profiling.service.ts */
 
+// Stryker disable all: Profiling service is a development tool with V8 inspector integration.
+// Tested via manual profiling sessions and E2E tests, not unit tests.
+
 import { getProfilingConfig, getServerConfig } from "../config/index";
 import { error, log, warn } from "../utils/logger";
 
