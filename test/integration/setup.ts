@@ -8,24 +8,42 @@
 import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "../shared/test-consumers";
 
 // Integration test environment configuration
-// Use INTEGRATION_KONG_ADMIN_URL to avoid conflicts with main .env settings
+// Priority: INTEGRATION_KONG_ADMIN_URL > KONG_ADMIN_URL (from .env) > localhost default
+
+/**
+ * Get Kong Admin URL dynamically to support late env loading.
+ */
+function getKongAdminUrl(): string {
+  return (
+    process.env.INTEGRATION_KONG_ADMIN_URL || process.env.KONG_ADMIN_URL || "http://localhost:8001"
+  );
+}
+
 export const INTEGRATION_CONFIG = {
-  // Kong Admin API - use specific integration test env var to avoid .env conflicts
-  KONG_ADMIN_URL: process.env.INTEGRATION_KONG_ADMIN_URL || "http://localhost:8101",
+  // Kong Admin API - uses getter for dynamic resolution
+  get KONG_ADMIN_URL(): string {
+    return getKongAdminUrl();
+  },
 
   // Kong Proxy (for API requests through Kong)
-  KONG_PROXY_URL: process.env.KONG_PROXY_URL || "http://localhost:8100",
+  get KONG_PROXY_URL(): string {
+    return process.env.KONG_PROXY_URL || "http://localhost:8100";
+  },
 
   // Redis (for cache testing)
-  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6380",
+  get REDIS_URL(): string {
+    return process.env.REDIS_URL || "redis://localhost:6380";
+  },
 
   // Auth service (if running locally alongside Kong)
-  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL || "http://localhost:3000",
+  get AUTH_SERVICE_URL(): string {
+    return process.env.AUTH_SERVICE_URL || "http://localhost:3000";
+  },
 
-  // Timeouts
+  // Timeouts (static values)
   DEFAULT_TIMEOUT: 10000,
   KONG_READY_TIMEOUT: 60000,
-} as const;
+};
 
 // JWT credentials matching seed-test-consumers.ts
 export const JWT_CREDENTIALS: Record<string, { key: string; secret: string; algorithm: string }> = {

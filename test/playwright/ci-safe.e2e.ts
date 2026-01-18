@@ -62,8 +62,8 @@ test.describe("Authentication Service - CI-Safe Tests", () => {
 
       const data = await response.json();
       expect(data).toHaveProperty("error");
-      expect(data).toHaveProperty("message");
-      expect(data.message).toContain("Missing Kong consumer headers");
+      expect(data.error).toHaveProperty("message");
+      expect(data.error.code).toBe("AUTH_001");
     });
 
     test("Consistent error response structure", async ({ request }) => {
@@ -72,7 +72,8 @@ test.describe("Authentication Service - CI-Safe Tests", () => {
 
       const data = await response.json();
       expect(data).toHaveProperty("error");
-      expect(data).toHaveProperty("message");
+      expect(data.error).toHaveProperty("code");
+      expect(data.error).toHaveProperty("message");
       expect(data).toHaveProperty("timestamp");
       expect(data).toHaveProperty("statusCode");
       expect(data).toHaveProperty("requestId");

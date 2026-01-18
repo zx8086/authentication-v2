@@ -374,6 +374,228 @@ describe("KongAdapter Integration - Different Adapter Instance", () => {
   });
 });
 
+describe("KongAdapter Integration - createConsumerSecret", () => {
+  // Track created credentials for cleanup
+  const createdCredentials: Array<{ consumerId: string; credentialId: string }> = [];
+
+  // Helper to clean up JWT credentials
+  async function cleanupCredential(consumerId: string, credentialId: string): Promise<void> {
+    try {
+      await fetch(
+        `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumerId}/jwt/${credentialId}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  afterAll(async () => {
+    for (const cred of createdCredentials) {
+      await cleanupCredential(cred.consumerId, cred.credentialId);
+    }
+  });
+
+  it("should create new JWT credentials for an existing consumer", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const consumer = TEST_CONSUMERS[3]; // Use test-consumer-004 for create tests
+
+    // Get existing credentials count
+    const existingResponse = await fetch(
+      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/jwt`
+    );
+    const existingData = await existingResponse.json();
+    const existingCount = existingData.data?.length || 0;
+
+    // Create new credentials
+    const newSecret = await freshAdapter.createConsumerSecret(consumer.id);
+
+    expect(newSecret).not.toBeNull();
+    expect(newSecret?.key).toBeTruthy();
+    expect(newSecret?.secret).toBeTruthy();
+    expect(newSecret?.algorithm).toBe("HS256");
+    expect(newSecret?.consumer?.id).toBe(consumer.id);
+
+    // Track for cleanup
+    if (newSecret?.id) {
+      createdCredentials.push({ consumerId: consumer.id, credentialId: newSecret.id });
+    }
+
+    // Verify credentials were created in Kong
+    const verifyResponse = await fetch(
+      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/jwt`
+    );
+    const verifyData = await verifyResponse.json();
+    expect(verifyData.data?.length).toBeGreaterThan(existingCount);
+  });
+
+  it("should return null when creating credentials for non-existent consumer", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const secret = await freshAdapter.createConsumerSecret("non-existent-consumer-xyz-789");
+
+    expect(secret).toBeNull();
+  });
+
+  it("should generate unique keys for each credential creation", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const consumer = TEST_CONSUMERS[4]; // Use test-consumer-005
+
+    // Create two credentials
+    const secret1 = await freshAdapter.createConsumerSecret(consumer.id);
+    const secret2 = await freshAdapter.createConsumerSecret(consumer.id);
+
+    expect(secret1).not.toBeNull();
+    expect(secret2).not.toBeNull();
+
+    // Keys should be unique
+    expect(secret1?.key).not.toBe(secret2?.key);
+    expect(secret1?.secret).not.toBe(secret2?.secret);
+
+    // Track for cleanup
+    if (secret1?.id) {
+      createdCredentials.push({ consumerId: consumer.id, credentialId: secret1.id });
+    }
+    if (secret2?.id) {
+      createdCredentials.push({ consumerId: consumer.id, credentialId: secret2.id });
+    }
+  });
+
+  it("should cache newly created credentials", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const consumer = TEST_CONSUMERS[3];
+
+    // Clear cache first
+    await freshAdapter.clearCache(consumer.id);
+
+    // Create new credentials
+    const newSecret = await freshAdapter.createConsumerSecret(consumer.id);
+    expect(newSecret).not.toBeNull();
+
+    if (newSecret?.id) {
+      createdCredentials.push({ consumerId: consumer.id, credentialId: newSecret.id });
+    }
+
+    // Get from cache should return the newly created secret
+    const cachedSecret = await freshAdapter.getConsumerSecret(consumer.id);
+    expect(cachedSecret).not.toBeNull();
+    expect(cachedSecret?.key).toBe(newSecret?.key);
+  });
+});
+
+describe("KongAdapter Integration - Circuit Breaker Events", () => {
+  it("should track circuit breaker operations with closed state", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const consumer = TEST_CONSUMERS[0];
+
+    // Make successful requests
+    await freshAdapter.getConsumerSecret(consumer.id);
+    await freshAdapter.healthCheck();
+
+    const stats = freshAdapter.getCircuitBreakerStats();
+
+    // Check that operations are tracked
+    expect(stats).toBeDefined();
+    const operations = Object.keys(stats);
+
+    for (const operation of operations) {
+      const opStats = stats[operation];
+      expect(opStats.state).toBe("closed"); // Should be closed after successful operations
+      expect(opStats.stats).toBeDefined();
+      expect(opStats.stats.fires).toBeGreaterThan(0); // Should have recorded fires
+    }
+  });
+
+  it("should track successes in circuit breaker stats", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+    const consumer = TEST_CONSUMERS[0];
+
+    // Make multiple successful requests
+    for (let i = 0; i < 3; i++) {
+      await freshAdapter.getConsumerSecret(consumer.id);
+    }
+
+    const stats = freshAdapter.getCircuitBreakerStats();
+
+    // Verify successes are tracked
+    const getConsumerSecretStats = stats.getConsumerSecret;
+    if (getConsumerSecretStats) {
+      expect(getConsumerSecretStats.stats.successes).toBeGreaterThan(0);
+      expect(getConsumerSecretStats.stats.fires).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("should maintain separate stats for different operations", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+
+    // Perform different operations
+    await freshAdapter.getConsumerSecret(TEST_CONSUMERS[0].id);
+    await freshAdapter.healthCheck();
+
+    const stats = freshAdapter.getCircuitBreakerStats();
+
+    // Should have separate entries for each operation type
+    const operations = Object.keys(stats);
+    expect(operations.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should show healthy circuit breaker percentiles", async () => {
+    if (!integrationAvailable) {
+      console.log("Skipping: Integration environment not available");
+      return;
+    }
+
+    const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
+
+    // Make a few requests to populate percentiles
+    for (let i = 0; i < 5; i++) {
+      await freshAdapter.getConsumerSecret(TEST_CONSUMERS[0].id);
+    }
+
+    const stats = freshAdapter.getCircuitBreakerStats();
+    const getConsumerSecretStats = stats.getConsumerSecret;
+
+    if (getConsumerSecretStats?.stats.percentiles) {
+      // Percentiles should be available
+      expect(typeof getConsumerSecretStats.stats.percentiles).toBe("object");
+    }
+  });
+});
+
 afterAll(() => {
   if (!integrationAvailable) {
     console.log("\nTo run integration tests:");

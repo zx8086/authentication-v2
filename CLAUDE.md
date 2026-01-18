@@ -80,11 +80,13 @@ description: newContent  // Destroys existing content!
 ```
 
 #### Plan Mode and Linear Issues
-**ALWAYS create/update a Linear issue when a plan is approved**
-- When exiting plan mode with an approved plan, ensure a Linear issue exists with the full plan details
-- Include: phases, milestones, acceptance criteria, files to modify/create
+**MANDATORY: ALL APPROVED PLANS MUST HAVE A LINEAR ISSUE**
+- When a plan is approved and you exit plan mode, you MUST create a Linear issue BEFORE starting implementation
+- This is NON-NEGOTIABLE - no implementation work begins without a tracked Linear issue
+- Include in the issue: phases, milestones, acceptance criteria, files to modify/create
 - Update existing issues if one already exists for the work
 - This provides traceability between approved plans and implementation
+- The Linear issue ID should be used in all related commits (e.g., `SIO-XXX: commit message`)
 
 ## Architecture Overview
 
@@ -266,6 +268,120 @@ bun run kill-server && bun run dev    # Clean restart
 - Let K6 performance tests run their full duration
 - Tests are designed to complete naturally
 - **MANDATORY**: Fix all test failures immediately before continuing development
+
+### Mutation Testing Guidelines (Stryker)
+
+**IMPORTANT**: All tests must be written with mutation testing in mind. Tests should create "killable mutations" - meaning they should fail if the code logic is mutated.
+
+#### Mutation-Resistant Test Patterns
+
+**1. Assert Specific Values, Not Just Truthiness**
+```typescript
+// BAD - Survives mutations (value could be changed)
+expect(result).toBeDefined();
+expect(response.status).toBeTruthy();
+
+// GOOD - Kills mutations (exact value required)
+expect(result).toBe("expected-value");
+expect(response.status).toBe(200);
+```
+
+**2. Test Boundary Conditions**
+```typescript
+// BAD - Doesn't catch off-by-one mutations
+expect(items.length).toBeGreaterThan(0);
+
+// GOOD - Catches boundary mutations
+expect(items.length).toBe(3);
+// Or test both boundaries:
+expect(value).toBeGreaterThanOrEqual(0);
+expect(value).toBeLessThanOrEqual(100);
+```
+
+**3. Verify Return Values Are Used**
+```typescript
+// BAD - Function could return anything
+const result = calculate(input);
+expect(result).toBeDefined();
+
+// GOOD - Verify the actual computation
+const result = calculate(5);
+expect(result).toBe(25); // 5 * 5
+```
+
+**4. Test Error Paths With Specific Messages**
+```typescript
+// BAD - Only checks that it throws
+expect(() => validate(null)).toThrow();
+
+// GOOD - Verifies the specific error
+expect(() => validate(null)).toThrow("Input cannot be null");
+```
+
+**5. Test All Branches of Conditionals**
+```typescript
+// Test BOTH paths of: if (isValid) { return success } else { return failure }
+it("should return success when valid", () => {
+  expect(process(validInput)).toEqual({ status: "success" });
+});
+
+it("should return failure when invalid", () => {
+  expect(process(invalidInput)).toEqual({ status: "failure" });
+});
+```
+
+**6. Verify Object Properties Individually**
+```typescript
+// BAD - Object could have wrong internal values
+expect(user).toBeDefined();
+
+// GOOD - Check each property
+expect(user.id).toBe("user-123");
+expect(user.email).toBe("test@example.com");
+expect(user.role).toBe("admin");
+```
+
+**7. Test Numeric Operations Precisely**
+```typescript
+// BAD - Doesn't catch arithmetic mutations (+, -, *, /)
+expect(total).toBeGreaterThan(0);
+
+// GOOD - Verify exact calculation
+expect(calculateTotal(10, 5)).toBe(15);  // Tests addition
+expect(calculateDiscount(100, 0.2)).toBe(80);  // Tests multiplication
+```
+
+**8. Test Array/Collection Contents**
+```typescript
+// BAD - Only checks length
+expect(results.length).toBe(3);
+
+// GOOD - Verify actual contents
+expect(results).toEqual(["a", "b", "c"]);
+// Or for objects:
+expect(results).toContainEqual({ id: 1, name: "first" });
+```
+
+#### Common Surviving Mutations to Watch For
+
+| Mutation Type | Example | How to Kill It |
+|--------------|---------|----------------|
+| Arithmetic | `a + b` -> `a - b` | Assert exact numeric results |
+| Comparison | `>` -> `>=` | Test boundary values |
+| Boolean | `true` -> `false` | Test both conditions explicitly |
+| String | `"error"` -> `""` | Assert exact string values |
+| Return | `return x` -> `return null` | Assert return value is used |
+| Conditional | `if(a)` -> `if(true)` | Test both branches |
+
+#### Running Mutation Tests
+```bash
+# Note: Currently blocked by stryker-mutator-bun-runner ENOEXEC bug (SIO-276)
+# When available:
+bun run stryker        # Run mutation testing
+bun run stryker:report # View mutation report
+```
+
+**Target**: Aim for >80% mutation score. Surviving mutants indicate weak tests.
 
 ### CI/CD Workflow Rules
 - **NEVER add timeouts to critical installation steps** (Playwright browsers, dependencies)

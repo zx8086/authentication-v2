@@ -36,31 +36,32 @@ export const getConfig = (): K6Config => {
 
 export const getTestConsumer = (index: number = 0): ConsumerConfig => {
   // Use environment variables if provided, otherwise fall back to standard test consumers
+  // NOTE: Consumer IDs must be UUIDs that Kong uses, not usernames
   if (__ENV.TEST_CONSUMER_ID_1 || __ENV.TEST_CONSUMER_USERNAME_1) {
     const consumers = [
       {
-        id: __ENV.TEST_CONSUMER_ID_1 || "test-consumer-001",
-        username: __ENV.TEST_CONSUMER_USERNAME_1 || "loadtest-user-001",
+        id: __ENV.TEST_CONSUMER_ID_1 || "f48534e1-4caf-4106-9103-edf38eae7ebc",
+        username: __ENV.TEST_CONSUMER_USERNAME_1 || "test-consumer-001",
         isAnonymous: false,
       },
       {
-        id: __ENV.TEST_CONSUMER_ID_2 || "test-consumer-002",
-        username: __ENV.TEST_CONSUMER_USERNAME_2 || "loadtest-user-002",
+        id: __ENV.TEST_CONSUMER_ID_2 || "1ff7d425-917a-4858-9e99-c2a911ba1b05",
+        username: __ENV.TEST_CONSUMER_USERNAME_2 || "test-consumer-002",
         isAnonymous: false,
       },
       {
-        id: __ENV.TEST_CONSUMER_ID_3 || "test-consumer-003",
-        username: __ENV.TEST_CONSUMER_USERNAME_3 || "loadtest-user-003",
+        id: __ENV.TEST_CONSUMER_ID_3 || "73881280-13b4-40b3-aecf-84d981d6ac35",
+        username: __ENV.TEST_CONSUMER_USERNAME_3 || "test-consumer-003",
         isAnonymous: false,
       },
       {
-        id: __ENV.TEST_CONSUMER_ID_4 || "test-consumer-004",
-        username: __ENV.TEST_CONSUMER_USERNAME_4 || "loadtest-user-004",
+        id: __ENV.TEST_CONSUMER_ID_4 || "10f37f4d-99b2-4b93-8e10-4f9090d62ee0",
+        username: __ENV.TEST_CONSUMER_USERNAME_4 || "test-consumer-004",
         isAnonymous: false,
       },
       {
-        id: __ENV.TEST_CONSUMER_ID_5 || "test-consumer-005",
-        username: __ENV.TEST_CONSUMER_USERNAME_5 || "loadtest-user-005",
+        id: __ENV.TEST_CONSUMER_ID_5 || "2df241f5-11db-49a3-b9fb-c797135db9c3",
+        username: __ENV.TEST_CONSUMER_USERNAME_5 || "test-consumer-005",
         isAnonymous: false,
       },
     ];

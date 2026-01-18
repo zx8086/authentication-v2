@@ -1,12 +1,12 @@
 /* src/server.ts */
 
 import pkg from "../package.json" with { type: "json" };
+import { KongAdapter } from "./adapters/kong.adapter";
+import type { IKongService } from "./config";
 import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
 import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutes } from "./routes/router";
-import type { IKongService } from "./services/kong.service";
-import { KongServiceFactory } from "./services/kong.service";
 import { profilingService } from "./services/profiling.service";
 import { shutdownCardinalityGuard } from "./telemetry/cardinality-guard";
 import { shutdownConsumerVolume } from "./telemetry/consumer-volume";
@@ -31,7 +31,7 @@ const config = loadConfig();
 
 getApiDocGenerator().registerAllRoutes();
 
-const kongService: IKongService = KongServiceFactory.create(
+const kongService: IKongService = new KongAdapter(
   config.kong.mode,
   config.kong.adminUrl,
   config.kong.adminToken

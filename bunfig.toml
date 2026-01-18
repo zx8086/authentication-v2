@@ -6,6 +6,9 @@ maxConcurrency = 4
 # Test environment isolation
 env = "test"
 
+# Preload .env file for tests
+preload = ["./test/preload.ts"]
+
 # Pure unit tests - safe for concurrent execution
 concurrentTestGlob = [
   "**/type-validation.test.ts",

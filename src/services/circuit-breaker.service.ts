@@ -80,10 +80,7 @@ export class KongCircuitBreakerService {
     }
   }
 
-  private getOrCreateBreaker<T>(
-    operation: string,
-    action: (...args: any[]) => Promise<T>
-  ): CircuitBreaker<any[], T> {
+  private getOrCreateBreaker<T>(operation: string): CircuitBreaker<[() => Promise<T>], T> {
     if (!this.breakers.has(operation)) {
       const operationConfig = this.operationConfigs.get(operation);
 
@@ -100,7 +97,10 @@ export class KongCircuitBreakerService {
         name: operation,
       };
 
-      const breaker = new CircuitBreaker(action, circuitBreakerOptions);
+      // Create breaker with a generic wrapper that accepts action as parameter
+      // This prevents race conditions when concurrent requests share the same breaker
+      const actionWrapper = async (action: () => Promise<T>): Promise<T> => action();
+      const breaker = new CircuitBreaker(actionWrapper, circuitBreakerOptions);
 
       breaker.on("open", () => {
         winstonTelemetryLogger.warn(`Circuit breaker opened for ${operation}`, {
@@ -153,7 +153,7 @@ export class KongCircuitBreakerService {
     if (!breaker) {
       throw new Error(`Circuit breaker not found for operation: ${operation}`);
     }
-    return breaker as CircuitBreaker<any[], T>;
+    return breaker as CircuitBreaker<[() => Promise<T>], T>;
   }
 
   async wrapKongOperation<T>(
@@ -165,10 +165,12 @@ export class KongCircuitBreakerService {
       return await action();
     }
 
-    const breaker = this.getOrCreateBreaker(operation, action);
+    const breaker = this.getOrCreateBreaker<T>(operation);
 
     try {
-      const result = await breaker.fire();
+      // Pass action to fire() to ensure each call executes its own action
+      // This prevents race conditions when concurrent requests share the breaker
+      const result = await breaker.fire(action);
       recordCircuitBreakerRequest(operation, "closed");
       return result;
     } catch (error) {
@@ -197,11 +199,13 @@ export class KongCircuitBreakerService {
       return await action();
     }
 
-    const breaker = this.getOrCreateBreaker(operation, action);
+    const breaker = this.getOrCreateBreaker<ConsumerSecret | null>(operation);
     const cacheKey = `consumer_secret:${consumerId}`;
 
     try {
-      const result = await breaker.fire();
+      // Pass action to fire() to ensure each call executes its own action
+      // This prevents race conditions when concurrent requests share the breaker
+      const result = await breaker.fire(action);
       recordCircuitBreakerRequest(operation, "closed");
 
       if (result) {

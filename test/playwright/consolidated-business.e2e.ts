@@ -3,15 +3,16 @@
 import { expect, test } from "@playwright/test";
 
 // Use shared test consumer definitions for consistency
+// NOTE: id must be the UUID that Kong uses, not the username
 const TEST_CONSUMER = {
-  id: "test-consumer-001",
+  id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
   username: "test-consumer-001",
   custom_id: "test-consumer-001",
   description: "Primary test consumer for basic authentication tests",
 };
 
 const ANONYMOUS_CONSUMER = {
-  id: "anonymous",
+  id: "56456a01-65ec-4415-aec8-49fec6403c9c",
   username: "anonymous",
   custom_id: "anonymous",
   description: "Anonymous consumer for testing rejection scenarios",
@@ -169,8 +170,8 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
       expect(response.status()).toBe(401);
 
       const data = await response.json();
-      expect(data.error).toBe("Unauthorized");
-      expect(data.message).toContain("Anonymous consumers");
+      expect(data.error.code).toBe("AUTH_009");
+      expect(data.error.message).toContain("Anonymous consumers");
     });
 
     test("Requires both consumer headers", async ({ request }) => {
@@ -203,14 +204,12 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
       const data = await response.json();
 
       if (response.status() === 401) {
-        // Standard unauthorized response
-        expect(data.error).toBe("Unauthorized");
-        expect(data.message).toBe("Invalid consumer credentials");
+        // Standard unauthorized response - AUTH_002 for consumer not found
+        expect(data.error.code).toBe("AUTH_002");
         expect(data).toHaveProperty("requestId");
       } else if (response.status() === 503) {
-        // Circuit breaker or Kong connectivity response
-        expect(data.error).toBe("Service Unavailable");
-        expect(data.message).toContain("temporarily unavailable");
+        // Circuit breaker or Kong connectivity response - AUTH_004
+        expect(data.error.code).toBe("AUTH_004");
         expect(data).toHaveProperty("timestamp");
       }
     });
@@ -319,11 +318,16 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
 
         const data = await response.json();
         expect(data).toHaveProperty("error");
-        expect(data).toHaveProperty("message");
 
         if (expectedStatus === 401) {
+          // Structured error format for auth errors
+          expect(data.error).toHaveProperty("code");
+          expect(data.error).toHaveProperty("message");
           expect(data).toHaveProperty("timestamp");
           expect(data).toHaveProperty("requestId");
+        } else {
+          // 404 errors may have different format
+          expect(data).toHaveProperty("message");
         }
       }
     });

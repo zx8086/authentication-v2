@@ -1,11 +1,11 @@
 /* src/index.ts */
 
+export { KongAdapter } from "./adapters/kong.adapter";
 // Export main configuration and services for programmatic usage
 export { loadConfig } from "./config/index";
 // Standard Bun entry point following conventional patterns
 export { default as server } from "./server";
 export { NativeBunJWT } from "./services/jwt.service";
-export { KongServiceFactory } from "./services/kong.service";
 
 // Performance utilities for external usage
 export { calculateDuration, getHighResTime, measure, measureSync } from "./utils/performance";
