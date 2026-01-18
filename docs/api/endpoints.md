@@ -100,6 +100,101 @@ X-Anonymous-Consumer: false
 - **401 Unauthorized**: Missing `X-Consumer-ID` header, missing `X-Consumer-Username`, or `X-Anonymous-Consumer` is "true"
 - **503 Service Unavailable**: Kong Admin API unreachable or consumer secret lookup failed
 
+### GET /tokens/validate
+Validates a JWT token and returns its claims if valid.
+
+**Request**
+```http
+GET /tokens/validate HTTP/1.1
+Host: auth-service.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+X-Consumer-ID: 98765432-9876-5432-1098-765432109876
+X-Consumer-Username: example-consumer
+```
+
+**Required Headers**
+| Header | Type | Description |
+|--------|------|-------------|
+| `Authorization` | String | Bearer token (format: `Bearer <jwt>`) |
+| `X-Consumer-ID` | UUID | Kong consumer identifier |
+| `X-Consumer-Username` | String | Kong consumer username |
+
+**Response - Valid Token (200 OK)**
+```json
+{
+  "valid": true,
+  "tokenId": "jti-550e8400-e29b-41d4-a716-446655440000",
+  "subject": "example-consumer",
+  "issuer": "authentication-service",
+  "audience": "api-gateway",
+  "issuedAt": "2025-01-15T12:00:00.000Z",
+  "expiresAt": "2025-01-15T12:15:00.000Z",
+  "expiresIn": 900,
+  "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2025-01-15T12:00:05.000Z"
+}
+```
+
+**Response Fields**
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | Boolean | Token validity status |
+| `tokenId` | String | JWT ID (jti claim) |
+| `subject` | String | Token subject (sub claim) |
+| `issuer` | String | Token issuer (iss claim) |
+| `audience` | String | Token audience (aud claim) |
+| `issuedAt` | String | ISO-8601 token issue time |
+| `expiresAt` | String | ISO-8601 token expiration time |
+| `expiresIn` | Integer | Seconds until expiration |
+| `requestId` | String | Request correlation ID |
+| `timestamp` | String | Response timestamp |
+
+**Response - Token Expired (401)**
+```json
+{
+  "error": "Token Expired",
+  "message": "The provided JWT token has expired",
+  "errorCode": "AUTH_010",
+  "statusCode": 401,
+  "expiredAt": "2025-01-15T11:45:00.000Z",
+  "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+**Response - Invalid Token (400)**
+```json
+{
+  "error": "Invalid Token",
+  "message": "The provided JWT token is invalid or malformed",
+  "errorCode": "AUTH_011",
+  "statusCode": 400,
+  "reason": "Invalid signature",
+  "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+**Response - Missing Authorization (400)**
+```json
+{
+  "error": "Missing Authorization",
+  "message": "Authorization header with Bearer token is required",
+  "errorCode": "AUTH_012",
+  "statusCode": 400,
+  "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+**Error Responses**
+- **400 Bad Request (AUTH_011)**: Token is malformed, empty, or has invalid signature
+- **400 Bad Request (AUTH_012)**: Missing or incorrectly formatted Authorization header
+- **401 Unauthorized (AUTH_001)**: Missing Kong consumer headers
+- **401 Unauthorized (AUTH_002)**: Consumer not found in Kong
+- **401 Unauthorized (AUTH_010)**: Token has expired
+- **500 Internal Server Error (AUTH_008)**: Unexpected validation error
+
 ## Health Check Endpoints
 
 ### GET /health

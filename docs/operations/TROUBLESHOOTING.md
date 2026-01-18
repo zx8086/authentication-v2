@@ -284,6 +284,99 @@ curl -v http://localhost:3000/health 2>&1 | grep -i traceparent
 
 ---
 
+### 9. Token Expired (AUTH_010)
+
+**Error Code**: `AUTH_010` - Token Expired
+**HTTP Status**: 401
+
+**Symptoms**:
+- Token validation returns 401
+- Error response includes `expiredAt` field
+- Logs show "Token validation failed" with `expired: true`
+
+**Diagnosis**:
+```bash
+# Validate a token and check expiration
+curl -H "Authorization: Bearer <token>" \
+     -H "X-Consumer-ID: <consumer-id>" \
+     -H "X-Consumer-Username: <username>" \
+     http://localhost:3000/tokens/validate
+
+# Decode JWT to check expiration (without validation)
+echo "<token>" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.exp | todate'
+```
+
+**Resolution**:
+1. Request a new token from `/tokens` endpoint
+2. Implement token refresh logic in client application
+3. Consider increasing token TTL if legitimate use case requires longer sessions
+4. Check client/server clock synchronization
+
+---
+
+### 10. Invalid Token Format (AUTH_011)
+
+**Error Code**: `AUTH_011` - Invalid Token
+**HTTP Status**: 400
+
+**Symptoms**:
+- Token validation returns 400
+- Error mentions "invalid signature" or "malformed"
+- Token may be truncated, corrupted, or tampered with
+
+**Diagnosis**:
+```bash
+# Check token format (should have 3 parts separated by dots)
+echo "<token>" | tr '.' '\n' | wc -l  # Should output 3
+
+# Validate token structure
+curl -H "Authorization: Bearer <token>" \
+     -H "X-Consumer-ID: <consumer-id>" \
+     -H "X-Consumer-Username: <username>" \
+     http://localhost:3000/tokens/validate
+```
+
+**Root Causes**:
+1. Token was modified after issuance
+2. Token was issued with a different secret
+3. Token is malformed (missing parts, invalid base64)
+4. Consumer secret was rotated after token issuance
+
+**Resolution**:
+1. Request a fresh token from `/tokens` endpoint
+2. Ensure token is transmitted correctly (no truncation)
+3. Verify consumer secret hasn't changed
+4. Check for URL encoding issues in token transmission
+
+---
+
+### 11. Missing Authorization Header (AUTH_012)
+
+**Error Code**: `AUTH_012` - Missing Authorization
+**HTTP Status**: 400
+
+**Symptoms**:
+- Token validation returns 400
+- Error mentions "Authorization header with Bearer token is required"
+
+**Diagnosis**:
+```bash
+# Correct format
+curl -H "Authorization: Bearer eyJhbGc..." http://localhost:3000/tokens/validate
+
+# Common mistakes
+curl -H "Authorization: eyJhbGc..."           # Missing "Bearer " prefix
+curl -H "Bearer: eyJhbGc..."                  # Wrong header name
+curl http://localhost:3000/tokens/validate     # No Authorization header
+```
+
+**Resolution**:
+1. Add `Authorization` header with `Bearer ` prefix
+2. Ensure token follows format: `Authorization: Bearer <jwt>`
+3. Check for whitespace issues around the token
+
+---
+
 ## Error Code Reference
 
 | Code | HTTP | Title | Typical Action |
@@ -382,6 +475,234 @@ Before escalating, verify:
 - [ ] Memory and CPU within limits
 - [ ] OTLP endpoint connectivity verified
 - [ ] Error codes documented in ticket
+
+---
+
+## Frequently Asked Questions (FAQ)
+
+### Token Generation
+
+**Q: How long are tokens valid?**
+A: By default, tokens expire after 900 seconds (15 minutes). Check the `expires_in` field in the token response.
+
+**Q: Can I customize token expiration time?**
+A: Token TTL is configured at the service level. Contact your platform administrator to adjust the default expiration time.
+
+**Q: Why do I need both X-Consumer-ID and X-Consumer-Username headers?**
+A: Both headers are required for security:
+- `X-Consumer-ID`: UUID that uniquely identifies the consumer in Kong
+- `X-Consumer-Username`: Human-readable identifier for logging and audit trails
+
+**Q: What happens if I send a request with X-Anonymous-Consumer: true?**
+A: The request will be rejected with `AUTH_009`. Anonymous consumers are not permitted to obtain JWT tokens.
+
+---
+
+### Token Validation
+
+**Q: How do I validate a token I received?**
+A: Send a GET request to `/tokens/validate` with the token in the Authorization header:
+```bash
+curl -H "Authorization: Bearer <your-token>" \
+     -H "X-Consumer-ID: <consumer-id>" \
+     -H "X-Consumer-Username: <username>" \
+     http://localhost:3000/tokens/validate
+```
+
+**Q: Why do I need Kong headers to validate a token?**
+A: The service needs to look up the consumer's secret to verify the token signature. Kong headers identify which consumer's secret to use.
+
+**Q: Can I validate tokens issued by other services?**
+A: No. Only tokens issued by this service can be validated, as they are signed with consumer-specific secrets stored in Kong.
+
+---
+
+### Circuit Breaker
+
+**Q: What triggers the circuit breaker?**
+A: The circuit breaker opens when Kong API failures exceed 50% over the rolling window (10 seconds).
+
+**Q: How long does the circuit breaker stay open?**
+A: The circuit resets after 60 seconds, entering half-open state to test if the service has recovered.
+
+**Q: Can I still get tokens when the circuit breaker is open?**
+A: Yes, if stale cache is available (within 30-minute tolerance). The service uses cached consumer secrets as fallback.
+
+**Q: How do I check circuit breaker status?**
+A: Query the metrics endpoint:
+```bash
+curl http://localhost:3000/metrics?view=operational | jq '.circuitBreakers'
+```
+
+---
+
+### Health Checks
+
+**Q: What's the difference between /health and /health/ready?**
+A:
+- `/health`: Liveness probe - checks if the service is running
+- `/health/ready`: Readiness probe - checks if the service can handle traffic (Kong is accessible)
+
+**Q: Which endpoint should I use for Kubernetes probes?**
+A:
+- **Liveness probe**: Use `/health`
+- **Readiness probe**: Use `/health/ready`
+
+**Q: Why does /health return "degraded" status?**
+A: The service is running but one or more dependencies (typically Kong) are unhealthy. Token generation may fail.
+
+---
+
+### Metrics and Observability
+
+**Q: What metrics views are available?**
+A: Six views accessible via `/metrics?view=<name>`:
+| View | Description |
+|------|-------------|
+| `operational` | Runtime metrics, cache, circuit breakers (default) |
+| `infrastructure` | System-level metrics |
+| `telemetry` | OpenTelemetry export status |
+| `exports` | Detailed export statistics |
+| `config` | Current configuration summary |
+| `full` | All metrics combined |
+
+**Q: How do I check if telemetry is working?**
+A: Check the telemetry health endpoint:
+```bash
+curl http://localhost:3000/health/telemetry | jq '.telemetry.status.initialized'
+```
+
+**Q: What does TELEMETRY_MODE control?**
+A:
+- `console`: Logs telemetry to stdout (development)
+- `otlp`: Exports to OTLP endpoints (production)
+- `both`: Console logging + OTLP export (debugging)
+
+---
+
+### Kong Integration
+
+**Q: What Kong mode should I use?**
+A:
+- `API_GATEWAY`: Self-hosted Kong with Admin API access
+- `KONNECT`: Kong Konnect cloud service
+
+**Q: How do I verify Kong connectivity?**
+A:
+```bash
+# Check from the service
+curl http://localhost:3000/health | jq '.dependencies.kong'
+
+# Check Kong directly
+curl ${KONG_ADMIN_URL}/status
+```
+
+**Q: Why is consumer lookup slow?**
+A: Possible causes:
+1. Network latency to Kong Admin API
+2. Large number of consumers in Kong
+3. Kong database performance issues
+
+Check cache hit rate to see if caching is effective:
+```bash
+curl http://localhost:3000/metrics | jq '.cache.hitRate'
+```
+
+---
+
+### Security
+
+**Q: Why is there a 256 character limit on headers?**
+A: This is a security measure to prevent:
+- Buffer overflow attacks
+- Injection attempts via oversized headers
+- Resource exhaustion from processing large headers
+
+**Q: Are tokens encrypted?**
+A: JWT tokens are signed (HMAC-SHA256) but not encrypted. Do not store sensitive data in token claims.
+
+**Q: How are consumer secrets protected?**
+A: Consumer secrets are:
+1. Retrieved from Kong Admin API (secured by KONG_ADMIN_TOKEN)
+2. Cached in memory with TTL-based expiration
+3. Never logged or exposed in API responses
+
+---
+
+### Debugging
+
+**Q: How do I enable debug endpoints?**
+A: Debug endpoints are available in development/staging environments. Set `PROFILING_ENABLED=true` for profiling features.
+
+**Q: How do I force a metrics export?**
+A:
+```bash
+curl -X POST http://localhost:3000/debug/metrics/export
+```
+
+**Q: How do I test metrics recording?**
+A:
+```bash
+curl -X POST http://localhost:3000/debug/metrics/test
+# Wait for export interval, then check
+curl http://localhost:3000/metrics?view=exports
+```
+
+---
+
+### Common Error Patterns
+
+**Q: I'm getting 401 errors but my consumer exists in Kong**
+A: Check:
+1. Consumer has JWT credentials configured (not just API key)
+2. Headers are spelled correctly (`X-Consumer-ID`, not `x-consumer-id`)
+3. `X-Anonymous-Consumer` is not set to "true"
+
+**Q: All my requests suddenly fail with 503**
+A: Likely causes:
+1. Kong Admin API is down
+2. Circuit breaker is open
+3. Network connectivity issue
+
+Check circuit breaker state and Kong health:
+```bash
+curl http://localhost:3000/health | jq '.dependencies.kong'
+curl http://localhost:3000/metrics | jq '.circuitBreakers'
+```
+
+**Q: Token generation works but validation fails**
+A: Possible causes:
+1. Token has expired (check `exp` claim)
+2. Consumer secret was rotated after token was issued
+3. Token was modified/corrupted in transit
+
+---
+
+### Performance
+
+**Q: What is the expected response time?**
+A: See [Performance SLA](SLA.md) for detailed thresholds:
+- Health checks: <50ms (P95)
+- Token generation: <100ms (P95)
+- Token validation: <50ms (P95)
+
+**Q: How many requests can the service handle?**
+A: The service handles 100k+ requests/second on a single instance. Scale horizontally for higher throughput.
+
+**Q: Why are my requests slow?**
+A: Check:
+1. Kong Admin API latency
+2. Cache hit rate (low rate means more Kong lookups)
+3. Event loop delay
+4. Memory pressure
+
+```bash
+curl http://localhost:3000/metrics?view=full | jq '{
+  kong_latency: .kong.latency,
+  cache_hit_rate: .cache.hitRate,
+  memory_usage: .memory.used
+}'
+```
 
 ---
 

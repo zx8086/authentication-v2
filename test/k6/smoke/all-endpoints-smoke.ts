@@ -94,6 +94,23 @@ export default function () {
 
   sleep(0.3);
 
+  // Test readiness check endpoint
+  const readinessResponse = http.get(`${baseUrl}/health/ready`);
+  check(readinessResponse, {
+    "GET /health/ready status is 200 or 503": (r) => r.status === 200 || r.status === 503,
+    "GET /health/ready response time < 500ms": (r) => r.timings.duration < 500,
+    "GET /health/ready has ready field": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"ready"');
+    },
+    "GET /health/ready has checks field": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"checks"');
+    },
+  });
+
+  sleep(0.3);
+
   // Test unified metrics endpoint (default operational view)
   const metricsResponse = http.get(`${baseUrl}/metrics`);
   check(metricsResponse, {
@@ -152,6 +169,35 @@ export default function () {
     "GET /tokens returns JWT token": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"access_token"') && body.includes("eyJ");
+    },
+  });
+
+  sleep(0.3);
+
+  // Test token validation endpoint (GET) - requires valid JWT from /tokens
+  let accessToken = "";
+  try {
+    const tokenBody = typeof tokensResponse.body === "string" ? tokensResponse.body : "";
+    const tokenData = JSON.parse(tokenBody);
+    accessToken = tokenData.access_token || "";
+  } catch {
+    // Token parsing failed, validation test will use empty token
+  }
+
+  const validateHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  const validateResponse = http.get(`${baseUrl}/tokens/validate`, { headers: validateHeaders });
+  check(validateResponse, {
+    "GET /tokens/validate status is 200": (r) => r.status === 200,
+    "GET /tokens/validate response time < 50ms": (r) => r.timings.duration < 50,
+    "GET /tokens/validate has valid field": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"valid"');
+    },
+    "GET /tokens/validate has claims field": (r) => {
+      const body = typeof r.body === "string" ? r.body : "";
+      return body.includes('"claims"') || body.includes('"sub"');
     },
   });
 

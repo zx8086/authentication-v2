@@ -200,14 +200,18 @@ const allEndpoints = [
   "GET / - OpenAPI specification (JSON/YAML based on Accept header)",
   "GET /health - Health check",
   "GET /health/telemetry - Telemetry health status",
+  "GET /health/metrics - Metrics health with circuit breaker status",
+  "GET /health/ready - Readiness check (Kong connectivity)",
   "GET /metrics - Unified metrics endpoint (operational, infrastructure, telemetry, exports, config, full views)",
   "GET /tokens - Issue JWT token (requires Kong headers)",
+  "GET /tokens/validate - Validate JWT token (requires Authorization header)",
   "POST /debug/metrics/test - Record test metrics",
   "POST /debug/metrics/export - Force metrics export",
   "POST /debug/profiling/start - Start profiling session (dev/staging only)",
   "POST /debug/profiling/stop - Stop profiling session (dev/staging only)",
   "GET /debug/profiling/status - Profiling status (dev/staging only)",
   "GET /debug/profiling/reports - List profiling reports (dev/staging only)",
+  "GET /debug/profiling/report - Get specific profiling report (dev/staging only)",
   "POST /debug/profiling/cleanup - Clean profiling artifacts (dev/staging only)",
 ];
 
