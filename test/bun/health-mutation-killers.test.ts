@@ -9,7 +9,7 @@
  * Mutation score goal: Kill surviving boundary and boolean mutations
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import type { IKongService, KongHealthCheckResult } from "../../src/config";
 import type { CircuitBreakerStats } from "../../src/services/circuit-breaker.service";
 
@@ -50,43 +50,7 @@ function createMockKongService(options: {
 }
 
 describe("Health Handler Mutation Killers", () => {
-  const originalEnv = { ...Bun.env };
-
-  beforeEach(async () => {
-    Object.keys(Bun.env).forEach((key) => {
-      if (!["PATH", "HOME", "USER", "SHELL", "TERM"].includes(key)) {
-        delete Bun.env[key];
-      }
-    });
-    Bun.env.NODE_ENV = "test";
-    Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
-    Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
-    Bun.env.KONG_ADMIN_URL = "http://kong:8001";
-    Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
-    Bun.env.TELEMETRY_MODE = "console";
-    Bun.env.CACHE_HIGH_AVAILABILITY = "false";
-
-    const { resetConfigCache } = await import("../../src/config/config");
-    resetConfigCache();
-
-    const { CacheFactory } = await import("../../src/services/cache/cache-factory");
-    CacheFactory.reset();
-  });
-
-  afterEach(async () => {
-    Object.keys(Bun.env).forEach((key) => {
-      if (!(key in originalEnv)) {
-        delete Bun.env[key];
-      }
-    });
-    Object.assign(Bun.env, originalEnv);
-
-    const { resetConfigCache } = await import("../../src/config/config");
-    resetConfigCache();
-
-    const { CacheFactory } = await import("../../src/services/cache/cache-factory");
-    CacheFactory.reset();
-  });
+  // Use .env as-is - no env manipulation needed
 
   describe("Mutation: Line 24-25 - Empty URL check", () => {
     /**

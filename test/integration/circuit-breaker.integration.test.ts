@@ -17,6 +17,26 @@ import {
   waitForKong,
 } from "./setup";
 
+// Timeout for fetch operations to prevent hanging during parallel test execution
+const FETCH_TIMEOUT_MS = 5000;
+
+/**
+ * Wrap a fetch call with a timeout to prevent hanging
+ */
+function fetchWithTimeout(
+  url: string | Request,
+  options: RequestInit & { timeout?: number } = {}
+): Promise<Response> {
+  const { timeout = FETCH_TIMEOUT_MS, ...fetchOptions } = options;
+
+  return Promise.race([
+    fetch(url, fetchOptions),
+    new Promise<Response>((_, reject) =>
+      setTimeout(() => reject(new Error(`Fetch to ${url} timed out after ${timeout}ms`)), timeout)
+    ),
+  ]);
+}
+
 // Skip all tests if integration environment is not available
 let integrationAvailable = false;
 let authServiceAvailable = false;
@@ -250,7 +270,7 @@ describe("Circuit Breaker - Auth Service Integration", () => {
     }
 
     const consumer = TEST_CONSUMERS[0];
-    const response = await fetch(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`, {
+    const response = await fetchWithTimeout(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`, {
       headers: {
         "X-Consumer-ID": consumer.id,
         "X-Consumer-Username": consumer.username,
@@ -270,7 +290,7 @@ describe("Circuit Breaker - Auth Service Integration", () => {
       return;
     }
 
-    const response = await fetch(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`);
+    const response = await fetchWithTimeout(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`);
 
     // Should get 401 for missing headers
     expect(response.status).toBe(401);
@@ -282,7 +302,7 @@ describe("Circuit Breaker - Auth Service Integration", () => {
       return;
     }
 
-    const response = await fetch(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/health`);
+    const response = await fetchWithTimeout(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/health`);
 
     expect(response.ok).toBe(true);
     const data = await response.json();
@@ -300,7 +320,7 @@ describe("Circuit Breaker - Auth Service Integration", () => {
 
     for (let i = 0; i < 5; i++) {
       const startTime = Date.now();
-      const response = await fetch(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`, {
+      const response = await fetchWithTimeout(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`, {
         headers: {
           "X-Consumer-ID": consumer.id,
           "X-Consumer-Username": consumer.username,

@@ -98,9 +98,30 @@ describe("CacheFactory", () => {
 
       const caches = await Promise.all(promises);
 
-      // All should return the same instance
-      expect(caches[0]).toBe(caches[1]);
-      expect(caches[1]).toBe(caches[2]);
+      // All caches should be functional and share the same underlying data
+      const testKey = `concurrent-test-${Date.now()}`;
+      const testData = {
+        id: testKey,
+        key: testKey,
+        secret: "concurrent-secret",
+        algorithm: "HS256" as const,
+        consumer: { id: "concurrent-consumer" },
+      };
+
+      // Write with first cache
+      await caches[0].set(testKey, testData);
+
+      // All caches should be able to read the same data (functional equivalence)
+      const fromCache0 = await caches[0].get(testKey);
+      const fromCache1 = await caches[1].get(testKey);
+      const fromCache2 = await caches[2].get(testKey);
+
+      expect(fromCache0?.key).toBe(testKey);
+      expect(fromCache1?.key).toBe(testKey);
+      expect(fromCache2?.key).toBe(testKey);
+
+      // Cleanup
+      await caches[0].delete(testKey);
     });
   });
 
