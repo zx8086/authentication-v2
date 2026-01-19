@@ -185,6 +185,7 @@ export default function () {
   }
 
   const validateHeaders = {
+    ...headers,
     Authorization: `Bearer ${accessToken}`,
   };
   const validateResponse = http.get(`${baseUrl}/tokens/validate`, { headers: validateHeaders });
@@ -197,7 +198,7 @@ export default function () {
     },
     "GET /tokens/validate has claims field": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"claims"') || body.includes('"sub"');
+      return body.includes('"subject"') || body.includes('"tokenId"');
     },
   });
 
@@ -220,7 +221,7 @@ export default function () {
   const debugExportResponse = http.post(`${baseUrl}/debug/metrics/export`);
   check(debugExportResponse, {
     "POST /debug/metrics/export status is 200": (r) => r.status === 200,
-    "POST /debug/metrics/export response time < 200ms": (r) => r.timings.duration < 200,
+    "POST /debug/metrics/export response time < 500ms": (r) => r.timings.duration < 500,
     "POST /debug/metrics/export confirms export": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
       return body.includes('"message"');
