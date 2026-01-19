@@ -377,6 +377,52 @@ curl http://localhost:3000/tokens/validate     # No Authorization header
 
 ---
 
+### 12. Bun Development Server Won't Start
+
+**Symptoms**:
+- `bun run dev` hangs with no output
+- Error: `node_modules/.bin/bun: Undefined error: 0`
+- Server starts with `bun src/index.ts` but not with `bun run dev`
+
+**Diagnosis**:
+```bash
+# Check if broken symlink exists
+ls -la node_modules/.bin/bun
+
+# Expected broken symlink (points to Windows path on macOS):
+# lrwxrwxrwx node_modules/.bin/bun -> ../bun/bin/bun.exe
+```
+
+**Root Cause**:
+After Bun upgrades, `bun install` may create a broken symlink at `node_modules/.bin/bun` pointing to a Windows executable path (`bun.exe`) on macOS/Linux systems.
+
+**Resolution**:
+
+Quick fix (removes broken symlink):
+```bash
+bun run fix:bun-symlink
+```
+
+Full fix (clears all caches and reinstalls):
+```bash
+bun run fix:bun-full
+```
+
+Manual fix:
+```bash
+rm -f node_modules/.bin/bun
+```
+
+**Prevention**:
+This issue typically occurs after Bun version upgrades. After upgrading Bun, run:
+```bash
+rm -rf node_modules bun.lockb
+bun install
+rm -f node_modules/.bin/bun  # Remove if created
+```
+
+---
+
 ## Error Code Reference
 
 | Code | HTTP | Title | Typical Action |
