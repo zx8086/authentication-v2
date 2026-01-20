@@ -24,6 +24,72 @@
                                                     └─────────────────┘
 ```
 
+**Note**: This is a simplified high-level architecture diagram. The Auth Service internal implementation includes additional layers not shown here:
+- **Router Layer**: Bun Routes API for HTTP request routing (16 endpoints)
+- **Middleware Layer**: Error handling and CORS preflight processing
+- **Handler Layer**: 5 specialized handlers (tokens, health, metrics, openapi, profiling)
+- **Service Layer**: JWT generation, cache management, telemetry instrumentation
+- **Adapter Layer**: Kong Admin API integration with unified adapter pattern
+
+See "Internal Components" section below for complete implementation details.
+
+## Layered Architecture (Internal)
+
+The Auth Service implements a clean layered architecture for maintainability and testability:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    HTTP Request Layer                    │
+│              (Bun.serve() with Routes API)               │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│                   Router Layer (router.ts)               │
+│  Route Matching → Handler Dispatch → Response Building  │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│              Middleware Layer (middleware/)              │
+│         Error Handler → CORS Handler → Next()           │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│               Handler Layer (handlers/)                  │
+│  tokens.ts │ health.ts │ metrics.ts │ openapi.ts │      │
+│             profiling.ts                                 │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│               Service Layer (services/)                  │
+│  JWT Service │ Cache Service │ Circuit Breaker │        │
+│  Telemetry Service │ Kong Adapter                       │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│          External Integration Layer (adapters/)          │
+│  Kong Admin API │ Redis Cache │ OpenTelemetry │         │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Layer Responsibilities**:
+
+| Layer | Responsibility | Example Components |
+|-------|----------------|-------------------|
+| **Router** | Route matching, handler dispatch | `src/routes/router.ts` |
+| **Middleware** | Cross-cutting concerns, error handling | `error-handler.ts`, `cors.ts` |
+| **Handler** | HTTP request/response, business orchestration | `tokens.ts`, `health.ts`, `metrics.ts` |
+| **Service** | Core business logic, domain operations | `jwt.service.ts`, `cache-manager.ts` |
+| **Adapter** | External system integration | `kong.adapter.ts`, Redis client |
+
+**Data Flow Example** (Token Generation):
+1. Client → Kong Gateway (validates API key, injects consumer headers)
+2. Kong → Router Layer (matches `/tokens` route)
+3. Router → Middleware (error handling, CORS if needed)
+4. Middleware → Handler (`tokens.ts` - orchestrates token generation)
+5. Handler → Service Layer (`jwt.service.ts`, `cache-manager.ts`)
+6. Service → Adapter (Kong Admin API for consumer secrets)
+7. Response flows back through layers with proper error handling
+
 ## Component Dependencies
 
 ### External Dependencies

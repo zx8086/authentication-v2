@@ -165,7 +165,7 @@ Located in `test/bun/` directory.
 ### Running Tests
 ```bash
 # Run all tests
-bun run bun:test
+bun run test:bun
 
 # Run tests by subdirectory (selective testing)
 bun test test/bun/cache/              # All cache tests
@@ -179,13 +179,13 @@ bun test test/bun/services/jwt.service.test.ts
 bun test test/bun/handlers/tokens-handler.test.ts
 
 # Run with coverage
-bun run bun:test:coverage
+bun run test:bun:coverage
 
 # Watch mode for development
-bun run bun:test:watch
+bun run test:bun:watch
 
 # Concurrent execution (faster)
-bun run bun:test:concurrent
+bun run test:bun:concurrent
 ```
 
 ### Test Organization Benefits

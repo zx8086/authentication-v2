@@ -224,7 +224,7 @@ All security scanning results are:
 ```yaml
 # Unit and Integration Tests
 - name: Run Bun tests
-  run: bun run bun:test:concurrent --coverage
+  run: bun run test:bun:concurrent --coverage
 
 # E2E Tests (Kong-independent)
 - name: Run Playwright tests

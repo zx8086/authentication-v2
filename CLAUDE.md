@@ -94,10 +94,45 @@ High-performance authentication service using Bun runtime with 100% API compatib
 
 ### Core Stack
 - **Runtime**: Bun native (`Bun.serve()` - 100k+ req/sec)
-- **JWT**: `crypto.subtle` Web API (HMAC-SHA256)
+- **JWT**: `crypto.subtle` Web API (HMAC-SHA256, RFC 7519 compliant)
 - **Kong**: Native `fetch` with caching + circuit breaker
 - **Observability**: OpenTelemetry + Elastic APM
 - **API Versioning**: Header-based (`Accept-Version: v1|v2`)
+
+### JWT Token Format (RFC 7519 Compliant)
+
+The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum interoperability:
+
+**Required Claims**:
+```json
+{
+  "sub": "user@example.com",
+  "key": "consumer_key",
+  "jti": "unique-token-id",
+  "iat": 1768915398,
+  "nbf": 1768915398,
+  "exp": 1768916298,
+  "iss": "http://sts.pvhcorp.com/",
+  "aud": "http://api.pvhcorp.com/",  // String for single audience
+  "name": "user@example.com",
+  "unique_name": "pvhcorp.com#user@example.com"
+}
+```
+
+**Multiple Audiences** (RFC 7519 compliant):
+```json
+{
+  "aud": ["http://api.pvhcorp.com/", "http://api.pvh.com/"]  // Array for multiple audiences
+}
+```
+
+**RFC 7519 Compliance**:
+- **`nbf` (Not Before)**: Included for backward compatibility with JWT validators
+- **`aud` (Audience)**: String for single audience, array for multiple (per RFC 7519 §4.1.3)
+- **`iat` (Issued At)**: Number format (seconds since epoch)
+- **Standard Claims**: All claims follow JWT specification
+
+**Drop-in Replacement**: Standard JWT validation libraries will handle both single and multiple audience formats correctly.
 
 ### Key Features
 - Circuit breaker with stale cache fallback
@@ -130,7 +165,7 @@ bun run start            # Production server
 bun run quality:check    # Full quality check (TypeScript + Biome + YAML)
 
 # Testing (see test/README.md for complete documentation)
-bun run test:bun         # Unit + integration tests (1400+ tests)
+bun run test:bun         # Unit + integration tests (1523 tests)
 bun run test:e2e         # E2E tests (3 suites)
 bun run test:k6:quick    # Performance smoke tests
 

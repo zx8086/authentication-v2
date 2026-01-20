@@ -191,6 +191,143 @@ if (!request.headers.get("x-consumer-id") ||
 }
 ```
 
+### Observability: Tracing and Metrics
+
+The authentication flow is fully instrumented with OpenTelemetry for distributed tracing and performance monitoring.
+
+#### Distributed Tracing Flow
+
+**W3C Trace Context Propagation**:
+```
+Client Request
+   │
+   ├─ traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+   │
+   ▼
+Kong Gateway
+   │ (trace context preserved)
+   ▼
+Auth Service
+   │
+   ├─ Parent Span: http.server.request
+   │     ├─ Span Attribute: http.method = GET
+   │     ├─ Span Attribute: http.route = /tokens
+   │     └─ Span Attribute: http.status_code = 200
+   │
+   ├─ Child Span: kong.getConsumerSecret
+   │     ├─ Span Attribute: kong.consumer_id = consumer-uuid
+   │     ├─ Span Attribute: kong.operation = getConsumerSecret
+   │     └─ Span Attribute: duration_ms = 12.4
+   │
+   └─ Child Span: jwt_create
+         ├─ Span Attribute: jwt.username = example-consumer
+         ├─ Span Attribute: jwt.token_id = 550e8400...
+         ├─ Span Attribute: jwt.operation = create
+         └─ Span Attribute: jwt.duration_ms = 0.342
+```
+
+**Span Relationships**:
+- **Parent Span**: HTTP request span captures overall request duration
+- **Kong Adapter Span**: Tracks Kong Admin API calls with circuit breaker status
+- **JWT Service Span**: Measures token generation performance (nanosecond precision)
+- **Cache Span**: Records cache hit/miss and retrieval times
+
+**Query Example** (find slow token generation):
+```sql
+-- OpenTelemetry query
+SELECT
+  span.name,
+  span.attributes["jwt.username"],
+  span.duration_ms
+FROM spans
+WHERE span.name = "jwt_create"
+  AND span.duration_ms > 5
+ORDER BY span.duration_ms DESC;
+```
+
+#### Performance Metrics
+
+**Token Generation Metrics**:
+- `http_request_duration_ms` - Total request duration histogram
+- `jwt_creation_duration_ms` - JWT generation time histogram
+- `kong_api_call_duration_ms` - Kong Admin API latency histogram
+- `cache_hit_rate` - Cache effectiveness counter
+
+**Circuit Breaker Metrics**:
+- `circuit_breaker_state` - Current state (closed, open, half_open)
+- `circuit_breaker_failures` - Failure count gauge
+- `circuit_breaker_successes` - Success count gauge
+
+### Resilience: Circuit Breaker Failover
+
+The authentication service implements circuit breaker protection with stale cache fallback to maintain availability during Kong Admin API outages.
+
+#### Normal Operation (Circuit Closed)
+
+```
+Client Request → Kong Headers → Auth Service
+                                     │
+                                     ├─ Check Cache
+                                     │   └─ MISS
+                                     │
+                                     ├─ Circuit Breaker: CLOSED
+                                     │   └─ Call Kong Admin API ✓
+                                     │
+                                     ├─ Store in Cache (TTL: 5 min)
+                                     └─ Generate JWT Token
+```
+
+#### Kong Outage (Circuit Open + Stale Cache)
+
+```
+Client Request → Kong Headers → Auth Service
+                                     │
+                                     ├─ Check Cache
+                                     │   └─ HIT (stale data)
+                                     │
+                                     ├─ Circuit Breaker: OPEN
+                                     │   └─ Kong API call BLOCKED ✗
+                                     │
+                                     ├─ Stale Cache Evaluation
+                                     │   ├─ Age: 25 minutes
+                                     │   ├─ Tolerance: 30 minutes
+                                     │   └─ Decision: ACCEPT ✓
+                                     │
+                                     └─ Generate JWT Token (stale secret)
+                                          └─ Log Warning: Using stale cache
+```
+
+**Circuit Breaker Configuration**:
+- **Timeout**: 5 seconds per Kong API call
+- **Error Threshold**: 50% failure rate opens circuit
+- **Reset Timeout**: 60 seconds before testing recovery
+- **Stale Data Tolerance**: 30 minutes (configurable via `STALE_DATA_TOLERANCE_MINUTES`)
+
+**High Availability Mode**:
+```bash
+# Enable Redis-backed stale cache for extended resilience
+HIGH_AVAILABILITY=true
+REDIS_ENABLED=true
+STALE_DATA_TOLERANCE_MINUTES=120  # 2-hour fallback window
+```
+
+**Failure Scenarios**:
+
+| Kong Status | Cache Status | Circuit State | Service Behavior |
+|-------------|--------------|---------------|------------------|
+| Available | Fresh | Closed | Normal operation |
+| Available | Stale | Closed | Refresh cache from Kong |
+| Unavailable | Fresh | Open | Use cache (not stale yet) |
+| Unavailable | Stale (< tolerance) | Open | **Use stale cache** (degraded mode) |
+| Unavailable | Stale (> tolerance) | Open | Return AUTH_005 error |
+| Unavailable | No cache | Open | Return AUTH_005 error |
+
+**Observability**:
+- Circuit breaker state changes logged with timestamps
+- Stale cache usage logged with age and tolerance
+- Metrics track circuit breaker state transitions
+- Traces show cache hits vs Kong API calls
+
 ### Phase 2: Using JWT for API Access
 
 #### 1. Client Calls Protected Service
