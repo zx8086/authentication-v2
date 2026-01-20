@@ -101,20 +101,57 @@ export class WinstonTelemetryLogger {
     return {};
   }
 
+  /**
+   * Maps custom application fields to ECS (Elastic Common Schema) compliant field names
+   * This ensures fields appear at top-level in Elasticsearch instead of nested under labels.*
+   */
+  private mapToEcsFields(context?: Record<string, any>): Record<string, any> {
+    if (!context) return {};
+
+    const ecsFields: Record<string, any> = {};
+
+    // Map custom fields to ECS standard fields
+    if (context.consumerId) {
+      ecsFields["user.id"] = context.consumerId; // Consumer ID → user.id
+    }
+    if (context.username) {
+      ecsFields["user.name"] = context.username; // Username → user.name
+    }
+    if (context.requestId) {
+      ecsFields["event.id"] = context.requestId; // Request ID → event.id
+    }
+    if (context.totalDuration !== undefined) {
+      ecsFields["event.duration"] = context.totalDuration; // Duration → event.duration (nanoseconds)
+    }
+
+    // Keep all other context fields as-is (will go to labels.* for non-ECS fields)
+    Object.keys(context).forEach((key) => {
+      if (!["consumerId", "username", "requestId", "totalDuration"].includes(key)) {
+        ecsFields[key] = context[key];
+      }
+    });
+
+    return ecsFields;
+  }
+
   public info(message: string, context?: Record<string, any>): void {
-    this.initializeLogger().info(message, { ...context, ...this.getTraceContext() });
+    const ecsContext = this.mapToEcsFields(context);
+    this.initializeLogger().info(message, { ...ecsContext, ...this.getTraceContext() });
   }
 
   public warn(message: string, context?: Record<string, any>): void {
-    this.initializeLogger().warn(message, { ...context, ...this.getTraceContext() });
+    const ecsContext = this.mapToEcsFields(context);
+    this.initializeLogger().warn(message, { ...ecsContext, ...this.getTraceContext() });
   }
 
   public error(message: string, context?: Record<string, any>): void {
-    this.initializeLogger().error(message, { ...context, ...this.getTraceContext() });
+    const ecsContext = this.mapToEcsFields(context);
+    this.initializeLogger().error(message, { ...ecsContext, ...this.getTraceContext() });
   }
 
   public debug(message: string, context?: Record<string, any>): void {
-    this.initializeLogger().debug(message, { ...context, ...this.getTraceContext() });
+    const ecsContext = this.mapToEcsFields(context);
+    this.initializeLogger().debug(message, { ...ecsContext, ...this.getTraceContext() });
   }
 
   public logHttpRequest(

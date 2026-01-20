@@ -48,9 +48,10 @@ export class NativeBunJWT {
         key: consumerKey,
         jti: crypto.randomUUID(),
         iat: now,
+        nbf: now, // Not Before - backward compatibility with .NET format
         exp: expirationTime,
         iss: issuers[0],
-        aud: audiences.length === 1 ? audiences[0] : audiences,
+        aud: audiences.length === 1 ? audiences[0] : audiences, // RFC 7519 compliant: string for single, array for multiple
         name: username,
         unique_name: `pvhcorp.com#${username}`,
       };

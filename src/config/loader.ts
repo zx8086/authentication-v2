@@ -85,20 +85,6 @@ const envSchema = z
       serviceVersion: data.OTEL_SERVICE_VERSION || pkg.version || "1.0.0",
       adminUrl: data.KONG_ADMIN_URL,
       adminToken: data.KONG_ADMIN_TOKEN,
-      endpoints: [
-        {
-          path: ["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"],
-          value: data.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
-        },
-        {
-          path: ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"],
-          value: data.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
-        },
-        {
-          path: ["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"],
-          value: data.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
-        },
-      ],
     });
   })
   .transform((data) => {

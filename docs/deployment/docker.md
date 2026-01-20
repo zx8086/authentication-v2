@@ -102,9 +102,10 @@ REDIS_URL=rediss://redis.example.com:6380
 
 ### Running the Container
 ```bash
-# Basic run
+# Basic run (standard port 3000)
 docker run -p 3000:3000 \
   -e NODE_ENV=production \
+  -e PORT=3000 \
   -e KONG_MODE=KONNECT \
   -e KONG_ADMIN_URL=https://us.api.konghq.com/v2/control-planes/abc123 \
   -e KONG_ADMIN_TOKEN=secret123 \
@@ -120,6 +121,49 @@ docker run -p 3000:3000 \
   # ... other env vars
   authentication-service:latest
 ```
+
+### Privileged Port Configuration (80, 443)
+
+The application now supports all ports 1-65535 (including privileged ports 80, 443). For production deployments requiring standard HTTP/HTTPS ports, use Docker port mapping instead of running on privileged ports directly:
+
+**Recommended Approach**: Port Mapping (No Special Permissions)
+```bash
+# Map host port 80 to container port 3000 (recommended)
+docker run -p 80:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  -e KONG_MODE=KONNECT \
+  # ... other env vars
+  authentication-service:latest
+
+# Map host port 443 to container port 3000
+docker run -p 443:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  -e KONG_MODE=KONNECT \
+  # ... other env vars
+  authentication-service:latest
+```
+
+**Alternative**: Container Running on Privileged Port (Requires CAP_NET_BIND_SERVICE)
+```bash
+# Run container on port 80 (requires NET_BIND_SERVICE capability)
+docker run -p 80:80 \
+  --cap-add=NET_BIND_SERVICE \
+  -e NODE_ENV=production \
+  -e PORT=80 \
+  -e KONG_MODE=KONNECT \
+  # ... other env vars
+  authentication-service:latest
+```
+
+**Port Configuration Notes**:
+- **Recommended**: Use port mapping `-p 80:3000` (maps host port 80 to container port 3000)
+- **Container Default**: Runs on port 3000 inside container (non-privileged)
+- **Host Access**: External clients connect via port 80/443 through Docker port mapping
+- **Security**: Port mapping avoids granting `CAP_NET_BIND_SERVICE` capability
+- **Production Pattern**: Let infrastructure handle port 80/443 (load balancers, nginx, HAProxy)
+- **Cloud Deployments**: Use load balancer target groups (ALB port 80 → target group port 3000)
 
 ## Docker Compose
 
@@ -180,7 +224,7 @@ services:
       - TELEMETRY_MODE=${TELEMETRY_MODE:-otlp}
 
     ports:
-      - "${HOST_PORT:-3000}:3000"
+      - "${HOST_PORT:-3000}:3000"  # Port mapping: HOST_PORT=80 maps port 80 → container 3000
 
     # Temporary filesystem for distroless
     tmpfs:

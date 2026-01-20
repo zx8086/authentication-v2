@@ -41,9 +41,10 @@ export const JWTPayloadSchema = z.strictObject({
   key: z.string(),
   jti: z.string(),
   iat: z.number(),
+  nbf: z.number(), // Not Before - backward compatibility with .NET format
   exp: z.number(),
   iss: z.string(),
-  aud: z.union([z.string(), z.array(z.string())]),
+  aud: z.union([z.string(), z.array(z.string())]), // RFC 7519 compliant: string for single, array for multiple
   name: z.string(),
   unique_name: z.string(),
 });
@@ -224,18 +225,7 @@ export function addProductionSecurityValidation<
     }
   }
 
-  if (options.endpoints) {
-    for (const endpoint of options.endpoints) {
-      if (endpoint.value && !endpoint.value.startsWith("https://")) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Production telemetry endpoints must use HTTPS",
-          path: endpoint.path,
-        });
-        return;
-      }
-    }
-  }
+  // OTLP endpoints validation removed - collectors often use HTTP in internal/k8s environments
 
   if (options.adminUrl) {
     if (options.adminUrl.includes("localhost")) {
@@ -347,11 +337,6 @@ export const TelemetryConfigSchema = z
     addProductionSecurityValidation(data, ctx, {
       serviceName: data.serviceName,
       serviceVersion: data.serviceVersion,
-      endpoints: [
-        { path: ["logsEndpoint"], value: data.logsEndpoint },
-        { path: ["tracesEndpoint"], value: data.tracesEndpoint },
-        { path: ["metricsEndpoint"], value: data.metricsEndpoint },
-      ],
     });
   });
 

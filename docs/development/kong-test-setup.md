@@ -435,3 +435,110 @@ curl http://localhost:8001/consumers/test-consumer-001/key-auth
 # Check if key is correct (case-sensitive)
 curl -v -H "X-API-Key: test-api-key-consumer-001" http://localhost:8000/tokens
 ```
+
+---
+
+## Best Practices: Consumer Rotation Strategy
+
+### Kong JWT Credential Limit (100 per Consumer)
+
+Kong enforces a **maximum of 100 JWT credentials per consumer**. For tests that repeatedly create credentials (like integration tests), you'll eventually hit this limit causing test failures.
+
+**Symptom**:
+```
+Error: expect(received).toBeGreaterThan(expected)
+Expected: > 100
+Received: 100
+```
+
+### Solution: Rotate Test Consumers
+
+Instead of creating all credentials on a single consumer, **rotate through multiple test consumers** to distribute credential creation:
+
+#### Example: Integration Test Pattern
+
+```typescript
+import { TEST_CONSUMERS } from "../shared/test-consumers";
+
+describe("Kong Integration Tests", () => {
+  test("should create JWT credential - test 1", async () => {
+    // Use consumer 001 for first credential test
+    const consumer = TEST_CONSUMERS[0]; // test-consumer-001
+    const credential = await kongAdapter.createConsumerSecret(consumer.id);
+    expect(credential).toBeDefined();
+  });
+
+  test("should create JWT credential - test 2", async () => {
+    // Use consumer 002 for second credential test
+    const consumer = TEST_CONSUMERS[1]; // test-consumer-002
+    const credential = await kongAdapter.createConsumerSecret(consumer.id);
+    expect(credential).toBeDefined();
+  });
+
+  test("should create JWT credential - test 3", async () => {
+    // Use consumer 003 for third credential test
+    const consumer = TEST_CONSUMERS[2]; // test-consumer-003
+    const credential = await kongAdapter.createConsumerSecret(consumer.id);
+    expect(credential).toBeDefined();
+  });
+});
+```
+
+#### Benefits of Consumer Rotation
+
+| Benefit | Description |
+|---------|-------------|
+| **Avoids Credential Limit** | Distributes credentials across multiple consumers (5 consumers × 100 credentials = 500 total capacity) |
+| **Test Stability** | Tests remain stable even after hundreds of runs without manual cleanup |
+| **No Cleanup Required** | Tests don't need to delete credentials between runs |
+| **Parallel Test Safety** | Different tests use different consumers, reducing conflicts |
+| **Long-Term Sustainability** | Can run tests thousands of times before hitting limits |
+
+#### Consumer Allocation Strategy
+
+| Consumer | Allocation | Usage |
+|----------|------------|-------|
+| `test-consumer-001` | Integration tests (test 1, 4, 7, ...) | Primary credential creation tests |
+| `test-consumer-002` | Integration tests (test 2, 5, 8, ...) | Secondary credential creation tests |
+| `test-consumer-003` | Integration tests (test 3, 6, 9, ...) | Tertiary credential creation tests |
+| `test-consumer-004` | Performance/load tests | K6 load testing |
+| `test-consumer-005` | Performance/load tests | K6 stress testing |
+| `anonymous` | Rejection scenarios | Anonymous consumer tests |
+
+#### Credential Cleanup (Optional)
+
+For CI/CD environments where you want to clean up between runs:
+
+```bash
+# Delete all JWT credentials for a consumer
+curl -X GET http://localhost:8001/consumers/test-consumer-001/jwt | \
+  jq -r '.data[].id' | \
+  xargs -I {} curl -X DELETE http://localhost:8001/consumers/test-consumer-001/jwt/{}
+
+# Delete all consumers with "test" tag (nuclear option)
+curl -X GET http://localhost:8001/consumers?tags=test | \
+  jq -r '.data[].id' | \
+  xargs -I {} curl -X DELETE http://localhost:8001/consumers/{}
+```
+
+#### Monitoring Credential Usage
+
+```bash
+# Check how many JWT credentials a consumer has
+curl http://localhost:8001/consumers/test-consumer-001/jwt | jq '.data | length'
+
+# Check all consumers and their credential counts
+for consumer in test-consumer-{001..005}; do
+  count=$(curl -s http://localhost:8001/consumers/$consumer/jwt | jq '.data | length')
+  echo "$consumer: $count credentials"
+done
+```
+
+**Example Output**:
+```
+test-consumer-001: 87 credentials
+test-consumer-002: 45 credentials
+test-consumer-003: 23 credentials
+test-consumer-004: 12 credentials
+test-consumer-005: 8 credentials
+```

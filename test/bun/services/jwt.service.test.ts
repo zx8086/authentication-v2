@@ -69,6 +69,7 @@ describe("NativeBunJWT", () => {
       expect(payload).toHaveProperty("unique_name", `pvhcorp.com#${testUsername}`);
       expect(payload).toHaveProperty("jti");
       expect(payload).toHaveProperty("iat");
+      expect(payload).toHaveProperty("nbf"); // Not Before - backward compatibility with .NET
       expect(payload).toHaveProperty("exp");
 
       const now = Math.floor(Date.now() / 1000);
@@ -208,6 +209,7 @@ describe("NativeBunJWT", () => {
         key: testConsumerKey,
         jti: crypto.randomUUID(),
         iat: Math.floor(Date.now() / 1000) - 1800,
+        nbf: Math.floor(Date.now() / 1000) - 1800, // Not Before - backward compatibility
         exp: Math.floor(Date.now() / 1000) - 900,
         iss: testAuthority,
         aud: testAudience,
@@ -264,7 +266,25 @@ describe("NativeBunJWT", () => {
       expect(duration).toBeLessThan(50);
     });
 
-    test.concurrent("should handle multiple audience values", async () => {
+    test.concurrent("should handle single audience as RFC 7519 compliant string", async () => {
+      const singleAudience = "https://api.example.com/";
+      const tokenResponse = await NativeBunJWT.createToken(
+        testUsername,
+        testConsumerKey,
+        testSecret,
+        testAuthority,
+        singleAudience
+      );
+
+      const result = await NativeBunJWT.validateToken(tokenResponse.access_token, testSecret);
+
+      expect(result.valid).toBe(true);
+      // RFC 7519 compliant: string for single audience
+      expect(typeof result.payload?.aud).toBe("string");
+      expect(result.payload?.aud).toBe("https://api.example.com/");
+    });
+
+    test.concurrent("should handle multiple audience values as RFC 7519 compliant array", async () => {
       const multiAudience = "audience1,audience2,audience3";
       const tokenResponse = await NativeBunJWT.createToken(
         testUsername,
@@ -277,6 +297,8 @@ describe("NativeBunJWT", () => {
       const result = await NativeBunJWT.validateToken(tokenResponse.access_token, testSecret);
 
       expect(result.valid).toBe(true);
+      // RFC 7519 compliant: array for multiple audiences
+      expect(Array.isArray(result.payload?.aud)).toBe(true);
       expect(result.payload?.aud).toEqual(["audience1", "audience2", "audience3"]);
     });
   });
