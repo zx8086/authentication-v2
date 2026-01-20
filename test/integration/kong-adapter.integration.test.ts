@@ -403,7 +403,7 @@ describe("KongAdapter Integration - createConsumerSecret", () => {
     }
 
     const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
-    const consumer = TEST_CONSUMERS[3]; // Use test-consumer-004 for create tests
+    const consumer = TEST_CONSUMERS[0]; // Use test-consumer-001 to avoid credential limit
 
     // Get existing credentials count
     const existingResponse = await fetch(
@@ -482,7 +482,7 @@ describe("KongAdapter Integration - createConsumerSecret", () => {
     }
 
     const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
-    const consumer = TEST_CONSUMERS[3];
+    const consumer = TEST_CONSUMERS[1]; // Use test-consumer-002 to avoid credential limit
 
     // Clear cache first
     await freshAdapter.clearCache(consumer.id);
