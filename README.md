@@ -157,9 +157,9 @@ bun run quality:check          # Code quality and formatting
 
 ### Testing
 ```bash
-bun run bun:test              # Unit + integration tests (1400+ tests)
-bun run playwright:test       # E2E tests (3 suites)
-bun run k6:quick              # Performance smoke tests
+bun run test:bun              # Unit + integration tests (1523 tests)
+bun run test:e2e              # E2E tests (3 suites)
+bun run test:k6:smoke:health  # Performance smoke tests
 ```
 
 ### Operations
@@ -171,15 +171,20 @@ curl http://localhost:3000/metrics   # Operational metrics
 
 ## Core API Endpoints
 
+**Primary Endpoints** (7 of 16 total):
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
 | `/tokens/validate` | GET | Validate JWT token |
-| `/health` | GET | Service health check (liveness) |
-| `/health/ready` | GET | Readiness probe (checks Kong connectivity) |
+| `/health` | GET | Service health check (liveness with OTLP validation) |
+| `/health/ready` | GET | Readiness probe (Kong connectivity only) |
+| `/health/telemetry` | GET | Telemetry system health |
 | `/health/metrics` | GET | Metrics system health |
 | `/metrics` | GET | Operational metrics |
+
+**Additional Endpoints**: Debug endpoints for profiling and metrics testing. See [endpoints.md](docs/api/endpoints.md) for complete API documentation (16 endpoints total).
 
 ## Environment Configuration
 

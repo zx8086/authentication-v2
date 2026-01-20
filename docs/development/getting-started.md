@@ -63,6 +63,71 @@ bun run biome:check        # Biome linting and formatting
 bun run biome:fix          # Auto-fix Biome issues
 ```
 
+### Testing Commands
+```bash
+# Unit and integration tests
+bun run test:bun           # All Bun tests (unit + integration)
+bun run test:bun:watch     # Watch mode
+
+# End-to-end tests
+bun run test:e2e           # All Playwright E2E tests
+bun run test:e2e:headed    # Run in headed mode (visible browser)
+bun run test:e2e:ui        # Playwright UI mode
+
+# Performance tests (K6)
+bun run test:k6:smoke:health    # Health endpoint smoke test
+bun run test:k6:smoke:tokens    # Token endpoint smoke test
+bun run test:k6:smoke:openapi   # OpenAPI endpoint smoke test
+bun run test:k6:load            # Load testing suite
+bun run test:k6:stress          # Stress testing suite
+
+# Test suites
+bun run test:suite         # Run all tests (Bun + Playwright + K6)
+bun run test:suite:quick   # Quick test suite (smoke tests only)
+```
+
+### Script Organization
+
+The project uses **16 hierarchical script categories**:
+
+| Category | Purpose | Example Commands |
+|----------|---------|------------------|
+| **dev** | Development servers | `dev`, `dev:clean`, `dev:development` |
+| **test** | All testing | `test:bun`, `test:e2e`, `test:k6:*` |
+| **docker** | Container operations | `docker:build`, `docker:local`, `docker:security:*` |
+| **redis** | Redis operations | `redis:start`, `redis:stop`, `redis:flush` |
+| **profile** | Performance profiling | `profile:start`, `profile:stop`, `profile:report` |
+| **kong** | Kong operations | `kong:health`, `kong:consumers`, `kong:secrets` |
+| **quality** | Code quality | `quality:check`, `quality:fix` |
+| **biome** | Biome linting | `biome:check`, `biome:fix` |
+| **typecheck** | TypeScript validation | `typecheck` |
+| **health** | Service health | `health-check` |
+| **kill** | Process management | `kill-server` |
+| **openapi** | API docs | `openapi:generate`, `openapi:validate` |
+| **mutation** | Mutation testing | `test:mutation`, `test:mutation:incremental` |
+| **ci** | CI/CD utilities | `ci:install`, `ci:validate` |
+| **fix** | Quick fixes | `fix:bun-symlink`, `fix:bun-full` |
+| **db** | Database operations | `db:migrate`, `db:seed` |
+
+**Example Workflows:**
+```bash
+# Full development workflow
+bun install                    # Install dependencies
+bun run dev                    # Start development server
+bun run test:bun               # Run unit tests
+bun run quality:check          # Validate code quality
+
+# Testing workflow
+bun run test:suite:quick       # Quick validation
+bun run test:k6:smoke:health   # Performance smoke test
+bun run test:e2e               # Full E2E tests
+
+# Docker workflow
+bun run docker:build           # Build container
+bun run docker:security:full   # Security validation
+bun run docker:local           # Test locally
+```
+
 ### Health and Debugging
 ```bash
 # Health checks
@@ -87,8 +152,8 @@ curl http://localhost:3000/debug/metrics/test
 curl http://localhost:3000/health
 
 # Run tests
-bun run bun:test           # Unit tests
-bun run playwright:test    # E2E tests (requires Kong)
+bun run test:bun           # Unit tests
+bun run test:e2e           # E2E tests (requires Kong)
 ```
 
 ### 3. Quality Checks

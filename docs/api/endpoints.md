@@ -318,6 +318,35 @@ Host: auth-service.example.com
 | `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
 | `requestId` | String | UUID for request tracing |
 
+**OTLP Connectivity Validation**
+
+The `/health` endpoint performs active connectivity checks to all configured OTLP endpoints (traces, metrics, logs):
+
+- **Parallel Testing**: All OTLP endpoints tested concurrently
+- **5-Second Timeout**: Each endpoint check times out after 5 seconds
+- **Status Values**:
+  - `healthy`: Endpoint responded within timeout
+  - `unhealthy`: Endpoint timeout or connection error
+  - `disabled`: Telemetry mode is `console` only
+- **Response Time Tracking**: Each endpoint reports its response time in milliseconds
+
+**Performance Impact**:
+
+OTLP validation adds network latency to health check response times:
+- **Without OTLP checks**: p95 ~50ms, p99 ~100ms
+- **With OTLP checks**: p95 ~400ms, p99 ~500ms
+
+**SLA Thresholds**: Health endpoint thresholds have been adjusted to account for OTLP validation latency. See [SLA.md](../operations/SLA.md) for updated performance targets.
+
+**Cache Object Location**: For detailed cache statistics including hit rates, tier usage, and operations by backend, use the `/metrics` endpoint. The `/health` endpoint provides basic cache health only.
+
+**Use Cases**:
+- **Liveness Probe**: Use `/health/ready` for faster checks without OTLP validation
+- **Dependency Monitoring**: Use `/health` for full observability infrastructure validation
+- **Troubleshooting**: OTLP endpoint status helps diagnose telemetry export issues
+
+See [monitoring.md](../operations/monitoring.md#otlp-connectivity-validation) for detailed OTLP validation documentation.
+
 ### GET /health/ready
 Readiness probe verifying the service can handle requests (validates Kong connectivity).
 

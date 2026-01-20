@@ -35,6 +35,100 @@ This is implemented via `createStandardHeaders()` in `src/adapters/kong-utils.ts
 - Request context propagation
 - Error tracking with stack traces
 
+### ECS Field Mapping
+
+The service automatically maps custom application fields to ECS (Elastic Common Schema) compliant field names, ensuring optimal Elasticsearch indexing and query performance.
+
+**Implementation**: `src/telemetry/winston-logger.ts:108-135`
+
+#### Field Mapping Table
+
+| Custom Field | ECS Field | Type | Description |
+|--------------|-----------|------|-------------|
+| `consumerId` | `user.id` | string | Consumer identifier from Kong |
+| `username` | `user.name` | string | Consumer username |
+| `requestId` | `event.id` | string | Unique request identifier |
+| `totalDuration` | `event.duration` | number | Duration in nanoseconds |
+
+#### Benefits of ECS Mapping
+
+1. **Top-Level Fields**: ECS fields appear at root level in Elasticsearch, not nested under `labels.*`
+2. **Kibana Auto-Complete**: Standard ECS fields are recognized by Kibana for auto-completion
+3. **Simpler Queries**: Direct field access (`user.id` instead of `labels.consumerId`)
+4. **Standard Compliance**: Follows Elastic Common Schema conventions
+5. **No Duplication**: Fields mapped once, not duplicated between top-level and labels
+
+#### Example Log Output
+
+**Before ECS Mapping (nested under labels):**
+```json
+{
+  "@timestamp": "2026-01-20T12:00:00.000Z",
+  "message": "Token generated successfully",
+  "log.level": "info",
+  "labels": {
+    "consumerId": "consumer-123",
+    "username": "user@example.com",
+    "requestId": "req-456",
+    "totalDuration": 1500000
+  }
+}
+```
+
+**After ECS Mapping (top-level fields):**
+```json
+{
+  "@timestamp": "2026-01-20T12:00:00.000Z",
+  "message": "Token generated successfully",
+  "log.level": "info",
+  "user.id": "consumer-123",
+  "user.name": "user@example.com",
+  "event.id": "req-456",
+  "event.duration": 1500000,
+  "trace.id": "trace-789",
+  "span.id": "span-012"
+}
+```
+
+#### Non-ECS Fields
+
+Fields not mapped to ECS standards automatically appear under `labels.*`:
+- Custom business metrics
+- Service-specific identifiers
+- Non-standard operational data
+
+**Example:**
+```json
+{
+  "user.id": "consumer-123",        // ECS mapped
+  "user.name": "user@example.com",  // ECS mapped
+  "labels.operationType": "create", // Non-ECS field
+  "labels.cacheHit": true           // Non-ECS field
+}
+```
+
+#### Elasticsearch Query Examples
+
+**ECS Fields (Direct Access):**
+```json
+GET /logs-*/_search
+{
+  "query": {
+    "term": { "user.id": "consumer-123" }
+  }
+}
+```
+
+**Non-ECS Fields (Nested Access):**
+```json
+GET /logs-*/_search
+{
+  "query": {
+    "term": { "labels.operationType": "create" }
+  }
+}
+```
+
 ## Telemetry Modes
 
 Configure via `TELEMETRY_MODE` environment variable:
@@ -120,6 +214,128 @@ Returns telemetry system status:
   }
 }
 ```
+
+### OTLP Connectivity Validation
+
+The `/health` endpoint performs active connectivity checks to all configured OTLP endpoints (traces, metrics, logs) to validate observability infrastructure.
+
+#### How It Works
+
+1. **Parallel Connectivity Tests**: All OTLP endpoints are tested concurrently for responsiveness
+2. **5-Second Timeout**: Each endpoint check has a 5-second timeout to prevent health check delays
+3. **Status Aggregation**: Overall telemetry status reflects the health of all endpoints
+4. **Response Time Tracking**: Each endpoint reports its response time in milliseconds
+
+#### Health Response with OTLP Status
+
+```json
+{
+  "status": "healthy",
+  "dependencies": {
+    "telemetry": {
+      "status": "healthy",
+      "mode": "otlp",
+      "endpoints": {
+        "traces": {
+          "url": "https://otel.example.com/v1/traces",
+          "status": "reachable",
+          "responseTime": 45
+        },
+        "metrics": {
+          "url": "https://otel.example.com/v1/metrics",
+          "status": "reachable",
+          "responseTime": 52
+        },
+        "logs": {
+          "url": "https://otel.example.com/v1/logs",
+          "status": "reachable",
+          "responseTime": 38
+        }
+      }
+    }
+  }
+}
+```
+
+#### Status Values
+
+| Status | Meaning | Health Impact |
+|--------|---------|---------------|
+| `reachable` | Endpoint responded within 5 seconds | Healthy |
+| `unreachable` | Endpoint timeout or connection error | Degraded |
+| `disabled` | Telemetry mode is `console` only | N/A (expected) |
+
+#### Fallback Behavior
+
+When OTLP endpoints are unreachable:
+
+1. **Telemetry continues**: Logs still output to console (if `TELEMETRY_MODE=both`)
+2. **Health status**: Marked as "degraded" but not "unhealthy"
+3. **No blocking**: Service continues processing requests normally
+4. **Retry logic**: OpenTelemetry SDK handles automatic retries with exponential backoff
+
+#### Performance Considerations
+
+OTLP connectivity checks add network latency to health endpoint response times:
+
+- **Without OTLP checks**: p95 ~50ms, p99 ~100ms
+- **With OTLP checks**: p95 ~400ms, p99 ~500ms
+
+**SLA Thresholds** have been adjusted to account for OTLP validation latency. See [SLA.md](SLA.md) for updated thresholds.
+
+#### Use Cases
+
+**Kubernetes Liveness Probe** (Use `/health/ready` instead):
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health/ready
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+```
+
+**Kubernetes Readiness Probe** (Includes OTLP validation):
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 10
+```
+
+**Monitoring Alerts** (Check specific endpoints):
+```bash
+# Alert if telemetry endpoints are unreachable
+curl http://localhost:3000/health/telemetry | jq '.status'
+```
+
+#### Troubleshooting OTLP Connectivity
+
+**Symptom**: Health endpoint shows telemetry as "unreachable"
+
+**Diagnosis:**
+```bash
+# Check telemetry endpoint connectivity
+curl -I https://otel.example.com/v1/traces
+
+# Verify environment variables
+echo $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+echo $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+echo $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+
+# Test with increased timeout
+curl -X GET "http://localhost:3000/health" --max-time 10
+```
+
+**Common Causes:**
+1. OTLP collector is down or unreachable
+2. Network connectivity issues (firewall, DNS)
+3. OTLP endpoint URL misconfiguration
+4. Authentication token expired (if required)
 
 #### Metrics Health Check - `/health/metrics`
 ```bash
