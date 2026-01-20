@@ -130,9 +130,9 @@ bun run start            # Production server
 bun run quality:check    # Full quality check (TypeScript + Biome + YAML)
 
 # Testing (see test/README.md for complete documentation)
-bun run bun:test         # Unit + integration tests (1400+ tests)
-bun run playwright:test  # E2E tests (3 suites)
-bun run k6:quick         # Performance smoke tests
+bun run test:bun         # Unit + integration tests (1400+ tests)
+bun run test:e2e         # E2E tests (3 suites)
+bun run test:k6:quick    # Performance smoke tests
 
 # Docker
 bun run docker:build     # Build container
@@ -185,7 +185,7 @@ When working on specific areas, use these agents:
 **ALWAYS check if service is running before starting new processes**
 ```bash
 curl -s http://localhost:3000/health > /dev/null 2>&1  # Check first
-bun run kill-server && bun run dev                      # Clean restart
+bun run server:kill && bun run dev                      # Clean restart
 ```
 
 ### Testing Rules
