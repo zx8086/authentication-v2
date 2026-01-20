@@ -1,0 +1,8 @@
+source:
+  type: local
+  docDir: ./doc_db
+installed: []
+installs: digest
+summaries: false
+llms_map: true
+installDir: lovely-docs

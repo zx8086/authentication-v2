@@ -3,7 +3,7 @@
   "packageManager": "npm",
   "testRunner": "command",
   "commandRunner": {
-    "command": "bun test ./test/bun ./test/integration"
+    "command": "/Users/Simon.Owusu@Tommy.com/WebstormProjects/pvh.services.authentication-v2/scripts/bun-mutation-runner.sh test ./test/bun ./test/integration"
   },
   "plugins": ["@stryker-mutator/typescript-checker"],
   "checkers": ["typescript"],
@@ -21,13 +21,7 @@
     "!src/utils/performance.ts"
   ],
   "ignorePatterns": ["node_modules", "dist", "scripts", ".github", "docs"],
-  "reporters": ["html", "clear-text", "progress", "json"],
-  "htmlReporter": {
-    "fileName": "test/results/mutation/mutation-report.html"
-  },
-  "jsonReporter": {
-    "fileName": "test/results/mutation/mutation-report.json"
-  },
+  "reporters": ["clear-text", "progress"],
   "thresholds": {
     "high": 80,
     "low": 60,
@@ -35,13 +29,13 @@
   },
   "incremental": true,
   "incrementalFile": "test/results/mutation/stryker-incremental.json",
-  "concurrency": 4,
-  "timeoutMS": 60000,
-  "timeoutFactor": 2.5,
+  "concurrency": 8,
+  "timeoutMS": 30000,
+  "timeoutFactor": 1.5,
   "disableTypeChecks": false,
   "cleanTempDir": "always",
   "tempDirName": ".stryker-tmp",
-  "coverageAnalysis": "off",
+  "coverageAnalysis": "perTest",
   "mutator": {
     "excludedMutations": [
       "StringLiteral",
