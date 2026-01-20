@@ -423,6 +423,179 @@ rm -f node_modules/.bin/bun  # Remove if created
 
 ---
 
+### 13. Winston Logger Environment Conflicts
+
+**Symptoms**:
+- Winston logger tests disabled with `test.skip` in parallel test execution
+- Test failures related to environment variable configuration during concurrent runs
+- Inconsistent logging behavior in test environments
+
+**Cause**:
+The Winston logger is configured via environment variables (`LOG_LEVEL`, `NODE_ENV`) which creates conflicts when multiple tests run concurrently. Each test may expect different environment settings, but environment variables are process-global, causing interference between concurrent tests.
+
+**Why Tests Are Disabled**:
+```typescript
+// test/bun/logging/winston-logger.test.ts
+test.skip("winston logger environment tests", () => {
+  // Disabled: Environment variable conflicts in parallel execution
+  // Trade-off: Ensures suite stability over 100% parallel coverage
+});
+```
+
+**Resolution**:
+1. **Accept the trade-off**: Winston logger tests are intentionally disabled during parallel execution to ensure overall test suite stability
+2. **Manual testing**: Run Winston logger tests individually when needed:
+   ```bash
+   bun test test/bun/logging/winston-logger.test.ts --no-parallel
+   ```
+3. **CI/CD approach**: Consider running environment-sensitive tests in a separate, sequential test stage
+
+**Prevention**:
+- Design future logger implementations to support per-test-instance configuration rather than global environment variables
+- Use dependency injection to pass logger instances rather than relying on global state
+- Consider using test-scoped configuration objects instead of process environment variables
+
+---
+
+### 14. Elasticsearch Field Mapping Issues
+
+**Symptoms**:
+- Custom application fields not appearing in expected Elasticsearch indexes
+- Queries against standard Elasticsearch fields returning no results
+- Fields appearing under `labels.*` instead of standard ECS fields
+
+**Cause**:
+The service implements Elastic Common Schema (ECS) field mapping to transform custom application fields to Elasticsearch-standard field names. If logging or indexing is not configured to recognize these mappings, fields may be stored under non-standard paths.
+
+**Expected ECS Field Structure**:
+
+| Custom Field | ECS Field | Description |
+|--------------|-----------|-------------|
+| `consumerId` | `user.id` | Consumer identifier from Kong |
+| `username` | `user.name` | Consumer username |
+| `requestId` | `event.id` | Unique request identifier |
+| `totalDuration` | `event.duration` | Duration in nanoseconds |
+
+**Why Custom Fields May Appear Under `labels.*`**:
+- Log shipper (Filebeat, Fluentd) not configured to parse ECS format
+- Elasticsearch index template not configured with ECS field mappings
+- Custom fields sent without ECS transformation (non-Winston loggers)
+
+**Verification**:
+```bash
+# Check if ECS mapping is working
+curl -X GET "http://elasticsearch:9200/logs-*/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "exists": { "field": "user.id" }},
+        { "exists": { "field": "user.name" }},
+        { "exists": { "field": "event.id" }}
+      ]
+    }
+  },
+  "_source": ["user.id", "user.name", "event.id", "event.duration"],
+  "size": 10
+}
+'
+```
+
+**Resolution**:
+1. **Verify Winston logger configuration**: Ensure ECS formatter is enabled (`src/telemetry/winston-logger.ts:108-135`)
+2. **Check Elasticsearch index template**: Verify ECS field mappings are defined
+3. **Review log shipper configuration**: Ensure Filebeat/Fluentd is configured to preserve ECS structure
+4. **Query optimization**: Use ECS fields in queries:
+   ```javascript
+   // Good: ECS field query
+   { "term": { "user.id": "consumer-uuid" }}
+
+   // Avoid: Custom field query
+   { "term": { "consumerId": "consumer-uuid" }}
+   ```
+
+**Documentation Reference**: See `docs/operations/monitoring.md` ECS Field Mapping section for complete field reference and implementation details.
+
+---
+
+### 15. Parallel Test Intermittency
+
+**Symptoms**:
+- Tests pass individually but fail when run in parallel
+- Intermittent cache-related test failures
+- Timeout errors during concurrent test execution
+- Inconsistent test results between runs
+
+**Cause**:
+Parallel test execution requires careful isolation of shared resources (Redis cache, environment variables, timers). Without proper isolation, tests can interfere with each other through shared state.
+
+**Redis Database Isolation Strategy**:
+
+The test suite uses a separate Redis database for test isolation:
+
+```bash
+# Test suite configuration
+REDIS_DB=10  # Tests use DB 10 (separate from production DB 0)
+```
+
+**Benefits**:
+- Tests run concurrently without cache collisions
+- Local development server (DB 0) unaffected by test runs
+- Clean state for each test run via `FLUSHDB` on DB 10 only
+
+**Timeout Configuration Best Practices**:
+
+```typescript
+// Good: Operation-specific timeout with clean error handling
+const response = await fetch(url, {
+  signal: AbortSignal.timeout(5000)  // 5-second timeout for external APIs
+});
+
+// Avoid: Test framework timeout (less granular control)
+test("should fetch data", { timeout: 5000 }, async () => {
+  await fetch(url);  // No operation-specific timeout
+});
+```
+
+**Functional Equivalence vs Instance Equality**:
+
+```typescript
+// AVOID: Instance equality (fragile in concurrent tests)
+expect(cachedObject).toBe(originalObject);
+
+// PREFER: Functional equivalence (stable in parallel execution)
+expect(cachedObject.id).toBe(originalObject.id);
+expect(cachedObject.username).toBe(originalObject.username);
+expect(cachedObject.secret).toBe(originalObject.secret);
+```
+
+**Why This Matters**:
+- Cache implementations may deserialize/reserialize objects
+- Parallel tests may have separate cache instances
+- Functional equivalence verifies the API contract, not memory addresses
+
+**Resolution**:
+1. **Use Redis DB 10**: Ensure test configuration sets `REDIS_DB=10`
+2. **Flush between tests**: Use `beforeEach` hooks to flush test database:
+   ```typescript
+   beforeEach(async () => {
+     await redis.select(10);
+     await redis.flushdb();
+   });
+   ```
+3. **Set operation-specific timeouts**: Use `AbortSignal.timeout()` for fetch operations
+4. **Test behavior, not implementation**: Prefer functional equivalence over strict equality
+5. **Isolate environment-sensitive tests**: Use `test.skip` for tests with global environment dependencies
+
+**Garbage Collection Thresholds**:
+- 20ms thresholds for GC monitoring tests
+- Environment-aware: stricter in CI, looser in local development
+- Prevents false positives during parallel execution
+
+**Documentation Reference**: See `docs/development/testing.md` Parallel Test Execution section for comprehensive patterns and best practices.
+
+---
+
 ## Error Code Reference
 
 | Code | HTTP | Title | Typical Action |
