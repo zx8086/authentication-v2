@@ -19,7 +19,7 @@ import {
 const envSchema = z
   .object({
     // Server Configuration
-    PORT: z.coerce.number().int().min(1024).max(65535).optional(),
+    PORT: z.coerce.number().int().min(1).max(65535).optional(),
     NODE_ENV: EnvironmentType.optional(),
 
     // JWT Configuration (required fields for security)
