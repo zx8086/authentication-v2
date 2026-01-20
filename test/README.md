@@ -2,11 +2,11 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 1523 tests across 52 files (100% pass rate)
+**Current Test Suite**: 1523 tests across 73 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
-| Unit Tests | 48 | 1400+ | Bun |
+| Unit Tests | 59 | 1400+ | Bun |
 | Integration Tests | 4 | 50+ | Bun |
 | E2E Tests | 3 | 32 | Playwright |
 | Performance Tests | 19 | - | K6 |
@@ -15,7 +15,19 @@ Comprehensive testing for the Bun-based authentication service with four-tier te
 
 ```
 test/
-├── bun/              # Unit Tests (48 test files)
+├── bun/              # Unit Tests (59 test files in 12 subdirectories)
+│   ├── cache/        # Caching functionality (7 files)
+│   ├── circuit-breaker/  # Circuit breaker patterns (5 files)
+│   ├── config/       # Configuration management (5 files)
+│   ├── handlers/     # HTTP request handlers (5 files)
+│   ├── health/       # Health check endpoints (6 files)
+│   ├── integration/  # Integration tests (2 files)
+│   ├── kong/         # Kong API Gateway integration (4 files)
+│   ├── logging/      # Logging functionality (4 files)
+│   ├── mutation/     # Mutation-specific tests (2 files)
+│   ├── services/     # Service layer tests (4 files)
+│   ├── telemetry/    # Observability (9 files)
+│   └── utils/        # Utility functions (6 files)
 ├── integration/      # Integration Tests (4 test files)
 ├── k6/               # Performance Tests (19 test files)
 │   ├── smoke/        # Quick validation tests
@@ -39,62 +51,108 @@ test/
 **Framework**: Bun native test runner
 **When to run**: During development, pre-commit, CI/CD
 
-**Test Files** (48 files organized by domain):
+**Test Files** (59 files organized by subdirectory):
 
-**Core Services**:
-- `jwt.service.test.ts` - JWT generation and validation logic
-- `kong.adapter.test.ts`, `kong-adapter-fetch.test.ts` - Kong adapter with fetch mocking
-- `kong-mode-strategies.test.ts`, `kong-utils.test.ts` - Kong mode strategies and utilities
-- `api-gateway.service.test.ts` - API gateway service layer
+**cache/ (7 files)** - Caching functionality:
+- `cache-factory.test.ts` - Cache factory infrastructure
+- `cache-factory-errors.test.ts` - Cache factory error handling
+- `cache-manager.test.ts` - Cache manager operations
+- `cache-health-edge-cases.test.ts` - Cache health edge cases
+- `cache-stale-operations.test.ts` - Stale data handling
+- `local-memory-cache.test.ts` - In-memory cache implementation
+- `local-memory-cache-maxentries.test.ts` - Cache size limits
 
-**Configuration**:
-- `config.test.ts`, `config-getters.test.ts`, `config-helpers.test.ts` - Configuration validation
+**circuit-breaker/ (5 files)** - Circuit breaker patterns:
+- `circuit-breaker-per-operation.test.ts` - Per-operation circuit breakers
+- `circuit-breaker-state-transitions.test.ts` - State transition logic
+- `circuit-breaker-thresholds.test.ts` - Threshold configurations
+- `circuit-breaker.mutation.test.ts` - Mutation-resistant tests
+- `telemetry-circuit-breaker.test.ts` - Telemetry integration
+
+**config/ (5 files)** - Configuration management:
+- `config.test.ts` - Core configuration validation
+- `config-getters.test.ts` - Configuration getter methods
+- `config-helpers.test.ts` - Configuration helper functions
+- `config-schemas.test.ts` - Schema validation
 - `defaults.test.ts` - Default value handling
 
-**Circuit Breaker & Resilience**:
-- `circuit-breaker-per-operation.test.ts`, `circuit-breaker-thresholds.test.ts` - Circuit breaker patterns
-- `circuit-breaker.mutation.test.ts` - Mutation-resistant circuit breaker tests
-- `retry.test.ts` - Retry logic testing
+**handlers/ (5 files)** - HTTP request handlers:
+- `tokens-handler.test.ts` - Token endpoint handling
+- `tokens.mutation.test.ts` - Token mutation tests
+- `openapi-handler.test.ts` - OpenAPI specification serving
+- `openapi-generator.test.ts` - OpenAPI spec generation
+- `openapi-yaml-converter.test.ts` - YAML conversion
 
-**Caching**:
-- `cache-factory.test.ts`, `cache-manager.test.ts` - Cache infrastructure
-- `cache-health.service.test.ts`, `cache-stale-operations.test.ts` - Cache health and stale data
-- `local-memory-cache.test.ts` - In-memory cache implementation
+**health/ (6 files)** - Health check endpoints:
+- `health-handlers.test.ts` - Health endpoint logic
+- `health-branches.test.ts` - Branch coverage
+- `health-fetch-spy.test.ts` - Fetch mocking
+- `health-telemetry-branches.test.ts` - Telemetry branches
+- `health-mutation-killers.test.ts` - Mutation killers
+- `health.mutation.test.ts` - Mutation-resistant tests
 
-**Telemetry & Observability**:
-- `metrics.test.ts`, `metrics-attributes.test.ts`, `metrics-initialized.test.ts` - Metrics collection
-- `gc-metrics.test.ts`, `gc-metrics-operations.test.ts` - Garbage collection metrics
-- `cardinality-guard.test.ts` - Cardinality protection
-- `tracer-operations.test.ts`, `instrumentation-operations.test.ts` - Tracing
-- `logger.test.ts`, `logger-output.test.ts`, `winston-logger-methods.test.ts` - Logging
-
-**Request Handlers**:
-- `health-handlers.test.ts`, `health-branches.test.ts`, `health-fetch-spy.test.ts` - Health endpoints
-- `health-telemetry-branches.test.ts`, `health-mutation-killers.test.ts` - Health telemetry
-- `health.mutation.test.ts` - Mutation-resistant health tests
-- `tokens-handler.test.ts`, `tokens.mutation.test.ts` - Token endpoint handling
-- `openapi-handler.test.ts`, `openapi-generator.test.ts` - OpenAPI specification
-- `header-validation.test.ts` - Request header validation
-
-**Error Handling & Types**:
-- `error-codes.test.ts` - Structured error code validation
-- `type-validation.test.ts` - TypeScript type safety
-- `response.mutation.test.ts` - Response handling mutations
-
-**Mutation Testing**:
-- `jwt.mutation.test.ts`, `mutation-killer.test.ts` - Mutation-resistant test patterns
-
-**Lifecycle**:
-- `shutdown-cleanup.test.ts` - Graceful shutdown testing
+**integration/ (2 files)** - Integration tests:
 - `api-versioning.test.ts` - API versioning (v1/v2)
+- `shutdown-cleanup.test.ts` - Graceful shutdown
+
+**kong/ (4 files)** - Kong API Gateway integration:
+- `kong.adapter.test.ts` - Kong adapter with mocking
+- `kong-adapter-fetch.test.ts` - Fetch-specific tests
+- `kong-mode-strategies.test.ts` - Mode strategy selection
+- `kong-utils.test.ts` - Kong utility functions
+
+**logging/ (4 files)** - Logging functionality:
+- `logger.test.ts` - Core logger functionality
+- `logger-output.test.ts` - Logger output validation
+- `logger-fallback.test.ts` - Fallback behavior
+- `winston-logger-methods.test.ts` - Winston integration
+
+**mutation/ (2 files)** - Mutation-specific tests:
+- `jwt.mutation.test.ts` - JWT mutation tests
+- `mutation-killer.test.ts` - Mutation killer patterns
+
+**services/ (4 files)** - Service layer tests:
+- `jwt.service.test.ts` - JWT generation/validation
+- `jwt-error-path.test.ts` - JWT error paths
+- `api-gateway.service.test.ts` - API gateway service
+- `cache-health.service.test.ts` - Cache health service
+
+**telemetry/ (9 files)** - Observability:
+- `metrics.test.ts` - Metrics collection
+- `metrics-attributes.test.ts` - Metric attributes
+- `metrics-initialized.test.ts` - Metrics initialization
+- `gc-metrics.test.ts` - Garbage collection metrics
+- `gc-metrics-operations.test.ts` - GC metric operations
+- `tracer-operations.test.ts` - Tracing operations
+- `instrumentation-operations.test.ts` - Instrumentation
+- `instrumentation-coverage.test.ts` - Coverage tracking
+- `redis-instrumentation-utils.test.ts` - Redis instrumentation
+
+**utils/ (6 files)** - Utility functions:
+- `error-codes.test.ts` - Structured error codes
+- `type-validation.test.ts` - TypeScript type safety
+- `header-validation.test.ts` - Request header validation
+- `response.mutation.test.ts` - Response mutations
+- `retry.test.ts` - Retry logic
+- `cardinality-guard.test.ts` - Cardinality protection
 
 **Commands**:
 ```bash
 bun test                                    # All Bun tests
 bun test test/bun/jwt.service.test.ts      # Specific test file
+bun test test/bun/cache/                   # All cache tests (selective testing)
+bun test test/bun/kong/                    # All Kong integration tests
 bun test --watch                           # Watch mode
 bun test --coverage                        # With coverage
 ```
+
+**Benefits of Subdirectory Organization**:
+- **Improved Discoverability**: Tests organized by domain make it easier to find related tests
+- **Selective Testing**: Run tests by subdirectory: `bun test test/bun/cache/`
+- **Cleaner IDE Navigation**: Better file tree organization in your editor
+- **Easier Code Review**: Review tests by domain during pull requests
+- **Better Maintainability**: Related tests are grouped together
+- **Git History Preserved**: All files moved with `git mv` to maintain history
 
 ### 2. Integration Tests
 **Purpose**: Service-to-service integration validation, real dependency testing
@@ -125,8 +183,9 @@ bun test test/integration/kong*.ts   # Kong-specific integration
 
 **Commands**:
 ```bash
-bun run playwright:test                   # All E2E tests (headless)
-bun run playwright:ui                     # Interactive test UI
+bun run test:e2e                          # All E2E tests (headless)
+bun run test:e2e:headed                   # Run in headed mode (visible browser)
+bun run test:e2e:ui                       # Interactive test UI
 ```
 
 **What Playwright Tests Cover**:
@@ -214,30 +273,30 @@ bun run playwright:ui                     # Interactive test UI
 
 **Quick Test Combinations**:
 ```bash
-bun run k6:quick               # Health + tokens smoke tests (6min)
+bun run test:k6:quick               # Health + tokens smoke tests (6min)
 ```
 
 **Individual Test Categories**:
 ```bash
 # Smoke Tests (3min each)
-bun run k6:smoke:health            # Health endpoint only
-bun run k6:smoke:metrics           # Metrics endpoints only
-bun run k6:smoke:openapi           # OpenAPI specification only
-bun run k6:smoke:tokens            # JWT token generation
-bun run k6:smoke:all-endpoints     # All endpoints comprehensive
-bun run k6:smoke:profiling         # Profiling endpoints
+bun run test:k6:smoke:health        # Health endpoint only
+bun run test:k6:smoke:metrics       # Metrics endpoints only
+bun run test:k6:smoke:openapi       # OpenAPI specification only
+bun run test:k6:smoke:tokens        # JWT token generation
+bun run test:k6:smoke:all-endpoints # All endpoints comprehensive
+bun run test:k6:smoke:profiling     # Profiling endpoints
 
 # Load & Stress Tests
-bun run k6:load                    # Production load simulation (10min)
-bun run k6:stress                  # System breaking point (18min)
-bun run k6:spike                   # Traffic burst testing (8min)
-bun run k6:soak                    # Extended endurance testing
-bun run k6:pressure:memory         # Memory pressure testing
+bun run test:k6:load                # Production load simulation (10min)
+bun run test:k6:stress              # System breaking point (18min)
+bun run test:k6:spike               # Traffic burst testing (8min)
+bun run test:k6:soak                # Extended endurance testing
+bun run test:k6:pressure:memory     # Memory pressure testing
 ```
 
 **Test Information**:
 ```bash
-bun run k6:info                # Display all available tests and strategies
+bun run test:k6:info                # Display all available tests and strategies
 ```
 
 ### Performance Targets
@@ -400,20 +459,50 @@ K6_THRESHOLDS_NON_BLOCKING=true bun run k6:stress
 
 ### Kong Integration Requirements
 
-K6 tests require Kong consumer headers:
+K6 tests require Kong consumer headers for all authenticated endpoints:
+
+**Required Headers for `/tokens` (JWT generation)**:
 ```http
 X-Consumer-Id: test-consumer-001
 X-Consumer-Username: loadtest-user-001
 X-Anonymous-Consumer: false
 ```
 
-Expected JWT response format:
+**Required Headers for `/tokens/validate` (JWT validation)**:
+```http
+X-Consumer-Id: test-consumer-001
+X-Consumer-Username: loadtest-user-001
+Authorization: Bearer <jwt-token>
+```
+
+**Expected `/tokens` Response Format**:
 ```json
 {
   "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
   "expires_in": 900
 }
 ```
+
+**Expected `/tokens/validate` Response Format**:
+```json
+{
+  "valid": true,
+  "claims": {
+    "sub": "test-consumer-001",
+    "username": "loadtest-user-001",
+    "iss": "https://sts.example.com/",
+    "aud": "http://api.example.com/",
+    "exp": 1234567890,
+    "iat": 1234567000,
+    "nbf": 1234567000
+  }
+}
+```
+
+**Performance Considerations**:
+- Token generation: P95 < 50ms, P99 < 100ms
+- Token validation: P95 < 50ms, P99 < 100ms
+- Metrics export timeout: 500ms threshold for large result sets
 
 ## Running All Tests
 
@@ -423,33 +512,33 @@ Expected JWT response format:
 bun test
 
 # 2. E2E Scenarios (thorough) - 2-3 minutes
-bun run playwright:test
+bun run test:e2e
 
 # 3. Performance Testing (selective)
-bun run k6:quick                 # Health + tokens validation - 6min
-bun run k6:smoke:all-endpoints   # Comprehensive endpoint test - 3min
+bun run test:k6:quick                 # Health + tokens validation - 6min
+bun run test:k6:smoke:all-endpoints   # Comprehensive endpoint test - 3min
 
 # 4. Clean up test artifacts
-bun run test:clean               # Remove all test result files
+bun run test:clean                    # Remove all test result files
 ```
 
 ### CI/CD Pipeline Testing
 ```bash
 # Quick validation for CI/CD (6-8 minutes total)
-bun run quality:check && bun test && bun run playwright:test && bun run k6:quick
+bun run quality:check && bun test && bun run test:e2e && bun run test:k6:quick
 
 # Full test suite validation (comprehensive)
-bun run test:suite              # Bun + Playwright + K6 quick tests
+bun run test:suite                    # Bun + Playwright + K6 quick tests
 ```
 
 ### Full Performance Validation
 ```bash
 # Complete performance testing (40+ minutes)
-bun run k6:smoke:health
-bun run k6:smoke:tokens
-bun run k6:load
-bun run k6:stress
-bun run k6:spike
+bun run test:k6:smoke:health
+bun run test:k6:smoke:tokens
+bun run test:k6:load
+bun run test:k6:stress
+bun run test:k6:spike
 ```
 
 ## Test Coverage Areas

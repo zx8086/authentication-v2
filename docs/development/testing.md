@@ -7,18 +7,15 @@ The authentication service implements a comprehensive testing strategy with auto
 ### Test Quality Achievements
 - **Mutation Score**: 100% (all mutants killed)
 - **Overall Coverage**: 80%+ line coverage
-- **Total Test Count**: 210+ tests (100% pass rate) across all frameworks
-  - **Bun Unit/Integration Tests**: 178 tests across 10 files
+- **Total Test Count**: 1400+ tests (100% pass rate) across all frameworks
+  - **Bun Unit/Integration Tests**: 1400+ tests across 59 files (organized in 12 subdirectories)
   - **Playwright E2E Tests**: 32 tests across 3 files
+- **Test Organization**: 59 test files organized into 12 logical subdirectories by domain:
+  - `cache/` (7 files), `circuit-breaker/` (5 files), `config/` (5 files)
+  - `handlers/` (5 files), `health/` (6 files), `integration/` (2 files)
+  - `kong/` (4 files), `logging/` (4 files), `mutation/` (2 files)
+  - `services/` (4 files), `telemetry/` (9 files), `utils/` (6 files)
 - **Integration Tests**: Executing in CI with live server validation
-- **Kong Service Test Suite**: 83 comprehensive test cases across 4 service files (100% coverage)
-  - **Kong API Gateway Service**: 33 test cases (100% coverage)
-  - **Kong Konnect Service**: 24 test cases covering cloud and self-hosted environments
-  - **Circuit Breaker Service**: 26 test cases for Kong Admin API resilience and stale cache fallback
-  - **Shared Circuit Breaker**: Comprehensive testing with real endpoint integration
-- **Kong Factory Pattern**: 100% coverage with mode validation
-- **Logger Utility**: 46.58% coverage with error-free execution validation
-- **Server Integration**: Complete HTTP endpoint testing with proper mock isolation
 - **CI/CD Execution**: All tests passing in automated pipeline with performance validation
 - **Circuit Breaker Testing**: Complete coverage of Kong failure scenarios and fallback mechanisms
 
@@ -170,16 +167,16 @@ Located in `test/bun/` directory.
 # Run all tests
 bun run bun:test
 
+# Run tests by subdirectory (selective testing)
+bun test test/bun/cache/              # All cache tests
+bun test test/bun/kong/               # All Kong integration tests
+bun test test/bun/circuit-breaker/    # All circuit breaker tests
+bun test test/bun/telemetry/          # All telemetry tests
+
 # Run specific test files
-bun test test/bun/config.test.ts
-bun test test/bun/jwt.service.test.ts
-bun test test/bun/kong.service.test.ts
-bun test test/bun/kong-api-gateway.service.test.ts
-bun test test/bun/kong-konnect.service.test.ts
-bun test test/bun/circuit-breaker.service.test.ts
-bun test test/bun/kong.factory.test.ts
-bun test test/bun/logger.test.ts
-bun test test/bun/server.test.ts
+bun test test/bun/config/config.test.ts
+bun test test/bun/services/jwt.service.test.ts
+bun test test/bun/handlers/tokens-handler.test.ts
 
 # Run with coverage
 bun run bun:test:coverage
@@ -191,13 +188,102 @@ bun run bun:test:watch
 bun run bun:test:concurrent
 ```
 
-### Test Categories
-- **Configuration Tests**: Validate 4-pillar configuration pattern
-- **JWT Service Tests**: Token generation and validation
-- **Kong Integration Tests**: API Gateway and Konnect modes
-- **Circuit Breaker Tests**: Resilience and failover scenarios
-- **Cache Tests**: In-memory and Redis cache implementations
-- **Server Tests**: HTTP endpoint integration
+### Test Organization Benefits
+- **Improved Discoverability**: Tests organized by domain make it easier to find related tests
+- **Selective Testing**: Run tests by subdirectory: `bun test test/bun/cache/`
+- **Cleaner IDE Navigation**: Better file tree organization in your editor
+- **Easier Code Review**: Review tests by domain during pull requests
+- **Better Maintainability**: Related tests are grouped together
+- **Git History Preserved**: All files moved with `git mv` to maintain history
+
+### Test Subdirectories
+- **cache/** (7 files) - Caching functionality and stale data handling
+- **circuit-breaker/** (5 files) - Circuit breaker patterns and state transitions
+- **config/** (5 files) - Configuration validation and 4-pillar pattern
+- **handlers/** (5 files) - HTTP request handlers (tokens, OpenAPI)
+- **health/** (6 files) - Health check endpoints and telemetry
+- **integration/** (2 files) - API versioning and shutdown tests
+- **kong/** (4 files) - Kong API Gateway integration and strategies
+- **logging/** (4 files) - Logging functionality and Winston integration
+- **mutation/** (2 files) - Mutation-resistant test patterns
+- **services/** (4 files) - Service layer tests (JWT, caching)
+- **telemetry/** (9 files) - Observability, metrics, and instrumentation
+- **utils/** (6 files) - Utility functions (error codes, validation, retry)
+
+### Parallel Test Execution
+
+The test suite is optimized for parallel execution with proper isolation and timeout management to ensure stability across concurrent test runs.
+
+#### Timeout Configurations
+
+**Fetch Timeouts:**
+- 5-second timeout for external API calls (Kong Admin API)
+- Prevents tests from hanging on network issues
+- Configured in test utilities: `{ signal: AbortSignal.timeout(5000) }`
+
+**Garbage Collection Thresholds:**
+- 20ms thresholds for GC monitoring tests
+- Allows for parallel test execution without false positives
+- Environment-aware: stricter in CI, looser in local development
+
+#### Database Isolation Strategy
+
+**Redis Database Separation:**
+- Test suite uses Redis DB 10 (separate from production DB 0)
+- Ensures test cache operations don't interfere with running services
+- Configuration: `REDIS_DB=10` in test environment
+- Each test can flush DB 10 without affecting other environments
+
+**Benefits:**
+- Tests can run concurrently without cache collisions
+- Local development server (DB 0) unaffected by test runs
+- Clean state for each test run via `FLUSHDB` on DB 10
+
+#### Functional Equivalence vs Instance Equality
+
+**Pattern: Test behavior, not implementation details**
+
+When testing cached objects or API responses, prefer functional equivalence over strict instance equality:
+
+```typescript
+// AVOID: Instance equality (fragile in concurrent tests)
+expect(cachedObject).toBe(originalObject);
+
+// PREFER: Functional equivalence (stable in parallel execution)
+expect(cachedObject.id).toBe(originalObject.id);
+expect(cachedObject.username).toBe(originalObject.username);
+expect(cachedObject.secret).toBe(originalObject.secret);
+```
+
+**Why this matters:**
+- Cache implementations may deserialize/reserialize objects
+- Parallel tests may have separate cache instances
+- Functional equivalence verifies the API contract, not memory addresses
+
+#### Environment-Aware Test Best Practices
+
+**Disable Environment-Sensitive Tests:**
+- Winston logger tests disabled in parallel execution (`test.skip`)
+- Reason: Environment variable conflicts during concurrent runs
+- Trade-off: Ensures suite stability over 100% parallel coverage
+
+**Graceful Timeout Handling:**
+- Use `AbortSignal.timeout()` instead of test framework timeouts
+- Provides cleaner error messages on timeout
+- Allows for operation-specific timeout values
+
+**Example:**
+```typescript
+// Good: Operation-specific timeout with clean error handling
+const response = await fetch(url, {
+  signal: AbortSignal.timeout(5000)
+});
+
+// Avoid: Test framework timeout (less granular control)
+test("should fetch data", { timeout: 5000 }, async () => {
+  await fetch(url);
+});
+```
 
 ## 2. Playwright E2E Tests
 

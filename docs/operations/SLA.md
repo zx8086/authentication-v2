@@ -6,11 +6,20 @@ This document defines the Service Level Agreements (SLAs) for the Authentication
 
 | Endpoint Category | P50 | P95 | P99 | Max |
 |-------------------|-----|-----|-----|-----|
-| Health Check (`/health`) | <5ms | <10ms | <25ms | <50ms |
+| Health Check (`/health`) | <100ms | <400ms | <500ms | <1000ms |
 | Token Generation (`/tokens`) | <50ms | <100ms | <200ms | <500ms |
 | Token Validation (`/tokens/validate`) | <25ms | <50ms | <100ms | <200ms |
 | Metrics (`/metrics`) | <10ms | <25ms | <50ms | <100ms |
 | OpenAPI Spec (`/`) | <20ms | <50ms | <100ms | <200ms |
+
+**Note on Health Endpoint Performance:**
+
+The `/health` endpoint performs active OTLP connectivity validation, testing all configured OpenTelemetry endpoints (traces, metrics, logs) in parallel with a 5-second timeout per endpoint. This adds network latency to health check response times:
+
+- **Without OTLP checks**: p95 ~10ms, p99 ~25ms
+- **With OTLP checks**: p95 ~400ms, p99 ~500ms
+
+For lightweight liveness checks without OTLP validation, use `/health/ready` which only validates Kong connectivity (p95 <10ms, p99 <25ms).
 
 ### Measurement Methodology
 
@@ -171,7 +180,7 @@ bun run k6:stress
 ```javascript
 // From test/k6/thresholds.ts
 export const healthThresholds = {
-  http_req_duration: ['p(95)<25', 'p(99)<50'],
+  http_req_duration: ['p(95)<400', 'p(99)<500'],
   http_req_failed: ['rate<0.01'],
 };
 
