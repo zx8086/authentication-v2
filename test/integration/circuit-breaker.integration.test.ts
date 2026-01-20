@@ -10,6 +10,8 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
+  disableFetchPolyfill,
+  enableFetchPolyfill,
   INTEGRATION_CONFIG,
   isIntegrationEnvironmentAvailable,
   TEST_CONSUMERS,
@@ -42,11 +44,11 @@ let integrationAvailable = false;
 let authServiceAvailable = false;
 
 beforeAll(async () => {
+  // Enable fetch polyfill with curl fallback for Bun networking issues
+  enableFetchPolyfill();
+
   integrationAvailable = await isIntegrationEnvironmentAvailable();
   if (!integrationAvailable) {
-    console.log(
-      "Integration environment not available. Start with: docker compose -f docker-compose.test.yml up -d"
-    );
     return;
   }
 
@@ -364,11 +366,6 @@ describe("Circuit Breaker - Recovery Testing", () => {
 });
 
 afterAll(() => {
-  if (!integrationAvailable) {
-    console.log("\nTo run integration tests:");
-    console.log("1. docker compose -f docker-compose.test.yml up -d");
-    console.log("2. Wait for services to be ready (~30 seconds)");
-    console.log("3. bun run dev (in another terminal)");
-    console.log("4. bun test test/integration/");
-  }
+  // Restore original fetch
+  disableFetchPolyfill();
 });

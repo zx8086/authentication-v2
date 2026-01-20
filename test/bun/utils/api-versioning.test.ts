@@ -1,4 +1,4 @@
-/* test/bun/api-versioning.test.ts */
+/* test/bun/utils/api-versioning.test.ts */
 
 import { describe, expect, it } from "bun:test";
 import {

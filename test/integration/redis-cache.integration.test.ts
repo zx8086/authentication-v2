@@ -15,7 +15,12 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SharedRedisBackend } from "../../src/cache/backends/shared-redis-backend";
 import type { ConsumerSecret } from "../../src/config/schemas";
 import { SharedRedisCache } from "../../src/services/cache/shared-redis-cache";
-import { INTEGRATION_CONFIG, TEST_CONSUMERS } from "./setup";
+import {
+  disableFetchPolyfill,
+  enableFetchPolyfill,
+  INTEGRATION_CONFIG,
+  TEST_CONSUMERS,
+} from "./setup";
 
 // Connection timeout for Redis operations (3 seconds)
 const CONNECTION_TIMEOUT_MS = 3000;
@@ -82,9 +87,11 @@ function createMockConsumerSecret(consumerId: string, index: number): ConsumerSe
 }
 
 beforeAll(async () => {
+  // Enable fetch polyfill with curl fallback for Bun networking issues
+  enableFetchPolyfill();
+
   redisAvailable = await isRedisAvailable();
   if (!redisAvailable) {
-    console.log("Redis not available. Start with: docker compose -f docker-compose.test.yml up -d");
     return;
   }
 
@@ -139,6 +146,9 @@ afterAll(async () => {
   // Disconnect with safety wrapper
   await safeDisconnect(redisCache, "redisCache");
   await safeDisconnect(redisBackend, "redisBackend");
+
+  // Restore original fetch
+  disableFetchPolyfill();
 });
 
 describe("SharedRedisCache Integration", () => {

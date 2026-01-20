@@ -1,4 +1,4 @@
-/* test/bun/shutdown-cleanup.test.ts */
+/* test/bun/telemetry/shutdown-cleanup.test.ts */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 // Cardinality guard module functions

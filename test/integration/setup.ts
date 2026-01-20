@@ -7,6 +7,9 @@
 
 import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "../shared/test-consumers";
 
+// Store original fetch
+const originalFetch = globalThis.fetch;
+
 // Integration test environment configuration
 // Priority: INTEGRATION_KONG_ADMIN_URL > KONG_ADMIN_URL (from .env) > localhost default
 
@@ -91,16 +94,32 @@ export const API_KEYS = {
 
 /**
  * Wait for Kong to be ready
+ * Uses curl as fallback when fetch fails (Bun networking issue with some IPs)
  */
 export async function waitForKong(maxRetries = 30, retryInterval = 2000): Promise<boolean> {
+  const url = `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`;
+
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const response = await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`);
+      // Try with fetch first
+      const response = await fetch(url);
       if (response.ok) {
         return true;
       }
     } catch {
-      // Kong not ready yet
+      // Fallback to curl
+      try {
+        const proc = Bun.spawn(["curl", "-s", "-f", "-m", "5", url], {
+          stdout: "pipe",
+          stderr: "ignore",
+        });
+        const exitCode = await proc.exited;
+        if (exitCode === 0) {
+          return true;
+        }
+      } catch {
+        // Kong not ready yet
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, retryInterval));
   }
@@ -127,26 +146,121 @@ export async function waitForAuthService(maxRetries = 30, retryInterval = 1000):
 
 /**
  * Check if the integration test environment is available
+ * Uses curl as fallback when fetch fails (Bun networking issue with some IPs)
  */
 export async function isIntegrationEnvironmentAvailable(): Promise<boolean> {
   try {
+    const url = `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`;
+
     // Try multiple times with longer timeout
     for (let i = 0; i < 3; i++) {
       try {
-        const response = await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`, {
+        // First try with fetch
+        const response = await fetch(url, {
           signal: AbortSignal.timeout(10000),
         });
         if (response.ok) {
           return true;
         }
-      } catch {
-        // Retry
+      } catch (fetchError) {
+        // Fallback to curl if fetch fails (Bun networking bug with some network configs)
+        try {
+          const proc = Bun.spawn(["curl", "-s", "-f", "-m", "5", url], {
+            stdout: "pipe",
+            stderr: "ignore",
+          });
+          const exitCode = await proc.exited;
+          if (exitCode === 0) {
+            return true;
+          }
+        } catch {
+          // curl also failed, continue retry loop
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Fetch wrapper with curl fallback for Bun networking issues
+ * Use this instead of native fetch() in integration tests
+ */
+export async function fetchWithFallback(
+  url: string | URL,
+  options?: RequestInit
+): Promise<Response> {
+  try {
+    // Try native fetch first
+    return await fetch(url, options);
+  } catch (fetchError) {
+    // Fallback to curl for problematic network configs
+    const urlString = url.toString();
+    const method = options?.method || "GET";
+    const headers = options?.headers;
+    const signal = options?.signal;
+
+    const args = ["curl", "-s", "-i", "-X", method];
+
+    // Add headers
+    if (headers) {
+      const headerEntries =
+        headers instanceof Headers ? Array.from(headers.entries()) : Object.entries(headers);
+      for (const [key, value] of headerEntries) {
+        args.push("-H", `${key}: ${value}`);
+      }
+    }
+
+    // Add body if present
+    if (options?.body) {
+      args.push("-d", options.body.toString());
+    }
+
+    args.push(urlString);
+
+    // Spawn curl process
+    const proc = Bun.spawn(args, {
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+
+    // Handle timeout
+    if (signal?.aborted) {
+      proc.kill();
+      throw new Error("Request aborted");
+    }
+
+    const output = await new Response(proc.stdout).text();
+    await proc.exited;
+
+    // Parse curl output (format: HTTP/1.1 200 OK\nheaders...\n\nbody)
+    // Handle both \r\n\r\n and \n\n separators
+    const separator = output.includes("\r\n\r\n") ? "\r\n\r\n" : "\n\n";
+    const [headerSection, ...bodyParts] = output.split(separator);
+    const body = bodyParts.join(separator);
+
+    const lineSeparator = output.includes("\r\n") ? "\r\n" : "\n";
+    const lines = headerSection.split(lineSeparator);
+    const statusLine = lines[0];
+    const statusMatch = statusLine.match(/HTTP\/[\d.]+ (\d+)/);
+    const status = statusMatch ? Number.parseInt(statusMatch[1], 10) : 200;
+
+    const responseHeaders = new Headers();
+    for (let i = 1; i < lines.length; i++) {
+      const [key, ...valueParts] = lines[i].split(": ");
+      if (key && valueParts.length > 0) {
+        responseHeaders.set(key, valueParts.join(": "));
+      }
+    }
+
+    return new Response(body.trim(), {
+      status,
+      statusText: statusLine.split(" ").slice(2).join(" "),
+      headers: responseHeaders,
+    });
   }
 }
 
@@ -245,3 +359,20 @@ export function skipIfNoIntegrationEnv(
 
 // Re-export test consumers for convenience
 export { ANONYMOUS_CONSUMER, TEST_CONSUMERS };
+
+/**
+ * Enable fetch polyfill with curl fallback for integration tests
+ * Call this in beforeAll() to override fetch globally
+ */
+export function enableFetchPolyfill(): void {
+  // @ts-expect-error - Polyfill global fetch
+  globalThis.fetch = fetchWithFallback;
+}
+
+/**
+ * Restore original fetch implementation
+ * Call this in afterAll() to clean up
+ */
+export function disableFetchPolyfill(): void {
+  globalThis.fetch = originalFetch;
+}

@@ -11,6 +11,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
   API_KEYS,
+  disableFetchPolyfill,
+  enableFetchPolyfill,
   INTEGRATION_CONFIG,
   isIntegrationEnvironmentAvailable,
   TEST_CONSUMERS,
@@ -21,11 +23,11 @@ import {
 let integrationAvailable = false;
 
 beforeAll(async () => {
+  // Enable fetch polyfill with curl fallback for Bun networking issues
+  enableFetchPolyfill();
+
   integrationAvailable = await isIntegrationEnvironmentAvailable();
   if (!integrationAvailable) {
-    console.log(
-      "Integration environment not available. Start with: docker compose -f docker-compose.test.yml up -d"
-    );
     return;
   }
 
@@ -331,10 +333,6 @@ describe("Consumer Data Consistency", () => {
 });
 
 afterAll(() => {
-  if (!integrationAvailable) {
-    console.log("\nTo run integration tests:");
-    console.log("1. docker compose -f docker-compose.test.yml up -d");
-    console.log("2. Wait for services to be ready (~30 seconds)");
-    console.log("3. bun test test/integration/");
-  }
+  // Restore original fetch
+  disableFetchPolyfill();
 });

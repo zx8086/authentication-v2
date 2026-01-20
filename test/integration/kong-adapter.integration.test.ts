@@ -13,6 +13,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { KongAdapter } from "../../src/adapters/kong.adapter";
 import {
+  disableFetchPolyfill,
+  enableFetchPolyfill,
   INTEGRATION_CONFIG,
   isIntegrationEnvironmentAvailable,
   TEST_CONSUMERS,
@@ -23,11 +25,11 @@ let integrationAvailable = false;
 let adapter: KongAdapter;
 
 beforeAll(async () => {
+  // Enable fetch polyfill with curl fallback for Bun networking issues
+  enableFetchPolyfill();
+
   integrationAvailable = await isIntegrationEnvironmentAvailable();
   if (!integrationAvailable) {
-    console.log(
-      "Integration environment not available. Start with: docker compose -f docker-compose.test.yml up -d"
-    );
     return;
   }
 
@@ -597,10 +599,6 @@ describe("KongAdapter Integration - Circuit Breaker Events", () => {
 });
 
 afterAll(() => {
-  if (!integrationAvailable) {
-    console.log("\nTo run integration tests:");
-    console.log("1. docker compose -f docker-compose.test.yml up -d");
-    console.log("2. Wait for Kong to be ready");
-    console.log("3. bun test test/integration/kong-adapter.integration.test.ts");
-  }
+  // Restore original fetch
+  disableFetchPolyfill();
 });
