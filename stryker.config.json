@@ -3,7 +3,7 @@
   "packageManager": "npm",
   "testRunner": "command",
   "commandRunner": {
-    "command": "/Users/Simon.Owusu@Tommy.com/WebstormProjects/pvh.services.authentication-v2/scripts/bun-mutation-runner.sh test ./test/bun ./test/integration"
+    "command": "/Users/Simon.Owusu@Tommy.com/WebstormProjects/pvh.services.authentication-v2/scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun ./test/integration"
   },
   "plugins": ["@stryker-mutator/typescript-checker"],
   "checkers": ["typescript"],
