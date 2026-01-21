@@ -176,22 +176,49 @@ export class KongAdapter implements IAPIGatewayAdapter {
           resolvedConsumerId = resolved;
         }
 
-        const key = generateJwtKey();
-        const secret = generateSecureSecret();
-
         const url = await this.strategy.buildConsumerUrl(this.adminUrl, resolvedConsumerId);
+        const maxRetries = 3;
 
-        const response = await fetch(url, {
-          method: "POST",
-          headers: this.strategy.createAuthHeaders(this.adminToken),
-          body: JSON.stringify({
-            key: key,
-            secret: secret,
-          }),
-          signal: createRequestTimeout(10000),
-        });
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          const key = generateJwtKey();
+          const secret = generateSecureSecret();
 
-        if (!isSuccessResponse(response)) {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: this.strategy.createAuthHeaders(this.adminToken),
+            body: JSON.stringify({
+              key: key,
+              secret: secret,
+            }),
+            signal: createRequestTimeout(10000),
+          });
+
+          if (isSuccessResponse(response)) {
+            const createdSecret = (await response.json()) as ConsumerSecret;
+
+            // Prevent cache pollution - validate consumer ID matches before caching
+            if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {
+              winstonTelemetryLogger.error(
+                `Consumer ID mismatch in Kong create response, not caching`,
+                {
+                  operation: "createConsumerSecret",
+                  requestedConsumerId: consumerId,
+                  responseConsumerId: createdSecret.consumer.id,
+                  component: "kong_adapter",
+                  action: "consumer_id_mismatch",
+                  mode: this.mode,
+                }
+              );
+              return createdSecret;
+            }
+
+            await this.ensureCacheInitialized();
+            const cacheKey = generateCacheKey(consumerId);
+            await this.cache?.set(cacheKey, createdSecret);
+
+            return createdSecret;
+          }
+
           if (isConsumerNotFound(response)) {
             winstonTelemetryLogger.warn("Consumer not found when creating JWT credentials", {
               consumerId,
@@ -202,6 +229,38 @@ export class KongAdapter implements IAPIGatewayAdapter {
             return null;
           }
 
+          // Handle 409 Conflict (unique constraint violation) - retry with new key
+          if (response.status === 409) {
+            winstonTelemetryLogger.warn("JWT key collision detected, retrying with new key", {
+              consumerId,
+              attempt,
+              maxRetries,
+              status: response.status,
+              operation: "create_consumer_secret",
+              mode: this.mode,
+            });
+
+            if (attempt < maxRetries) {
+              continue; // Retry with new key
+            }
+
+            // Max retries exhausted
+            const kongError = await createKongApiError(response);
+            winstonTelemetryLogger.error(
+              "Failed to create JWT credentials after max retries due to key collisions",
+              {
+                consumerId,
+                error: kongError.message,
+                status: kongError.status,
+                attempts: maxRetries,
+                operation: "create_jwt_credentials",
+                mode: this.mode,
+              }
+            );
+            throw kongError;
+          }
+
+          // Other errors - fail immediately
           const kongError = await createKongApiError(response);
           winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
             consumerId,
@@ -213,29 +272,8 @@ export class KongAdapter implements IAPIGatewayAdapter {
           throw kongError;
         }
 
-        const createdSecret = (await response.json()) as ConsumerSecret;
-
-        // Prevent cache pollution - validate consumer ID matches before caching
-        if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {
-          winstonTelemetryLogger.error(
-            `Consumer ID mismatch in Kong create response, not caching`,
-            {
-              operation: "createConsumerSecret",
-              requestedConsumerId: consumerId,
-              responseConsumerId: createdSecret.consumer.id,
-              component: "kong_adapter",
-              action: "consumer_id_mismatch",
-              mode: this.mode,
-            }
-          );
-          return createdSecret;
-        }
-
-        await this.ensureCacheInitialized();
-        const cacheKey = generateCacheKey(consumerId);
-        await this.cache?.set(cacheKey, createdSecret);
-
-        return createdSecret;
+        // Should never reach here, but TypeScript needs this
+        return null;
       }
     );
   }

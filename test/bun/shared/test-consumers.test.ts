@@ -3,8 +3,6 @@
 import { describe, expect, it } from "bun:test";
 import {
   ANONYMOUS_CONSUMER,
-  JOB_PREFIXES,
-  TEST_CONSUMERS,
   generateJobSpecificAnonymousConsumer,
   generateJobSpecificConsumers,
   getAllTestConsumers,
@@ -13,6 +11,8 @@ import {
   getLoadTestConsumers,
   getRandomTestConsumer,
   getTestConsumer,
+  JOB_PREFIXES,
+  TEST_CONSUMERS,
 } from "../../shared/test-consumers";
 
 describe("Test Consumers", () => {
