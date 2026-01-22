@@ -86,6 +86,60 @@ bun run test:mutation:dry         # Dry run (validate tests work)
 bun run test:mutation:dry:debug   # Dry run with debug output
 ```
 
+## Coverage Analysis
+
+### What Gets Tested
+
+The full mutation testing run (`test:mutation` or `test:mutation:fresh`) covers the entire codebase based on `stryker.config.json`:
+
+**Included directories:**
+- `src/adapters/` - API gateway adapters
+- `src/cache/` - Cache implementations
+- `src/config/` - Configuration management
+- `src/errors/` - Error definitions
+- `src/handlers/` - Request handlers (except profiling.ts)
+- `src/middleware/` - CORS, error handling (2 files)
+- `src/routes/` - Route definitions (1 file)
+- `src/services/` - Business logic (except legacy/, profiling.service.ts)
+- `src/telemetry/` - Observability
+- `src/utils/` - Utilities (except logger.ts, performance.ts)
+
+**Excluded from mutation testing:**
+- `src/types/` - Type definitions only
+- `src/server.ts` - Entry point (bootstrapping code)
+- `src/index.ts` - Entry point (bootstrapping code)
+- `src/services/legacy/` - Legacy code (deprecated)
+- `src/handlers/profiling.ts` - Profiling utilities
+- `src/services/profiling.service.ts` - Profiling service
+- `src/utils/logger.ts` - Logging infrastructure
+- `src/utils/performance.ts` - Performance utilities
+
+### Targeted Scripts Coverage
+
+The 8 targeted mutation scripts intentionally cover **business logic directories only**:
+
+```
+✅ test:mutation:handlers    → src/handlers/**/*.ts
+✅ test:mutation:services    → src/services/**/*.ts
+✅ test:mutation:telemetry   → src/telemetry/**/*.ts
+✅ test:mutation:config      → src/config/**/*.ts
+✅ test:mutation:adapters    → src/adapters/**/*.ts
+✅ test:mutation:cache       → src/cache/**/*.ts
+✅ test:mutation:utils       → src/utils/**/*.ts
+✅ test:mutation:errors      → src/errors/**/*.ts
+
+❌ middleware/               → NOT covered by targeted scripts
+❌ routes/                   → NOT covered by targeted scripts
+```
+
+**Design Decision:** Middleware and routes are intentionally excluded from targeted scripts because:
+1. They are thin infrastructure wrappers with minimal business logic
+2. They are covered by the full mutation run (`test:mutation`)
+3. Targeted scripts are for fast iteration on critical business logic
+4. Adding more targeted scripts increases complexity for minimal benefit
+
+**Recommendation:** Use targeted scripts for focused development work, but **always run `test:mutation` or `test:mutation:fresh` before releases** to ensure complete coverage including middleware and routes.
+
 ## Configuration Details
 
 **IMPORTANT**: See [SIO-287 Workaround](../workarounds/SIO-287-strykerjs-bun-output-parser.md) for critical Stryker/Bun compatibility fixes including:
@@ -115,8 +169,10 @@ See `stryker.config.json` for full configuration:
    bun run test:mutation
    ```
    - Quick iterations with incremental mode (8 workers)
-   - Typically 6-8 minutes
+   - First run: ~6-8 minutes (creates cache)
+   - Subsequent runs: ~1-3 minutes (only changed code)
    - Re-uses cache for unchanged code
+   - 99% accuracy (cache-dependent)
 
 2. **Quick Validation** (Targeted):
    ```bash
@@ -131,8 +187,27 @@ See `stryker.config.json` for full configuration:
    bun run test:mutation:fresh
    ```
    - Complete validation from scratch
+   - Always takes ~6-8 minutes (deletes cache)
    - Ensures no stale cache issues
+   - 100% accuracy (no cache assumptions)
    - Use in CI pipelines
+
+### Incremental vs Fresh: When to Use Each
+
+| Scenario | Command | Reason |
+|----------|---------|--------|
+| Daily development work | `test:mutation` | Fast incremental testing (1-3 min) |
+| After small changes | `test:mutation` | Only tests modified code |
+| Before commits | `test:mutation` | Quick validation before push |
+| Before releases | `test:mutation:fresh` | Complete validation, no cache |
+| In CI/CD pipelines | `test:mutation:fresh` | Ensures accuracy, no cache assumptions |
+| After major refactoring | `test:mutation:fresh` | Cache may be stale |
+| Suspected cache corruption | `test:mutation:fresh` | Start clean |
+| After config changes | `test:mutation:fresh` | Config affects all code |
+
+**Key Difference:**
+- `test:mutation` = Git-like incremental (shows what changed)
+- `test:mutation:fresh` = Full validation (tests everything from scratch)
 
 ### Monitoring Performance
 
