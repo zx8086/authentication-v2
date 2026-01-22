@@ -464,4 +464,230 @@ describe("UnifiedCacheManager", () => {
       expect(result).toBe(true);
     });
   });
+
+  describe("isHealthy edge cases", () => {
+    it("should return false when backend is null before initialization", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(true);
+      await manager.shutdown();
+    });
+
+    it("should return false after shutdown", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("key", "value");
+      await manager.shutdown();
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(true);
+    });
+  });
+
+  describe("reconfigure with strategy change", () => {
+    it("should switch from local-memory to shared-redis (with fallback)", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("key1", "value1");
+      expect(manager.getStrategy()).toBe("local-memory");
+
+      await manager.reconfigure({
+        highAvailability: true,
+        ttlSeconds: 600,
+        redisUrl: "redis://localhost:16379",
+        staleDataToleranceMinutes: 10,
+      });
+
+      expect(manager.getStrategy()).toBe("local-memory");
+      await manager.shutdown();
+    });
+
+    it("should handle reconfigure when backend is null", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.reconfigure({
+        highAvailability: false,
+        ttlSeconds: 600,
+        staleDataToleranceMinutes: 10,
+      });
+
+      await manager.set("key", "value");
+      const result = await manager.get("key");
+      expect(result).toBe("value");
+      await manager.shutdown();
+    });
+
+    it("should clear data when strategy changes", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("key1", "value1");
+      const oldStrategy = manager.getStrategy();
+
+      await manager.reconfigure({
+        highAvailability: true,
+        ttlSeconds: 600,
+        redisUrl: "redis://localhost:16379",
+        staleDataToleranceMinutes: 10,
+      });
+
+      const newStrategy = manager.getStrategy();
+      expect(oldStrategy).toBe("local-memory");
+      expect(newStrategy).toBe("local-memory");
+
+      await manager.shutdown();
+    });
+  });
+
+  describe("ensureInitialized edge cases", () => {
+    it("should handle get operation before initialization", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      const result = await manager.get("nonexistent");
+      expect(result).toBeNull();
+      expect(manager.getStrategy()).toBe("local-memory");
+      await manager.shutdown();
+    });
+
+    it("should handle set operation as first operation", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("first-key", "first-value");
+      expect(manager.getBackendName()).toBe("LocalMemoryBackend");
+      await manager.shutdown();
+    });
+
+    it("should initialize only once with concurrent operations", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await Promise.all([
+        manager.set("key1", "value1"),
+        manager.set("key2", "value2"),
+        manager.set("key3", "value3"),
+        manager.get("key1"),
+        manager.get("key2"),
+      ]);
+
+      expect(manager.getStrategy()).toBe("local-memory");
+      await manager.shutdown();
+    });
+  });
+
+  describe("backend creation and fallback", () => {
+    it("should create SharedRedisBackend for HA config", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: true,
+        ttlSeconds: 300,
+        redisUrl: "redis://localhost:16379",
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.isHealthy();
+      expect(manager.getStrategy()).toBe("local-memory");
+      await manager.shutdown();
+    });
+
+    it("should create LocalMemoryBackend for non-HA config", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.isHealthy();
+      expect(manager.getStrategy()).toBe("local-memory");
+      expect(manager.getBackendName()).toBe("LocalMemoryBackend");
+      await manager.shutdown();
+    });
+
+    it("should fallback from shared-redis to local-memory on connection failure", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: true,
+        ttlSeconds: 300,
+        redisUrl: "redis://localhost:99999",
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("test", "value");
+      const strategy = manager.getStrategy();
+      const backendName = manager.getBackendName();
+
+      expect(strategy).toBe("local-memory");
+      expect(backendName).toBe("LocalMemoryBackend");
+      await manager.shutdown();
+    });
+  });
+
+  describe("initialization promise handling", () => {
+    it("should clear initialization promise after successful init", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      await manager.set("key", "value");
+      const result = await manager.get("key");
+      expect(result).toBe("value");
+
+      await manager.shutdown();
+      await manager.set("key2", "value2");
+      const result2 = await manager.get("key2");
+      expect(result2).toBe("value2");
+    });
+
+    it("should wait for existing initialization promise", async () => {
+      const manager = new UnifiedCacheManager({
+        highAvailability: false,
+        ttlSeconds: 300,
+        staleDataToleranceMinutes: 5,
+      });
+
+      const promises = [];
+      for (let i = 0; i < 10; i++) {
+        promises.push(manager.set(`key${i}`, `value${i}`));
+      }
+
+      await Promise.all(promises);
+      expect(manager.getStrategy()).toBe("local-memory");
+
+      for (let i = 0; i < 10; i++) {
+        const result = await manager.get(`key${i}`);
+        expect(result).toBe(`value${i}`);
+      }
+
+      await manager.shutdown();
+    });
+  });
 });

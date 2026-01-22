@@ -27,10 +27,12 @@ Add `--reporter=dots` flag to the command runner:
 ```json
 {
   "commandRunner": {
-    "command": "/absolute/path/to/scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun ./test/integration"
+    "command": "/absolute/path/to/scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun"
   }
 }
 ```
+
+**IMPORTANT**: Integration tests (`./test/integration`) are **excluded** from mutation testing because they require external services (Kong, Redis). Mutation testing should only run fast, isolated unit tests.
 
 **Why dots reporter?**
 - Clean, parseable output format (`.` for pass, `F` for fail)
@@ -144,7 +146,7 @@ time ./scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun
 ```json
 {
   "commandRunner": {
-    "command": "./scripts/bun-mutation-runner.sh test --reporter=tap ./test/bun ./test/integration"
+    "command": "./scripts/bun-mutation-runner.sh test --reporter=tap ./test/bun"
   }
 }
 ```
@@ -155,7 +157,7 @@ time ./scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun
 ```json
 {
   "commandRunner": {
-    "command": "./scripts/bun-mutation-runner.sh test --reporter=junit --reporter-outfile=test/results/junit.xml ./test/bun ./test/integration"
+    "command": "./scripts/bun-mutation-runner.sh test --reporter=junit --reporter-outfile=test/results/junit.xml ./test/bun"
   }
 }
 ```
@@ -169,7 +171,17 @@ Create custom test runner adapter for Bun that implements `@stryker-mutator/api`
 
 ## Troubleshooting
 
-### Issue: "Initial test run failed" persists
+### Issue: "There were failed tests in the initial test run"
+**Symptoms**: Tests fail during Stryker dry run with errors like `SyntaxError: Unexpected end of JSON input` in integration tests
+**Root Cause**: Integration tests requiring external services (Kong, Redis) are included in mutation testing
+**Solution**:
+1. Remove `./test/integration` from `stryker.config.json` commandRunner
+2. Only include `./test/bun` (unit tests that run without external dependencies)
+3. Verify: `BUN_BE_BUN=1 ./scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun` should show 0 failures
+
+**Why**: Mutation testing should only run fast, isolated unit tests. Integration tests require services that may not be running during mutation test execution.
+
+### Issue: "Initial test run failed" persists (despite tests passing)
 **Cause**: Winston logs still appearing in output
 **Solution**: Verify `LOG_LEVEL=silent` is set in wrapper script
 

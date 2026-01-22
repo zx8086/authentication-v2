@@ -17,6 +17,7 @@ import {
   handleTelemetryHealth,
 } from "../../../src/handlers/health";
 import { APIGatewayService } from "../../../src/services/api-gateway.service";
+import { disableFetchPolyfill, enableFetchPolyfill } from "../../integration/setup";
 import {
   getSkipMessage,
   resetKongAvailabilityCache,
@@ -29,6 +30,7 @@ describe("Health Handlers", () => {
   let kongService: IKongService | null = null;
 
   beforeAll(async () => {
+    enableFetchPolyfill();
     const context = await setupKongTestContext();
     kongAvailable = context.available;
     kongAdapter = context.adapter;
@@ -38,6 +40,7 @@ describe("Health Handlers", () => {
   });
 
   afterAll(() => {
+    disableFetchPolyfill();
     resetKongAvailabilityCache();
   });
 

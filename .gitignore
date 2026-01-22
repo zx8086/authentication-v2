@@ -51,3 +51,8 @@ scripts/bundled-runtimes/
 k8s
 docs/MIGRATION_GAPS.md
 .stryker-tmp
+
+# Stryker experimental configs (only stryker.config.json is tracked)
+stryker.config.*.json
+stryker.*.config.json
+stryker.config copy.json

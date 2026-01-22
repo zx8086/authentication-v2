@@ -272,7 +272,3 @@ For detailed production considerations, see [SLA.md](docs/operations/SLA.md) and
 
 ### Observability Cost Management
 OpenTelemetry sampling is NOT needed at the application level - telemetry collectors handle intelligent sampling upstream. Do NOT implement application-level sampling unless specifically requested.
-
-## Known Tooling Limitations
-
-**Mutation Testing (SIO-276)**: The `stryker-mutator-bun-runner` package has an ENOEXEC bug when Stryker (Node.js) spawns Bun processes. This is an external tooling limitation.

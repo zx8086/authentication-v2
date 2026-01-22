@@ -48,40 +48,50 @@ This document explains the optimizations made to Stryker mutation testing to max
 
 ## Available Commands
 
-### Fast Incremental Testing (RECOMMENDED)
+### Standard Incremental (RECOMMENDED)
 ```bash
-bun run test:mutation:fast
+bun run test:mutation
 ```
-Uses 8 workers with incremental mode. Best for regular development workflow.
-
-### Standard Incremental
-```bash
-bun run test:mutation:incremental
-```
-Uses config file defaults (now optimized to 8 workers).
+Uses config defaults: 8 workers with incremental mode. Best for regular development workflow.
 
 ### Fresh Run (No Incremental Cache)
 ```bash
 bun run test:mutation:fresh
 ```
-Clears incremental cache and runs from scratch. Use when you want to verify everything.
+Clears incremental cache and runs from scratch. Use for CI or when you want to verify everything.
 
 ### Quick Smoke Test
 ```bash
 bun run test:mutation:quick
 ```
-Tests only services directory with 2 workers. Good for quick validation.
+Tests only services directory with 2 workers. Good for quick validation during development.
 
 ### Targeted Testing
-```bash
-# Test only services
-bun run test:mutation:services
+Run mutation testing on specific directories for faster feedback:
 
-# Test only handlers
-bun run test:mutation:handlers
+```bash
+bun run test:mutation:handlers    # Only handlers
+bun run test:mutation:services    # Only services
+bun run test:mutation:telemetry   # Only telemetry
+bun run test:mutation:config      # Only config
+bun run test:mutation:adapters    # Only adapters
+bun run test:mutation:cache       # Only cache
+bun run test:mutation:utils       # Only utils
+bun run test:mutation:errors      # Only errors
+```
+
+### Debug Commands
+```bash
+bun run test:mutation:dry         # Dry run (validate tests work)
+bun run test:mutation:dry:debug   # Dry run with debug output
 ```
 
 ## Configuration Details
+
+**IMPORTANT**: See [SIO-287 Workaround](../workarounds/SIO-287-strykerjs-bun-output-parser.md) for critical Stryker/Bun compatibility fixes including:
+- Dots reporter for clean output parsing
+- Silent logging to prevent test failures
+- Integration test exclusion (mutation testing runs unit tests only)
 
 See `stryker.config.json` for full configuration:
 
@@ -100,19 +110,21 @@ See `stryker.config.json` for full configuration:
 
 ### When to Run Mutation Tests
 
-1. **During Development** (Fast):
+1. **During Development** (Incremental):
    ```bash
-   bun run test:mutation:fast
+   bun run test:mutation
    ```
-   - Quick iterations with incremental mode
+   - Quick iterations with incremental mode (8 workers)
    - Typically 6-8 minutes
+   - Re-uses cache for unchanged code
 
-2. **Before Commits** (Standard):
+2. **Quick Validation** (Targeted):
    ```bash
-   bun run test:mutation:incremental
+   bun run test:mutation:quick
    ```
-   - Verify changes haven't broken mutation score
-   - Uses incremental cache for speed
+   - Tests only services with 2 workers
+   - Fastest feedback for service changes
+   - Typically 2-3 minutes
 
 3. **Before Releases** (Fresh):
    ```bash
@@ -120,6 +132,7 @@ See `stryker.config.json` for full configuration:
    ```
    - Complete validation from scratch
    - Ensures no stale cache issues
+   - Use in CI pipelines
 
 ### Monitoring Performance
 

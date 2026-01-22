@@ -405,14 +405,7 @@ describe("KongAdapter Integration - createConsumerSecret", () => {
     }
 
     const freshAdapter = new KongAdapter("API_GATEWAY", INTEGRATION_CONFIG.KONG_ADMIN_URL, "");
-    const consumer = TEST_CONSUMERS[0]; // Use test-consumer-001 to avoid credential limit
-
-    // Get existing credentials count
-    const existingResponse = await fetch(
-      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/jwt`
-    );
-    const existingData = await existingResponse.json();
-    const existingCount = existingData.data?.length || 0;
+    const consumer = TEST_CONSUMERS[0]; // Use test-consumer-001
 
     // Create new credentials
     const newSecret = await freshAdapter.createConsumerSecret(consumer.id);
@@ -428,12 +421,15 @@ describe("KongAdapter Integration - createConsumerSecret", () => {
       createdCredentials.push({ consumerId: consumer.id, credentialId: newSecret.id });
     }
 
-    // Verify credentials were created in Kong
+    // Verify the specific credential exists in Kong by fetching it directly
     const verifyResponse = await fetch(
-      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/jwt`
+      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/jwt/${newSecret?.id}`
     );
+    expect(verifyResponse.status).toBe(200);
+
     const verifyData = await verifyResponse.json();
-    expect(verifyData.data?.length).toBeGreaterThan(existingCount);
+    expect(verifyData.id).toBe(newSecret?.id);
+    expect(verifyData.key).toBe(newSecret?.key);
   });
 
   it("should return null when creating credentials for non-existent consumer", async () => {
