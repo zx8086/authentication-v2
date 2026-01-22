@@ -437,7 +437,7 @@ describe("Configuration System", () => {
       Bun.env.NODE_ENV = "test";
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
 
       // Don't set optional variables like KONG_JWT_ISSUER, JWT_EXPIRATION_MINUTES
@@ -561,7 +561,7 @@ describe("Configuration System", () => {
     it("should return healthy status with no recommendations for default config", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -589,7 +589,7 @@ describe("Configuration System", () => {
     it("should recommend reducing batch size when over 3000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3500"; // Above 3000 threshold
 
@@ -608,7 +608,7 @@ describe("Configuration System", () => {
     it("should NOT recommend reducing batch size when at or below 3000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3000"; // At threshold
 
@@ -626,7 +626,7 @@ describe("Configuration System", () => {
     it("should recommend reducing export timeout when over 45000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "50000"; // Above 45000 threshold
 
@@ -645,7 +645,7 @@ describe("Configuration System", () => {
     it("should NOT recommend reducing export timeout when at or below 45000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "45000"; // At threshold
 
@@ -665,7 +665,7 @@ describe("Configuration System", () => {
     it("should recommend reducing queue size when over 30000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "35000"; // Above 30000 threshold
 
@@ -684,7 +684,7 @@ describe("Configuration System", () => {
     it("should NOT recommend reducing queue size when at or below 30000", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "30000"; // At threshold
 
@@ -824,7 +824,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_KEY_CLAIM_NAME = "key";
       Bun.env.JWT_EXPIRATION_MINUTES = "15";
       Bun.env.KONG_MODE = "API_GATEWAY";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.TELEMETRY_MODE = "console";
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
@@ -840,7 +840,7 @@ describe("Configuration System", () => {
       expect(config.jwt.authority).toBe("https://auth.example.com");
       expect(config.jwt.audience).toBe("https://api.example.com");
       expect(config.kong.mode).toBe("API_GATEWAY");
-      expect(config.kong.adminUrl).toBe("http://kong:8001");
+      expect(config.kong.adminUrl).toBe("http://test-kong.example.com:8001");
       expect(config.telemetry.mode).toBe("console");
     });
 
@@ -849,7 +849,7 @@ describe("Configuration System", () => {
       Bun.env.NODE_ENV = "development"; // Set explicitly to test default behavior
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
 
       const { loadConfig } = await import("../../../src/config/config");
@@ -868,7 +868,7 @@ describe("Configuration System", () => {
     it("should derive OTLP endpoints from base endpoint", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
       // Explicitly clear specific endpoints to test derivation
@@ -887,7 +887,7 @@ describe("Configuration System", () => {
     it("should prefer specific endpoints over derived ones", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
       Bun.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://specific-traces.example.com";
@@ -922,7 +922,7 @@ describe("Configuration System", () => {
       Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "45000"; // String that should become number
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
 
       const { loadConfig } = await import("../../../src/config/config");
@@ -963,7 +963,7 @@ describe("Configuration System", () => {
     it("should handle URL normalization in endpoint derivation", async () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
-      Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+      Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
       Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com/"; // With trailing slash
       // Explicitly clear specific endpoints to test derivation
