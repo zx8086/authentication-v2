@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: Live Environment Testing Strategy
+
+**ALL TESTS USE LIVE ENDPOINTS - NO MOCKS UNLESS EXPLICITLY STATED**
+
+This project follows a **live environment testing strategy**:
+- Tests connect to REAL Kong instances (not Docker, not mocks)
+- Tests connect to REAL Redis instances (when available)
+- Tests connect to REAL OpenTelemetry collectors
+- Configuration comes from `.env` file with LIVE endpoints
+
+**Kong Configuration:**
+- Live Kong Admin URL: `http://192.168.178.3:30001` (from `.env`)
+- Tests read `KONG_ADMIN_URL` from environment variables
+- Tests gracefully skip if live Kong is unavailable
+- **NEVER hardcode `http://kong:8001` or `http://localhost:8001`** in tests
+
+**Test Environment Variables:**
+- Loaded via `test/preload.ts` before tests run
+- All tests inherit live configuration from `.env`
+- Unit tests that need isolation should use proper mocks, NOT env var pollution
+
+**When Mocking:**
+- Explicit mocks are ONLY used when specifically requested
+- Mock implementations must be clearly labeled in code comments
+- Default assumption: tests use live services
+
 ## Documentation Reference
 
 For detailed information, refer to the **[Documentation Index](docs/README.md)**.

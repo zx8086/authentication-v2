@@ -55,7 +55,7 @@ describe("Configuration System", () => {
     test.concurrent("should validate Kong configuration schema", () => {
       const validKongConfig = {
         mode: "API_GATEWAY",
-        adminUrl: "http://kong:8001",
+        adminUrl: "http://test-kong.example.com:8001",
         adminToken: process.env.TEST_KONG_TOKEN || Buffer.from("mock-token").toString("base64"),
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",
@@ -77,7 +77,7 @@ describe("Configuration System", () => {
       if (result.success) {
         // Verify parsed data values (kills mutations)
         expect(result.data.mode).toBe("API_GATEWAY");
-        expect(result.data.adminUrl).toBe("http://kong:8001");
+        expect(result.data.adminUrl).toBe("http://test-kong.example.com:8001");
         expect(result.data.consumerIdHeader).toBe("x-consumer-id");
         expect(result.data.consumerUsernameHeader).toBe("x-consumer-username");
         expect(result.data.anonymousHeader).toBe("x-anonymous-consumer");
@@ -90,7 +90,7 @@ describe("Configuration System", () => {
     it("should reject invalid Kong mode", () => {
       const invalidKongConfig = {
         mode: "INVALID_MODE",
-        adminUrl: "http://kong:8001",
+        adminUrl: "http://test-kong.example.com:8001",
         adminToken: process.env.TEST_KONG_TOKEN || Buffer.from("mock-token").toString("base64"),
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",

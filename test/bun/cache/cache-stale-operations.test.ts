@@ -20,7 +20,8 @@ describe("Local Memory Cache Stale Operations", () => {
     Bun.env.NODE_ENV = "test";
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
-    Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+    // Use original Kong URL from .env to avoid polluting environment
+    Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
     Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
     Bun.env.CACHE_HIGH_AVAILABILITY = "false";
 

@@ -21,7 +21,8 @@ describe("Config Getter Functions - Mutation Testing", () => {
     Bun.env.NODE_ENV = "test";
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
-    Bun.env.KONG_ADMIN_URL = "http://kong:8001";
+    // Use original Kong URL from .env to avoid polluting environment
+    Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
     Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
     Bun.env.PORT = "4000";
     Bun.env.JWT_EXPIRATION_MINUTES = "30";
@@ -121,8 +122,9 @@ describe("Config Getter Functions - Mutation Testing", () => {
       const { getKongConfig } = await import("../../../src/config/config");
       const kongConfig = getKongConfig();
 
-      expect(kongConfig.adminUrl).toBe("http://kong:8001");
-      expect(kongConfig.adminUrl).not.toBe("http://localhost:8001");
+      const expectedUrl = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
+      expect(kongConfig.adminUrl).toBe(expectedUrl);
+      expect(kongConfig.adminUrl).not.toBe("");
     });
 
     it("should return Kong config with correct mode value", async () => {
@@ -277,7 +279,8 @@ describe("Config Getter Functions - Mutation Testing", () => {
     it("kongConfig proxy should return correct values", async () => {
       const { kongConfig } = await import("../../../src/config/config");
 
-      expect(kongConfig.adminUrl).toBe("http://kong:8001");
+      const expectedUrl = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
+      expect(kongConfig.adminUrl).toBe(expectedUrl);
       expect(kongConfig.mode).toBe("API_GATEWAY");
     });
 
