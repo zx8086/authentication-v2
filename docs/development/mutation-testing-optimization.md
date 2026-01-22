@@ -17,11 +17,17 @@ This document explains the optimizations made to Stryker mutation testing to max
 **After**: `concurrency: 8` (8 parallel workers)
 **Impact**: ~2x faster mutation testing
 
-### 2. Coverage Analysis Optimization
+### 2. Coverage Analysis Configuration
 
-**Before**: `coverageAnalysis: "off"`
-**After**: `coverageAnalysis: "perTest"`
-**Impact**: Better performance with incremental mode, enables Stryker to skip tests that don't cover mutated code
+**Setting**: `coverageAnalysis: "off"`
+**Reason**: Command runner (Bun wrapper script) cannot provide per-test coverage data
+**Impact**: Runs ALL tests for EVERY mutant (thorough but slower)
+
+**Why "off" instead of "perTest"**:
+- With `testRunner: "command"`, Stryker cannot instrument test code
+- "perTest" mode shows false "covered 0" negatives (tests exist but not detected)
+- "off" mode ensures all mutants are properly tested by running full test suite
+- Trade-off: 2-3x slower execution, but 100% accuracy
 
 ### 3. Timeout Optimization
 
@@ -154,11 +160,13 @@ See `stryker.config.json` for full configuration:
   "concurrency": 8,
   "timeoutMS": 30000,
   "timeoutFactor": 1.5,
-  "coverageAnalysis": "perTest",
+  "coverageAnalysis": "off",
   "incremental": true,
   "incrementalFile": "test/results/mutation/stryker-incremental.json"
 }
 ```
+
+**Note**: `coverageAnalysis: "off"` is required when using `testRunner: "command"` (Bun wrapper script). The "perTest" mode cannot instrument external command runners, resulting in false "covered 0" negatives.
 
 ## Best Practices
 

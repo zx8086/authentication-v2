@@ -35,7 +35,7 @@
   "disableTypeChecks": false,
   "cleanTempDir": "always",
   "tempDirName": ".stryker-tmp",
-  "coverageAnalysis": "perTest",
+  "coverageAnalysis": "off",
   "mutator": {
     "excludedMutations": [
       "StringLiteral",
