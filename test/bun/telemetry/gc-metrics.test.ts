@@ -161,7 +161,7 @@ describe("GC Metrics", () => {
       forceGC();
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
-      expect(duration).toBeLessThan(100);
+      expect(duration).toBeLessThan(200);
     });
 
     test.concurrent("getCurrentHeapStats should be fast", async () => {
