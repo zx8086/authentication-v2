@@ -62,7 +62,6 @@
     "test:k6:full": "bun run test:k6:smoke:health && bun run test:k6:smoke:metrics && bun run test:k6:smoke:openapi && bun run test:k6:smoke:tokens && bun run test:k6:load && bun run test:k6:stress && bun run test:k6:spike",
     "test:mutation": "mkdir -p test/results/mutation && stryker run",
     "test:mutation:fresh": "mkdir -p test/results/mutation && rm -f test/results/mutation/stryker-incremental.json && stryker run",
-    "test:mutation:quick": "mkdir -p test/results/mutation && stryker run --concurrency 2 --mutate 'src/services/**/*.ts'",
     "test:mutation:dry": "stryker run --dryRunOnly",
     "test:mutation:dry:debug": "DEBUG=1 ./scripts/bun-mutation-runner.sh test --reporter=dots ./test/bun",
     "test:integration": "bun test test/integration/",
