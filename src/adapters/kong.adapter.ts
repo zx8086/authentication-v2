@@ -14,6 +14,7 @@ import type { CircuitBreakerStats } from "../services/circuit-breaker.service";
 import { KongCircuitBreakerService } from "../services/circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { withRetry } from "../utils/retry";
 import type { IAPIGatewayAdapter, IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createKongModeStrategy } from "./kong-mode-strategies";
@@ -114,7 +115,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
         const response = await withRetry(
           () =>
-            fetch(url, {
+            fetchWithFallback(url, {
               method: "GET",
               headers: this.strategy.createAuthHeaders(this.adminToken),
               signal: createRequestTimeout(5000),
@@ -183,7 +184,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
           const key = generateJwtKey();
           const secret = generateSecureSecret();
 
-          const response = await fetch(url, {
+          const response = await fetchWithFallback(url, {
             method: "POST",
             headers: this.strategy.createAuthHeaders(this.adminToken),
             body: JSON.stringify({
@@ -289,7 +290,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
           const response = await withRetry(
             () =>
-              fetch(url, {
+              fetchWithFallback(url, {
                 method: "GET",
                 headers: this.strategy.createAuthHeaders(this.adminToken),
                 signal: createRequestTimeout(5000),
