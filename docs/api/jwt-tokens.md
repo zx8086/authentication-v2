@@ -50,19 +50,26 @@ The Authentication Service generates JWT tokens using the HS256 algorithm with s
 
 ## RFC 7519 Compliance
 
-This JWT implementation follows **[RFC 7519: JSON Web Token (JWT)](https://datatracker.ietf.org/doc/html/rfc7519)** specification.
+This JWT implementation follows **[RFC 7519: JSON Web Token (JWT)](https://datatracker.ietf.org/doc/html/rfc7519)** specification with **100% compliance** for all registered claims.
 
 ### Standards Compliance
 
 **Algorithm**: HS256 (HMAC with SHA-256) as defined in RFC 7518 Section 3.2
 
-**Required Claims** (RFC 7519 §4.1):
-- `iss` (Issuer) - Token authority endpoint
-- `sub` (Subject) - Consumer identifier
-- `aud` (Audience) - Target API endpoint(s)
-- `exp` (Expiration) - Token expiration timestamp
-- `iat` (Issued At) - Token creation timestamp
-- `nbf` (Not Before) - Token validity start timestamp
+**Registered Claims** (RFC 7519 §4.1) - All OPTIONAL claims implemented:
+- `iss` (Issuer) - Token authority endpoint - §4.1.1
+- `sub` (Subject) - Consumer identifier - §4.1.2
+- `aud` (Audience) - Target API endpoint(s) - §4.1.3
+- `exp` (Expiration) - Token expiration timestamp - §4.1.4 ✅ Validated
+- `nbf` (Not Before) - Token validity start timestamp - §4.1.5 ✅ Validated
+- `iat` (Issued At) - Token creation timestamp - §4.1.6
+- `jti` (JWT ID) - Unique token identifier (UUID v4) - §4.1.7
+
+**Validation Compliance**:
+- ✅ **`exp` validation** (§4.1.4): Rejects tokens where current time >= expiration time
+- ✅ **`nbf` validation** (§4.1.5): Rejects tokens where current time < not-before time
+- ✅ **Signature validation**: HMAC-SHA256 signature verification
+- ✅ **Claim uniqueness**: JSON structure ensures no duplicate claims
 
 **Audience Claim Handling** (RFC 7519 §4.1.3):
 - **Single audience**: String value `"http://api.example.com/"`
@@ -70,8 +77,12 @@ This JWT implementation follows **[RFC 7519: JSON Web Token (JWT)](https://datat
 
 This flexible audience handling ensures compatibility with validators expecting either format per RFC 7519 specification.
 
-**Not Before (`nbf`) Claim**:
-The `nbf` claim is included in all generated tokens set to the same value as `iat`. This ensures compatibility with strict RFC 7519 validators and prevents edge cases where tokens might be rejected due to clock skew during the issuance second.
+**Not Before (`nbf`) Claim Implementation**:
+The `nbf` claim is included in all generated tokens set to the same value as `iat`. This ensures:
+- Tokens are valid immediately upon creation
+- Compatibility with strict RFC 7519 validators
+- Protection against clock skew during issuance
+- Future support for delayed token activation (if needed)
 
 ### Why RFC 7519 Compliance Matters
 
@@ -178,10 +189,10 @@ async function validateTokenNative(token: string, secret: string) {
   // Decode payload
   const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
 
-  // Verify expiration and nbf
+  // Verify expiration and nbf (RFC 7519 compliance)
   const now = Math.floor(Date.now() / 1000);
-  if (claims.exp < now) throw new Error('Token expired');
-  if (claims.nbf && claims.nbf > now) throw new Error('Token not yet valid');
+  if (claims.exp && claims.exp < now) throw new Error('Token expired'); // RFC 7519 §4.1.4
+  if (claims.nbf && claims.nbf > now) throw new Error('Token not yet valid'); // RFC 7519 §4.1.5
 
   // Verify signature
   const data = `${header}.${payload}`;

@@ -340,7 +340,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 #### 2. Kong JWT Plugin Validation
 - Extracts JWT from Authorization header
 - Validates signature using consumer's secret from Kong
-- Verifies claims (exp, nbf)
+- Verifies RFC 7519 registered claims:
+  - `exp` (Expiration) - Rejects if current time >= expiration
+  - `nbf` (Not Before) - Rejects if current time < not-before
 - Checks `key` claim matches consumer's key
 
 #### 3. Validation Success Path

@@ -52,6 +52,10 @@ Development workflow and testing documentation.
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
 | [test/README.md](../test/README.md) | Testing strategy (1400+ unit + 4 integration + 3 E2E + 15 K6) |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
+| [integration-tests-network-setup.md](development/integration-tests-network-setup.md) | Live Kong endpoint testing and network configuration |
+| [mutation-testing-guide.md](development/mutation-testing-guide.md) | Comprehensive mutation testing guide (100% mutation score) |
+| [mutation-testing-optimization.md](development/mutation-testing-optimization.md) | Performance optimization for mutation testing (79 min → 26 sec with cache) |
+| [testing.md](development/testing.md) | Testing best practices and mutation testing fundamentals |
 
 ### Deployment
 
@@ -97,6 +101,24 @@ Security scanning and validation.
 | Document | Description |
 |----------|-------------|
 | [PARALLEL-SECURITY-SCANNING.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning (5 scanners) |
+
+### Workarounds
+
+Known issues and production-ready workarounds.
+
+| Document | Description |
+|----------|-------------|
+| [SIO-276-bun-executable-workaround.md](workarounds/SIO-276-bun-executable-workaround.md) | ENOEXEC bug fix with bundled Bun executable for mutation testing |
+| [SIO-287-strykerjs-bun-output-parser.md](workarounds/SIO-287-strykerjs-bun-output-parser.md) | StrykerJS output parser fix (dots reporter + silent logging) |
+| [SIO-288-bun-fetch-curl-fallback.md](workarounds/SIO-288-bun-fetch-curl-fallback.md) | Bun fetch networking bug fix with automatic curl fallback |
+
+### Plans
+
+Future implementation plans and architectural proposals.
+
+| Document | Description |
+|----------|-------------|
+| [bun-test-runner-plugin.md](plans/bun-test-runner-plugin.md) | Future @stryker-mutator/bun-runner plugin (planning phase) |
 
 ### Migration
 
