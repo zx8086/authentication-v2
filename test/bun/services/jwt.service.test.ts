@@ -250,6 +250,161 @@ describe("NativeBunJWT", () => {
       expect(result.payload?.sub).toBe(testUsername);
     });
 
+    test.concurrent("should reject token with future nbf (not yet valid)", async () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const now = Math.floor(Date.now() / 1000);
+      const futurePayload = {
+        sub: testUsername,
+        key: testConsumerKey,
+        jti: crypto.randomUUID(),
+        iat: now,
+        nbf: now + 3600, // Not valid for another hour (RFC 7519 Section 4.1.5)
+        exp: now + 7200,
+        iss: testAuthority,
+        aud: testAudience,
+        name: testUsername,
+        unique_name: `pvhcorp.com#${testUsername}`,
+      };
+
+      const payloadB64 = btoa(JSON.stringify(futurePayload))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const message = `${header}.${payloadB64}`;
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(testSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+      const signatureB64 = Buffer.from(signature)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const futureToken = `${message}.${signatureB64}`;
+
+      const result = await NativeBunJWT.validateToken(futureToken, testSecret);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("Token is not yet valid");
+      expect(result.payload).toBeDefined();
+      expect(result.payload?.sub).toBe(testUsername);
+      expect(result.payload?.nbf).toBe(now + 3600);
+    });
+
+    test.concurrent("should accept token with nbf equal to current time", async () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const now = Math.floor(Date.now() / 1000);
+      const validPayload = {
+        sub: testUsername,
+        key: testConsumerKey,
+        jti: crypto.randomUUID(),
+        iat: now,
+        nbf: now, // Valid exactly at current time (RFC 7519: "after or equal to")
+        exp: now + 900,
+        iss: testAuthority,
+        aud: testAudience,
+        name: testUsername,
+        unique_name: `pvhcorp.com#${testUsername}`,
+      };
+
+      const payloadB64 = btoa(JSON.stringify(validPayload))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const message = `${header}.${payloadB64}`;
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(testSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+      const signatureB64 = Buffer.from(signature)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const validToken = `${message}.${signatureB64}`;
+
+      const result = await NativeBunJWT.validateToken(validToken, testSecret);
+
+      expect(result.valid).toBe(true);
+      expect(result.payload).toBeDefined();
+      expect(result.payload?.nbf).toBe(now);
+    });
+
+    test.concurrent("should accept token with past nbf (already valid)", async () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const now = Math.floor(Date.now() / 1000);
+      const validPayload = {
+        sub: testUsername,
+        key: testConsumerKey,
+        jti: crypto.randomUUID(),
+        iat: now - 300,
+        nbf: now - 300, // Was valid 5 minutes ago
+        exp: now + 600,
+        iss: testAuthority,
+        aud: testAudience,
+        name: testUsername,
+        unique_name: `pvhcorp.com#${testUsername}`,
+      };
+
+      const payloadB64 = btoa(JSON.stringify(validPayload))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const message = `${header}.${payloadB64}`;
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(testSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+      const signatureB64 = Buffer.from(signature)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=/g, "");
+
+      const validToken = `${message}.${signatureB64}`;
+
+      const result = await NativeBunJWT.validateToken(validToken, testSecret);
+
+      expect(result.valid).toBe(true);
+      expect(result.payload).toBeDefined();
+      expect(result.payload?.nbf).toBe(now - 300);
+    });
+
     test.concurrent("should complete validation within performance threshold", async () => {
       const tokenResponse = await NativeBunJWT.createToken(
         testUsername,

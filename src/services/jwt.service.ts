@@ -196,7 +196,7 @@ export class NativeBunJWT {
         return { valid: false, error: "Invalid payload JSON" };
       }
 
-      // Check expiration
+      // Check expiration (RFC 7519 Section 4.1.4)
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
         const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -211,6 +211,22 @@ export class NativeBunJWT {
           error: "Token has expired",
           payload,
           expired: true,
+        };
+      }
+
+      // Check not-before (RFC 7519 Section 4.1.5)
+      if (payload.nbf && payload.nbf > now) {
+        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        span.setAttributes({
+          "jwt.validation_error": "token_not_yet_valid",
+          "jwt.token_id": payload.jti,
+          "jwt.not_before": payload.nbf,
+          "jwt.duration_ms": duration,
+        });
+        return {
+          valid: false,
+          error: "Token is not yet valid",
+          payload,
         };
       }
 
