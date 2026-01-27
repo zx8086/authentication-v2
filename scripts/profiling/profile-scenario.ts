@@ -3,7 +3,7 @@
 /* scripts/profiling/profile-scenario.ts */
 
 import { parseArgs } from "node:util";
-import { MarkdownProfileParser } from "./lib/markdown-parser";
+import { MarkdownProfileParser, ProfileAnalyzer } from "./lib/markdown-parser";
 import { ProfileRunner } from "./lib/profile-runner";
 import { ScenarioGenerator, type ScenarioType } from "./lib/scenario-generator";
 
@@ -120,12 +120,15 @@ async function main() {
       console.log("\nStep 4: Analyzing profiles...\n");
 
       const parser = new MarkdownProfileParser();
+      const analyzer = new ProfileAnalyzer();
 
       if (profileResult.cpuProfilePath) {
         console.log(`CPU Profile: ${profileResult.cpuProfilePath}`);
         try {
           const cpuMetrics = parser.parseCPUProfile(profileResult.cpuProfilePath);
-          console.log(parser.generateSummary(cpuMetrics));
+          const recommendations = analyzer.generateRecommendations(cpuMetrics);
+          const report = analyzer.generateEnhancedReport(cpuMetrics, recommendations);
+          console.log(`\n${report}`);
         } catch (error) {
           console.error("Failed to parse CPU profile:", error);
         }
@@ -135,7 +138,9 @@ async function main() {
         console.log(`\nHeap Profile: ${profileResult.heapProfilePath}`);
         try {
           const heapMetrics = parser.parseHeapProfile(profileResult.heapProfilePath);
-          console.log(parser.generateSummary(heapMetrics));
+          const recommendations = analyzer.generateRecommendations(heapMetrics);
+          const report = analyzer.generateEnhancedReport(heapMetrics, recommendations);
+          console.log(`\n${report}`);
         } catch (error) {
           console.error("Failed to parse heap profile:", error);
         }
