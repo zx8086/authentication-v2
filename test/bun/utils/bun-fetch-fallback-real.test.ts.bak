@@ -1,0 +1,737 @@
+/* test/bun/utils/bun-fetch-fallback-real.test.ts
+ * Real integration tests for utils/bun-fetch-fallback.ts
+ */
+
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { fetchWithFallback } from "../../../src/utils/bun-fetch-fallback";
+
+describe("fetchWithFallback - Real Integration Tests", () => {
+  let originalFetch: typeof global.fetch;
+  let originalBunSpawn: typeof Bun.spawn;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalBunSpawn = Bun.spawn;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    Bun.spawn = originalBunSpawn;
+  });
+
+  describe("Successful fetch path", () => {
+    it("should return response from native fetch when successful", async () => {
+      const mockResponse = new Response("success", { status: 200 });
+      global.fetch = mock(() => Promise.resolve(mockResponse));
+
+      const result = await fetchWithFallback("http://example.com");
+
+      expect(result).toBe(mockResponse);
+      expect(result.status).toBe(200);
+      const text = await result.text();
+      expect(text).toBe("success");
+    });
+
+    it("should pass method option to fetch", async () => {
+      global.fetch = mock((url, options) => {
+        expect(options?.method).toBe("POST");
+        return Promise.resolve(new Response("ok"));
+      });
+
+      await fetchWithFallback("http://example.com", { method: "POST" });
+    });
+
+    it("should pass headers option to fetch", async () => {
+      global.fetch = mock((url, options) => {
+        expect(options?.headers?.["Content-Type"]).toBe("application/json");
+        return Promise.resolve(new Response("ok"));
+      });
+
+      await fetchWithFallback("http://example.com", {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    it("should pass body option to fetch", async () => {
+      global.fetch = mock((url, options) => {
+        expect(options?.body).toBe('{"test":"data"}');
+        return Promise.resolve(new Response("ok"));
+      });
+
+      await fetchWithFallback("http://example.com", {
+        method: "POST",
+        body: '{"test":"data"}',
+      });
+    });
+  });
+
+  describe("Curl fallback path", () => {
+    it("should fallback to curl when fetch fails", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Network error")));
+
+      // Mock Bun.spawn to simulate curl success
+      Bun.spawn = mock((args: string[]) => {
+        expect(args[0]).toBe("curl");
+        expect(args).toContain("-s");
+        expect(args).toContain("-i");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\nCurl response");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+    });
+
+    it("should throw original fetch error when both fetch and curl fail", async () => {
+      const fetchError = new Error("Fetch failed");
+      global.fetch = mock(() => Promise.reject(fetchError));
+
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(1),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("curl: connection refused");
+          },
+        },
+      } as any));
+
+      try {
+        await fetchWithFallback("http://example.com");
+        expect(true).toBe(false); // Should not reach here
+      } catch (error) {
+        expect(error).toBe(fetchError);
+      }
+    });
+
+    it("should pass GET method to curl by default", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        const methodIndex = args.indexOf("-X");
+        expect(methodIndex).toBeGreaterThan(-1);
+        expect(args[methodIndex + 1]).toBe("GET");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com");
+    });
+
+    it("should pass POST method to curl", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        const methodIndex = args.indexOf("-X");
+        expect(args[methodIndex + 1]).toBe("POST");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 201 Created\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", { method: "POST" });
+    });
+
+    it("should pass PUT method to curl", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        const methodIndex = args.indexOf("-X");
+        expect(args[methodIndex + 1]).toBe("PUT");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", { method: "PUT" });
+    });
+
+    it("should pass PATCH method to curl", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        const methodIndex = args.indexOf("-X");
+        expect(args[methodIndex + 1]).toBe("PATCH");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", { method: "PATCH" });
+    });
+
+    it("should pass headers to curl with -H flag", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        expect(args).toContain("-H");
+        const headerIndex = args.indexOf("-H");
+        expect(args[headerIndex + 1]).toContain("Content-Type");
+        expect(args[headerIndex + 1]).toContain("application/json");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    it("should pass body to curl with -d flag for POST", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        expect(args).toContain("-d");
+        const bodyIndex = args.indexOf("-d");
+        expect(args[bodyIndex + 1]).toBe('{"test":"data"}');
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", {
+        method: "POST",
+        body: '{"test":"data"}',
+      });
+    });
+
+    it("should NOT pass body with -d flag for GET", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        expect(args).not.toContain("-d");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com", {
+        method: "GET",
+        body: "should-not-be-sent",
+      });
+    });
+
+    it("should include timeout with -m 10", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fail")));
+
+      Bun.spawn = mock((args: string[]) => {
+        expect(args).toContain("-m");
+        const timeoutIndex = args.indexOf("-m");
+        expect(args[timeoutIndex + 1]).toBe("10");
+        return {
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n");
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any;
+      });
+
+      await fetchWithFallback("http://example.com");
+    });
+
+    it("should throw error when curl exits with non-zero code", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fetch error")));
+
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(7), // Connection refused
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("curl: (7) Failed to connect");
+          },
+        },
+      } as any));
+
+      try {
+        await fetchWithFallback("http://example.com");
+        expect(true).toBe(false);
+      } catch (error) {
+        expect((error as Error).message).toBe("Fetch error");
+      }
+    });
+  });
+
+  describe("parseCurlResponse via curl fallback", () => {
+
+    it("should parse 200 status correctly", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Force curl")));
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\nSuccess");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+      expect(result.statusText).toBe("OK");
+    });
+
+    it("should parse 404 status correctly", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Force curl")));
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 404 Not Found\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(404);
+      expect(result.statusText).toBe("Not Found");
+    });
+
+    it("should parse 500 status correctly", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(500);
+      expect(result.statusText).toBe("Internal Server Error");
+    });
+
+    it("should parse response with \\r\\n\\r\\n separator", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode(
+              "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nBody content"
+            );
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      const body = await result.text();
+      expect(body).toBe("Body content");
+    });
+
+    it("should parse response with \\n\\n separator", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 200 OK\nContent-Type: text/plain\n\nBody content");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      const body = await result.text();
+      expect(body).toBe("Body content");
+    });
+
+    it("should trim body content", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\n  \n  Body  \n  ");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      const body = await result.text();
+      expect(body).toBe("Body");
+    });
+
+    it("should parse headers correctly", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode(
+              "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nX-Custom: value\r\n\r\n"
+            );
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.headers.get("Content-Type")).toBe("application/json");
+      expect(result.headers.get("X-Custom")).toBe("value");
+    });
+
+    it("should handle empty response", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+      expect(result.statusText).toBe("OK");
+      const body = await result.text();
+      expect(body).toBe("");
+    });
+
+    it("should handle response with no body separator", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 204 No Content\r\nContent-Length: 0");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(204);
+      expect(result.statusText).toBe("No Content");
+    });
+
+    it("should default to 200 when status line is invalid", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("Invalid status line\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+    });
+
+    it("should return 'Unknown' status text for unmapped status codes", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 999 Custom Status\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(999);
+      expect(result.statusText).toBe("Unknown");
+    });
+
+    it("should skip empty header lines", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 200 OK\r\n\r\nContent-Type: text/plain\r\n\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+    });
+
+    it("should skip header lines without colon", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("HTTP/1.1 200 OK\r\nInvalid Header Line\r\n\r\n");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      expect(result.status).toBe(200);
+    });
+
+    it("should handle multiple headers with same key", async () => {
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(0),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode(
+              "HTTP/1.1 200 OK\r\nSet-Cookie: a=1\r\nSet-Cookie: b=2\r\n\r\n"
+            );
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      const result = await fetchWithFallback("http://example.com");
+      const cookies = result.headers.get("Set-Cookie");
+      expect(cookies).toContain("a=1");
+    });
+  });
+
+  describe("getStatusText mappings", () => {
+    beforeEach(() => {
+      global.fetch = mock(() => Promise.reject(new Error("Force curl")));
+    });
+
+    const statusTests = [
+      { code: 200, text: "OK" },
+      { code: 201, text: "Created" },
+      { code: 204, text: "No Content" },
+      { code: 400, text: "Bad Request" },
+      { code: 401, text: "Unauthorized" },
+      { code: 403, text: "Forbidden" },
+      { code: 404, text: "Not Found" },
+      { code: 409, text: "Conflict" },
+      { code: 429, text: "Too Many Requests" },
+      { code: 500, text: "Internal Server Error" },
+      { code: 502, text: "Bad Gateway" },
+      { code: 503, text: "Service Unavailable" },
+      { code: 504, text: "Gateway Timeout" },
+    ];
+
+    for (const { code, text } of statusTests) {
+      it(`should map status ${code} to '${text}'`, async () => {
+        Bun.spawn = mock(() => ({
+          exited: Promise.resolve(0),
+          stdout: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode(`HTTP/1.1 ${code}\r\n\r\n`);
+            },
+          },
+          stderr: {
+            [Symbol.asyncIterator]: async function* () {
+              yield new TextEncoder().encode("");
+            },
+          },
+        } as any));
+
+        const result = await fetchWithFallback("http://example.com");
+        expect(result.status).toBe(code);
+        expect(result.statusText).toBe(text);
+      });
+    }
+  });
+
+  describe("Edge cases and error paths", () => {
+    it("should handle curl stderr with specific error message", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Original error")));
+
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(1),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("curl: (7) Failed to connect to host");
+          },
+        },
+      } as any));
+
+      try {
+        await fetchWithFallback("http://example.com");
+        expect(true).toBe(false);
+      } catch (error) {
+        expect((error as Error).message).toBe("Original error");
+      }
+    });
+
+    it("should handle empty stderr on curl failure", async () => {
+      global.fetch = mock(() => Promise.reject(new Error("Fetch failed")));
+
+      Bun.spawn = mock(() => ({
+        exited: Promise.resolve(1),
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+        stderr: {
+          [Symbol.asyncIterator]: async function* () {
+            yield new TextEncoder().encode("");
+          },
+        },
+      } as any));
+
+      try {
+        await fetchWithFallback("http://example.com");
+        expect(true).toBe(false);
+      } catch (error) {
+        expect((error as Error).message).toBe("Fetch failed");
+      }
+    });
+  });
+});

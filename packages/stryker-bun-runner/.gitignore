@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.stryker-coverage-cache.json
+test-*.ts

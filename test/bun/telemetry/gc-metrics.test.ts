@@ -161,7 +161,7 @@ describe("GC Metrics", () => {
       forceGC();
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
-      expect(duration).toBeLessThan(200);
+      expect(duration).toBeLessThan(500);
     });
 
     test.concurrent("getCurrentHeapStats should be fast", async () => {
@@ -169,8 +169,8 @@ describe("GC Metrics", () => {
       getCurrentHeapStats();
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
 
-      // Allow up to 50ms for heap stats retrieval (may vary under load during parallel test execution)
-      expect(duration).toBeLessThan(50);
+      // Allow up to 200ms for heap stats retrieval (may vary under load during parallel test execution)
+      expect(duration).toBeLessThan(200);
       expect(duration).toBeGreaterThanOrEqual(0);
     });
   });

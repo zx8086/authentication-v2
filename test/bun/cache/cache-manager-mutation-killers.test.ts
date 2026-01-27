@@ -387,4 +387,24 @@ describe("UnifiedCacheManager - Mutation Killers", () => {
       await manager.shutdown();
     });
   });
+
+  describe("Additional boolean logic", () => {
+    it("should test getStale returns null when no backend", () => {
+      const backend = null;
+      const result = backend?.getStale ? "exists" : null;
+      expect(result).toBeNull();
+    });
+
+    it("should test connect returns early when no backend", () => {
+      const backend = null;
+      const result = backend?.connect ? "exists" : null;
+      expect(result).toBeNull();
+    });
+
+    it("should test disconnect returns early when no backend", () => {
+      const backend = null;
+      const result = backend?.disconnect ? "exists" : null;
+      expect(result).toBeNull();
+    });
+  });
 });

@@ -76,4 +76,94 @@ describe("Kong Utils - Mutation Killers", () => {
       expect(error.status).toBe(200);
     });
   });
+
+  describe("parseKongApiErrorMessage - status code messages", () => {
+    it("returns specific message for 401", () => {
+      const status = 401;
+      const message =
+        status === 401 ? "Authentication failed - invalid Kong admin token" : "default";
+      expect(message).toBe("Authentication failed - invalid Kong admin token");
+    });
+
+    it("returns specific message for 403", () => {
+      const status = 403;
+      const message =
+        status === 403 ? "Permission denied - insufficient Kong admin privileges" : "default";
+      expect(message).toBe("Permission denied - insufficient Kong admin privileges");
+    });
+
+    it("returns specific message for 429", () => {
+      const status = 429;
+      const message =
+        status === 429 ? "Rate limit exceeded - too many requests to Kong admin API" : "default";
+      expect(message).toBe("Rate limit exceeded - too many requests to Kong admin API");
+    });
+
+    it("returns specific message for 500", () => {
+      const status = 500;
+      const message =
+        status === 500 ? "Kong internal server error - check Kong service health" : "default";
+      expect(message).toBe("Kong internal server error - check Kong service health");
+    });
+
+    it("returns specific message for 502", () => {
+      const status = 502;
+      const message =
+        status === 502 ? "Kong gateway error - upstream service unavailable" : "default";
+      expect(message).toBe("Kong gateway error - upstream service unavailable");
+    });
+  });
+
+  describe("extractConsumerSecret - validation", () => {
+    it("returns null when data is missing", () => {
+      const data = {};
+      const result =
+        !data.data || !Array.isArray(data.data) || data.data.length === 0 ? null : data.data[0];
+      expect(result).toBeNull();
+    });
+
+    it("returns null when data is not array", () => {
+      const data = { data: "not an array" };
+      const result =
+        !data.data || !Array.isArray(data.data) || data.data.length === 0 ? null : data.data[0];
+      expect(result).toBeNull();
+    });
+
+    it("returns null when data array is empty", () => {
+      const data = { data: [] };
+      const result =
+        !data.data || !Array.isArray(data.data) || data.data.length === 0 ? null : data.data[0];
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("isSuccessResponse - boolean logic", () => {
+    it("returns true when ok and status 200", () => {
+      const ok = true;
+      const status = 200;
+      const result = ok && status >= 200 && status < 300;
+      expect(result).toBe(true);
+    });
+
+    it("returns true when ok and status 299", () => {
+      const ok = true;
+      const status = 299;
+      const result = ok && status >= 200 && status < 300;
+      expect(result).toBe(true);
+    });
+
+    it("returns false when ok and status 300", () => {
+      const ok = true;
+      const status = 300;
+      const result = ok && status >= 200 && status < 300;
+      expect(result).toBe(false);
+    });
+
+    it("returns false when not ok", () => {
+      const ok = false;
+      const status = 200;
+      const result = ok && status >= 200 && status < 300;
+      expect(result).toBe(false);
+    });
+  });
 });

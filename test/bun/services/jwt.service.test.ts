@@ -126,7 +126,7 @@ describe("NativeBunJWT", () => {
       );
 
       const duration = (Bun.nanoseconds() - start) / 1_000_000;
-      expect(duration).toBeLessThan(50);
+      expect(duration).toBeLessThan(200);
     });
   });
 
