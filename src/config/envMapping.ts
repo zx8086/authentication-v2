@@ -50,6 +50,14 @@ export const envVarMapping = {
   profiling: {
     enabled: "PROFILING_ENABLED",
   },
+  continuousProfiling: {
+    enabled: "CONTINUOUS_PROFILING_ENABLED",
+    autoTriggerOnSlaViolation: "CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA",
+    slaViolationThrottleMinutes: "CONTINUOUS_PROFILING_THROTTLE_MINUTES",
+    outputDir: "CONTINUOUS_PROFILING_OUTPUT_DIR",
+    maxConcurrentProfiles: "CONTINUOUS_PROFILING_MAX_CONCURRENT",
+    rollingBufferSize: "CONTINUOUS_PROFILING_BUFFER_SIZE",
+  },
   apiInfo: {
     title: "API_TITLE",
     description: "API_DESCRIPTION",

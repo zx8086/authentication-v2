@@ -67,6 +67,19 @@ export const defaultConfig: AppConfig = {
   profiling: {
     enabled: false,
   },
+  continuousProfiling: {
+    enabled: false,
+    autoTriggerOnSlaViolation: true,
+    slaViolationThrottleMinutes: 60,
+    outputDir: "profiles/auto",
+    maxConcurrentProfiles: 1,
+    slaThresholds: [
+      { endpoint: "/tokens", p95: 100, p99: 200 },
+      { endpoint: "/tokens/validate", p95: 50, p99: 100 },
+      { endpoint: "/health", p95: 400, p99: 500 },
+    ],
+    rollingBufferSize: 100,
+  },
   apiInfo: {
     title: "Authentication Service API",
     description:

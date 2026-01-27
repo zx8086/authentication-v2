@@ -70,6 +70,14 @@ const envSchema = z
     // Profiling Configuration
     PROFILING_ENABLED: z.string().optional(),
 
+    // Continuous Profiling Configuration
+    CONTINUOUS_PROFILING_ENABLED: z.string().optional(),
+    CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA: z.string().optional(),
+    CONTINUOUS_PROFILING_THROTTLE_MINUTES: z.string().optional(),
+    CONTINUOUS_PROFILING_OUTPUT_DIR: z.string().optional(),
+    CONTINUOUS_PROFILING_MAX_CONCURRENT: z.string().optional(),
+    CONTINUOUS_PROFILING_BUFFER_SIZE: z.string().optional(),
+
     // API Info Configuration
     API_TITLE: NonEmptyString.optional(),
     API_DESCRIPTION: NonEmptyString.optional(),
@@ -206,6 +214,14 @@ export function initializeConfig(): AppConfig {
       };
     };
     profiling: Partial<{ enabled: boolean }>;
+    continuousProfiling: Partial<{
+      enabled: boolean;
+      autoTriggerOnSlaViolation: boolean;
+      slaViolationThrottleMinutes: number;
+      outputDir: string;
+      maxConcurrentProfiles: number;
+      rollingBufferSize: number;
+    }>;
     apiInfo: Partial<{
       title: string;
       description: string;
@@ -289,6 +305,22 @@ export function initializeConfig(): AppConfig {
         enabled: toBool(envConfig.PROFILING_ENABLED, false),
       }).filter(([, value]) => value !== undefined)
     ),
+    continuousProfiling: Object.fromEntries(
+      Object.entries({
+        enabled: toBool(envConfig.CONTINUOUS_PROFILING_ENABLED, false),
+        autoTriggerOnSlaViolation: toBool(envConfig.CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA, true),
+        slaViolationThrottleMinutes: envConfig.CONTINUOUS_PROFILING_THROTTLE_MINUTES
+          ? Number.parseInt(envConfig.CONTINUOUS_PROFILING_THROTTLE_MINUTES, 10)
+          : undefined,
+        outputDir: envConfig.CONTINUOUS_PROFILING_OUTPUT_DIR,
+        maxConcurrentProfiles: envConfig.CONTINUOUS_PROFILING_MAX_CONCURRENT
+          ? Number.parseInt(envConfig.CONTINUOUS_PROFILING_MAX_CONCURRENT, 10)
+          : undefined,
+        rollingBufferSize: envConfig.CONTINUOUS_PROFILING_BUFFER_SIZE
+          ? Number.parseInt(envConfig.CONTINUOUS_PROFILING_BUFFER_SIZE, 10)
+          : undefined,
+      }).filter(([, value]) => value !== undefined)
+    ),
     apiInfo: Object.fromEntries(
       Object.entries({
         title: envConfig.API_TITLE,
@@ -352,6 +384,10 @@ export function initializeConfig(): AppConfig {
         "console",
     },
     profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
+    continuousProfiling: {
+      ...defaultConfig.continuousProfiling,
+      ...structuredEnvConfig.continuousProfiling,
+    },
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
   };
 

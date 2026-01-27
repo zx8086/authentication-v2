@@ -11,6 +11,7 @@ import {
   getTelemetryStatus,
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
+import { getSlaMonitor } from "../telemetry/sla-monitor";
 import { log } from "../utils/logger";
 import { createHealthResponse, generateRequestId } from "../utils/response";
 
@@ -274,6 +275,10 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       telemetryHealthy: telemetryHealthy,
       requestId,
     });
+
+    // Record latency for SLA monitoring
+    const slaMonitor = getSlaMonitor();
+    await slaMonitor.recordLatency("/health", duration);
 
     log("HTTP request processed", {
       method: "GET",

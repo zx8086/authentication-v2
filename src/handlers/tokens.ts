@@ -15,6 +15,7 @@ import {
   recordJwtTokenIssued,
   recordOperationDuration,
 } from "../telemetry/metrics";
+import { getSlaMonitor } from "../telemetry/sla-monitor";
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
 import {
@@ -316,6 +317,10 @@ export async function handleTokenRequest(
       // Record successful consumer metrics
       recordConsumerLatency(volume, duration);
 
+      // Record latency for SLA monitoring
+      const slaMonitor = getSlaMonitor();
+      await slaMonitor.recordLatency("/tokens", duration);
+
       log("JWT token generated successfully", {
         consumerId,
         username,
@@ -458,6 +463,10 @@ export async function handleTokenValidation(
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       if (validationResult.valid && validationResult.payload) {
+        // Record latency for SLA monitoring
+        const slaMonitor = getSlaMonitor();
+        await slaMonitor.recordLatency("/tokens/validate", duration);
+
         log("Token validation successful", {
           consumerId,
           username,

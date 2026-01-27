@@ -299,6 +299,53 @@ export const ProfilingConfigSchema = z.strictObject({
   enabled: z.boolean().describe("Enable profiling service"),
 });
 
+export const SlaThresholdSchema = z.strictObject({
+  endpoint: z.string().describe("Endpoint path (e.g., '/tokens', '/health')"),
+  p95: z.number().min(1).max(5000).describe("P95 latency threshold in milliseconds"),
+  p99: z.number().min(1).max(10000).describe("P99 latency threshold in milliseconds"),
+});
+
+export const ContinuousProfilingConfigSchema = z.strictObject({
+  enabled: z.boolean().default(false).describe("Enable continuous profiling"),
+  autoTriggerOnSlaViolation: z
+    .boolean()
+    .default(true)
+    .describe("Automatically trigger profiling on SLA violations"),
+  slaViolationThrottleMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(1440)
+    .default(60)
+    .describe("Minimum minutes between auto-triggered profiles per endpoint"),
+  outputDir: z
+    .string()
+    .default("profiles/auto")
+    .describe("Directory for automatically generated profiles"),
+  maxConcurrentProfiles: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .default(1)
+    .describe("Maximum concurrent profiling sessions"),
+  slaThresholds: z
+    .array(SlaThresholdSchema)
+    .default([
+      { endpoint: "/tokens", p95: 100, p99: 200 },
+      { endpoint: "/tokens/validate", p95: 50, p99: 100 },
+      { endpoint: "/health", p95: 400, p99: 500 },
+    ])
+    .describe("SLA thresholds per endpoint"),
+  rollingBufferSize: z
+    .number()
+    .int()
+    .min(10)
+    .max(1000)
+    .default(100)
+    .describe("Number of requests to track for P95/P99 calculation"),
+});
+
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -348,6 +395,7 @@ export const AppConfigSchema = z
     caching: CachingConfigSchema,
     telemetry: TelemetryConfigSchema,
     profiling: ProfilingConfigSchema,
+    continuousProfiling: ContinuousProfilingConfigSchema,
     apiInfo: ApiInfoConfigSchema,
   })
   .superRefine((data, ctx) => {
@@ -366,6 +414,8 @@ export const SchemaRegistry = {
   OperationCircuitBreaker: OperationCircuitBreakerConfigSchema,
   Telemetry: TelemetryConfigSchema,
   Profiling: ProfilingConfigSchema,
+  ContinuousProfiling: ContinuousProfilingConfigSchema,
+  SlaThreshold: SlaThresholdSchema,
   ApiInfo: ApiInfoConfigSchema,
   AppConfig: AppConfigSchema,
   ConsumerSecret: ConsumerSecretSchema,
@@ -410,6 +460,8 @@ export type JwtConfig = z.infer<typeof JwtConfigSchema>;
 export type KongConfig = z.infer<typeof KongConfigSchema>;
 export type TelemetryConfig = z.infer<typeof TelemetryConfigSchema>;
 export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
+export type SlaThreshold = z.infer<typeof SlaThresholdSchema>;
+export type ContinuousProfilingConfig = z.infer<typeof ContinuousProfilingConfigSchema>;
 
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;
