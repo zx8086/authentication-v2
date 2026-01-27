@@ -274,7 +274,7 @@ ${Object.entries(testCategories)
   )
   .join("")}
 
-🚀 EXECUTION STRATEGIES:
+ EXECUTION STRATEGIES:
 ${Object.entries(executionStrategies)
   .map(
     ([strategy, info]) => `
@@ -286,13 +286,13 @@ ${Object.entries(executionStrategies)
   )
   .join("")}
 
-🎯 PERFORMANCE TARGETS:
+ PERFORMANCE TARGETS:
   Token Generation: ${performanceTargets.baselineExpectations.tokenGeneration.p95ResponseTime}
   Health Checks: ${performanceTargets.baselineExpectations.healthEndpoint.p95ResponseTime}
   Throughput: ${performanceTargets.baselineExpectations.tokenGeneration.throughput}
   Concurrent Users: ${performanceTargets.baselineExpectations.systemCapacity.sustainableConcurrentUsers}
 
-📊 PREREQUISITES:
+ PREREQUISITES:
 ${prerequisites.map((req) => `  ✓ ${req}`).join("\n")}
 
 === END TEST SUITE INFO ===

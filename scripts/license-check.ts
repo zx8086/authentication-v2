@@ -51,7 +51,7 @@ class BunLicenseChecker {
       const packages = await this.getPackageInfo();
 
       if (this.verbose) {
-        console.log(`📦 Analyzing ${packages.length} packages...`);
+        console.log(` Analyzing ${packages.length} packages...`);
       }
 
       // Check each package for license violations

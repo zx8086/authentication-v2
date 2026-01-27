@@ -96,6 +96,11 @@ The Auth Service implements a clean layered architecture for maintainability and
 - **Kong Gateway**: Provides consumer authentication and request routing
 - **Kong Admin API**: Manages consumer secrets and JWT configurations
 - **Redis Cache**: Optional high-availability cache backend for enhanced resilience
+  - **Observability**: Fully instrumented with OpenTelemetry trace hierarchy
+  - **Span Nesting**: Redis operations appear as child spans under HTTP requests
+  - **Trace Continuity**: HTTP → Kong → JWT → Redis (full distributed tracing)
+  - **Log Correlation**: Automatic trace.id and span.id in Redis operation logs
+  - **Implementation**: `src/telemetry/redis-instrumentation.ts` with context propagation
 - **OpenTelemetry Collector**: Receives distributed tracing, metrics, and logs
 
 ### Internal Components

@@ -17,6 +17,9 @@ This project follows a **live environment testing strategy**:
 - Tests read `KONG_ADMIN_URL` from environment variables
 - Tests gracefully skip if live Kong is unavailable
 - **NEVER hardcode `http://kong:8001` or `http://localhost:8001`** in tests
+- **Automatic Curl Fallback**: `fetchWithFallback()` handles Bun networking bugs with remote IPs
+  - See `docs/workarounds/SIO-288-bun-fetch-curl-fallback.md` for details
+  - No manual SSH/kubectl port forwarding needed
 
 **Test Environment Variables:**
 - Loaded via `test/preload.ts` before tests run
@@ -166,6 +169,9 @@ The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum
 - Structured error codes (AUTH_001-012)
 - Security headers + audit logging (v2 only)
 - Multi-stage Docker builds with distroless base
+- **Redis Distributed Tracing**: Full trace hierarchy (HTTP → Kong → JWT → Redis)
+  - See `docs/operations/monitoring.md` Redis Trace Hierarchy section
+  - Commit f4bc0d5: Fixed Redis instrumentation trace context propagation
 
 ### External Dependencies (Not Implemented in This Service)
 - **Rate Limiting**: Handled by Kong API Gateway
@@ -255,6 +261,27 @@ bun run server:kill && bun run dev                      # Clean restart
 - **MANDATORY**: Fix all test failures immediately
 
 For mutation testing guidelines, see [testing.md](docs/development/testing.md#4-mutation-testing-with-strykerjs).
+
+**Mutation Testing Commands:**
+```bash
+# Full mutation testing (79 minutes baseline)
+bun run test:mutation:fresh
+
+# Incremental run (26 seconds with cache)
+bun run test:mutation
+
+# Dry run only (no mutations)
+bun run test:mutation:dry
+
+# With Kong integration
+bun run test:mutation:with-kong
+```
+
+**Mutation Testing Documentation:**
+- `docs/development/mutation-testing-optimization.md` - Performance optimization guide
+- `docs/workarounds/SIO-287-strykerjs-bun-output-parser.md` - Output parser fix
+- `docs/workarounds/SIO-276-bun-executable-workaround.md` - Bundled Bun executable
+- `docs/plans/bun-test-runner-plugin.md` - Future plugin implementation plan
 
 ### CI/CD Rules
 - **NEVER add timeouts to critical installation steps**

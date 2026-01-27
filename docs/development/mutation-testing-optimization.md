@@ -125,17 +125,17 @@ The full mutation testing run (`test:mutation` or `test:mutation:fresh`) covers 
 The 8 targeted mutation scripts intentionally cover **business logic directories only**:
 
 ```
-✅ test:mutation:handlers    → src/handlers/**/*.ts
-✅ test:mutation:services    → src/services/**/*.ts
-✅ test:mutation:telemetry   → src/telemetry/**/*.ts
-✅ test:mutation:config      → src/config/**/*.ts
-✅ test:mutation:adapters    → src/adapters/**/*.ts
-✅ test:mutation:cache       → src/cache/**/*.ts
-✅ test:mutation:utils       → src/utils/**/*.ts
-✅ test:mutation:errors      → src/errors/**/*.ts
+[COMPLETE] test:mutation:handlers    → src/handlers/**/*.ts
+[COMPLETE] test:mutation:services    → src/services/**/*.ts
+[COMPLETE] test:mutation:telemetry   → src/telemetry/**/*.ts
+[COMPLETE] test:mutation:config      → src/config/**/*.ts
+[COMPLETE] test:mutation:adapters    → src/adapters/**/*.ts
+[COMPLETE] test:mutation:cache       → src/cache/**/*.ts
+[COMPLETE] test:mutation:utils       → src/utils/**/*.ts
+[COMPLETE] test:mutation:errors      → src/errors/**/*.ts
 
-❌ middleware/               → NOT covered by targeted scripts
-❌ routes/                   → NOT covered by targeted scripts
+[FAIL] middleware/               → NOT covered by targeted scripts
+[FAIL] routes/                   → NOT covered by targeted scripts
 ```
 
 **Design Decision:** Middleware and routes are intentionally excluded from targeted scripts because:
@@ -326,6 +326,301 @@ If you need even faster mutation testing:
 3. **Progressive Mutation**:
    - Run quick mutations first (conditionals)
    - Run slow mutations last (block statements)
+
+## CI/CD Integration
+
+### GitHub Actions Configuration
+
+**Example workflow for mutation testing in CI:**
+
+```yaml
+name: Mutation Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  mutation-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # Allow sufficient time for mutation testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.6
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run mutation testing
+        env:
+          BUN_BE_BUN: 1              # Enable bundled Bun workaround
+          LOG_LEVEL: silent          # Suppress Winston logs
+          TELEMETRY_MODE: console    # Valid telemetry config
+        run: |
+          # Use fresh run for CI (no cache across builds)
+          bun run test:mutation:fresh
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: .stryker-tmp/
+          retention-days: 30
+
+      - name: Comment mutation score on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('.stryker-tmp/mutation-report.json'));
+            const score = report.mutationScore.toFixed(2);
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: `## Mutation Testing Results\n\n- Mutation Score: ${score}%\n- Mutants Killed: ${report.killed}\n- Mutants Survived: ${report.survived}\n- Mutants Timeout: ${report.timeout}`
+            });
+```
+
+### Performance Expectations in CI
+
+| Environment | CPU Cores | RAM | Expected Duration | Recommendation |
+|-------------|-----------|-----|-------------------|----------------|
+| GitHub Actions (ubuntu-latest) | 2 | 7GB | 120-150 min | Use for nightly builds |
+| GitHub Actions (ubuntu-latest-4-cores) | 4 | 16GB | 60-80 min | Recommended for PRs |
+| Self-hosted (4 cores) | 4 | 8GB | 60-80 min | Good balance |
+| Self-hosted (8 cores) | 8 | 16GB | 30-40 min | Ideal for fast feedback |
+
+### CI/CD Best Practices
+
+1. **Use Fresh Runs in CI**
+   ```bash
+   # Always use fresh run in CI (no incremental cache)
+   bun run test:mutation:fresh
+   ```
+
+   **Why:** Incremental cache is not portable across CI builds
+
+2. **Set Appropriate Timeout**
+   ```yaml
+   timeout-minutes: 120  # 2 hours for 2-core runner
+   ```
+
+   **Why:** Mutation testing is slow, avoid premature timeouts
+
+3. **Enable Required Workarounds**
+   ```yaml
+   env:
+     BUN_BE_BUN: 1
+     LOG_LEVEL: silent
+     TELEMETRY_MODE: console
+   ```
+
+   **Why:** SIO-276 and SIO-287 fixes required for Bun mutation testing
+
+4. **Upload Artifacts**
+   ```yaml
+   - name: Upload mutation report
+     uses: actions/upload-artifact@v4
+     with:
+       name: mutation-report
+       path: .stryker-tmp/
+   ```
+
+   **Why:** Preserve mutation reports for debugging and historical analysis
+
+5. **Branch Strategy**
+   - **main/develop**: Run mutation testing on every push
+   - **feature branches**: Run mutation testing on PR creation
+   - **release branches**: Run comprehensive mutation testing before release
+
+### Incremental CI Strategy
+
+For faster PR feedback, consider running mutation testing only on changed files:
+
+```yaml
+- name: Get changed files
+  id: changed-files
+  uses: tj-actions/changed-files@v40
+  with:
+    files: |
+      src/**/*.ts
+
+- name: Run mutation testing (changed files only)
+  if: steps.changed-files.outputs.any_changed == 'true'
+  run: |
+    # Use incremental run for faster feedback
+    bun run test:mutation
+```
+
+**Trade-off:** Faster feedback but less comprehensive coverage
+
+### Mutation Score Enforcement
+
+Enforce mutation score thresholds in CI:
+
+```yaml
+- name: Check mutation score threshold
+  run: |
+    SCORE=$(cat .stryker-tmp/mutation-report.json | jq '.mutationScore')
+    THRESHOLD=75
+
+    if (( $(echo "$SCORE < $THRESHOLD" | bc -l) )); then
+      echo "Mutation score $SCORE% is below threshold $THRESHOLD%"
+      exit 1
+    fi
+
+    echo "Mutation score: $SCORE% (threshold: $THRESHOLD%)"
+```
+
+### Caching Strategy
+
+**DO NOT cache `.stryker-tmp/incremental.json` in CI:**
+
+```yaml
+# BAD - Don't do this
+- name: Cache Stryker incremental
+  uses: actions/cache@v4
+  with:
+    path: .stryker-tmp/incremental.json
+    key: stryker-${{ hashFiles('src/**/*.ts') }}
+```
+
+**Why:** Incremental cache is machine-specific and can cause false results across CI runs
+
+**OK to cache node_modules and bun cache:**
+
+```yaml
+# GOOD - Cache dependencies
+- name: Cache dependencies
+  uses: actions/cache@v4
+  with:
+    path: |
+      ~/.bun/install/cache
+      node_modules
+    key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+```
+
+### Troubleshooting CI Failures
+
+#### Issue: "Failed tests in initial run"
+
+**Cause:** Missing SIO-287 environment variables
+
+**Fix:**
+```yaml
+env:
+  LOG_LEVEL: silent
+  TELEMETRY_MODE: console
+```
+
+#### Issue: ENOEXEC error
+
+**Cause:** Missing SIO-276 environment variable
+
+**Fix:**
+```yaml
+env:
+  BUN_BE_BUN: 1
+```
+
+#### Issue: Timeout after 60 minutes
+
+**Cause:** Default CI timeout too low for mutation testing
+
+**Fix:**
+```yaml
+jobs:
+  mutation-test:
+    timeout-minutes: 120  # Increase timeout
+```
+
+#### Issue: Out of memory
+
+**Cause:** Insufficient RAM for mutation testing
+
+**Fix:**
+```yaml
+# Use larger runner
+runs-on: ubuntu-latest-4-cores  # 16GB RAM
+```
+
+Or reduce concurrency:
+
+```json
+{
+  "concurrency": 2  // Reduce from default 4
+}
+```
+
+### Example: Nightly Mutation Testing Build
+
+For comprehensive mutation testing without blocking PRs:
+
+```yaml
+name: Nightly Mutation Testing
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Run at 2 AM UTC daily
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  mutation-test:
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run comprehensive mutation testing
+        env:
+          BUN_BE_BUN: 1
+          LOG_LEVEL: silent
+          TELEMETRY_MODE: console
+        run: bun run test:mutation:fresh
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ github.run_id }}
+          path: .stryker-tmp/
+
+      - name: Send Slack notification
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Mutation testing failed in nightly build",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "FAILED: Nightly mutation testing failed\n*Run:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+```
 
 ## References
 

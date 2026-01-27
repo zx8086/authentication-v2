@@ -93,7 +93,7 @@ echo "Image size: ${IMAGE_SIZE_MB}MB"
 if [[ $IMAGE_SIZE_MB -lt 100 ]]; then
     echo -e "${GREEN}✓ SUCCESS: Image size under 100MB target${NC}"
 elif [[ $IMAGE_SIZE_MB -lt 150 ]]; then
-    echo -e "${YELLOW}⚠ WARNING: Image size acceptable but over target (${IMAGE_SIZE_MB}MB > 100MB)${NC}"
+    echo -e "${YELLOW}WARNING: Image size acceptable but over target (${IMAGE_SIZE_MB}MB > 100MB)${NC}"
 else
     echo -e "${RED}✗ FAIL: Image size significantly over target (${IMAGE_SIZE_MB}MB >> 100MB)${NC}"
 fi
@@ -159,9 +159,9 @@ echo "Build time: ${BUILD_TIME}s"
 echo "Layers: $LAYER_COUNT"
 
 if [[ $IMAGE_SIZE_MB -lt 100 ]]; then
-    echo -e "${GREEN}🎯 Target achieved: Image size under 100MB${NC}"
+    echo -e "${GREEN} Target achieved: Image size under 100MB${NC}"
 else
-    echo -e "${YELLOW}📈 Optimization opportunity: ${IMAGE_SIZE_MB}MB (target: <100MB)${NC}"
+    echo -e "${YELLOW} Optimization opportunity: ${IMAGE_SIZE_MB}MB (target: <100MB)${NC}"
 fi
 
 echo ""

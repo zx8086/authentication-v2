@@ -21,6 +21,71 @@ All outbound HTTP requests (particularly to Kong Admin API) include W3C Trace Co
 
 This is implemented via `createStandardHeaders()` in `src/adapters/kong-utils.ts`, which automatically injects trace context from the active OpenTelemetry context.
 
+#### Redis Trace Hierarchy
+
+Redis cache operations are instrumented to appear as nested spans under HTTP request spans, providing full trace continuity across the entire request lifecycle:
+
+**Trace Hierarchy:**
+```
+HTTP Request (root span)
+├── Kong Consumer Lookup (child span)
+├── JWT Generation (child span)
+└── Redis Cache Operations (child spans)
+    ├── redis.get (check for cached consumer)
+    ├── redis.set (cache consumer data)
+    └── redis.delete (invalidate cache entry)
+```
+
+**Implementation**: `src/telemetry/redis-instrumentation.ts:65-164`
+
+The Redis instrumentation creates spans with the active OpenTelemetry context as parent, ensuring proper trace hierarchy. Each Redis operation is wrapped with `context.with()` to maintain trace continuity.
+
+**Span Naming Conventions:**
+- `redis.get` - Read operations (GET, HGET, etc.)
+- `redis.set` - Write operations (SET, HSET, etc.)
+- `redis.delete` - Delete operations (DEL, HDEL, etc.)
+- `redis.list` - List operations (LPUSH, RPUSH, etc.)
+
+**Span Attributes:**
+Each Redis span includes:
+- `redis.operation` - Operation type (get, set, delete, list)
+- `redis.key` - Cache key being accessed
+- `redis.result.type` - Result type (string, object, array, null)
+- `redis.result.length` - Result size (for performance analysis)
+- `redis.error` - Error message (if operation failed)
+
+**Log Correlation:**
+Redis operations automatically include trace context in logs, enabling span-to-log navigation in observability tools:
+
+```json
+{
+  "@timestamp": "2026-01-27T20:58:32.000Z",
+  "message": "Redis GET completed",
+  "trace.id": "550e8400-e29b-41d4-a716-446655440000",
+  "span.id": "redis-span-123",
+  "redis.operation": "get",
+  "redis.key": "consumer:98765432-9876-5432-1098-765432109876",
+  "redis.result.type": "object",
+  "redis.result.length": 245
+}
+```
+
+**Observability Tool Navigation:**
+In observability backends (Elastic APM, Datadog, Jaeger):
+1. View HTTP request trace
+2. Expand nested spans to see Kong and JWT operations
+3. Click Redis spans to see cache access patterns
+4. Navigate from spans to related logs using trace.id
+5. Analyze Redis operation latencies in trace waterfall
+
+**Testing:**
+16 Redis instrumentation tests validate trace context propagation:
+- `test/bun/telemetry/redis-instrumentation-utils.test.ts`
+- Tests verify span creation, attributes, and parent-child relationships
+- Cache integration tests validate end-to-end trace hierarchy
+
+**Reference:** Commit f4bc0d5 (2026-01-27) - Fixed Redis instrumentation trace context propagation
+
 #### Consolidated Metrics Collection
 - **Runtime Metrics**: Event loop delay, memory usage, CPU utilization
 - **System Metrics**: Host-level CPU, memory, disk, network via HostMetrics

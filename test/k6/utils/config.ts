@@ -107,7 +107,9 @@ export const getPerformanceThresholds = () => {
 
   // If non-blocking is enabled, return structure with empty thresholds
   if (nonBlocking) {
-    console.log("⚠️  Non-blocking mode enabled: Threshold violations will not stop test execution");
+    console.log(
+      "WARNING:  Non-blocking mode enabled: Threshold violations will not stop test execution"
+    );
     return {
       health: {
         smoke: {},

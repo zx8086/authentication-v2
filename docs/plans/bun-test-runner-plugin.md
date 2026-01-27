@@ -261,11 +261,11 @@ class BunTestRunner implements TestRunner {
 4. **Performance Tests**: Measure overhead vs command runner
 
 **Validation Criteria**:
-- ✅ All mutants properly tested (no "covered 0")
-- ✅ Correct mutation scores calculated
-- ✅ Performance acceptable (< 2x overhead vs command runner)
-- ✅ Works with incremental mode
-- ✅ Handles failures gracefully
+- All mutants properly tested (no "covered 0")
+- Correct mutation scores calculated
+- Performance acceptable (< 2x overhead vs command runner)
+- Works with incremental mode
+- Handles failures gracefully
 
 ## Alternative Approaches Considered
 
@@ -301,11 +301,11 @@ class BunTestRunner implements TestRunner {
 
 ## Success Metrics
 
-- ✅ **Functional**: All 39 mutants in error-codes.ts properly tested
-- ✅ **Accurate**: Mutation scores match expected values
-- ✅ **Performance**: < 10 min for full mutation run (vs infinite for command runner)
-- ✅ **Reliable**: 100% test run success rate
-- ✅ **Maintainable**: Clear code structure, comprehensive tests
+- **Functional**: All 39 mutants in error-codes.ts properly tested
+- **Accurate**: Mutation scores match expected values
+- **Performance**: < 10 min for full mutation run (vs infinite for command runner)
+- **Reliable**: 100% test run success rate
+- **Maintainable**: Clear code structure, comprehensive tests
 
 ## Timeline
 

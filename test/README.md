@@ -126,7 +126,13 @@ test/
 - `tracer-operations.test.ts` - Tracing operations
 - `instrumentation-operations.test.ts` - Instrumentation
 - `instrumentation-coverage.test.ts` - Coverage tracking
-- `redis-instrumentation-utils.test.ts` - Redis instrumentation
+- `redis-instrumentation-utils.test.ts` - Redis instrumentation (16 tests)
+  - **What it validates**: Trace context propagation for Redis operations
+  - **Span hierarchy**: Redis spans appear as child spans under HTTP requests
+  - **Span attributes**: Operation type, cache keys, result types, error tracking
+  - **Log correlation**: Automatic trace.id and span.id in Redis operation logs
+  - **Implementation**: Tests verify `src/telemetry/redis-instrumentation.ts` behavior
+  - **Trace continuity**: HTTP → Kong → JWT → Redis (full distributed tracing)
 
 **utils/ (6 files)** - Utility functions:
 - `error-codes.test.ts` - Structured error codes
@@ -458,6 +464,10 @@ K6_THRESHOLDS_NON_BLOCKING=true bun run k6:stress
 - **Baseline Testing**: Establish performance baselines for new environments
 
 ### Kong Integration Requirements
+
+**Automatic Curl Fallback:** The service automatically handles Bun networking bugs with remote Kong instances via `fetchWithFallback()` utility. No manual configuration needed for integration tests with remote Kong IPs (e.g., `192.168.x.x`).
+
+**Documentation:** See `docs/workarounds/SIO-288-bun-fetch-curl-fallback.md` and `docs/development/integration-tests-network-setup.md` for details.
 
 K6 tests require Kong consumer headers for all authenticated endpoints:
 

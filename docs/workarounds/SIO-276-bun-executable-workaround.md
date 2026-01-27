@@ -276,11 +276,11 @@ bun run test:mutation:bundled 2>&1 | grep -i enoexec
 ## Implementation Results
 
 ### What Works
-- ✅ Bundled Bun executable created: `scripts/bundled-runtimes/bun-cli` (110MB)
-- ✅ Wrapper script functional: `scripts/bun-mutation-runner.sh`
-- ✅ ENOEXEC errors completely eliminated
-- ✅ Bun processes spawn and execute correctly
-- ✅ Tests run successfully through StrykerJS command runner
+- Bundled Bun executable created: `scripts/bundled-runtimes/bun-cli` (110MB)
+- Wrapper script functional: `scripts/bun-mutation-runner.sh`
+- ENOEXEC errors completely eliminated
+- Bun processes spawn and execute correctly
+- Tests run successfully through StrykerJS command runner
 
 ### Discovered Issue
 After implementing this workaround, we discovered a **different issue**: StrykerJS cannot parse Bun test runner's output format. This is tracked in **SIO-287**.
@@ -289,10 +289,10 @@ The ENOEXEC bug is resolved, but mutation testing is now blocked by output forma
 
 ## Next Steps
 
-1. ✅ ~~Test bundled Bun executable creation~~ - COMPLETED
-2. ✅ ~~Verify it works with Stryker~~ - COMPLETED (spawns correctly, no ENOEXEC)
-3. ✅ ~~Measure if ENOEXEC errors are eliminated~~ - CONFIRMED (zero ENOEXEC errors)
-4. ⏭️ Address SIO-287: StrykerJS output parser incompatibility
+1. ~~Test bundled Bun executable creation~~ - COMPLETED
+2. ~~Verify it works with Stryker~~ - COMPLETED (spawns correctly, no ENOEXEC)
+3. ~~Measure if ENOEXEC errors are eliminated~~ - CONFIRMED (zero ENOEXEC errors)
+4. NEXT: Address SIO-287: StrykerJS output parser incompatibility
 5. Consider upstreaming fix to `stryker-mutator-bun-runner`
 
 ## References

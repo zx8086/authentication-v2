@@ -82,9 +82,9 @@ function testValidApiKey(baseUrl: string, consumerName: string, apiKey: string) 
   });
 
   if (response.status === 200) {
-    console.log(`✅ [${consumerName}] JWT token generated successfully`);
+    console.log(`[COMPLETE] [${consumerName}] JWT token generated successfully`);
   } else {
-    console.log(`❌ [${consumerName}] Failed: ${response.status} - ${response.body}`);
+    console.log(`[FAIL] [${consumerName}] Failed: ${response.status} - ${response.body}`);
   }
 }
 

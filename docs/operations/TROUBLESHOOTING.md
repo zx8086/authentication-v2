@@ -596,6 +596,424 @@ expect(cachedObject.secret).toBe(originalObject.secret);
 
 ---
 
+## Mutation Testing Troubleshooting
+
+### Problem: "There were failed tests in the initial test run"
+
+**Symptom:** StrykerJS reports test failures even though `bun test` passes all tests.
+
+**Root Cause:** StrykerJS cannot parse Bun's console output due to mixed Winston JSON logs and test output.
+
+**Solution (SIO-287):**
+
+1. **Verify dots reporter is configured:**
+   ```bash
+   grep '"--reporter=dots"' scripts/bun-mutation-runner.sh
+   ```
+
+2. **Verify silent logging:**
+   ```bash
+   grep 'LOG_LEVEL=silent' scripts/bun-mutation-runner.sh
+   ```
+
+3. **Test fix:**
+   ```bash
+   # Run dry run to verify configuration
+   bun run test:mutation:dry
+
+   # Should see: "Ran X tests in Y seconds" (no Winston logs)
+   ```
+
+**Reference:** `docs/workarounds/SIO-287-strykerjs-bun-output-parser.md`
+
+### Problem: ENOEXEC Error When Running Mutation Tests
+
+**Symptom:**
+```
+Error: spawn ENOEXEC
+    at ChildProcess.spawn
+```
+
+**Root Cause:** StrykerJS tries to execute Bun directly, which fails due to ENOEXEC permission issue.
+
+**Solution (SIO-276):**
+
+1. **Verify bundled Bun exists:**
+   ```bash
+   ls -lh scripts/bundled-runtimes/bun-cli
+   ```
+
+2. **Test bundled Bun:**
+   ```bash
+   BUN_BE_BUN=1 ./scripts/bundled-runtimes/bun-cli --version
+   ```
+
+3. **Verify wrapper script uses BUN_BE_BUN:**
+   ```bash
+   grep 'BUN_BE_BUN=1' scripts/bun-mutation-runner.sh
+   ```
+
+**Reference:** `docs/workarounds/SIO-276-bun-executable-workaround.md`
+
+### Problem: Mutation Testing Very Slow
+
+**Symptom:** Mutation testing takes 2+ hours on 4-core machine.
+
+**Diagnosis:**
+
+1. **Check concurrency setting:**
+   ```bash
+   grep '"concurrency"' stryker.config.json
+   # Should be: "concurrency": 4 (or 2 for 2-core machines)
+   ```
+
+2. **Check if using incremental mode:**
+   ```bash
+   # Fresh run is slow (expected)
+   bun run test:mutation:fresh  # 79 minutes baseline
+
+   # Incremental run should be fast
+   bun run test:mutation        # 26 seconds expected
+   ```
+
+3. **Verify incremental cache exists:**
+   ```bash
+   ls -lh .stryker-tmp/incremental.json
+   ```
+
+**Solutions:**
+
+- **Use incremental mode:** `bun run test:mutation` (not `:fresh`)
+- **Increase concurrency:** Edit `stryker.config.json` (4-8 cores recommended)
+- **Use targeted scripts:** Run specific modules instead of all code
+- **Upgrade hardware:** 8+ cores significantly improve performance
+
+**Reference:** `docs/development/mutation-testing-optimization.md`
+
+### Problem: Memory Pressure During Mutation Testing
+
+**Symptom:**
+- System runs out of memory
+- OOM killer terminates Stryker process
+- Browser/IDE becomes slow during mutation testing
+
+**Solutions:**
+
+1. **Reduce concurrency:**
+   ```json
+   {
+     "concurrency": 2  // Reduce from 4
+   }
+   ```
+
+2. **Close memory-intensive applications:**
+   ```bash
+   # Close browsers, IDEs during mutation testing
+   killall chrome firefox
+   ```
+
+3. **Increase system swap:**
+   ```bash
+   # Add swap space if RAM < 8GB
+   sudo fallocate -l 4G /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   ```
+
+4. **Run mutation testing overnight:**
+   ```bash
+   # Lower priority to avoid impacting other work
+   nice -n 19 bun run test:mutation:fresh
+   ```
+
+### Problem: Mutation Survivors (Score < 100%)
+
+**Symptom:** Some mutants survive mutation testing, lowering mutation score.
+
+**Diagnosis:**
+
+1. **Run dry run to see mutants:**
+   ```bash
+   bun run test:mutation:dry
+   ```
+
+2. **Check mutation report:**
+   ```bash
+   cat .stryker-tmp/mutation-report.json | jq '.files'
+   ```
+
+3. **Identify surviving mutants:**
+   ```bash
+   # Look for "Status: Survived" in report
+   grep -A5 "Survived" .stryker-tmp/stryker.log
+   ```
+
+**Solutions:**
+
+1. **Add mutation killer tests:**
+   ```typescript
+   // Example: Kill arithmetic mutants
+   test('mutation killer: addition vs subtraction', () => {
+     expect(add(2, 3)).toBe(5);     // Kills: 2 - 3
+     expect(add(5, 7)).toBe(12);    // Kills: 5 - 7
+     expect(add(-2, 3)).toBe(1);    // Kills: -2 - 3
+   });
+   ```
+
+2. **Add boundary tests:**
+   ```typescript
+   // Example: Kill comparison mutants
+   test('mutation killer: comparison boundaries', () => {
+     expect(isPositive(1)).toBe(true);   // Kills: < 0
+     expect(isPositive(0)).toBe(false);  // Kills: <= 0
+     expect(isPositive(-1)).toBe(false); // Kills: > 0
+   });
+   ```
+
+3. **Test error paths:**
+   ```typescript
+   // Example: Kill logical mutants
+   test('mutation killer: error conditions', () => {
+     expect(() => divide(10, 0)).toThrow();  // Kills: && to ||
+   });
+   ```
+
+**Reference:** `docs/development/testing.md` Section 4 (Mutation Testing)
+
+### Problem: Stale Incremental Cache
+
+**Symptom:**
+- Mutation testing reports cached results for changed code
+- Test changes not reflected in mutation testing
+- Inconsistent mutation scores
+
+**Solution:**
+
+1. **Clear incremental cache:**
+   ```bash
+   rm -rf .stryker-tmp/incremental.json
+   ```
+
+2. **Run fresh mutation testing:**
+   ```bash
+   bun run test:mutation:fresh
+   ```
+
+3. **Verify cache cleared:**
+   ```bash
+   # Should not exist after fresh run
+   ls .stryker-tmp/incremental.json
+   ```
+
+**When to clear cache:**
+- After major refactoring
+- After changing test files significantly
+- Before creating baseline mutation report
+- If mutation scores seem inconsistent
+
+### Problem: CI/CD Mutation Testing Timeouts
+
+**Symptom:** GitHub Actions workflow times out during mutation testing.
+
+**Solutions:**
+
+1. **Increase timeout:**
+   ```yaml
+   jobs:
+     mutation-test:
+       timeout-minutes: 120  # Increase from default 60
+   ```
+
+2. **Use larger runner:**
+   ```yaml
+   runs-on: ubuntu-latest-4-cores  # Instead of ubuntu-latest
+   ```
+
+3. **Run mutation testing nightly:**
+   ```yaml
+   on:
+     schedule:
+       - cron: '0 2 * * *'  # 2 AM daily, doesn't block PRs
+   ```
+
+4. **Use incremental strategy (with caution):**
+   ```yaml
+   # Only test changed files (faster but less comprehensive)
+   - uses: tj-actions/changed-files@v40
+   - run: bun run test:mutation  # Incremental mode
+   ```
+
+**Reference:** `docs/development/mutation-testing-optimization.md` CI/CD Integration section
+
+### Problem: Bundled Bun Executable Missing or Corrupted
+
+**Symptom:**
+```bash
+BUN_BE_BUN=1 ./scripts/bundled-runtimes/bun-cli --version
+# Error: No such file or directory
+```
+
+**Solution:**
+
+1. **Download bundled Bun for your platform:**
+   ```bash
+   # macOS ARM64
+   curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-darwin-aarch64.zip -o bun.zip
+   unzip bun.zip
+   mv bun-darwin-aarch64/bun scripts/bundled-runtimes/bun-cli
+   chmod +x scripts/bundled-runtimes/bun-cli
+
+   # Linux x64
+   curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-linux-x64.zip -o bun.zip
+   unzip bun.zip
+   mv bun-linux-x64/bun scripts/bundled-runtimes/bun-cli
+   chmod +x scripts/bundled-runtimes/bun-cli
+   ```
+
+2. **Verify installation:**
+   ```bash
+   BUN_BE_BUN=1 ./scripts/bundled-runtimes/bun-cli --version
+   # Should output: 1.3.6
+   ```
+
+3. **Run mutation testing:**
+   ```bash
+   bun run test:mutation:dry  # Test without running mutations
+   ```
+
+**Reference:** `docs/workarounds/SIO-276-bun-executable-workaround.md`
+
+### Quick Reference: Common Mutation Testing Commands
+
+```bash
+# Dry run (preview mutants, no test execution)
+bun run test:mutation:dry
+
+# Debug mode (verbose output)
+bun run test:mutation:dry:debug
+
+# Fresh run (clear cache, full mutation testing)
+bun run test:mutation:fresh
+
+# Incremental run (fast, uses cache)
+bun run test:mutation
+
+# Clear all Stryker artifacts
+rm -rf .stryker-tmp/
+
+# Verify bundled Bun
+BUN_BE_BUN=1 ./scripts/bundled-runtimes/bun-cli --version
+
+# Check mutation report
+cat .stryker-tmp/mutation-report.json | jq
+
+# View Stryker logs
+cat .stryker-tmp/stryker.log
+```
+
+---
+
+## Redis Tracing Troubleshooting
+
+### Problem: Redis Operations Not Appearing in Distributed Traces
+
+**Symptoms:**
+- Redis operations missing from trace waterfall in observability tools
+- Redis spans appear as orphaned root spans (not nested under HTTP requests)
+- trace.id or span.id missing from Redis operation logs
+
+**Common Causes:**
+
+1. **OpenTelemetry Context Not Propagated**
+   ```bash
+   # Check if Redis instrumentation is enabled
+   grep -r "redis-instrumentation" src/telemetry/
+
+   # Verify context API is imported
+   grep "context.active()" src/telemetry/redis-instrumentation.ts
+   ```
+
+2. **Spans Created Without Parent Context**
+   - Redis spans must be created with `context.active()` as parent
+   - Operations must be wrapped with `context.with()` to maintain hierarchy
+
+   **Fix**: Ensure `src/telemetry/redis-instrumentation.ts:65` uses:
+   ```typescript
+   const span = tracer.startSpan(spanName, {...}, context.active());
+   ```
+
+3. **Trace Context Not Maintained During Async Operations**
+   - Async operations can lose trace context if not properly wrapped
+
+   **Fix**: Wrap operation execution with context binding:
+   ```typescript
+   return context.with(trace.setSpan(context.active(), span), () => {
+     return operation();
+   });
+   ```
+
+**Verification Steps:**
+
+1. **Check Span Hierarchy in Observability Tool:**
+   ```
+   Expected:
+   HTTP Request (root)
+   ├── Kong Consumer Lookup
+   ├── JWT Generation
+   └── Redis Operations
+       ├── redis.get
+       └── redis.set
+
+   Not Expected:
+   HTTP Request (root)
+   redis.get (orphaned root span)
+   redis.set (orphaned root span)
+   ```
+
+2. **Verify Log Correlation:**
+   ```bash
+   # Check logs for trace.id correlation
+   curl http://localhost:3000/tokens -H "X-Consumer-ID: test" | jq '.trace.id'
+
+   # Check Redis operation logs have same trace.id
+   grep "Redis GET completed" logs.json | jq '.trace.id'
+   ```
+
+3. **Test Trace Continuity:**
+   ```bash
+   # Generate token and verify full trace
+   curl -X POST http://localhost:3000/tokens \
+     -H "X-Consumer-ID: 98765432-9876-5432-1098-765432109876" \
+     -H "X-Consumer-Username: test-consumer"
+
+   # Check observability tool for:
+   # - HTTP request span
+   # - Kong lookup span (child of HTTP)
+   # - JWT generation span (child of HTTP)
+   # - Redis operations spans (children of HTTP)
+   ```
+
+**Debug Mode:**
+```bash
+# Enable detailed tracing logs
+LOG_LEVEL=debug TELEMETRY_MODE=both bun run dev
+
+# Monitor Redis operations
+curl http://localhost:3000/tokens -H "X-Consumer-ID: test" -H "X-Consumer-Username: test"
+
+# Look for logs showing:
+# - "Redis instrumentation creating span with parent context"
+# - trace.id and span.id present in all Redis logs
+```
+
+**Reference:**
+- Implementation: `src/telemetry/redis-instrumentation.ts`
+- Tests: `test/bun/telemetry/redis-instrumentation-utils.test.ts` (16 tests)
+- Documentation: `docs/operations/monitoring.md` (Redis Trace Hierarchy section)
+- Commit: f4bc0d5 (2026-01-27) - Fixed Redis trace context propagation
+
+---
+
 ## Error Code Reference
 
 | Code | HTTP | Title | Typical Action |

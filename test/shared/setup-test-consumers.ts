@@ -39,7 +39,7 @@ class TestConsumerSetup {
       // Check if consumer already exists first
       const exists = await this.checkConsumerExists(consumer);
       if (exists) {
-        console.log(`⚠️  Consumer already exists: ${consumer.username}`);
+        console.log(`WARNING:  Consumer already exists: ${consumer.username}`);
         // Still need to ensure JWT credentials exist
         return await this.ensureJWTCredentials(consumer);
       }
@@ -69,22 +69,22 @@ class TestConsumerSetup {
 
       if (response.ok) {
         const created = (await response.json()) as KongConsumer;
-        console.log(`✅ Consumer created: ${created.username} (ID: ${created.id})`);
+        console.log(`[COMPLETE] Consumer created: ${created.username} (ID: ${created.id})`);
         // Create JWT credentials for the new consumer
         return await this.ensureJWTCredentials(consumer);
       } else if (response.status === 409 || response.status === 400) {
-        console.log(`⚠️  Consumer already exists: ${consumer.username}`);
+        console.log(`WARNING:  Consumer already exists: ${consumer.username}`);
         // Still need to ensure JWT credentials exist
         return await this.ensureJWTCredentials(consumer);
       } else {
         const errorText = await response.text();
         console.error(
-          `❌ Failed to create consumer ${consumer.username}: ${response.status} ${errorText}`
+          `[FAIL] Failed to create consumer ${consumer.username}: ${response.status} ${errorText}`
         );
         return false;
       }
     } catch (error) {
-      console.error(`❌ Error creating consumer ${consumer.username}:`, error);
+      console.error(`[FAIL] Error creating consumer ${consumer.username}:`, error);
       return false;
     }
   }
@@ -132,7 +132,7 @@ class TestConsumerSetup {
       });
 
       if (!consumerResponse.ok) {
-        console.error(`❌ Failed to get consumer UUID for ${consumer.username}`);
+        console.error(`[FAIL] Failed to get consumer UUID for ${consumer.username}`);
         return false;
       }
 
@@ -169,10 +169,12 @@ class TestConsumerSetup {
 
             if (!deleteResponse.ok) {
               console.warn(
-                `⚠️  Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
+                `WARNING:  Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
               );
             } else {
-              console.log(`✅ Deleted JWT credential ${credential.id} for ${consumer.username}`);
+              console.log(
+                `[COMPLETE] Deleted JWT credential ${credential.id} for ${consumer.username}`
+              );
             }
           }
         }
@@ -204,18 +206,18 @@ class TestConsumerSetup {
       if (createJwtResponse.ok) {
         const createdCredential = await createJwtResponse.json();
         console.log(
-          `✅ New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
+          `[COMPLETE] New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
         );
         return true;
       } else {
         const errorText = await createJwtResponse.text();
         console.error(
-          `❌ Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`
+          `[FAIL] Failed to create JWT credentials for ${consumer.username}: ${createJwtResponse.status} ${errorText}`
         );
         return false;
       }
     } catch (error) {
-      console.error(`❌ Error ensuring JWT credentials for ${consumer.username}:`, error);
+      console.error(`[FAIL] Error ensuring JWT credentials for ${consumer.username}:`, error);
       return false;
     }
   }
@@ -247,17 +249,17 @@ class TestConsumerSetup {
       });
 
       if (response.ok || response.status === 404) {
-        console.log(`✅ Consumer deleted: ${consumer.id}`);
+        console.log(`[COMPLETE] Consumer deleted: ${consumer.id}`);
         return true;
       } else {
         const errorText = await response.text();
         console.error(
-          `❌ Failed to delete consumer ${consumer.id}: ${response.status} ${errorText}`
+          `[FAIL] Failed to delete consumer ${consumer.id}: ${response.status} ${errorText}`
         );
         return false;
       }
     } catch (error) {
-      console.error(`❌ Error deleting consumer ${consumer.id}:`, error);
+      console.error(`[FAIL] Error deleting consumer ${consumer.id}:`, error);
       return false;
     }
   }
@@ -276,14 +278,14 @@ class TestConsumerSetup {
       });
 
       if (response.ok) {
-        console.log("✅ Kong is accessible");
+        console.log("[COMPLETE] Kong is accessible");
         return true;
       } else {
-        console.error(`❌ Kong health check failed: ${response.status}`);
+        console.error(`[FAIL] Kong health check failed: ${response.status}`);
         return false;
       }
     } catch (error) {
-      console.error("❌ Kong connection failed:", error);
+      console.error("[FAIL] Kong connection failed:", error);
       return false;
     }
   }
@@ -294,7 +296,7 @@ class TestConsumerSetup {
       : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
 
     const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : "";
-    console.log(`🚀 Setting up test consumers${jobDescription} for authentication service tests\n`);
+    console.log(` Setting up test consumers${jobDescription} for authentication service tests\n`);
 
     if (!(await this.checkKongHealth())) {
       return false;
@@ -313,13 +315,13 @@ class TestConsumerSetup {
     }
 
     if (allSuccessful) {
-      console.log("\n✅ All test consumers created successfully!");
+      console.log("\n[COMPLETE] All test consumers created successfully!");
       console.log("\nTest consumers available:");
       allConsumers.forEach((consumer) => {
         console.log(`  - ${consumer.id} (${consumer.username}): ${consumer.description}`);
       });
     } else {
-      console.log("\n⚠️  Some test consumers could not be created");
+      console.log("\nWARNING:  Some test consumers could not be created");
     }
 
     return allSuccessful;
@@ -347,14 +349,14 @@ class TestConsumerSetup {
           allSuccessful = false;
         }
       } else {
-        console.log(`⚠️  Consumer ${consumer.id} does not exist`);
+        console.log(`WARNING:  Consumer ${consumer.id} does not exist`);
       }
     }
 
     if (allSuccessful) {
-      console.log("\n✅ All test consumers cleaned up successfully!");
+      console.log("\n[COMPLETE] All test consumers cleaned up successfully!");
     } else {
-      console.log("\n⚠️  Some test consumers could not be deleted");
+      console.log("\nWARNING:  Some test consumers could not be deleted");
     }
 
     return allSuccessful;
@@ -376,7 +378,7 @@ class TestConsumerSetup {
 
     for (const consumer of allConsumers) {
       const exists = await this.checkConsumerExists(consumer);
-      const status = exists ? "✅ EXISTS" : "❌ MISSING";
+      const status = exists ? "[COMPLETE] EXISTS" : "[FAIL] MISSING";
       console.log(`${status} ${consumer.id} (${consumer.username})`);
     }
   }
@@ -440,7 +442,7 @@ async function main() {
         process.exit(1);
     }
   } catch (error) {
-    console.error("❌ Setup failed:", error);
+    console.error("[FAIL] Setup failed:", error);
     process.exit(1);
   }
 }
