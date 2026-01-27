@@ -1,10 +1,11 @@
 /* src/telemetry/sla-monitor.ts */
 
-import { existsSync, mkdirSync } from "node:fs";
-import type { Subprocess } from "bun";
 import { loadConfig } from "../config/index";
 import type { ContinuousProfilingConfig, SlaThreshold } from "../config/schemas";
+import { getOverheadMonitor, resetOverheadMonitor } from "../services/profiling/overhead-monitor";
+import { ProfileQueueManager } from "../services/profiling/profile-queue-manager";
 import { error, log, warn } from "../utils/logger";
+import { recordSlaViolation, registerProfilingObservables } from "./profiling-metrics";
 
 interface PercentileMetrics {
   p95: number;
@@ -12,19 +13,12 @@ interface PercentileMetrics {
   count: number;
 }
 
-interface ProfilingSession {
-  endpoint: string;
-  startedAt: number;
-  subprocess: Subprocess;
-  violationMetrics: PercentileMetrics;
-}
-
 export class SlaMonitor {
   private readonly config: ContinuousProfilingConfig;
   private readonly thresholds: Map<string, SlaThreshold>;
   private readonly latencyBuffers: Map<string, number[]>;
   private readonly lastProfilingTrigger: Map<string, number>;
-  private activeProfiling: ProfilingSession | null = null;
+  private readonly queueManager: ProfileQueueManager;
   private isShuttingDown = false;
 
   constructor(config: ContinuousProfilingConfig) {
@@ -32,15 +26,21 @@ export class SlaMonitor {
     this.thresholds = new Map();
     this.latencyBuffers = new Map();
     this.lastProfilingTrigger = new Map();
+    this.queueManager = new ProfileQueueManager(config, 1);
 
     for (const threshold of config.slaThresholds) {
       this.thresholds.set(threshold.endpoint, threshold);
       this.latencyBuffers.set(threshold.endpoint, []);
     }
 
-    this.ensureOutputDirectory();
-
     if (config.enabled) {
+      const overheadMonitor = getOverheadMonitor();
+
+      registerProfilingObservables(
+        () => overheadMonitor.getOverheadMetrics(),
+        () => this.queueManager.getStats()
+      );
+
       log("SLA Monitor initialized", {
         component: "sla-monitor",
         enabled: config.enabled,
@@ -48,16 +48,6 @@ export class SlaMonitor {
         throttleMinutes: config.slaViolationThrottleMinutes,
         outputDir: config.outputDir,
         endpoints: config.slaThresholds.map((t) => t.endpoint),
-      });
-    }
-  }
-
-  private ensureOutputDirectory(): void {
-    if (!existsSync(this.config.outputDir)) {
-      mkdirSync(this.config.outputDir, { recursive: true });
-      log("Created profiling output directory", {
-        component: "sla-monitor",
-        directory: this.config.outputDir,
       });
     }
   }
@@ -99,8 +89,10 @@ export class SlaMonitor {
 
     if (isViolation && this.config.autoTriggerOnSlaViolation) {
       const canTrigger = this.canTriggerProfiling(endpoint);
+      const overheadMonitor = getOverheadMonitor();
+      const isOverheadAcceptable = overheadMonitor.isOverheadAcceptable();
 
-      if (canTrigger) {
+      if (canTrigger && isOverheadAcceptable && this.queueManager.canStartProfiling()) {
         await this.triggerAutomaticProfiling(endpoint, metrics, threshold);
       } else {
         const lastTrigger = this.lastProfilingTrigger.get(endpoint);
@@ -108,9 +100,19 @@ export class SlaMonitor {
           ? (Date.now() - lastTrigger) / 1000 / 60
           : Number.POSITIVE_INFINITY;
 
-        warn("SLA violation detected but profiling throttled", {
+        let reason = "throttled";
+        if (!isOverheadAcceptable) {
+          reason = "overhead_exceeded";
+        } else if (!this.queueManager.canStartProfiling()) {
+          reason = "queue_full_or_storage_quota";
+        }
+
+        recordSlaViolation(endpoint, metrics.p95, metrics.p99, false);
+
+        warn("SLA violation detected but profiling blocked", {
           component: "sla-monitor",
           endpoint,
+          reason,
           currentP95: metrics.p95.toFixed(2),
           currentP99: metrics.p99.toFixed(2),
           thresholdP95: threshold.p95,
@@ -142,10 +144,6 @@ export class SlaMonitor {
       return false;
     }
 
-    if (this.activeProfiling !== null) {
-      return false;
-    }
-
     const lastTrigger = this.lastProfilingTrigger.get(endpoint);
     if (!lastTrigger) {
       return true;
@@ -161,87 +159,39 @@ export class SlaMonitor {
     threshold: SlaThreshold
   ): Promise<void> {
     try {
-      const timestamp = Date.now();
-      const formattedEndpoint = endpoint.replace(/\//g, "_").replace(/^_/, "");
+      const overheadMonitor = getOverheadMonitor();
+      overheadMonitor.startProfilingMeasurement();
 
-      log("Automatic profiling triggered by SLA violation", {
-        component: "sla-monitor",
+      const triggered = await this.queueManager.requestProfiling({
         endpoint,
-        currentP95: metrics.p95.toFixed(2),
-        currentP99: metrics.p99.toFixed(2),
-        thresholdP95: threshold.p95,
-        thresholdP99: threshold.p99,
-        sampleSize: metrics.count,
-        outputDir: this.config.outputDir,
+        reason: "sla_violation",
+        requestedAt: Date.now(),
+        violationMetrics: {
+          p95: metrics.p95,
+          p99: metrics.p99,
+          count: metrics.count,
+        },
       });
 
-      const subprocess = Bun.spawn(
-        [
-          "bun",
-          "--cpu-prof-md",
-          `--cpu-prof-dir=${this.config.outputDir}`,
-          "--heap-prof-md",
-          `--heap-prof-dir=${this.config.outputDir}`,
-          "src/server.ts",
-        ],
-        {
-          stdout: "pipe",
-          stderr: "pipe",
-          env: {
-            ...process.env,
-            AUTO_PROFILING_TRIGGER: "true",
-            AUTO_PROFILING_ENDPOINT: endpoint,
-            AUTO_PROFILING_TIMESTAMP: timestamp.toString(),
-          },
-        }
-      );
+      if (triggered) {
+        recordSlaViolation(endpoint, metrics.p95, metrics.p99, true);
+        this.lastProfilingTrigger.set(endpoint, Date.now());
 
-      this.activeProfiling = {
-        endpoint,
-        startedAt: timestamp,
-        subprocess,
-        violationMetrics: metrics,
-      };
-
-      this.lastProfilingTrigger.set(endpoint, timestamp);
-
-      setTimeout(() => {
-        this.stopAutomaticProfiling();
-      }, 30000);
+        log("Automatic profiling triggered by SLA violation", {
+          component: "sla-monitor",
+          endpoint,
+          currentP95: metrics.p95.toFixed(2),
+          currentP99: metrics.p99.toFixed(2),
+          thresholdP95: threshold.p95,
+          thresholdP99: threshold.p99,
+          sampleSize: metrics.count,
+          outputDir: this.config.outputDir,
+        });
+      }
     } catch (err) {
       error("Failed to trigger automatic profiling", {
         component: "sla-monitor",
         endpoint,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  private async stopAutomaticProfiling(): Promise<void> {
-    if (!this.activeProfiling) {
-      return;
-    }
-
-    const session = this.activeProfiling;
-    this.activeProfiling = null;
-
-    try {
-      session.subprocess.kill("SIGTERM");
-
-      const durationSeconds = (Date.now() - session.startedAt) / 1000;
-
-      log("Automatic profiling session completed", {
-        component: "sla-monitor",
-        endpoint: session.endpoint,
-        durationSeconds: durationSeconds.toFixed(1),
-        violationP95: session.violationMetrics.p95.toFixed(2),
-        violationP99: session.violationMetrics.p99.toFixed(2),
-        outputDir: this.config.outputDir,
-      });
-    } catch (err) {
-      error("Failed to stop automatic profiling", {
-        component: "sla-monitor",
-        endpoint: session.endpoint,
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -252,7 +202,8 @@ export class SlaMonitor {
     activeEndpoints: string[];
     bufferSizes: Record<string, number>;
     lastTriggers: Record<string, string>;
-    activeSession: { endpoint: string; durationSeconds: number } | null;
+    queueStats: ReturnType<ProfileQueueManager["getStats"]>;
+    overheadMetrics: ReturnType<ReturnType<typeof getOverheadMonitor>["getOverheadMetrics"]>;
   } {
     const bufferSizes: Record<string, number> = {};
     for (const [endpoint, buffer] of this.latencyBuffers.entries()) {
@@ -264,19 +215,15 @@ export class SlaMonitor {
       lastTriggers[endpoint] = new Date(timestamp).toISOString();
     }
 
-    const activeSession = this.activeProfiling
-      ? {
-          endpoint: this.activeProfiling.endpoint,
-          durationSeconds: (Date.now() - this.activeProfiling.startedAt) / 1000,
-        }
-      : null;
+    const overheadMonitor = getOverheadMonitor();
 
     return {
       enabled: this.config.enabled,
       activeEndpoints: Array.from(this.thresholds.keys()),
       bufferSizes,
       lastTriggers,
-      activeSession,
+      queueStats: this.queueManager.getStats(),
+      overheadMetrics: overheadMonitor.getOverheadMetrics(),
     };
   }
 
@@ -285,14 +232,10 @@ export class SlaMonitor {
 
     log("SLA Monitor shutting down", {
       component: "sla-monitor",
-      hasActiveSession: this.activeProfiling !== null,
     });
 
-    if (this.activeProfiling) {
-      await this.stopAutomaticProfiling();
-    }
+    await this.queueManager.shutdown();
 
-    this.latencyBuffers.clear();
     this.latencyBuffers.clear();
     this.lastProfilingTrigger.clear();
   }
@@ -313,4 +256,5 @@ export function resetSlaMonitor(): void {
     slaMonitorInstance.shutdown();
     slaMonitorInstance = null;
   }
+  resetOverheadMonitor();
 }
