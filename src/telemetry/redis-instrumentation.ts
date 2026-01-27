@@ -1,6 +1,6 @@
 /* src/telemetry/redis-instrumentation.ts */
 
-import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { context, type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { ATTR_DB_OPERATION_NAME, ATTR_DB_SYSTEM_NAME } from "@opentelemetry/semantic-conventions";
 import { recordRedisOperation } from "./metrics";
 
@@ -37,27 +37,33 @@ export class BunRedisInstrumentation {
     return this.options.enabled ?? true;
   }
 
-  createSpan(context: RedisOperationContext): Span {
+  createSpan(operationContext: RedisOperationContext): Span {
     if (!this.isEnabled()) {
       return trace.getActiveSpan() || tracer.startSpan("noop");
     }
 
-    const spanName = `redis.${context.operation.toLowerCase()}`;
-    const sanitizedKey = this.sanitizeKey(context.key);
+    const spanName = `redis.${operationContext.operation.toLowerCase()}`;
+    const sanitizedKey = this.sanitizeKey(operationContext.key);
 
-    const span = tracer.startSpan(spanName, {
-      kind: SpanKind.CLIENT,
-      attributes: {
-        [ATTR_DB_SYSTEM_NAME]: "redis",
-        [ATTR_DB_OPERATION_NAME]: context.operation.toUpperCase(),
-        ...(sanitizedKey && { "db.redis.key": sanitizedKey }),
-        ...(context.connectionUrl && {
-          "db.connection_string": this.sanitizeConnectionString(context.connectionUrl),
-        }),
-        ...(context.database !== undefined && { "db.redis.database_index": context.database }),
-        "db.redis.client": "bun-native",
+    const span = tracer.startSpan(
+      spanName,
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          [ATTR_DB_SYSTEM_NAME]: "redis",
+          [ATTR_DB_OPERATION_NAME]: operationContext.operation.toUpperCase(),
+          ...(sanitizedKey && { "db.redis.key": sanitizedKey }),
+          ...(operationContext.connectionUrl && {
+            "db.connection_string": this.sanitizeConnectionString(operationContext.connectionUrl),
+          }),
+          ...(operationContext.database !== undefined && {
+            "db.redis.database_index": operationContext.database,
+          }),
+          "db.redis.client": "bun-native",
+        },
       },
-    });
+      context.active()
+    );
 
     return span;
   }
@@ -145,56 +151,62 @@ export class BunRedisInstrumentation {
 export const redisInstrumentation = new BunRedisInstrumentation();
 
 export function instrumentRedisOperation<T>(
-  context: RedisOperationContext,
+  operationContext: RedisOperationContext,
   operation: () => Promise<T>
 ): Promise<T> {
   if (!redisInstrumentation.isEnabled()) {
     return operation();
   }
 
-  const span = redisInstrumentation.createSpan(context);
+  const span = redisInstrumentation.createSpan(operationContext);
   const startTime = performance.now();
 
-  return operation()
-    .then((result) => {
-      const endTime = performance.now();
-      const latencyMs = endTime - startTime;
+  return context.with(trace.setSpan(context.active(), span), () => {
+    return operation()
+      .then((result) => {
+        const endTime = performance.now();
+        const latencyMs = endTime - startTime;
 
-      redisInstrumentation.recordSuccess(span, result);
+        redisInstrumentation.recordSuccess(span, result);
 
-      const cacheResult =
-        context.operation.toLowerCase() === "get" ? (result ? "hit" : "miss") : undefined;
+        const cacheResult =
+          operationContext.operation.toLowerCase() === "get"
+            ? result
+              ? "hit"
+              : "miss"
+            : undefined;
 
-      if (cacheResult) {
-        redisInstrumentation.recordCacheMetrics(span, !!result, latencyMs);
-      }
+        if (cacheResult) {
+          redisInstrumentation.recordCacheMetrics(span, !!result, latencyMs);
+        }
 
-      recordRedisOperation(context.operation, latencyMs, true, cacheResult, {
-        database: context.database,
+        recordRedisOperation(operationContext.operation, latencyMs, true, cacheResult, {
+          database: operationContext.database,
+        });
+
+        redisInstrumentation.finishSpan(span);
+        return result;
+      })
+      .catch((error) => {
+        const endTime = performance.now();
+        const latencyMs = endTime - startTime;
+
+        redisInstrumentation.recordError(span, error);
+
+        const cacheResult = operationContext.operation.toLowerCase() === "get" ? "miss" : undefined;
+
+        if (cacheResult) {
+          redisInstrumentation.recordCacheMetrics(span, false, latencyMs);
+        }
+
+        recordRedisOperation(operationContext.operation, latencyMs, false, cacheResult, {
+          database: operationContext.database,
+        });
+
+        redisInstrumentation.finishSpan(span);
+        throw error;
       });
-
-      redisInstrumentation.finishSpan(span);
-      return result;
-    })
-    .catch((error) => {
-      const endTime = performance.now();
-      const latencyMs = endTime - startTime;
-
-      redisInstrumentation.recordError(span, error);
-
-      const cacheResult = context.operation.toLowerCase() === "get" ? "miss" : undefined;
-
-      if (cacheResult) {
-        redisInstrumentation.recordCacheMetrics(span, false, latencyMs);
-      }
-
-      recordRedisOperation(context.operation, latencyMs, false, cacheResult, {
-        database: context.database,
-      });
-
-      redisInstrumentation.finishSpan(span);
-      throw error;
-    });
+  });
 }
 
 export function createRedisSpan(context: RedisOperationContext): Span {
