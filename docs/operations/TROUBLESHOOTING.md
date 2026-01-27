@@ -414,12 +414,19 @@ rm -f node_modules/.bin/bun
 ```
 
 **Prevention**:
-This issue typically occurs after Bun version upgrades. After upgrading Bun, run:
+This project includes a `postinstall` hook that automatically removes the broken symlink after every `bun install`:
+
+```json
+"postinstall": "rm -f node_modules/.bin/bun || true"
+```
+
+This hook runs automatically, but if you encounter issues after Bun version upgrades, manually run:
 ```bash
 rm -rf node_modules bun.lockb
 bun install
-rm -f node_modules/.bin/bun  # Remove if created
 ```
+
+The `postinstall` hook will clean up any broken symlinks automatically.
 
 ---
 
