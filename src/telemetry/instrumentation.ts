@@ -245,8 +245,6 @@ export async function initializeTelemetry(): Promise<void> {
 
   hostMetrics = new HostMetrics({});
   hostMetrics.start();
-
-  initializeMetrics();
 }
 
 export async function shutdownTelemetry(): Promise<void> {

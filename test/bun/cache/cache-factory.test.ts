@@ -112,6 +112,10 @@ describe("CacheFactory", () => {
 
       const caches = await Promise.all(promises);
 
+      // Verify all caches are the same instance (singleton pattern)
+      expect(caches[0]).toBe(caches[1]);
+      expect(caches[1]).toBe(caches[2]);
+
       // All caches should be functional and share the same underlying data
       const testKey = `concurrent-test-${Date.now()}`;
       const testData = {
@@ -125,7 +129,7 @@ describe("CacheFactory", () => {
       // Write with first cache
       await caches[0].set(testKey, testData);
 
-      // All caches should be able to read the same data (functional equivalence)
+      // All caches should be able to read the same data (same instance)
       const fromCache0 = await caches[0].get(testKey);
       const fromCache1 = await caches[1].get(testKey);
       const fromCache2 = await caches[2].get(testKey);

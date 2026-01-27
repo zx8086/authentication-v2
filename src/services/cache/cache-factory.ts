@@ -20,13 +20,14 @@ export class CacheFactory {
       return CacheFactory.instance;
     }
 
-    // If we're already initializing with this config, wait for it
-    if (CacheFactory.initializationPromise && CacheFactory.currentConfig === configKey) {
+    // If we're already initializing, wait for it (even if config is different)
+    if (CacheFactory.initializationPromise) {
       await CacheFactory.initializationPromise;
-      if (!CacheFactory.instance) {
-        throw new Error("Cache initialization failed");
+      // After waiting, check if the config matches
+      if (CacheFactory.instance && CacheFactory.currentConfig === configKey) {
+        return CacheFactory.instance;
       }
-      return CacheFactory.instance;
+      // If config is different, fall through to reconfigure/recreate
     }
 
     // Configuration changed, reconfigure existing instance if possible
