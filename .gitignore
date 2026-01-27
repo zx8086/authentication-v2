@@ -56,3 +56,8 @@ docs/MIGRATION_GAPS.md
 stryker.config.*.json
 stryker.*.config.json
 stryker.config copy.json
+
+# Profiling outputs (keep baselines tracked in git)
+profiles/current/
+profiles/archive/
+!profiles/baselines/.gitkeep
