@@ -44,6 +44,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
 | Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (1500+ tests) |
 | Kong Test Setup | [kong-test-setup.md](docs/development/kong-test-setup.md) | Test consumers, API keys, and Kong configuration |
+| Profiling | [profiling-workflows.md](docs/development/profiling-workflows.md) | Bun native profiling workflows and performance optimization |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook, error codes, and FAQ |
@@ -207,6 +208,56 @@ bun run docker:local     # Build and run locally
 ```
 
 For complete command reference, see [getting-started.md](docs/development/getting-started.md).
+
+## Profiling Workflows
+
+The service includes production-safe profiling infrastructure using Bun's native profiling features.
+
+### Quick Start
+```bash
+# Profile token generation scenario
+bun run profile:scenario:tokens
+
+# Profile during K6 tests
+ENABLE_PROFILING=true bun run test:k6:smoke:health
+
+# View enhanced analysis with recommendations
+# (automatically displayed after profiling)
+```
+
+### Key Features
+- **Bun Native Profiling**: CPU and heap profiling with markdown output
+- **Automatic Analysis**: Pattern detection and actionable optimization recommendations
+- **SLA Monitoring**: Automatic profiling triggered on P95/P99 violations
+- **Production Safety**: 2% CPU overhead limit, 1GB storage quota, max 1 concurrent session
+- **K6 Integration**: Profile during performance tests automatically
+
+### Common Workflows
+1. **Optimize Endpoint**: Profile → Analyze recommendations → Implement fix → Re-profile
+2. **Production Investigation**: Enable SLA monitor → Auto-trigger on slow requests → Review profiles
+3. **Performance Testing**: Run K6 with ENABLE_PROFILING=true → Review bottlenecks
+4. **Memory Leak Detection**: Long-duration profiling → Check heap growth → Fix leaks
+
+### Profiling Output
+```markdown
+### ⚠️ HIGH: Kong Cache
+**Issue**: Kong consumer lookups consuming 23.1% CPU time (target: <15%)
+**Expected Impact**: -10-15ms P95 latency, -20% Kong API calls
+**Action Items**:
+1. Increase CACHING_TTL_SECONDS from 300 to 600
+2. Review cache invalidation logic in src/services/kong/consumer.service.ts
+3. Monitor metric: kong_cache_hits_total / kong_operations_total
+```
+
+### Configuration
+```bash
+# Enable continuous profiling (monitors SLA violations)
+CONTINUOUS_PROFILING_ENABLED=true
+CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA=true
+CONTINUOUS_PROFILING_THROTTLE_MINUTES=60
+```
+
+For complete profiling documentation, see [profiling-workflows.md](docs/development/profiling-workflows.md).
 
 ## API Versioning
 
