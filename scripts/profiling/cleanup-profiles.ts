@@ -102,9 +102,13 @@ function cleanupDirectory(
 
         if (ageMs > maxAgeMs) {
           if (options.dryRun) {
-            console.log(`  [DRY RUN] Would delete: ${filePath} (age: ${(ageMs / (1000 * 60 * 60)).toFixed(1)}h, size: ${formatBytes(stats.size)})`);
+            console.log(
+              `  [DRY RUN] Would delete: ${filePath} (age: ${(ageMs / (1000 * 60 * 60)).toFixed(1)}h, size: ${formatBytes(stats.size)})`
+            );
           } else {
-            console.log(`  Deleting: ${filePath} (age: ${(ageMs / (1000 * 60 * 60)).toFixed(1)}h, size: ${formatBytes(stats.size)})`);
+            console.log(
+              `  Deleting: ${filePath} (age: ${(ageMs / (1000 * 60 * 60)).toFixed(1)}h, size: ${formatBytes(stats.size)})`
+            );
             rmSync(filePath);
           }
           deletedCount++;
@@ -148,9 +152,13 @@ function cleanupArchiveDirectories(
         if (ageMs > maxAgeMs) {
           const dirSize = getDirectorySize(dirPath);
           if (options.dryRun) {
-            console.log(`  [DRY RUN] Would delete directory: ${dirPath} (age: ${(ageMs / (1000 * 60 * 60 * 24)).toFixed(1)}d, size: ${formatBytes(dirSize)})`);
+            console.log(
+              `  [DRY RUN] Would delete directory: ${dirPath} (age: ${(ageMs / (1000 * 60 * 60 * 24)).toFixed(1)}d, size: ${formatBytes(dirSize)})`
+            );
           } else {
-            console.log(`  Deleting directory: ${dirPath} (age: ${(ageMs / (1000 * 60 * 60 * 24)).toFixed(1)}d, size: ${formatBytes(dirSize)})`);
+            console.log(
+              `  Deleting directory: ${dirPath} (age: ${(ageMs / (1000 * 60 * 60 * 24)).toFixed(1)}d, size: ${formatBytes(dirSize)})`
+            );
             rmSync(dirPath, { recursive: true });
           }
           totalDeleted++;
@@ -193,7 +201,9 @@ async function main() {
 
     const options: CleanupOptions = {
       dryRun: values["dry-run"] || false,
-      currentMaxAge: values["current-max-age"] ? Number.parseInt(values["current-max-age"], 10) : 24,
+      currentMaxAge: values["current-max-age"]
+        ? Number.parseInt(values["current-max-age"], 10)
+        : 24,
       archiveMaxAge: values["archive-max-age"] ? Number.parseInt(values["archive-max-age"], 10) : 7,
       maxQuota: values["max-quota"]
         ? Number.parseFloat(values["max-quota"]) * 1024 * 1024 * 1024
@@ -230,7 +240,9 @@ async function main() {
     };
 
     if (stats.quotaExceeded) {
-      console.log(`WARNING: Storage quota exceeded by ${formatBytes(totalSize - options.maxQuota)}`);
+      console.log(
+        `WARNING: Storage quota exceeded by ${formatBytes(totalSize - options.maxQuota)}`
+      );
       console.log("");
     }
 
@@ -261,7 +273,9 @@ async function main() {
     console.log("  Cleanup Summary");
     console.log("=========================================");
     console.log(`Files ${options.dryRun ? "would be" : ""} deleted: ${stats.filesDeleted}`);
-    console.log(`Space ${options.dryRun ? "would be" : ""} freed: ${formatBytes(stats.spaceFreed)}`);
+    console.log(
+      `Space ${options.dryRun ? "would be" : ""} freed: ${formatBytes(stats.spaceFreed)}`
+    );
     if (!options.dryRun) {
       const newTotal = totalSize - stats.spaceFreed;
       console.log(`New total size: ${formatBytes(newTotal)}`);
