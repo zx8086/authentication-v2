@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Run unit & integration tests with coverage
-        run: bun run bun:test:coverage:ci
+        run: bun run test:bun:coverage:ci
         continue-on-error: true
 
       - name: Upload coverage to Codecov
@@ -485,7 +485,7 @@ jobs:
         run: |
           echo "Running Snyk code analysis..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
-          bunx snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
+          npx -y snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
             echo "Snyk code analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
@@ -504,7 +504,7 @@ jobs:
           echo "Running Snyk container scan..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
           echo "IMAGE_TAG: $IMAGE_TAG"
-          bunx snyk@latest container test $IMAGE_TAG \
+          npx -y snyk@latest container test $IMAGE_TAG \
             --quiet --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
             --json-file-output=snyk-container-results.json \
             --exclude-base-image-vulns --app-vulns || {
