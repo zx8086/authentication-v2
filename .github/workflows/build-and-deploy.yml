@@ -231,6 +231,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=${{ steps.package.outputs.service-version }},enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=v${{ steps.package.outputs.service-version }},enable=${{ github.ref == 'refs/heads/master' }}
           labels: |
             org.opencontainers.image.title=${{ steps.package.outputs.service-name }}
             org.opencontainers.image.description=${{ steps.package.outputs.service-description }}
