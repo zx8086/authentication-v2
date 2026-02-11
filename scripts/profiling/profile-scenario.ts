@@ -2,6 +2,7 @@
 
 /* scripts/profiling/profile-scenario.ts */
 
+import { dirname, normalize, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { MarkdownProfileParser, ProfileAnalyzer } from "./lib/markdown-parser";
 import { ProfileRunner } from "./lib/profile-runner";
@@ -13,6 +14,27 @@ interface CliOptions {
   outputDir?: string;
   noCpu?: boolean;
   noHeap?: boolean;
+}
+
+/**
+ * Validate and sanitize profile file paths to prevent path traversal attacks (CWE-22)
+ */
+function validateProfilePath(profilePath: string): string {
+  // Security: Normalize and resolve path to prevent traversal attacks
+  const normalizedPath = normalize(profilePath);
+  const resolvedPath = resolve(normalizedPath);
+
+  // Security: Ensure path stays within project directory
+  const scriptDir = dirname(new URL(import.meta.url).pathname);
+  const projectRoot = resolve(scriptDir, "../..");
+
+  if (!resolvedPath.startsWith(projectRoot)) {
+    throw new Error(
+      `Security: Profile path must be within project directory.\nAttempted: ${resolvedPath}\nProject root: ${projectRoot}`
+    );
+  }
+
+  return resolvedPath;
 }
 
 function printUsage() {
@@ -125,7 +147,9 @@ async function main() {
       if (profileResult.cpuProfilePath) {
         console.log(`CPU Profile: ${profileResult.cpuProfilePath}`);
         try {
-          const cpuMetrics = parser.parseCPUProfile(profileResult.cpuProfilePath);
+          // Security: Validate path before parsing (CWE-22 prevention)
+          const validatedPath = validateProfilePath(profileResult.cpuProfilePath);
+          const cpuMetrics = parser.parseCPUProfile(validatedPath);
           const recommendations = analyzer.generateRecommendations(cpuMetrics);
           const report = analyzer.generateEnhancedReport(cpuMetrics, recommendations);
           console.log(`\n${report}`);
@@ -137,7 +161,9 @@ async function main() {
       if (profileResult.heapProfilePath) {
         console.log(`\nHeap Profile: ${profileResult.heapProfilePath}`);
         try {
-          const heapMetrics = parser.parseHeapProfile(profileResult.heapProfilePath);
+          // Security: Validate path before parsing (CWE-22 prevention)
+          const validatedPath = validateProfilePath(profileResult.heapProfilePath);
+          const heapMetrics = parser.parseHeapProfile(validatedPath);
           const recommendations = analyzer.generateRecommendations(heapMetrics);
           const report = analyzer.generateEnhancedReport(heapMetrics, recommendations);
           console.log(`\n${report}`);
