@@ -316,8 +316,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           echo "Extracting SBOM from built image..."
-          docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} \
-            --output sbom-${{ github.sha }}.json
+          docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} > sbom-${{ github.sha }}.json
 
           echo "SBOM extracted: sbom-${{ github.sha }}.json"
           echo "SBOM size: $(du -h sbom-${{ github.sha }}.json | cut -f1)"

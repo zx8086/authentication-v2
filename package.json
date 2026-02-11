@@ -121,7 +121,7 @@
     "docker:security:validate": "./scripts/validate-dockerfile-security.sh",
     "docker:security:verify:runtime": "./scripts/verify-runtime-security.sh authentication-service:latest",
     "docker:dhi:verify-provenance": "docker scout attestation ${npm_package_name}:latest",
-    "docker:dhi:extract-sbom": "docker scout sbom ${npm_package_name}:latest --output sbom.json",
+    "docker:dhi:extract-sbom": "docker scout sbom ${npm_package_name}:latest > sbom.json",
     "docker:dhi:check-vex": "docker scout cves ${npm_package_name}:latest --format sarif --output vex-report.sarif",
     "docker:dhi:cve-scan": "docker scout cves dhi.io/static:20230311",
     "docker:dhi:security-full": "bun run --sequential docker:dhi:cve-scan docker:dhi:verify-provenance docker:dhi:extract-sbom docker:dhi:check-vex",
