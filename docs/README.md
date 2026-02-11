@@ -69,6 +69,7 @@ Container builds and production deployment.
 | [DHI-MIGRATION-FINAL-REPORT.md](deployment/DHI-MIGRATION-FINAL-REPORT.md) | DHI distroless migration complete (0 CVEs, 12/12 security score) |
 | [DHI-DEPLOYMENT-GUIDE.md](deployment/DHI-DEPLOYMENT-GUIDE.md) | DHI staging deployment procedures and validation |
 | [DHI-PHASE-6-VALIDATION-REPORT.md](deployment/DHI-PHASE-6-VALIDATION-REPORT.md) | Phase 6 local deployment validation results |
+| [DOCKER-SCOUT-TROUBLESHOOTING.md](deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Docker Scout health score troubleshooting and organization configuration |
 
 ### Operations
 

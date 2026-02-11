@@ -141,7 +141,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 ### Additional Documentation
 
 - **Architecture**: [system-overview.md](docs/architecture/system-overview.md), [authentication-flow.md](docs/architecture/authentication-flow.md)
-- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [DHI Migration](docs/deployment/DHI-MIGRATION-FINAL-REPORT.md)
+- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [DHI Migration](docs/deployment/DHI-MIGRATION-FINAL-REPORT.md), [Scout Troubleshooting](docs/deployment/DOCKER-SCOUT-TROUBLESHOOTING.md)
 - **API**: [jwt-tokens.md](docs/api/jwt-tokens.md)
 - **Operations**: [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
 - **Testing**: [test/README.md](test/README.md), [K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)

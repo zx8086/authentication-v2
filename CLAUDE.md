@@ -49,6 +49,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook, error codes, and FAQ |
 | Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
+| Docker Scout | [DOCKER-SCOUT-TROUBLESHOOTING.md](docs/deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Scout health score troubleshooting |
 
 ## Core Practices
 
