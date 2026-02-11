@@ -52,6 +52,7 @@ describe("Health Handler - Mutation Killers", () => {
     it("should check status < 500 for healthy", () => {
       // Boundary testing
       expect(499 < 500).toBe(true); // Kill: < 500 mutations
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing boundary condition
       expect(500 < 500).toBe(false);
       expect(501 < 500).toBe(false);
 
@@ -66,6 +67,7 @@ describe("Health Handler - Mutation Killers", () => {
     it("should check status >= 500 for error", () => {
       // Boundary testing
       expect(499 >= 500).toBe(false); // Kill: >= 500 mutations
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing boundary condition
       expect(500 >= 500).toBe(true);
       expect(501 >= 500).toBe(true);
 

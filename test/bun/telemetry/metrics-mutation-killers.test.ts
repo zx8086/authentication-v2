@@ -152,8 +152,11 @@ describe("Telemetry Metrics - Mutation Killers", () => {
     });
 
     it("should test all state comparisons", () => {
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing state comparisons
       expect("closed" === "closed").toBe(true);
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing state comparisons
       expect("open" === "open").toBe(true);
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing state comparisons
       expect("half_open" === "half_open").toBe(true);
       expect("closed" === "open").toBe(false);
     });

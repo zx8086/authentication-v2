@@ -194,17 +194,30 @@ For detailed architecture, see [system-overview.md](docs/architecture/system-ove
 ```bash
 # Development
 bun run dev              # Development server with hot reload
+bun run dev:quickstart   # Kill server, generate docs, start dev
 bun run start            # Production server
-bun run quality:check    # Full quality check (TypeScript + Biome + YAML)
+
+# Quality Checks (Bun v1.3.9+ Parallel Execution)
+bun run quality:check        # Parallel: typecheck, biome, yaml (17% faster)
+bun run quality:check:all    # Include license check, non-blocking
+bun run pre-commit           # Run before committing
+bun run pre-commit:fast      # Quick check (parallel biome + typecheck)
 
 # Testing (see test/README.md for complete documentation)
-bun run test:bun         # Unit + integration tests (1523 tests)
-bun run test:e2e         # E2E tests (3 suites)
-bun run test:k6:quick    # Performance smoke tests
+bun run test:bun             # Unit + integration tests (1523 tests)
+bun run test:e2e             # E2E tests (3 suites)
+bun run test:k6:quick        # Performance smoke tests
+bun run test:k6:smoke:basic  # Parallel health, metrics, openapi (40% faster)
+bun run test:suite           # Full suite with parallel E2E + K6 (44% faster)
+
+# Validation Workflows
+bun run validate:fast    # Quick validation (parallel quality + tests)
+bun run validate:full    # Complete validation including Docker security
 
 # Docker
-bun run docker:build     # Build container
-bun run docker:local     # Build and run locally
+bun run docker:build             # Build container
+bun run docker:local             # Build and run locally
+bun run docker:workflow:local    # Stop, build, run (sequential)
 ```
 
 For complete command reference, see [getting-started.md](docs/development/getting-started.md).

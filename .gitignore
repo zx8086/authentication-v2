@@ -44,6 +44,10 @@ pids
 tmp/
 temp/
 
+# Baseline timing artifacts and backups (generate fresh each time)
+baseline-timings.txt
+package.json.backup
+
 # Bundled runtime executables (built locally or in CI)
 scripts/bundled-runtimes/
 

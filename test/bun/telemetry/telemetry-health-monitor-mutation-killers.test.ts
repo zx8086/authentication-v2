@@ -58,12 +58,14 @@ describe("Telemetry Health Monitor - Mutation Killers", () => {
 
   describe("Circuit breaker status - Comparison mutations", () => {
     it("should check summary.open === 0 for healthy status", () => {
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing boundary condition
       expect(0 === 0).toBe(true); // Kill: === 0 mutations
       expect(1 === 0).toBe(false);
       expect(-1 === 0).toBe(false);
     });
 
     it("should check summary.open > 0 for recommendations", () => {
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing boundary condition
       expect(0 > 0).toBe(false); // Kill: > 0 mutations
       expect(1 > 0).toBe(true);
       expect(-1 > 0).toBe(false);
