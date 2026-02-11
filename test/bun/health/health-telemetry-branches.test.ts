@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { IKongService, KongHealthCheckResult } from "../../../src/config";
 import type { CircuitBreakerStats } from "../../../src/services/circuit-breaker.service";
+import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
 // Mock Kong service
 function createMockKongService(options: {
@@ -61,7 +62,7 @@ describe("Health Handler Telemetry Branches", () => {
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
     Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
-    Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+    Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
     Bun.env.TELEMETRY_MODE = "console";
     Bun.env.CACHE_HIGH_AVAILABILITY = "false";
 

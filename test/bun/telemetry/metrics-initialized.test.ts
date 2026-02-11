@@ -7,6 +7,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
 describe("Metrics Recording with Initialization", () => {
   const originalEnv = { ...Bun.env };
@@ -22,7 +23,7 @@ describe("Metrics Recording with Initialization", () => {
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
     Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
-    Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+    Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
     Bun.env.TELEMETRY_MODE = "console";
     Bun.env.OTEL_SERVICE_NAME = "metrics-test-service";
     Bun.env.OTEL_SERVICE_VERSION = "1.0.0-test";

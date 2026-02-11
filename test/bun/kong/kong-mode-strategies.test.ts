@@ -11,10 +11,11 @@ import {
   KongApiGatewayStrategy,
   KongKonnectStrategy,
 } from "../../../src/adapters/kong-mode-strategies";
+import { TEST_API_KEY_GATEWAY, TEST_API_KEY_KONNECT } from "../../shared/test-constants";
 
 describe("KongApiGatewayStrategy", () => {
   const baseUrl = "http://kong-admin:8001";
-  const adminToken = "test-token-123";
+  const adminToken = TEST_API_KEY_GATEWAY;
 
   describe("constructor", () => {
     it("should strip trailing slash from baseUrl", () => {
@@ -116,7 +117,7 @@ describe("KongApiGatewayStrategy", () => {
 describe("KongKonnectStrategy", () => {
   const validKonnectUrl =
     "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
-  const adminToken = "kpat-token-123";
+  const adminToken = TEST_API_KEY_KONNECT;
 
   // Mock fetch for testing
   let originalFetch: typeof globalThis.fetch;

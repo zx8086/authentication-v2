@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, test } from "bun:test";
 import { SchemaRegistry } from "../../../src/config/schemas";
+import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
 describe("Configuration System", () => {
   describe("Schema Validation", () => {
@@ -56,7 +57,7 @@ describe("Configuration System", () => {
       const validKongConfig = {
         mode: "API_GATEWAY",
         adminUrl: "http://test-kong.example.com:8001",
-        adminToken: process.env.TEST_KONG_TOKEN || Buffer.from("mock-token").toString("base64"),
+        adminToken: TEST_KONG_ADMIN_TOKEN,
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",
         anonymousHeader: "x-anonymous-consumer",
@@ -91,7 +92,7 @@ describe("Configuration System", () => {
       const invalidKongConfig = {
         mode: "INVALID_MODE",
         adminUrl: "http://test-kong.example.com:8001",
-        adminToken: process.env.TEST_KONG_TOKEN || Buffer.from("mock-token").toString("base64"),
+        adminToken: TEST_KONG_ADMIN_TOKEN,
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",
         anonymousHeader: "x-anonymous-consumer",
@@ -438,7 +439,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
 
       // Don't set optional variables like KONG_JWT_ISSUER, JWT_EXPIRATION_MINUTES
 
@@ -562,7 +563,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
         "../../../src/config/config"
@@ -590,7 +591,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3500"; // Above 3000 threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -609,7 +610,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE = "3000"; // At threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -627,7 +628,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "50000"; // Above 45000 threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -646,7 +647,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_EXPORTER_OTLP_TIMEOUT = "45000"; // At threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -666,7 +667,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "35000"; // Above 30000 threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -685,7 +686,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_BSP_MAX_QUEUE_SIZE = "30000"; // At threshold
 
       const { validateConfigurationHealth, resetConfigCache } = await import(
@@ -825,7 +826,7 @@ describe("Configuration System", () => {
       Bun.env.JWT_EXPIRATION_MINUTES = "15";
       Bun.env.KONG_MODE = "API_GATEWAY";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.TELEMETRY_MODE = "console";
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
 
@@ -850,7 +851,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
 
       const { loadConfig } = await import("../../../src/config/config");
       const config = loadConfig();
@@ -869,7 +870,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
       // Explicitly clear specific endpoints to test derivation
       delete Bun.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
@@ -888,7 +889,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com";
       Bun.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://specific-traces.example.com";
       // Explicitly clear other endpoints to test mixed derivation/specific behavior
@@ -923,7 +924,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
 
       const { loadConfig } = await import("../../../src/config/config");
       const config = loadConfig();
@@ -941,7 +942,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "not-a-url"; // Invalid URL
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
 
       const { loadConfig } = await import("../../../src/config/config");
 
@@ -964,7 +965,7 @@ describe("Configuration System", () => {
       Bun.env.KONG_JWT_AUTHORITY = "https://auth.example.com";
       Bun.env.KONG_JWT_AUDIENCE = "https://api.example.com";
       Bun.env.KONG_ADMIN_URL = "http://test-kong.example.com:8001";
-      Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+      Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
       Bun.env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.example.com/"; // With trailing slash
       // Explicitly clear specific endpoints to test derivation
       delete Bun.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;

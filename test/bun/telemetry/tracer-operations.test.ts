@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
 describe("Tracer Operations", () => {
   const originalEnv = { ...Bun.env };
@@ -21,7 +22,7 @@ describe("Tracer Operations", () => {
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
     Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
-    Bun.env.KONG_ADMIN_TOKEN = "test-token-123456789012345678901234567890";
+    Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
     Bun.env.TELEMETRY_MODE = "console";
 
     const { resetConfigCache } = await import("../../../src/config/config");
