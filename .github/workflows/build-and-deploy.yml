@@ -314,15 +314,21 @@ jobs:
 
       - name: Extract SBOM (Software Bill of Materials)
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         run: |
           echo "Extracting SBOM from built image..."
-          docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} > sbom-${{ github.sha }}.json
+          docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} > sbom-${{ github.sha }}.json || {
+            echo "Warning: Docker Scout not available, skipping SBOM extraction"
+            echo "Install Docker Scout CLI: https://docs.docker.com/scout/install/"
+            exit 0
+          }
 
           echo "SBOM extracted: sbom-${{ github.sha }}.json"
           echo "SBOM size: $(du -h sbom-${{ github.sha }}.json | cut -f1)"
 
       - name: Verify DHI VEX attestations
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         run: |
           echo "Verifying DHI VEX (Vulnerability Exploitability eXchange) attestations..."
           docker scout attestation dhi.io/static:20230311 --type vex > dhi-vex-${{ github.sha }}.json || true
