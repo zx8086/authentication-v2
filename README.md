@@ -141,7 +141,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 ### Additional Documentation
 
 - **Architecture**: [system-overview.md](docs/architecture/system-overview.md), [authentication-flow.md](docs/architecture/authentication-flow.md)
-- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md)
+- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [DHI Migration](docs/deployment/DHI-MIGRATION-FINAL-REPORT.md)
 - **API**: [jwt-tokens.md](docs/api/jwt-tokens.md)
 - **Operations**: [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
 - **Testing**: [test/README.md](test/README.md), [K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)
@@ -152,14 +152,15 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 ```bash
 bun run dev                    # Development server with hot reload
 bun run typecheck              # TypeScript validation
-bun run quality:check          # Code quality and formatting
+bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 ```
 
 ### Testing
 ```bash
 bun run test:bun              # Unit + integration tests (1523 tests)
 bun run test:e2e              # E2E tests (3 suites)
-bun run test:k6:smoke:health  # Performance smoke tests
+bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
+bun run test:suite            # Full test suite with parallel execution
 ```
 
 ### Operations
@@ -217,19 +218,19 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **OWASP Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options on all responses
 - **Circuit Breaker Protection**: Kong API resilience with stale cache fallback
 - **Security Scanning**: Automated vulnerability detection (Snyk, Trivy, Docker Scout)
-- **Container Security**: Non-root user, distroless base image, read-only filesystem
-- **Supply Chain Security**: SBOM generation and build provenance attestations
+- **Container Security**: DHI distroless base (0 CVEs, 12/12 security score), non-root user, read-only filesystem
+- **Supply Chain Security**: SBOM generation, VEX attestations, SLSA Level 3 provenance
 
 ## Technology Stack
 
-- **Runtime**: Bun v1.2.23+ (native performance)
+- **Runtime**: Bun v1.3.9+ (native performance with parallel execution support)
 - **Language**: TypeScript with strict validation
 - **HTTP**: Native Bun.serve() Routes API
 - **JWT**: Web Crypto API (crypto.subtle)
 - **Caching**: Redis with in-memory fallback
 - **Monitoring**: OpenTelemetry with OTLP
 - **Testing**: Bun Test + Playwright + K6
-- **Container**: Docker multi-stage distroless builds
+- **Container**: Docker Hardened Images (DHI) distroless base - 0 CVEs, SLSA Level 3
 
 ## Support & Contributing
 

@@ -49,7 +49,7 @@ Development workflow and testing documentation.
 
 | Document | Description |
 |----------|-------------|
-| [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
+| [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow (includes Bun 1.3.9 parallel execution) |
 | [test/README.md](../test/README.md) | Testing strategy (1400+ unit + 4 integration + 3 E2E + 15 K6) |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
 | [integration-tests-network-setup.md](development/integration-tests-network-setup.md) | Live Kong endpoint testing and network configuration |
@@ -66,6 +66,9 @@ Container builds and production deployment.
 | [docker.md](deployment/docker.md) | Docker container builds and deployment |
 | [kubernetes.md](deployment/kubernetes.md) | Production Kubernetes deployment |
 | [ci-cd.md](deployment/ci-cd.md) | GitHub Actions pipeline with security scanning |
+| [DHI-MIGRATION-FINAL-REPORT.md](deployment/DHI-MIGRATION-FINAL-REPORT.md) | DHI distroless migration complete (0 CVEs, 12/12 security score) |
+| [DHI-DEPLOYMENT-GUIDE.md](deployment/DHI-DEPLOYMENT-GUIDE.md) | DHI staging deployment procedures and validation |
+| [DHI-PHASE-6-VALIDATION-REPORT.md](deployment/DHI-PHASE-6-VALIDATION-REPORT.md) | Phase 6 local deployment validation results |
 
 ### Operations
 
@@ -152,23 +155,23 @@ Legacy system migration documentation.
 
 | Category | Status |
 |----------|--------|
-| Security | Complete - OWASP headers, audit logging, no hardcoded secrets |
+| Security | Complete - OWASP headers, audit logging, no hardcoded secrets, 0 CVEs |
 | Testing | Complete - 1500+ tests (48 unit + 4 integration + 3 E2E + 15 K6), 100% pass rate |
 | Observability | Complete - OpenTelemetry traces, metrics, logs |
 | Error Handling | Complete - Structured error codes, circuit breaker |
 | Documentation | Complete - OpenAPI spec, API docs, comprehensive guides |
 | Configuration | Complete - 4-pillar pattern, .env.example comprehensive |
-| Docker | Complete - Multi-stage distroless builds, security hardened |
-| CI/CD | Complete - Parallel security scanning, consolidated workflow |
+| Container Security | Complete - DHI distroless base (0 CVEs, 12/12 security score, SLSA Level 3) |
+| CI/CD | Complete - Parallel security scanning, consolidated workflow, Bun 1.3.9 parallel execution |
 
 ### Technology Stack
 
-- **Runtime**: Bun v1.2.23+ (native performance)
+- **Runtime**: Bun v1.3.9+ (native performance with parallel execution support)
 - **Language**: TypeScript with strict validation
 - **HTTP**: Native Bun.serve() Routes API
 - **JWT**: Web Crypto API (crypto.subtle)
 - **Monitoring**: OpenTelemetry with OTLP
-- **Container**: Docker multi-stage distroless builds
+- **Container**: Docker Hardened Images (DHI) distroless base - 0 CVEs, SLSA Level 3
 
 ### API Endpoints Summary
 

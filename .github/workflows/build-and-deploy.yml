@@ -314,6 +314,19 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      - name: Analyze image with Docker Scout
+        if: github.event_name != 'pull_request'
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }}
+          only-severities: critical,high
+          write-comment: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # This pushes the analysis results to Docker Hub for the health score dashboard
+          dockerhub-user: ${{ secrets.DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Extract SBOM (Software Bill of Materials)
         if: github.event_name != 'pull_request'
         continue-on-error: true
