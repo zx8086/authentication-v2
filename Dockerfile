@@ -48,8 +48,9 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
     # Verify build output exists
     ls -la dist/ public/ 2>/dev/null || echo 'Build artifacts ready'
 
-# Distroless production stage - ZERO attack surface
-FROM gcr.io/distroless/base:nonroot AS production
+# Docker Hardened Images production stage - SLSA Level 3 + VEX + SBOM
+# Using dhi.io/static - DHI's distroless runtime (zero vulnerabilities, minimal attack surface)
+FROM dhi.io/static:20230311 AS production
 
 # Copy Bun runtime and dependencies in consolidated operations (optimized for fewer layers)
 COPY --from=oven/bun:1.3.0-alpine --chown=65532:65532 \
@@ -118,7 +119,12 @@ LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.revision="${VCS_REF}" \
     org.opencontainers.image.licenses="${SERVICE_LICENSE}" \
-    org.opencontainers.image.base.name="gcr.io/distroless/base:nonroot" \
+    org.opencontainers.image.base.name="dhi.io/static:20230311" \
     security.scan.disable="false" \
     security.attestation.required="true" \
-    security.sbom.required="true"
+    security.sbom.required="true" \
+    security.dhi.enabled="true" \
+    security.dhi.slsa.level="3" \
+    security.dhi.vex.enabled="true" \
+    security.dhi.sbom.format="syft-json" \
+    security.dhi.cve.sla="7-days"

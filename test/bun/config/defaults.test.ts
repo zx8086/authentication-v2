@@ -308,18 +308,20 @@ describe("Default Configuration", () => {
       expect(defaultConfig.caching).toBeDefined();
       expect(defaultConfig.telemetry).toBeDefined();
       expect(defaultConfig.profiling).toBeDefined();
+      expect(defaultConfig.continuousProfiling).toBeDefined();
       expect(defaultConfig.apiInfo).toBeDefined();
     });
 
     it("should have correct number of top-level sections", () => {
       const sections = Object.keys(defaultConfig);
-      expect(sections.length).toBe(7);
+      expect(sections.length).toBe(8);
       expect(sections).toContain("server");
       expect(sections).toContain("jwt");
       expect(sections).toContain("kong");
       expect(sections).toContain("caching");
       expect(sections).toContain("telemetry");
       expect(sections).toContain("profiling");
+      expect(sections).toContain("continuousProfiling");
       expect(sections).toContain("apiInfo");
     });
 
@@ -330,6 +332,7 @@ describe("Default Configuration", () => {
       expect(typeof defaultConfig.caching).toBe("object");
       expect(typeof defaultConfig.telemetry).toBe("object");
       expect(typeof defaultConfig.profiling).toBe("object");
+      expect(typeof defaultConfig.continuousProfiling).toBe("object");
       expect(typeof defaultConfig.apiInfo).toBe("object");
     });
   });
