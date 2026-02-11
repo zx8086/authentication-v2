@@ -2,7 +2,7 @@
 # Designed for minimal build time and maximum security
 
 # syntax=docker/dockerfile:1
-FROM oven/bun:1.3.0-alpine AS deps-base
+FROM oven/bun:1.3.9-alpine AS deps-base
 WORKDIR /app
 
 # Install minimal system dependencies (Alpine drops old package versions, so pinning breaks builds)
@@ -53,7 +53,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 FROM dhi.io/static:20230311 AS production
 
 # Copy Bun runtime and dependencies in consolidated operations (optimized for fewer layers)
-COPY --from=oven/bun:1.3.0-alpine --chown=65532:65532 \
+COPY --from=oven/bun:1.3.9-alpine --chown=65532:65532 \
     /usr/local/bin/bun /usr/local/bin/bun
 
 COPY --from=deps-base --chown=65532:65532 \
