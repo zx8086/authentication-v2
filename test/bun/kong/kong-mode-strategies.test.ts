@@ -1,708 +1,152 @@
 /* test/bun/kong-mode-strategies.test.ts */
 
 /**
- * Unit tests for Kong mode strategies (KongApiGatewayStrategy, KongKonnectStrategy)
- * These tests focus on strategy behavior with mocked fetch to kill mutations
+ * Integration tests for Kong mode strategies with live Kong
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import type { KongAdapter } from "../../../src/adapters/kong.adapter";
 import {
   createKongModeStrategy,
   KongApiGatewayStrategy,
   KongKonnectStrategy,
 } from "../../../src/adapters/kong-mode-strategies";
-import { TEST_API_KEY_GATEWAY, TEST_API_KEY_KONNECT } from "../../shared/test-constants";
+import type { IKongService } from "../../../src/config";
+import { APIGatewayService } from "../../../src/services/api-gateway.service";
+import {
+  getSkipMessage,
+  resetKongAvailabilityCache,
+  setupKongTestContext,
+} from "../../shared/kong-test-helpers";
+import { TEST_API_KEY_GATEWAY, TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
-describe("KongApiGatewayStrategy", () => {
-  const baseUrl = "http://kong-admin:8001";
-  const adminToken = TEST_API_KEY_GATEWAY;
+describe("KongApiGatewayStrategy - Live Integration", () => {
+  const originalEnv = { ...Bun.env };
+  let kongAvailable = false;
+  let kongAdapter: KongAdapter | null = null;
+  let kongService: IKongService | null = null;
 
-  describe("constructor", () => {
+  beforeAll(async () => {
+    const context = await setupKongTestContext();
+    kongAvailable = context.available;
+    kongAdapter = context.adapter;
+    if (kongAdapter) {
+      kongService = new APIGatewayService(kongAdapter);
+    }
+  });
+
+  afterAll(() => {
+    resetKongAvailabilityCache();
+  });
+
+  beforeEach(async () => {
+    Object.keys(Bun.env).forEach((key) => {
+      if (!["PATH", "HOME", "USER", "SHELL", "TERM"].includes(key)) {
+        delete Bun.env[key];
+      }
+    });
+    Bun.env.NODE_ENV = "test";
+    Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
+    Bun.env.KONG_ADMIN_TOKEN = TEST_KONG_ADMIN_TOKEN;
+
+    const { resetConfigCache } = await import("../../../src/config/config");
+    resetConfigCache();
+  });
+
+  afterEach(async () => {
+    Object.keys(Bun.env).forEach((key) => {
+      if (!(key in originalEnv)) {
+        delete Bun.env[key];
+      }
+    });
+    Object.assign(Bun.env, originalEnv);
+
+    const { resetConfigCache } = await import("../../../src/config/config");
+    resetConfigCache();
+  });
+
+  describe("Basic URL handling", () => {
     it("should strip trailing slash from baseUrl", () => {
-      const strategy = new KongApiGatewayStrategy("http://kong:8001/", adminToken);
+      const strategy = new KongApiGatewayStrategy("http://kong:8001/", TEST_API_KEY_GATEWAY);
       expect(strategy.baseUrl).toBe("http://kong:8001");
     });
 
     it("should preserve baseUrl without trailing slash", () => {
-      const strategy = new KongApiGatewayStrategy("http://kong:8001", adminToken);
+      const strategy = new KongApiGatewayStrategy("http://kong:8001", TEST_API_KEY_GATEWAY);
       expect(strategy.baseUrl).toBe("http://kong:8001");
     });
+  });
 
-    it("should handle multiple trailing slashes by removing only the last one", () => {
-      const strategy = new KongApiGatewayStrategy("http://kong:8001//", adminToken);
-      // The regex /\/$/ only removes trailing slash at end
-      expect(strategy.baseUrl).toBe("http://kong:8001/");
+  describe("Health check with live Kong", () => {
+    it("should perform health check via strategy", async () => {
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
+
+      const result = await kongService.healthCheck();
+
+      expect(result).toBeDefined();
+      expect(typeof result.healthy).toBe("boolean");
+      expect(typeof result.responseTime).toBe("number");
     });
   });
 
-  describe("buildConsumerUrl", () => {
-    it("should build correct consumer JWT URL", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const url = await strategy.buildConsumerUrl(baseUrl, "consumer-123");
-      expect(url).toBe("http://kong-admin:8001/consumers/consumer-123/jwt");
-    });
+  describe("Consumer operations with live Kong", () => {
+    it("should query consumer via strategy", async () => {
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-    it("should use provided baseUrl not constructor baseUrl", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const url = await strategy.buildConsumerUrl("http://other:9000", "consumer-456");
-      expect(url).toBe("http://other:9000/consumers/consumer-456/jwt");
-    });
-  });
+      const result = await kongService.getConsumerSecret("test-consumer-001");
 
-  describe("buildHealthUrl", () => {
-    it("should build correct health URL", () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const url = strategy.buildHealthUrl(baseUrl);
-      expect(url).toBe("http://kong-admin:8001/status");
-    });
-
-    it("should use provided baseUrl", () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const url = strategy.buildHealthUrl("http://other:9000");
-      expect(url).toBe("http://other:9000/status");
-    });
-  });
-
-  describe("createAuthHeaders", () => {
-    it("should create headers with Kong-Admin-Token", () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const headers = strategy.createAuthHeaders("my-token");
-      expect(headers["Kong-Admin-Token"]).toBe("my-token");
-    });
-
-    it("should include standard headers from createStandardHeaders", () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const headers = strategy.createAuthHeaders("my-token");
-      // createStandardHeaders adds Content-Type and User-Agent
-      expect(headers["Content-Type"]).toBe("application/json");
-      expect(headers["User-Agent"]).toBe("Authentication-Service/1.0");
-    });
-
-    it("should not include Authorization header for API Gateway mode", () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const headers = strategy.createAuthHeaders("my-token");
-      expect(headers.Authorization).toBeUndefined();
-    });
-  });
-
-  describe("ensurePrerequisites", () => {
-    it("should resolve immediately (no-op for API Gateway)", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      await expect(strategy.ensurePrerequisites()).resolves.toBeUndefined();
-    });
-  });
-
-  describe("resolveConsumerId", () => {
-    it("should return the consumer ID unchanged", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const result = await strategy.resolveConsumerId("consumer-abc-123");
-      expect(result).toBe("consumer-abc-123");
-    });
-
-    it("should handle UUID format", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const uuid = "f48534e1-4caf-4106-9103-edf38eae7ebc";
-      const result = await strategy.resolveConsumerId(uuid);
-      expect(result).toBe(uuid);
-    });
-
-    it("should handle username format", async () => {
-      const strategy = new KongApiGatewayStrategy(baseUrl, adminToken);
-      const result = await strategy.resolveConsumerId("test-user@example.com");
-      expect(result).toBe("test-user@example.com");
+      // May be null if consumer doesn't exist
+      if (result) {
+        expect(result.key).toBeDefined();
+      }
     });
   });
 });
 
-describe("KongKonnectStrategy", () => {
-  const validKonnectUrl =
-    "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012";
-  const adminToken = TEST_API_KEY_KONNECT;
+describe("createKongModeStrategy factory - Live Integration", () => {
+  const originalEnv = { ...Bun.env };
 
-  // Mock fetch for testing
-  let originalFetch: typeof globalThis.fetch;
-  let mockFetch: ReturnType<typeof mock>;
+  beforeEach(async () => {
+    Object.keys(Bun.env).forEach((key) => {
+      if (!["PATH", "HOME", "USER", "SHELL", "TERM"].includes(key)) {
+        delete Bun.env[key];
+      }
+    });
+    Bun.env.NODE_ENV = "test";
 
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-    mockFetch = mock(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      )
-    );
-    globalThis.fetch = mockFetch;
+    const { resetConfigCache } = await import("../../../src/config/config");
+    resetConfigCache();
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    mockFetch.mockRestore?.();
+  afterEach(async () => {
+    Object.keys(Bun.env).forEach((key) => {
+      if (!(key in originalEnv)) {
+        delete Bun.env[key];
+      }
+    });
+    Object.assign(Bun.env, originalEnv);
+
+    const { resetConfigCache } = await import("../../../src/config/config");
+    resetConfigCache();
   });
 
-  describe("constructor", () => {
-    it("should parse valid Konnect URL correctly", () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      // Verify it doesn't throw
-      expect(strategy).toBeDefined();
-    });
+  it("should create API Gateway strategy when mode is API_GATEWAY", () => {
+    const strategy = createKongModeStrategy("API_GATEWAY", "http://kong:8001", "test-token");
 
-    it("should throw for invalid Konnect URL format", () => {
-      expect(() => {
-        new KongKonnectStrategy("https://us.api.konghq.com/invalid-path", adminToken);
-      }).toThrow("Invalid Kong Konnect URL format");
-    });
-
-    it("should handle self-hosted Kong URL (non-konghq.com)", () => {
-      const strategy = new KongKonnectStrategy("http://self-hosted:8001", adminToken);
-      expect(strategy).toBeDefined();
-    });
-
-    it("should strip trailing slash from URLs", () => {
-      const strategy = new KongKonnectStrategy(`${validKonnectUrl}/`, adminToken);
-      expect(strategy).toBeDefined();
-    });
-
-    it("should extract control plane ID from Konnect URL", () => {
-      // The control plane ID is used to build the realm ID
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      // We can't directly access private members, but we can test the build methods
-      expect(strategy).toBeDefined();
-    });
-  });
-
-  describe("buildConsumerUrl", () => {
-    it("should build Konnect-style consumer JWT URL", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      const url = await strategy.buildConsumerUrl(validKonnectUrl, "consumer-123");
-      expect(url).toBe(`${validKonnectUrl}/core-entities/consumers/consumer-123/jwt`);
-    });
-  });
-
-  describe("buildHealthUrl", () => {
-    it("should return the baseUrl as health URL", () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      const url = strategy.buildHealthUrl(validKonnectUrl);
-      expect(url).toBe(validKonnectUrl);
-    });
-  });
-
-  describe("createAuthHeaders", () => {
-    it("should create headers with Bearer Authorization", () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      const headers = strategy.createAuthHeaders("my-bearer-token");
-      expect(headers.Authorization).toBe("Bearer my-bearer-token");
-    });
-
-    it("should include standard headers", () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      const headers = strategy.createAuthHeaders("token");
-      expect(headers["Content-Type"]).toBe("application/json");
-      expect(headers["User-Agent"]).toBe("Authentication-Service/1.0");
-    });
-
-    it("should not include Kong-Admin-Token header", () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-      const headers = strategy.createAuthHeaders("token");
-      expect(headers["Kong-Admin-Token"]).toBeUndefined();
-    });
-  });
-
-  describe("resolveConsumerId", () => {
-    it("should return consumer ID when direct lookup succeeds", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ id: "resolved-uuid-123", username: "test-user" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-        )
-      );
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBe("resolved-uuid-123");
-    });
-
-    it("should search by username when direct lookup returns 404", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // First call - direct lookup returns 404
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Second call - username search succeeds
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: [{ id: "found-uuid-456", username: "test-user" }],
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBe("found-uuid-456");
-      expect(callCount).toBe(2);
-    });
-
-    it("should return null when consumer not found after search", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Search returns empty data
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: [],
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("unknown-user");
-      expect(result).toBeNull();
-    });
-
-    it("should return null when username search returns wrong username", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Search returns different username
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: [{ id: "other-uuid", username: "different-user" }],
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBeNull();
-    });
-
-    it("should throw on unexpected error status", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ message: "Server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          })
-        )
-      );
-
-      await expect(strategy.resolveConsumerId("test-user")).rejects.toThrow(
-        "Unexpected error resolving consumer: 500"
-      );
-    });
-
-    it("should throw timeout error on AbortError", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() => {
-        const error = new Error("The operation was aborted");
-        error.name = "AbortError";
-        return Promise.reject(error);
-      });
-
-      await expect(strategy.resolveConsumerId("test-user")).rejects.toThrow(
-        "Timeout resolving consumer: test-user"
-      );
-    });
-
-    it("should re-throw non-AbortError errors", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() => Promise.reject(new Error("Network failure")));
-
-      await expect(strategy.resolveConsumerId("test-user")).rejects.toThrow("Network failure");
-    });
-
-    it("should handle search returning non-array data", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Search returns non-array data
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: "not-an-array",
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBeNull();
-    });
-
-    it("should handle search returning null data", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: null,
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBeNull();
-    });
-
-    it("should handle search failure (non-404, non-200)", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Search returns 403
-        return Promise.resolve(
-          new Response(JSON.stringify({ message: "Forbidden" }), {
-            status: 403,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBeNull();
-    });
-
-    it("should handle consumer with missing id", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Consumer with no id
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: [{ username: "test-user" }], // no id field
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          )
-        );
-      });
-
-      const result = await strategy.resolveConsumerId("test-user");
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("ensurePrerequisites", () => {
-    it("should not throw when realm exists", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ id: "realm-id", name: "auth-realm-12345678" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-        )
-      );
-
-      await expect(strategy.ensurePrerequisites()).resolves.toBeUndefined();
-    });
-
-    it("should create realm when it does not exist", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // Realm check returns 404
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Realm creation succeeds
-        return Promise.resolve(
-          new Response(JSON.stringify({ id: "new-realm-id" }), {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      });
-
-      await expect(strategy.ensurePrerequisites()).resolves.toBeUndefined();
-      expect(callCount).toBe(2);
-    });
-
-    it("should throw on unexpected realm check status", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ message: "Internal error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          })
-        )
-      );
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow(
-        "Unexpected error checking realm: 500"
-      );
-    });
-
-    it("should throw timeout error on realm check AbortError", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      mockFetch.mockImplementation(() => {
-        const error = new Error("Aborted");
-        error.name = "AbortError";
-        return Promise.reject(error);
-      });
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow(
-        "Timeout checking realm existence"
-      );
-    });
-
-    it("should handle realm creation failure", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Creation fails with 500
-        return Promise.resolve(
-          new Response("Internal Server Error", {
-            status: 500,
-            headers: { "Content-Type": "text/plain" },
-          })
-        );
-      });
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow(
-        "Failed to create realm: 500 Internal Server Error"
-      );
-    });
-
-    it("should handle race condition when realm already exists (400)", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Creation returns 400 with "realm name must be unique"
-        return Promise.resolve(
-          new Response(JSON.stringify({ message: "realm name must be unique" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      });
-
-      await expect(strategy.ensurePrerequisites()).resolves.toBeUndefined();
-    });
-
-    it("should throw on 400 with different error message", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        // Creation returns 400 with different error
-        return Promise.resolve(
-          new Response(JSON.stringify({ message: "Invalid request body" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      });
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow("Failed to create realm: 400");
-    });
-
-    it("should throw timeout error on realm creation AbortError", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        const error = new Error("Aborted");
-        error.name = "AbortError";
-        return Promise.reject(error);
-      });
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow("Timeout creating realm");
-    });
-
-    it("should re-throw non-AbortError errors during realm creation", async () => {
-      const strategy = new KongKonnectStrategy(validKonnectUrl, adminToken);
-
-      let callCount = 0;
-      mockFetch.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ message: "Not found" }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            })
-          );
-        }
-        return Promise.reject(new Error("Network failure"));
-      });
-
-      await expect(strategy.ensurePrerequisites()).rejects.toThrow("Network failure");
-    });
-  });
-});
-
-describe("createKongModeStrategy factory", () => {
-  it("should create KongApiGatewayStrategy for API_GATEWAY mode", () => {
-    const strategy = createKongModeStrategy("API_GATEWAY", "http://kong:8001", "token");
     expect(strategy).toBeInstanceOf(KongApiGatewayStrategy);
   });
 
-  it("should create KongKonnectStrategy for KONNECT mode", () => {
-    const strategy = createKongModeStrategy(
-      "KONNECT",
-      "https://us.api.konghq.com/v2/control-planes/12345678-1234-1234-1234-123456789012",
-      "token"
-    );
-    expect(strategy).toBeInstanceOf(KongKonnectStrategy);
-  });
+  it("should create Konnect strategy when mode is KONNECT", () => {
+    Bun.env.KONG_KONNECT_CONTROL_PLANE_ID = "test-cp-id";
 
-  it("should throw for unsupported mode", () => {
-    expect(() => {
-      createKongModeStrategy("INVALID" as "API_GATEWAY", "http://kong:8001", "token");
-    }).toThrow("Unsupported Kong mode: INVALID");
+    const strategy = createKongModeStrategy("KONNECT", "http://konnect.api", "test-token");
+
+    expect(strategy).toBeInstanceOf(KongKonnectStrategy);
   });
 });

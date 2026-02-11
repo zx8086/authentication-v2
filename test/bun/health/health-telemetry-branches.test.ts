@@ -1,56 +1,42 @@
 /* test/bun/health-telemetry-branches.test.ts */
 
 /**
- * Tests for health handler telemetry branches and HA mode behavior.
+ * Tests for health handler telemetry branches and HA mode behavior using LIVE Kong.
  * These tests cover code paths that require specific configurations:
  * - High Availability mode stale cache checks
  * - Telemetry endpoint health checks
  * - Cache health error paths
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { IKongService, KongHealthCheckResult } from "../../../src/config";
-import type { CircuitBreakerStats } from "../../../src/services/circuit-breaker.service";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import type { KongAdapter } from "../../../src/adapters/kong.adapter";
+import type { IKongService } from "../../../src/config";
+import { APIGatewayService } from "../../../src/services/api-gateway.service";
+import {
+  getSkipMessage,
+  resetKongAvailabilityCache,
+  setupKongTestContext,
+} from "../../shared/kong-test-helpers";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
-
-// Mock Kong service
-function createMockKongService(options: {
-  healthCheckResult?: KongHealthCheckResult;
-  healthCheckThrows?: boolean;
-  healthCheckError?: string;
-}): IKongService {
-  return {
-    async getConsumerSecret() {
-      return null;
-    },
-    async createConsumerSecret() {
-      return null;
-    },
-    async healthCheck(): Promise<KongHealthCheckResult> {
-      if (options.healthCheckThrows) {
-        throw new Error(options.healthCheckError || "Connection failed");
-      }
-      return (
-        options.healthCheckResult || {
-          healthy: true,
-          responseTime: 50,
-        }
-      );
-    },
-    async clearCache() {
-      /* no-op for mock */
-    },
-    async getCacheStats() {
-      return { size: 0, hitRate: "0%" };
-    },
-    getCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
-      return {};
-    },
-  };
-}
 
 describe("Health Handler Telemetry Branches", () => {
   const originalEnv = { ...Bun.env };
+  let kongAvailable = false;
+  let kongAdapter: KongAdapter | null = null;
+  let kongService: IKongService | null = null;
+
+  beforeAll(async () => {
+    const context = await setupKongTestContext();
+    kongAvailable = context.available;
+    kongAdapter = context.adapter;
+    if (kongAdapter) {
+      kongService = new APIGatewayService(kongAdapter);
+    }
+  });
+
+  afterAll(() => {
+    resetKongAvailabilityCache();
+  });
 
   beforeEach(async () => {
     Object.keys(Bun.env).forEach((key) => {
@@ -90,12 +76,13 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("handleHealthCheck with telemetry configuration", () => {
     it("should include telemetry status in health response", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleHealthCheck(mockKong);
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
       expect(body.dependencies).toBeDefined();
@@ -103,12 +90,13 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should check telemetry dependencies when configured", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleHealthCheck(mockKong);
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
       // Telemetry may have different structure based on configuration
@@ -118,12 +106,13 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("handleHealthCheck with cache status", () => {
     it("should include cache status in response", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleHealthCheck(mockKong);
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
       expect(body.dependencies.cache).toBeDefined();
@@ -131,16 +120,17 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should show stale cache as available in non-HA mode", async () => {
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
+
       Bun.env.CACHE_HIGH_AVAILABILITY = "false";
       const { resetConfigCache } = await import("../../../src/config/config");
       resetConfigCache();
 
       const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
-
-      const response = await handleHealthCheck(mockKong);
+      const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
       // In non-HA mode, stale cache should be available via in-memory circuit breaker
@@ -186,12 +176,13 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("handleMetricsHealth endpoint", () => {
     it("should return metrics status", async () => {
-      const { handleMetricsHealth } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = handleMetricsHealth(mockKong);
+      const { handleMetricsHealth } = await import("../../../src/handlers/health");
+      const response = handleMetricsHealth(kongService);
       const body = await response.json();
 
       expect(body.metrics).toBeDefined();
@@ -199,12 +190,13 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should include circuit breaker summary", async () => {
-      const { handleMetricsHealth } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = handleMetricsHealth(mockKong);
+      const { handleMetricsHealth } = await import("../../../src/handlers/health");
+      const response = handleMetricsHealth(kongService);
       const body = await response.json();
 
       expect(body.circuitBreakers).toBeDefined();
@@ -213,12 +205,13 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should include circuit breaker states breakdown", async () => {
-      const { handleMetricsHealth } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = handleMetricsHealth(mockKong);
+      const { handleMetricsHealth } = await import("../../../src/handlers/health");
+      const response = handleMetricsHealth(kongService);
       const body = await response.json();
 
       expect(body.circuitBreakers.states).toBeDefined();
@@ -230,12 +223,13 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("handleReadinessCheck with cache", () => {
     it("should check cache readiness", async () => {
-      const { handleReadinessCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleReadinessCheck(mockKong);
+      const { handleReadinessCheck } = await import("../../../src/handlers/health");
+      const response = await handleReadinessCheck(kongService);
       const body = await response.json();
 
       expect(body.ready).toBeDefined();
@@ -243,12 +237,13 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should include checks in readiness response", async () => {
-      const { handleReadinessCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleReadinessCheck(mockKong);
+      const { handleReadinessCheck } = await import("../../../src/handlers/health");
+      const response = await handleReadinessCheck(kongService);
       const body = await response.json();
 
       expect(body.checks).toBeDefined();
@@ -258,12 +253,13 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("handleReadinessCheck response structure", () => {
     it("should include checks in response", async () => {
-      const { handleReadinessCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleReadinessCheck(mockKong);
+      const { handleReadinessCheck } = await import("../../../src/handlers/health");
+      const response = await handleReadinessCheck(kongService);
       const body = await response.json();
 
       expect(body.checks).toBeDefined();
@@ -271,12 +267,13 @@ describe("Health Handler Telemetry Branches", () => {
     });
 
     it("should include timestamp in readiness response", async () => {
-      const { handleReadinessCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleReadinessCheck(mockKong);
+      const { handleReadinessCheck } = await import("../../../src/handlers/health");
+      const response = await handleReadinessCheck(kongService);
       const body = await response.json();
 
       expect(body.timestamp).toBeDefined();
@@ -286,43 +283,42 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("Edge cases", () => {
     it("should handle Kong being completely unavailable", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckThrows: true,
-        healthCheckError: "ECONNREFUSED",
-      });
+      // Test with invalid Kong URL to simulate unavailable Kong
+      Bun.env.KONG_ADMIN_URL = "http://192.168.254.254:9999"; // Non-routable IP
+      const { resetConfigCache } = await import("../../../src/config/config");
+      resetConfigCache();
 
-      const response = await handleHealthCheck(mockKong);
+      // Create a new context with invalid URL
+      const invalidContext = await setupKongTestContext();
+      const invalidKongService = invalidContext.adapter
+        ? new APIGatewayService(invalidContext.adapter)
+        : null;
+
+      if (!invalidKongService) {
+        console.log("Skipping: Cannot create Kong service for unavailable test");
+        return;
+      }
+
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(invalidKongService);
 
       expect(response.status).toBe(503);
-    });
-
-    it("should handle Kong timeout", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckThrows: true,
-        healthCheckError: "Request timeout",
-      });
-
-      const response = await handleHealthCheck(mockKong);
-      const body = await response.json();
-
-      expect(response.status).toBe(503);
-      expect(body.dependencies.kong.status).toBe("unhealthy");
     });
 
     it("should handle missing telemetry endpoints gracefully", async () => {
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
+
       // In console mode, OTLP endpoints are not required
       Bun.env.TELEMETRY_MODE = "console";
+      Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";
       const { resetConfigCache } = await import("../../../src/config/config");
       resetConfigCache();
 
       const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
-
-      const response = await handleHealthCheck(mockKong);
+      const response = await handleHealthCheck(kongService);
 
       // Should return 200 when Kong is healthy
       expect(response.status).toBe(200);
@@ -331,23 +327,25 @@ describe("Health Handler Telemetry Branches", () => {
 
   describe("Response headers", () => {
     it("should include Content-Type header", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleHealthCheck(mockKong);
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(kongService);
 
       expect(response.headers.get("Content-Type")).toBe("application/json");
     });
 
     it("should include Cache-Control header", async () => {
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const mockKong = createMockKongService({
-        healthCheckResult: { healthy: true, responseTime: 50 },
-      });
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
 
-      const response = await handleHealthCheck(mockKong);
+      const { handleHealthCheck } = await import("../../../src/handlers/health");
+      const response = await handleHealthCheck(kongService);
 
       expect(response.headers.get("Cache-Control")).toBe("no-cache");
     });

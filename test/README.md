@@ -2,32 +2,53 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 1523 tests across 73 files (100% pass rate)
+**Current Test Suite**: 2884 tests across 101 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
-| Unit Tests | 59 | 1400+ | Bun |
+| Unit Tests | 97 | 2800+ | Bun |
 | Integration Tests | 4 | 50+ | Bun |
 | E2E Tests | 3 | 32 | Playwright |
 | Performance Tests | 19 | - | K6 |
+
+## Live Backend Testing Strategy
+
+**ALL TESTS USE LIVE ENDPOINTS - NO MOCKS UNLESS EXPLICITLY STATED**
+
+This project follows a **live environment testing strategy**:
+- Tests connect to REAL Kong instances at `http://192.168.178.3:30001`
+- Tests connect to REAL Redis instances (when available)
+- Tests use REAL HTTP servers via `Bun.serve()`
+- Configuration comes from `.env` file with live endpoints
+- **Automatic Curl Fallback**: `fetchWithFallback()` handles Bun networking bugs with remote IPs
+- Tests gracefully skip if live services are unavailable
+
+**Files Using Live Backends** (recently converted from mocks):
+- `test/bun/utils/bun-fetch-fallback-internals.test.ts` - Uses live `Bun.serve()` mock servers
+- `test/bun/kong/kong-mode-strategies.test.ts` - Uses live Kong instance
+- `test/bun/services/api-gateway.service.test.ts` - Uses live Kong instance
+- `test/bun/health/health-fetch-spy.test.ts` - Uses live Kong and Redis
+- `test/bun/health/health-telemetry-branches.test.ts` - Uses live services
+
+**Exception**: `test/bun/cache/shared-redis-cache-errors.test.ts` uses global mocks for error simulation as other tests depend on this pattern.
 
 ## Directory Structure
 
 ```
 test/
-├── bun/              # Unit Tests (59 test files in 12 subdirectories)
-│   ├── cache/        # Caching functionality (7 files)
-│   ├── circuit-breaker/  # Circuit breaker patterns (5 files)
+├── bun/              # Unit Tests (97 test files in 12 subdirectories)
+│   ├── cache/        # Caching functionality (14 files)
+│   ├── circuit-breaker/  # Circuit breaker patterns (6 files)
 │   ├── config/       # Configuration management (5 files)
-│   ├── handlers/     # HTTP request handlers (5 files)
-│   ├── health/       # Health check endpoints (6 files)
-│   ├── integration/  # Integration tests (2 files)
-│   ├── kong/         # Kong API Gateway integration (4 files)
-│   ├── logging/      # Logging functionality (4 files)
-│   ├── mutation/     # Mutation-specific tests (2 files)
-│   ├── services/     # Service layer tests (4 files)
-│   ├── telemetry/    # Observability (9 files)
-│   └── utils/        # Utility functions (6 files)
+│   ├── handlers/     # HTTP request handlers (8 files)
+│   ├── health/       # Health check endpoints (9 files)
+│   ├── integration/  # Integration tests (4 files)
+│   ├── kong/         # Kong API Gateway integration (7 files)
+│   ├── logging/      # Logging functionality (5 files)
+│   ├── mutation/     # Mutation-specific tests (3 files)
+│   ├── services/     # Service layer tests (7 files)
+│   ├── telemetry/    # Observability (13 files)
+│   └── utils/        # Utility functions (16 files)
 ├── integration/      # Integration Tests (4 test files)
 ├── k6/               # Performance Tests (19 test files)
 │   ├── smoke/        # Quick validation tests
@@ -47,20 +68,28 @@ test/
 ## Testing Strategy Overview
 
 ### 1. Bun Tests - Unit & Integration Testing
-**Purpose**: Fast feedback, component validation, mocked dependencies
+**Purpose**: Fast feedback, component validation, live backend testing
 **Framework**: Bun native test runner
 **When to run**: During development, pre-commit, CI/CD
+**Testing Strategy**: Live backends (Kong, Redis, Bun.serve()) - no mocks unless explicitly required
 
-**Test Files** (59 files organized by subdirectory):
+**Test Files** (97 files organized by subdirectory):
 
-**cache/ (7 files)** - Caching functionality:
+**cache/ (14 files)** - Caching functionality:
 - `cache-factory.test.ts` - Cache factory infrastructure
 - `cache-factory-errors.test.ts` - Cache factory error handling
 - `cache-manager.test.ts` - Cache manager operations
+- `cache-manager-integration.test.ts` - Cache manager integration with live Redis
 - `cache-health-edge-cases.test.ts` - Cache health edge cases
 - `cache-stale-operations.test.ts` - Stale data handling
 - `local-memory-cache.test.ts` - In-memory cache implementation
 - `local-memory-cache-maxentries.test.ts` - Cache size limits
+- `shared-redis-cache.test.ts` - Redis cache with live backend
+- `shared-redis-cache-errors.test.ts` - Redis error handling (uses mocks for error simulation)
+- `shared-redis-cache-operations.test.ts` - Redis operations with live backend
+- `shared-redis-cache-stale.test.ts` - Redis stale data handling
+- `unified-cache-manager.test.ts` - Unified cache manager
+- `unified-cache-manager-integration.test.ts` - Integration testing with live backends
 
 **circuit-breaker/ (5 files)** - Circuit breaker patterns:
 - `circuit-breaker-per-operation.test.ts` - Per-operation circuit breakers
@@ -83,23 +112,29 @@ test/
 - `openapi-generator.test.ts` - OpenAPI spec generation
 - `openapi-yaml-converter.test.ts` - YAML conversion
 
-**health/ (6 files)** - Health check endpoints:
+**health/ (9 files)** - Health check endpoints:
 - `health-handlers.test.ts` - Health endpoint logic
 - `health-branches.test.ts` - Branch coverage
-- `health-fetch-spy.test.ts` - Fetch mocking
-- `health-telemetry-branches.test.ts` - Telemetry branches
+- `health-fetch-spy.test.ts` - Live Kong integration testing (converted from mocks)
+- `health-telemetry-branches.test.ts` - Telemetry branches with live services (converted from mocks)
 - `health-mutation-killers.test.ts` - Mutation killers
 - `health.mutation.test.ts` - Mutation-resistant tests
+- `health-cache-checks.test.ts` - Cache health checks
+- `health-redis-checks.test.ts` - Redis health validation
+- `health-endpoint-coverage.test.ts` - Endpoint coverage tests
 
 **integration/ (2 files)** - Integration tests:
 - `api-versioning.test.ts` - API versioning (v1/v2)
 - `shutdown-cleanup.test.ts` - Graceful shutdown
 
-**kong/ (4 files)** - Kong API Gateway integration:
+**kong/ (7 files)** - Kong API Gateway integration:
 - `kong.adapter.test.ts` - Kong adapter with mocking
 - `kong-adapter-fetch.test.ts` - Fetch-specific tests
-- `kong-mode-strategies.test.ts` - Mode strategy selection
+- `kong-mode-strategies.test.ts` - Live Kong integration (converted from mocks)
 - `kong-utils.test.ts` - Kong utility functions
+- `kong-consumer-operations.test.ts` - Consumer operations with live Kong
+- `kong-circuit-breaker.test.ts` - Circuit breaker with live Kong
+- `kong-cache-integration.test.ts` - Cache integration with live Kong
 
 **logging/ (4 files)** - Logging functionality:
 - `logger.test.ts` - Core logger functionality
@@ -111,11 +146,14 @@ test/
 - `jwt.mutation.test.ts` - JWT mutation tests
 - `mutation-killer.test.ts` - Mutation killer patterns
 
-**services/ (4 files)** - Service layer tests:
+**services/ (7 files)** - Service layer tests:
 - `jwt.service.test.ts` - JWT generation/validation
 - `jwt-error-path.test.ts` - JWT error paths
-- `api-gateway.service.test.ts` - API gateway service
+- `api-gateway.service.test.ts` - Live Kong integration (converted from mocks)
 - `cache-health.service.test.ts` - Cache health service
+- `kong-service-integration.test.ts` - Kong service integration with live backend
+- `circuit-breaker-service.test.ts` - Circuit breaker service patterns
+- `token-service-integration.test.ts` - Token service integration tests
 
 **telemetry/ (9 files)** - Observability:
 - `metrics.test.ts` - Metrics collection
@@ -134,23 +172,39 @@ test/
   - **Implementation**: Tests verify `src/telemetry/redis-instrumentation.ts` behavior
   - **Trace continuity**: HTTP → Kong → JWT → Redis (full distributed tracing)
 
-**utils/ (6 files)** - Utility functions:
+**utils/ (16 files)** - Utility functions:
 - `error-codes.test.ts` - Structured error codes
 - `type-validation.test.ts` - TypeScript type safety
 - `header-validation.test.ts` - Request header validation
 - `response.mutation.test.ts` - Response mutations
 - `retry.test.ts` - Retry logic
 - `cardinality-guard.test.ts` - Cardinality protection
+- `bun-fetch-fallback.test.ts` - Fetch fallback utility
+- `bun-fetch-fallback-internals.test.ts` - Live fetch testing with Bun.serve() (converted from mocks)
+- `bun-fetch-fallback-real.test.ts` - Real HTTP behavior tests
+- `fetch-timeout.test.ts` - Timeout handling
+- `url-builder.test.ts` - URL construction utilities
+- `cache-key-builder.test.ts` - Cache key generation
+- `metrics-helpers.test.ts` - Metrics helper functions
+- `trace-context.test.ts` - Distributed tracing context
+- `error-serialization.test.ts` - Error serialization
+- `health-check-utils.test.ts` - Health check utilities
 
 **Commands**:
 ```bash
-bun test                                    # All Bun tests
+bun run test:bun                           # All Bun tests (2884 tests)
 bun test test/bun/jwt.service.test.ts      # Specific test file
 bun test test/bun/cache/                   # All cache tests (selective testing)
-bun test test/bun/kong/                    # All Kong integration tests
+bun test test/bun/kong/                    # All Kong integration tests (live backends)
+bun test test/bun/health/                  # All health check tests (live backends)
 bun test --watch                           # Watch mode
 bun test --coverage                        # With coverage
 ```
+
+**Live Backend Requirements**:
+- Kong Admin API at `http://192.168.178.3:30001` (from `.env`)
+- Redis at `localhost:6379` (optional, tests skip if unavailable)
+- Test consumers configured in Kong (see `test/shared/test-constants.ts`)
 
 **Benefits of Subdirectory Organization**:
 - **Improved Discoverability**: Tests organized by domain make it easier to find related tests
@@ -518,8 +572,8 @@ Authorization: Bearer <jwt-token>
 
 ### Comprehensive Testing Strategy
 ```bash
-# 1. Unit & Integration (fastest) - ~45 seconds, 1400+ tests
-bun test
+# 1. Unit & Integration (fastest) - ~25 seconds, 2884 tests
+bun run test:bun
 
 # 2. E2E Scenarios (thorough) - 2-3 minutes
 bun run test:e2e

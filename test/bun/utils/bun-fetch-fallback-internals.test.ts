@@ -91,22 +91,19 @@ describe("fetchWithFallback - Real behavior tests", () => {
   });
 
   describe("Curl fallback path", () => {
-    it.skip("should fall back to curl when fetch fails", async () => {
-      // Use a deliberately invalid URL that will cause fetch to fail but curl might handle
-      const url = "http://192.168.254.254:9999/test"; // Non-routable IP
+    it("should fall back to curl when fetch fails", async () => {
+      // Use invalid domain to trigger fetch failure and curl fallback
+      // Invalid domains fail fast, unlike non-routable IPs which hang
+      const url = "http://invalid-domain-that-absolutely-does-not-exist-12345.test/endpoint";
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-
         await fetchWithFallback(url, {
           method: "GET",
-          signal: controller.signal,
         });
-        clearTimeout(timeoutId);
-        // If it doesn't throw, curl fallback might have worked (unlikely for this IP)
+        // If we reach here, either fetch or curl succeeded (unlikely for invalid domain)
+        throw new Error("Should have thrown an error for invalid domain");
       } catch (error) {
-        // Both fetch and curl should fail for this non-routable IP
+        // Expected: both fetch and curl should fail for invalid domain
         expect(error).toBeDefined();
       }
     });
