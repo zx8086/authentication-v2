@@ -314,18 +314,6 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Analyze with Docker Scout
-        if: github.event_name != 'pull_request'
-        uses: docker/scout-action@v1
-        continue-on-error: true
-        with:
-          command: cves,sbom
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          organization: zx8086
-          write-comment: false
-          dockerhub-user: ${{ secrets.DOCKER_USERNAME }}
-          dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Extract SBOM (Software Bill of Materials)
         if: github.event_name != 'pull_request'
         continue-on-error: true
