@@ -645,7 +645,7 @@ jobs:
 
       - name: Upload Snyk Code SARIF results
         if: matrix.scan-type == 'snyk-code' && hashFiles('snyk-code-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-code-results.sarif
           category: snyk-code
@@ -653,7 +653,7 @@ jobs:
 
       - name: Upload Snyk Container SARIF results
         if: matrix.scan-type == 'snyk-container' && hashFiles('snyk-container-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-container-results.sarif
           category: snyk-container
@@ -661,7 +661,7 @@ jobs:
 
       - name: Upload Trivy SARIF results
         if: matrix.scan-type == 'trivy-container' && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-container
@@ -669,7 +669,7 @@ jobs:
 
       - name: Upload Docker Scout SARIF results
         if: matrix.scan-type == 'docker-scout' && hashFiles('scout-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scout-results.sarif
           category: docker-scout
@@ -677,7 +677,7 @@ jobs:
 
       - name: Upload Secrets Detection SARIF results
         if: matrix.scan-type == 'secrets-detection' && hashFiles('secrets-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: secrets-results.sarif
           category: secrets-detection

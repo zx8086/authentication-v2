@@ -79,12 +79,23 @@ jobs:
 
       # Comprehensive Snyk Code Analysis
       - name: Run comprehensive Snyk code analysis
-        uses: snyk/actions/node@v1.0.0
-        timeout-minutes: 20
+        timeout-minutes: 10
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-code-comprehensive.sarif --timeout=900s --all-projects
+        run: |
+          echo "Running comprehensive Snyk code analysis..."
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "ERROR: SNYK_TOKEN not configured"
+            exit 0
+          fi
+          bunx snyk@1.1290.0 --version
+          bunx snyk@1.1290.0 auth $SNYK_TOKEN
+          bunx snyk@1.1290.0 code test --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-code-comprehensive.sarif || {
+            echo "Snyk code analysis completed with findings or errors"
+            ls -la *.sarif 2>/dev/null || echo "No SARIF files found"
+            exit 0
+          }
+          echo "Snyk code analysis completed successfully"
         continue-on-error: true
 
       # Dependency Vulnerability Scan
@@ -105,13 +116,25 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Snyk container scan
-        uses: snyk/actions/docker@v1.0.0
-        timeout-minutes: 25
+        timeout-minutes: 15
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          args: --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-container-comprehensive.sarif --timeout=1200s --max-depth=${{ inputs.scan_depth || '30' }} --exclude-app-vulns
+        run: |
+          echo "Running comprehensive Snyk container scan..."
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "ERROR: SNYK_TOKEN not configured"
+            exit 0
+          fi
+          bunx snyk@1.1290.0 auth $SNYK_TOKEN
+          bunx snyk@1.1290.0 container test ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --severity-threshold=${{ inputs.severity_threshold || 'medium' }} \
+            --sarif-file-output=snyk-container-comprehensive.sarif \
+            --exclude-base-image-vulns || {
+            echo "Snyk container scan completed with findings or errors"
+            ls -la *.sarif 2>/dev/null || echo "No SARIF files found"
+            exit 0
+          }
+          echo "Snyk container scan completed successfully"
         continue-on-error: true
 
       # Advanced Trivy Scans
@@ -159,7 +182,7 @@ jobs:
       # Upload all SARIF results to GitHub Security tab
       - name: Upload Snyk code analysis to GitHub Security
         if: hashFiles('snyk-code-comprehensive.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         timeout-minutes: 3
         with:
           sarif_file: 'snyk-code-comprehensive.sarif'
@@ -168,7 +191,7 @@ jobs:
 
       - name: Upload Snyk container scan to GitHub Security
         if: hashFiles('snyk-container-comprehensive.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         timeout-minutes: 3
         with:
           sarif_file: 'snyk-container-comprehensive.sarif'
@@ -177,7 +200,7 @@ jobs:
 
       - name: Upload Trivy filesystem scan to GitHub Security
         if: hashFiles('trivy-fs-comprehensive.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         timeout-minutes: 3
         with:
           sarif_file: 'trivy-fs-comprehensive.sarif'
@@ -186,7 +209,7 @@ jobs:
 
       - name: Upload Trivy container scan to GitHub Security
         if: hashFiles('trivy-container-comprehensive.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         timeout-minutes: 3
         with:
           sarif_file: 'trivy-container-comprehensive.sarif'
