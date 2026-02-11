@@ -317,7 +317,6 @@ jobs:
         run: |
           echo "Extracting SBOM from built image..."
           docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} \
-            --format syft-json \
             --output sbom-${{ github.sha }}.json
 
           echo "SBOM extracted: sbom-${{ github.sha }}.json"
