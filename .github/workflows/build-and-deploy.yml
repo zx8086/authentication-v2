@@ -477,6 +477,13 @@ jobs:
           bun-version: latest
           cache-version: v5
 
+      - name: Setup Bun with cache (for Snyk Container Scan)
+        if: matrix.scan-type == 'snyk-container'
+        uses: ./.github/actions/setup-bun-with-cache
+        with:
+          bun-version: latest
+          cache-version: v5
+
       - name: Run Snyk Code Analysis
         if: matrix.scan-type == 'snyk-code'
         timeout-minutes: 5
@@ -485,7 +492,7 @@ jobs:
         run: |
           echo "Running Snyk code analysis..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
-          npx -y snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
+          bunx snyk@latest test --quiet --severity-threshold=high --sarif-file-output=snyk-code-results.sarif --json-file-output=snyk-code-results.json || {
             echo "Snyk code analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
@@ -504,7 +511,7 @@ jobs:
           echo "Running Snyk container scan..."
           echo "SNYK_TOKEN is set: $([[ -n "$SNYK_TOKEN" ]] && echo "YES" || echo "NO")"
           echo "IMAGE_TAG: $IMAGE_TAG"
-          npx -y snyk@latest container test $IMAGE_TAG \
+          bunx snyk@latest container test $IMAGE_TAG \
             --quiet --severity-threshold=high --sarif-file-output=snyk-container-results.sarif \
             --json-file-output=snyk-container-results.json \
             --exclude-base-image-vulns --app-vulns || {
