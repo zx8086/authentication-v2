@@ -314,18 +314,16 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Install Docker Scout CLI
+      - name: Analyze with Docker Scout
         if: github.event_name != 'pull_request'
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh | sh -s --
-          echo "$HOME/.docker/scout/bin" >> $GITHUB_PATH
-
-      - name: Push image analysis to Docker Scout
-        if: github.event_name != 'pull_request'
-        run: |
-          echo "Pushing Scout analysis to Docker Hub for health score visibility..."
-          docker scout push --org zx8086 --sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          echo "Scout analysis pushed successfully"
+        uses: docker/scout-action@v1
+        with:
+          command: cves,recommendations,sbom
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          organization: zx8086
+          write-comment: false
+          dockerhub-user: ${{ secrets.DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Extract SBOM (Software Bill of Materials)
         if: github.event_name != 'pull_request'
