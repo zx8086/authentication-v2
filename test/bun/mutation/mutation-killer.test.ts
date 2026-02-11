@@ -14,12 +14,15 @@ import {
 } from "../../../src/handlers/health";
 import { handleTokenRequest, handleTokenValidation } from "../../../src/handlers/tokens";
 import { NativeBunJWT } from "../../../src/services/jwt.service";
+import { TestConsumerSecretFactory } from "../../shared/test-consumer-secrets";
 
-// Test secret must be 45+ chars for JWT
-const TEST_SECRET = "test-secret-key-that-is-at-least-45-characters-long-for-hmac";
-const TEST_KEY = "test-jwt-key-12345";
+// Module-level constants (non-secrets)
 const TEST_CONSUMER_ID = "test-consumer-id-123";
 const TEST_USERNAME = "test-user@example.com";
+
+// Test-level secrets (regenerated for each test)
+let testSecret: string;
+let testKey: string;
 
 describe("Mutation Killer Tests - Strict Assertions", () => {
   describe("Token Handler - ObjectLiteral Mutations", () => {
@@ -27,6 +30,11 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     let getConsumerSecretCalls: string[];
 
     beforeEach(() => {
+      // Generate fresh credentials for each test
+      const credentials = TestConsumerSecretFactory.createForCache("mutation-test");
+      testSecret = credentials.jwtSecret;
+      testKey = credentials.jwtKey;
+
       getConsumerSecretCalls = [];
 
       // Input-sensitive mock - tracks calls and validates inputs
@@ -37,8 +45,8 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
           // Only return valid response for expected consumer
           if (consumerId === TEST_CONSUMER_ID) {
             return Promise.resolve({
-              key: TEST_KEY,
-              secret: TEST_SECRET,
+              key: testKey,
+              secret: testSecret,
             });
           }
           // Any other consumer returns null (not found)
@@ -268,12 +276,17 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     let validToken: string;
 
     beforeEach(async () => {
+      // Generate fresh credentials for each test
+      const credentials = TestConsumerSecretFactory.createForCache("mutation-test");
+      testSecret = credentials.jwtSecret;
+      testKey = credentials.jwtKey;
+
       mockKongService = {
         getConsumerSecret: mock((consumerId: string) => {
           if (consumerId === TEST_CONSUMER_ID) {
             return Promise.resolve({
-              key: TEST_KEY,
-              secret: TEST_SECRET,
+              key: testKey,
+              secret: testSecret,
             });
           }
           return Promise.resolve(null);
@@ -298,8 +311,8 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       // Create a valid token for testing validation
       const tokenResponse = await NativeBunJWT.createToken(
         TEST_USERNAME,
-        TEST_KEY,
-        TEST_SECRET,
+        testKey,
+        testSecret,
         "test-authority",
         "test-audience",
         "test-issuer",
@@ -720,11 +733,18 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
   });
 
   describe("JWT Service - Direct Testing", () => {
+    beforeEach(() => {
+      // Generate fresh credentials for each test
+      const credentials = TestConsumerSecretFactory.createForCache("mutation-test");
+      testSecret = credentials.jwtSecret;
+      testKey = credentials.jwtKey;
+    });
+
     it("should create token with EXACT structure", async () => {
       const result = await NativeBunJWT.createToken(
         TEST_USERNAME,
-        TEST_KEY,
-        TEST_SECRET,
+        testKey,
+        testSecret,
         "test-authority",
         "test-audience",
         "test-issuer",
@@ -744,15 +764,15 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     it("should validate token and return EXACT payload structure", async () => {
       const created = await NativeBunJWT.createToken(
         TEST_USERNAME,
-        TEST_KEY,
-        TEST_SECRET,
+        testKey,
+        testSecret,
         "test-authority",
         "test-audience",
         "test-issuer",
         3600
       );
 
-      const validated = await NativeBunJWT.validateToken(created.access_token, TEST_SECRET);
+      const validated = await NativeBunJWT.validateToken(created.access_token, testSecret);
 
       expect(validated.valid).toBe(true);
       // For valid tokens, expired is not set (undefined) - only set to true for expired tokens
@@ -771,8 +791,8 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     it("should return invalid=false for wrong secret", async () => {
       const created = await NativeBunJWT.createToken(
         TEST_USERNAME,
-        TEST_KEY,
-        TEST_SECRET,
+        testKey,
+        testSecret,
         "test-authority",
         "test-audience",
         "test-issuer",
@@ -790,15 +810,15 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       // Create token with 0 expiration (already expired)
       const created = await NativeBunJWT.createToken(
         TEST_USERNAME,
-        TEST_KEY,
-        TEST_SECRET,
+        testKey,
+        testSecret,
         "test-authority",
         "test-audience",
         "test-issuer",
         -1 // Negative = expired
       );
 
-      const validated = await NativeBunJWT.validateToken(created.access_token, TEST_SECRET);
+      const validated = await NativeBunJWT.validateToken(created.access_token, testSecret);
 
       expect(validated.valid).toBe(false);
       expect(validated.expired).toBe(true);
@@ -809,11 +829,16 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     let mockKongService: IKongService;
 
     beforeEach(() => {
+      // Generate fresh credentials for each test
+      const credentials = TestConsumerSecretFactory.createForCache("mutation-test");
+      testSecret = credentials.jwtSecret;
+      testKey = credentials.jwtKey;
+
       mockKongService = {
         getConsumerSecret: mock(async () => {
           // Add small delay to ensure measurable duration
           await new Promise((resolve) => setTimeout(resolve, 5));
-          return { key: TEST_KEY, secret: TEST_SECRET };
+          return { key: testKey, secret: testSecret };
         }),
         createConsumerSecret: mock(() => Promise.resolve(null)),
         clearCache: mock(() => Promise.resolve(undefined)),

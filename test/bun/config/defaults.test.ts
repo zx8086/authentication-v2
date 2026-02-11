@@ -61,7 +61,7 @@ describe("Default Configuration", () => {
     });
 
     it("should have correct default adminToken", () => {
-      expect(defaultConfig.kong.adminToken).toBe("example-token");
+      expect(defaultConfig.kong.adminToken).toBe("REPLACE_WITH_ACTUAL_KONG_ADMIN_TOKEN");
       expect(typeof defaultConfig.kong.adminToken).toBe("string");
     });
 

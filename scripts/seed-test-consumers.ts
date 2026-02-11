@@ -18,6 +18,7 @@ import {
   TEST_CONSUMERS,
   type TestConsumer,
 } from "../test/shared/test-consumers";
+import { JWT_CREDENTIALS } from "../test/shared/test-jwt-credentials";
 
 const KONG_ADMIN_URL = process.env.KONG_ADMIN_URL || "http://localhost:8101";
 
@@ -29,40 +30,6 @@ const API_KEY_MAPPINGS: Record<string, string> = {
   "test-api-key-consumer-004": TEST_CONSUMERS[3].id,
   "test-api-key-consumer-005": TEST_CONSUMERS[4].id,
   "anonymous-key": ANONYMOUS_CONSUMER.id,
-};
-
-// JWT credentials for each consumer (deterministic for testing)
-const JWT_CREDENTIALS: Record<string, { key: string; secret: string; algorithm: string }> = {
-  [TEST_CONSUMERS[0].id]: {
-    key: "test-jwt-key-001",
-    secret: "test-jwt-secret-001-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[1].id]: {
-    key: "test-jwt-key-002",
-    secret: "test-jwt-secret-002-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[2].id]: {
-    key: "test-jwt-key-003",
-    secret: "test-jwt-secret-003-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[3].id]: {
-    key: "test-jwt-key-004",
-    secret: "test-jwt-secret-004-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[4].id]: {
-    key: "test-jwt-key-005",
-    secret: "test-jwt-secret-005-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [ANONYMOUS_CONSUMER.id]: {
-    key: "anonymous-jwt-key",
-    secret: "anonymous-jwt-secret-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
 };
 
 async function waitForKong(maxRetries = 30, retryInterval = 2000): Promise<void> {

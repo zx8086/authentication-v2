@@ -3,6 +3,7 @@
 /* scripts/profiling/analyze-profile.ts */
 
 import { existsSync } from "node:fs";
+import { dirname, normalize, resolve } from "node:path";
 import { MarkdownProfileParser } from "./lib/markdown-parser";
 
 function printUsage() {
@@ -28,20 +29,36 @@ async function main() {
 
   const profilePath = args[0];
 
-  if (!existsSync(profilePath)) {
-    console.error(`Error: Profile file not found: ${profilePath}`);
+  // Security: Validate and normalize path to prevent directory traversal attacks (CWE-22)
+  const normalizedPath = normalize(profilePath);
+  const resolvedPath = resolve(normalizedPath);
+
+  // Security: Ensure path stays within project directory
+  const scriptDir = dirname(new URL(import.meta.url).pathname);
+  const projectRoot = resolve(scriptDir, "../..");
+
+  if (!resolvedPath.startsWith(projectRoot)) {
+    console.error("Error: Profile path must be within project directory");
+    console.error(`Attempted path: ${resolvedPath}`);
+    console.error(`Project root: ${projectRoot}`);
     process.exit(1);
   }
 
-  console.log(`\nAnalyzing profile: ${profilePath}\n`);
+  // Security: Validate file exists within allowed directory
+  if (!existsSync(resolvedPath)) {
+    console.error(`Error: Profile file not found: ${resolvedPath}`);
+    process.exit(1);
+  }
+
+  console.log(`\nAnalyzing profile: ${resolvedPath}\n`);
 
   const parser = new MarkdownProfileParser();
 
   try {
     // Bun generates CPU.*.md and Heap.*.md files
-    if (profilePath.includes("CPU.") && profilePath.endsWith(".md")) {
+    if (resolvedPath.includes("CPU.") && resolvedPath.endsWith(".md")) {
       // Parse CPU profile
-      const metrics = parser.parseCPUProfile(profilePath);
+      const metrics = parser.parseCPUProfile(resolvedPath);
       console.log(parser.generateSummary(metrics));
 
       // Additional detailed output
@@ -55,9 +72,9 @@ async function main() {
           `${String(index + 1).padStart(4)} | ${fn.name.padEnd(30).substring(0, 30)} | ${fn.cpuPercent.toFixed(1).padStart(5)}% | ${fn.selfTime.toFixed(2).padStart(9)}s | ${fn.totalTime.toFixed(2).padStart(10)}s | ${String(fn.samples).padStart(7)}`
         );
       });
-    } else if (profilePath.includes("Heap.") && profilePath.endsWith(".md")) {
+    } else if (resolvedPath.includes("Heap.") && resolvedPath.endsWith(".md")) {
       // Parse heap profile
-      const metrics = parser.parseHeapProfile(profilePath);
+      const metrics = parser.parseHeapProfile(resolvedPath);
       console.log(parser.generateSummary(metrics));
     } else {
       console.error("Error: Unknown profile format. Expected CPU.*.md or Heap.*.md");

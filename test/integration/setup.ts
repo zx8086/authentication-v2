@@ -10,6 +10,13 @@ import { ANONYMOUS_CONSUMER, TEST_CONSUMERS } from "../shared/test-consumers";
 // Store original fetch
 const originalFetch = globalThis.fetch;
 
+// Re-export JWT credentials from shared module (factory-generated)
+export {
+  getAnonymousJwtCredential,
+  getJwtCredentialByIndex,
+  JWT_CREDENTIALS,
+} from "../shared/test-jwt-credentials";
+
 // Integration test environment configuration
 // Priority: INTEGRATION_KONG_ADMIN_URL > KONG_ADMIN_URL (from .env) > localhost default
 
@@ -46,40 +53,6 @@ export const INTEGRATION_CONFIG = {
   // Timeouts (static values)
   DEFAULT_TIMEOUT: 10000,
   KONG_READY_TIMEOUT: 60000,
-};
-
-// JWT credentials matching seed-test-consumers.ts
-export const JWT_CREDENTIALS: Record<string, { key: string; secret: string; algorithm: string }> = {
-  [TEST_CONSUMERS[0].id]: {
-    key: "test-jwt-key-001",
-    secret: "test-jwt-secret-001-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[1].id]: {
-    key: "test-jwt-key-002",
-    secret: "test-jwt-secret-002-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[2].id]: {
-    key: "test-jwt-key-003",
-    secret: "test-jwt-secret-003-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[3].id]: {
-    key: "test-jwt-key-004",
-    secret: "test-jwt-secret-004-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [TEST_CONSUMERS[4].id]: {
-    key: "test-jwt-key-005",
-    secret: "test-jwt-secret-005-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
-  [ANONYMOUS_CONSUMER.id]: {
-    key: "anonymous-jwt-key",
-    secret: "anonymous-jwt-secret-minimum-32-characters-long",
-    algorithm: "HS256",
-  },
 };
 
 // API keys matching test/kong-simulator/kong-proxy.ts
