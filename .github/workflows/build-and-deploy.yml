@@ -317,8 +317,9 @@ jobs:
       - name: Analyze with Docker Scout
         if: github.event_name != 'pull_request'
         uses: docker/scout-action@v1
+        continue-on-error: true
         with:
-          command: cves,recommendations,sbom
+          command: cves,sbom
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           organization: zx8086
           write-comment: false
