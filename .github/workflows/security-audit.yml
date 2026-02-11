@@ -6,6 +6,12 @@ name: Comprehensive Security Audit
 on:
   schedule:
     - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  push:  # Backup trigger to ensure scans run on deployments
+    branches:
+      - master
+      - develop
+    tags:
+      - 'v*'
   workflow_dispatch:  # Allow manual triggering
     inputs:
       scan_depth:
