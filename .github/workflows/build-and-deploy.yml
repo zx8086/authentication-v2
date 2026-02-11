@@ -314,6 +314,12 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      - name: Install Docker Scout CLI
+        if: github.event_name != 'pull_request'
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh | sh -s --
+          echo "$HOME/.docker/scout/bin" >> $GITHUB_PATH
+
       - name: Push image analysis to Docker Scout
         if: github.event_name != 'pull_request'
         run: |
