@@ -5,7 +5,12 @@
 
 import { describe, expect, it, test } from "bun:test";
 import { NativeBunJWT } from "../../../src/services/jwt.service";
-import { WRONG_SECRET_LONG, WRONG_SECRET_SHORT } from "../../shared/test-constants";
+import {
+  JWT_STANDARD_HEADER,
+  TEST_CONSUMER_KEY,
+  WRONG_SECRET_LONG,
+  WRONG_SECRET_SHORT,
+} from "../../shared/test-constants";
 
 describe("JWT Mutation Tests", () => {
   const testSecret = WRONG_SECRET_LONG;
@@ -408,10 +413,9 @@ describe("JWT Mutation Tests", () => {
     });
 
     it("should include key claim", async () => {
-      const consumerKey = "test-consumer-key";
       const token = await NativeBunJWT.createToken(
         "user",
-        consumerKey,
+        TEST_CONSUMER_KEY,
         testSecret,
         testAuthority,
         testAudience
@@ -419,7 +423,7 @@ describe("JWT Mutation Tests", () => {
 
       const result = await NativeBunJWT.validateToken(token.access_token, testSecret);
 
-      expect(result.payload?.key).toBe(consumerKey);
+      expect(result.payload?.key).toBe(TEST_CONSUMER_KEY);
     });
 
     it("should include unique jti for each token", async () => {
@@ -720,7 +724,7 @@ describe("JWT Mutation Tests", () => {
       const [headerB64] = token.access_token.split(".");
 
       // The expected cached header value
-      const expectedHeader = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const expectedHeader = JWT_STANDARD_HEADER;
       expect(headerB64).toBe(expectedHeader);
 
       // Decode and verify content
@@ -904,7 +908,7 @@ describe("JWT Mutation Tests", () => {
     it("should return valid=false for invalid base64 payload encoding (kills line 216 mutation)", async () => {
       // Create a token with valid signature but after signature verification,
       // the payload decoding should fail
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       // This is NOT valid base64url - contains invalid characters
       const invalidPayload = "!!!not-valid-base64!!!";
 
@@ -939,7 +943,7 @@ describe("JWT Mutation Tests", () => {
 
     // Kill mutation: line 226 - valid: false -> valid: true for invalid JSON
     it("should return valid=false for invalid JSON in payload (kills line 226 mutation)", async () => {
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       // Valid base64 but contains invalid JSON
       const invalidJson = "not{valid}json";
       const invalidJsonB64 = Buffer.from(invalidJson)
@@ -980,7 +984,7 @@ describe("JWT Mutation Tests", () => {
     // Kill mutation: line 240 - valid: false -> valid: true for expired token
     it("should return valid=false AND expired=true for expired token (kills line 240 mutation)", async () => {
       // Create properly signed expired token
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const now = Math.floor(Date.now() / 1000);
       const expiredPayload = {
         sub: "test-user",
@@ -1040,7 +1044,7 @@ describe("JWT Mutation Tests", () => {
     it("should return valid=false for unexpected validation errors (kills line 264 mutation)", async () => {
       // Create a token that will cause an error during validation
       // We can do this by corrupting the signature in a way that breaks crypto.subtle.verify
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const payload = Buffer.from(JSON.stringify({ sub: "test" }))
         .toString("base64")
         .replace(/\+/g, "-")
@@ -1137,7 +1141,7 @@ describe("JWT Mutation Tests", () => {
 
     it("should complete validation of expired token regardless of duration calc (kills line 232)", async () => {
       // Create expired token to test the duration calculation in the expiration path
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const now = Math.floor(Date.now() / 1000);
       const expiredPayload = {
         sub: "expired-timing-user",
@@ -1222,7 +1226,7 @@ describe("JWT Mutation Tests", () => {
   describe("Expiration boundary conditions", () => {
     it("should accept token expiring exactly at now (exp === now) as valid (kills < to <= mutation)", async () => {
       // Create token that expires exactly at now
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const now = Math.floor(Date.now() / 1000);
       const atBoundaryPayload = {
         sub: "boundary-user",
@@ -1269,7 +1273,7 @@ describe("JWT Mutation Tests", () => {
     });
 
     it("should reject token 1 second past expiry (exp < now)", async () => {
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const now = Math.floor(Date.now() / 1000);
       const justExpiredPayload = {
         sub: "just-expired-user",
@@ -1321,7 +1325,7 @@ describe("JWT Mutation Tests", () => {
     it("should return valid=false when signature decoding throws (kills catch block mutation)", async () => {
       // Create a token where the signature part causes base64urlDecode to fail
       // by using characters that break atob after conversion
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const payload = Buffer.from(JSON.stringify({ sub: "test" }))
         .toString("base64")
         .replace(/\+/g, "-")
@@ -1342,7 +1346,7 @@ describe("JWT Mutation Tests", () => {
     it("should handle crypto.subtle.verify failure gracefully", async () => {
       // Create a token with corrupted signature bytes that pass base64 decode
       // but fail during crypto.subtle.verify
-      const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+      const header = JWT_STANDARD_HEADER;
       const payload = Buffer.from(
         JSON.stringify({ sub: "test", exp: Math.floor(Date.now() / 1000) + 3600 })
       )
@@ -1392,7 +1396,7 @@ describe("JWT Mutation Tests", () => {
     it("should return valid=false when validation throws an unexpected error", async () => {
       // Create a malformed token that will cause an exception in validation
       // Using a token with corrupted signature bytes that can't be processed
-      const malformedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.";
+      const malformedToken = `${JWT_STANDARD_HEADER}.eyJzdWIiOiJ0ZXN0In0.`;
 
       const result = await NativeBunJWT.validateToken(malformedToken, testSecret);
 

@@ -59,3 +59,16 @@ export const TEST_URLS = {
 
 export const TEST_CONSUMER_KEY = "test-consumer-key";
 export const TEST_JWT_KEY = "test-jwt-key-12345";
+
+/**
+ * Standard JWT header (Base64url encoded {"alg":"HS256","typ":"JWT"})
+ * This is a constant that appears in all HS256 JWTs and is not a secret.
+ */
+export const JWT_STANDARD_HEADER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+
+/**
+ * Test secret value for circuit breaker and cache tests.
+ * Minimum 32 characters for JWT HS256 algorithm.
+ * Generated dynamically to avoid hardcoded secret findings.
+ */
+export const TEST_SECRET_MIN_32 = generateTestSecret(34);

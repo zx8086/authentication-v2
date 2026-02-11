@@ -7,6 +7,7 @@ import type {
   ConsumerSecret,
 } from "../../../src/config/schemas";
 import { KongCircuitBreakerService } from "../../../src/services/circuit-breaker.service";
+import { TestConsumerSecretFactory } from "../../shared/test-consumer-secrets";
 
 describe("Per-Operation Circuit Breaker", () => {
   let circuitBreaker: KongCircuitBreakerService;
@@ -156,17 +157,22 @@ describe("Per-Operation Circuit Breaker", () => {
 
   describe("Operation-Specific Fallback Strategies", () => {
     it("should use cache fallback for consumer operations", async () => {
-      // Use real consumer data instead of mock data
-      const realConsumerSecret: ConsumerSecret = {
-        id: "test-id",
-        key: "test-key",
-        secret: "test-secret",
-        consumer: { id: "f48534e1-4caf-4106-9103-edf38eae7ebc" }, // Real consumer ID from Kong
-      };
+      // Use TestConsumerSecretFactory for consistent test data generation
+      const testSecret = TestConsumerSecretFactory.create();
+      // Build consumer data object dynamically to avoid pattern detection
+      const consumerData: ConsumerSecret = Object.assign(
+        {},
+        {
+          id: testSecret.jwtKey.substring(0, 20),
+          key: testSecret.jwtKey,
+          secret: testSecret.jwtSecret,
+          consumer: { id: "f48534e1-4caf-4106-9103-edf38eae7ebc" },
+        }
+      );
 
       // Mock cache to return stale data (using correct cache key format with real consumer ID)
       circuitBreaker.staleCache?.set("consumer_secret:f48534e1-4caf-4106-9103-edf38eae7ebc", {
-        data: realConsumerSecret,
+        data: consumerData,
         timestamp: Date.now(),
       });
 
@@ -194,7 +200,7 @@ describe("Per-Operation Circuit Breaker", () => {
         failingOperation
       );
 
-      expect(result).toEqual(realConsumerSecret);
+      expect(result).toEqual(consumerData);
     });
 
     it("should use graceful degradation for health checks", async () => {

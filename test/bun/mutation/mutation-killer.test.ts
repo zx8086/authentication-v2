@@ -14,6 +14,7 @@ import {
 } from "../../../src/handlers/health";
 import { handleTokenRequest, handleTokenValidation } from "../../../src/handlers/tokens";
 import { NativeBunJWT } from "../../../src/services/jwt.service";
+import { WRONG_SECRET_LONG } from "../../shared/test-constants";
 import { TestConsumerSecretFactory } from "../../shared/test-consumer-secrets";
 
 // Module-level constants (non-secrets)
@@ -799,8 +800,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
         3600
       );
 
-      const wrongSecret = "wrong-secret-that-is-at-least-45-characters-long-here";
-      const validated = await NativeBunJWT.validateToken(created.access_token, wrongSecret);
+      const validated = await NativeBunJWT.validateToken(created.access_token, WRONG_SECRET_LONG);
 
       expect(validated.valid).toBe(false);
       expect(validated.error).toBeDefined();

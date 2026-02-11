@@ -21,8 +21,7 @@ export const defaultConfig: AppConfig = {
   kong: {
     mode: "API_GATEWAY",
     adminUrl: "http://localhost:8001",
-    // snyk:ignore CWE-547 - This is a placeholder string for documentation, not a real token
-    adminToken: "REPLACE_WITH_ACTUAL_KONG_ADMIN_TOKEN",
+    adminToken: "",
     consumerIdHeader: "x-consumer-id",
     consumerUsernameHeader: "x-consumer-username",
     anonymousHeader: "x-anonymous-consumer",

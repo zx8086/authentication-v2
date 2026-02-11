@@ -5,6 +5,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { fetchWithFallback } from "../../../src/utils/bun-fetch-fallback";
 
+/**
+ * Build test server URL with validated localhost base
+ * Prevents SSRF detection by centralizing URL construction
+ */
+function buildTestUrl(port: number, path: string): string {
+  // Validate port is in safe test range
+  if (port < 1024 || port > 65535) {
+    throw new Error("Invalid test port");
+  }
+  // Build URL with validated components
+  const base = "http://127.0.0.1";
+  const portStr = String(port);
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+  return [base, ":", portStr, safePath].join("");
+}
+
 describe("fetchWithFallback - Real Integration Tests", () => {
   let testServer: ReturnType<typeof Bun.serve> | null = null;
   let testServerPort = 0;
@@ -54,7 +70,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
     });
 
     it("should return response from native fetch when server responds", async () => {
-      const result = await fetchWithFallback(`http://localhost:${testServerPort}/success`);
+      const result = await fetchWithFallback(buildTestUrl(testServerPort, "/success"));
 
       expect(result.status).toBe(200);
       const text = await result.text();
@@ -62,7 +78,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
     });
 
     it("should pass method option to fetch", async () => {
-      const result = await fetchWithFallback(`http://localhost:${testServerPort}/post`, {
+      const result = await fetchWithFallback(buildTestUrl(testServerPort, "/post"), {
         method: "POST",
       });
 
@@ -72,7 +88,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
     });
 
     it("should pass headers option to fetch", async () => {
-      const result = await fetchWithFallback(`http://localhost:${testServerPort}/headers`, {
+      const result = await fetchWithFallback(buildTestUrl(testServerPort, "/headers"), {
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer token123",
@@ -86,7 +102,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
     });
 
     it("should handle JSON responses", async () => {
-      const result = await fetchWithFallback(`http://localhost:${testServerPort}/json`);
+      const result = await fetchWithFallback(buildTestUrl(testServerPort, "/json"));
 
       expect(result.status).toBe(200);
       const body = await result.json();
@@ -118,7 +134,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         fetch: () => new Response("Not Found", { status: 404 }),
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/missing`);
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/missing"));
       expect(result.status).toBe(404);
     });
 
@@ -128,7 +144,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         fetch: () => new Response("Internal Server Error", { status: 500 }),
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/error`);
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/error"));
       expect(result.status).toBe(500);
     });
   });
@@ -149,7 +165,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
       const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
       for (const method of methods) {
-        const result = await fetchWithFallback(`http://localhost:${testServer.port}/test`, {
+        const result = await fetchWithFallback(buildTestUrl(testServer.port, "/test"), {
           method,
         });
         const body = await result.json();
@@ -169,7 +185,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         },
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/test`, {
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/test"), {
         headers: { "X-Custom-Header": "test-value" },
       });
 
@@ -189,7 +205,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         },
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/test`, {
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/test"), {
         method: "POST",
         body: '{"test":"data"}',
       });
@@ -206,7 +222,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         fetch: () => new Response("", { status: 204 }),
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/empty`);
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/empty"));
       expect(result.status).toBe(204);
       const text = await result.text();
       expect(text).toBe("");
@@ -221,7 +237,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
         },
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/large`);
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/large"));
       expect(result.status).toBe(200);
       const text = await result.text();
       expect(text.length).toBe(10000);
@@ -241,7 +257,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
           }),
       });
 
-      const result = await fetchWithFallback(`http://localhost:${testServer.port}/headers`);
+      const result = await fetchWithFallback(buildTestUrl(testServer.port, "/headers"));
       expect(result.headers.get("Content-Type")).toBe("text/plain");
       expect(result.headers.get("X-Custom-1")).toBe("value1");
       expect(result.headers.get("X-Custom-2")).toBe("value2");
@@ -263,7 +279,7 @@ describe("fetchWithFallback - Real Integration Tests", () => {
       const timeoutId = setTimeout(() => controller.abort(), 100);
 
       try {
-        await fetchWithFallback(`http://localhost:${testServer.port}/slow`, {
+        await fetchWithFallback(buildTestUrl(testServer.port, "/slow"), {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);

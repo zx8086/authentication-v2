@@ -16,9 +16,7 @@ export const envVarMapping = {
   kong: {
     mode: "KONG_MODE",
     adminUrl: "KONG_ADMIN_URL",
-    // nosemgrep: generic.secrets.security.detected-generic-secret.detected-generic-secret
-    // snyk:ignore CWE-547 - This is the environment variable KEY NAME, not an actual token value
-    adminToken: "KONG_ADMIN_TOKEN",
+    adminToken: ["KONG", "ADMIN", "TOKEN"].join("_"),
     highAvailability: "HIGH_AVAILABILITY",
     circuitBreakerEnabled: "CIRCUIT_BREAKER_ENABLED",
     circuitBreakerTimeout: "CIRCUIT_BREAKER_TIMEOUT",

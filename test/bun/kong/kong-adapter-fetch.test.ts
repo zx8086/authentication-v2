@@ -15,6 +15,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { createKongModeStrategy } from "../../../src/adapters/kong-mode-strategies";
+import { TEST_SECRET_MIN_32 } from "../../shared/test-constants";
 
 describe("Kong Mode Strategy Fetch Parameters", () => {
   let fetchSpy: ReturnType<typeof spyOn>;
@@ -490,7 +491,7 @@ describe("Consumer Secret Extraction", () => {
           {
             id: "jwt-123",
             key: "test-key",
-            secret: "test-secret-min-32-chars-long-here",
+            secret: TEST_SECRET_MIN_32,
             algorithm: "HS256",
             consumer: { id: "consumer-123" },
           },
@@ -502,7 +503,7 @@ describe("Consumer Secret Extraction", () => {
       // Verify extraction works (kills extraction logic mutations)
       expect(result).not.toBeNull();
       expect(result?.key).toBe("test-key");
-      expect(result?.secret).toBe("test-secret-min-32-chars-long-here");
+      expect(result?.secret).toBe(TEST_SECRET_MIN_32);
       expect(result?.id).toBe("jwt-123");
       expect(result?.consumer?.id).toBe("consumer-123");
     });

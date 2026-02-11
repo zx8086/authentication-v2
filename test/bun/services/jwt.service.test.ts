@@ -4,6 +4,7 @@
 
 import { describe, expect, it, test } from "bun:test";
 import { NativeBunJWT } from "../../../src/services/jwt.service";
+import { WRONG_SECRET_SHORT } from "../../shared/test-constants";
 
 describe("NativeBunJWT", () => {
   const testUsername = process.env.TEST_JWT_USERNAME || "mock-user";
@@ -177,8 +178,10 @@ describe("NativeBunJWT", () => {
         testAudience
       );
 
-      const wrongSecret = "wrong-secret-key-that-is-different";
-      const result = await NativeBunJWT.validateToken(tokenResponse.access_token, wrongSecret);
+      const result = await NativeBunJWT.validateToken(
+        tokenResponse.access_token,
+        WRONG_SECRET_SHORT
+      );
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe("Invalid signature");
