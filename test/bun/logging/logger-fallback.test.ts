@@ -1,5 +1,4 @@
 /* test/bun/logger-fallback.test.ts */
-/* biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementations intentionally have empty blocks */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 
@@ -16,8 +15,11 @@ describe("Logger Fallback Behavior", () => {
     originalConsoleWarn = console.warn;
     originalConsoleError = console.error;
 
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleLogSpy = spyOn(console, "log").mockImplementation(() => {});
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleWarnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -36,6 +38,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("winston-logger")) {
           throw new Error("Cannot find module winston-logger");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 
@@ -67,6 +70,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("winston-logger")) {
           throw new Error("Winston unavailable");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 
@@ -93,6 +97,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("winston-logger")) {
           throw new Error("Winston unavailable");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 
@@ -129,6 +134,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("config/index") || id.includes("winston-logger")) {
           throw new Error("Cannot load config");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 
@@ -165,6 +171,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("winston-logger")) {
           throw new Error("Winston unavailable");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 
@@ -202,6 +209,7 @@ describe("Logger Fallback Behavior", () => {
         if (id.includes("winston-logger")) {
           throw new Error("Winston unavailable");
         }
+        // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
       };
 

@@ -331,6 +331,7 @@ describe("JWT Service - Mutation Killers", () => {
       expect(error).not.toBe("Expired token");
     });
 
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: Test name documents exact code pattern
     it('should use template "Token validation failed: ${message}"', () => {
       const message = "test error";
       const error = `Token validation failed: ${message}`;
@@ -351,6 +352,7 @@ describe("JWT Service - Mutation Killers", () => {
       expect(fieldName).not.toBe("UniqueName");
     });
 
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: Test name documents exact code pattern
     it('should use template "pvhcorp.com#${username}"', () => {
       const username = "user@example.com";
       const uniqueName = `pvhcorp.com#${username}`;

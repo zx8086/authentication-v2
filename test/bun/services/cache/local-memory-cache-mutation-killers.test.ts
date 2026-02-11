@@ -237,6 +237,7 @@ describe("LocalMemoryCache - Mutation Killers", () => {
 
   describe("Conditional logic mutations", () => {
     it("should check total === 0 exactly", () => {
+      // biome-ignore lint/suspicious/noSelfCompare: Mutation killer testing boundary condition
       expect(0 === 0).toBe(true); // Kill: === mutations
       expect(1 === 0).toBe(false);
       expect(-1 === 0).toBe(false);

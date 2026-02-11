@@ -385,6 +385,7 @@ describe("Config Helpers - Mutation Killers", () => {
   });
 
   describe("String concatenation mutations", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: Test name documents exact code pattern
     it("should use template literal ${normalizedBase}${normalizedPath}", () => {
       const result = deriveEndpoint("http://base.com", undefined, "/path");
       expect(result).toBe("http://base.com/path");
@@ -414,6 +415,7 @@ describe("Config Helpers - Mutation Killers", () => {
   });
 
   describe("Ternary operator mutations", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: Test name documents exact code pattern
     it("should use pathSuffix.startsWith('/') ? pathSuffix : `/${pathSuffix}`", () => {
       // When empty base
       expect(deriveEndpoint("", undefined, "/logs")).toBe("/logs");
