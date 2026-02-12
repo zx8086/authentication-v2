@@ -146,7 +146,7 @@ describe("Error Codes Module", () => {
     });
 
     it("should have valid HTTP status codes in standard ranges", () => {
-      const validStatusRanges = {
+      const _validStatusRanges = {
         400: [400, 499], // Client errors
         500: [500, 599], // Server errors
       };

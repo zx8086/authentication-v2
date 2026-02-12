@@ -312,7 +312,7 @@ describe("UnifiedCacheManager", () => {
       });
 
       // Start multiple operations concurrently
-      const [result1, result2, result3] = await Promise.all([
+      const [result1, result2, _result3] = await Promise.all([
         manager.get("key1"),
         manager.get("key2"),
         manager.set("key3", "value3"),

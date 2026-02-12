@@ -89,8 +89,8 @@ describe("LocalMemoryCache - Mutation Killers", () => {
   describe("Average latency calculation - Division mutations", () => {
     it("should return 0 when operations is 0", () => {
       // Testing: operations > 0 ? totalLatency / operations : 0
-      const operations = 0;
-      const totalLatency = 100;
+      const operations = asNumber(0);
+      const totalLatency = asNumber(100);
       const result = operations > 0 ? totalLatency / operations : 0;
 
       expect(result).toBe(0); // Kill: return value mutations
@@ -226,7 +226,7 @@ describe("LocalMemoryCache - Mutation Killers", () => {
       // Testing: sort(([, a], [, b]) => a.createdAt - b.createdAt)
       const entry1 = { createdAt: 1000, expires: 2000, data: {} };
       const entry2 = { createdAt: 2000, expires: 3000, data: {} };
-      const entry3 = { createdAt: 3000, expires: 4000, data: {} };
+      const _entry3 = { createdAt: 3000, expires: 4000, data: {} };
 
       const diff1 = entry1.createdAt - entry2.createdAt;
       const diff2 = entry2.createdAt - entry1.createdAt;

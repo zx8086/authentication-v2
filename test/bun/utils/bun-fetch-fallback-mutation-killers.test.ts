@@ -8,7 +8,7 @@ import { describe, expect, it } from "bun:test";
 import type { FetchOptions } from "../../../src/utils/bun-fetch-fallback";
 
 // Helper to create mock curl output
-function createMockCurlOutput(
+function _createMockCurlOutput(
   status: number,
   headers: Record<string, string>,
   body: string

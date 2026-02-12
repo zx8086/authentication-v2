@@ -135,7 +135,7 @@ export async function isIntegrationEnvironmentAvailable(): Promise<boolean> {
         if (response.ok) {
           return true;
         }
-      } catch (fetchError) {
+      } catch (_fetchError) {
         // Fallback to curl if fetch fails (Bun networking bug with some network configs)
         try {
           const proc = Bun.spawn(["curl", "-s", "-f", "-m", "5", url], {
@@ -169,7 +169,7 @@ export async function fetchWithFallback(
   try {
     // Try native fetch first
     return await fetch(url, options);
-  } catch (fetchError) {
+  } catch (_fetchError) {
     // Fallback to curl for problematic network configs
     const urlString = url.toString();
     const method = options?.method || "GET";

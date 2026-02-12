@@ -14,7 +14,7 @@ export class KongAdminSimulator {
   }
 
   async start(): Promise<void> {
-    const server = Bun.serve({
+    const _server = Bun.serve({
       port: this.adminPort,
       fetch: this.handleRequest.bind(this),
     });

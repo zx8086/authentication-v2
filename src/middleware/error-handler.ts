@@ -7,7 +7,7 @@ import { loadConfig } from "../config/index";
 import { log, logError } from "../utils/logger";
 import { generateRequestId, getDefaultHeaders } from "../utils/response";
 
-const config = loadConfig();
+const _config = loadConfig();
 
 export function handleNotFound(url: URL): Response {
   const requestId = generateRequestId();

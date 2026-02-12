@@ -244,7 +244,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       });
 
       const response = await handleTokenRequest(request, mockKongService);
-      const body = await response.json();
+      const _body = await response.json();
 
       // At 256, it should be accepted (boundary test)
       // Note: depends on exact implementation - may be rejected

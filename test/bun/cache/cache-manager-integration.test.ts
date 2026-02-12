@@ -71,7 +71,7 @@ describe("UnifiedCacheManager - Integration Tests", () => {
         staleDataToleranceMinutes: 5,
       });
 
-      const operations = await Promise.all([
+      const _operations = await Promise.all([
         manager.set("key1", "value1"),
         manager.set("key2", "value2"),
         manager.get("key1"),

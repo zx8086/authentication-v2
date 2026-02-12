@@ -107,7 +107,7 @@ export default function () {
   if (statusResponse.status === 200) {
     try {
       statusData = JSON.parse(statusResponse.body as string);
-    } catch (e) {
+    } catch (_e) {
       console.log("Failed to parse status response JSON");
     }
   }
@@ -145,7 +145,7 @@ export default function () {
             "Session ID has valid format": (id) => /^profile-\d+-[a-z0-9]+$/.test(id || ""),
           });
         }
-      } catch (e) {
+      } catch (_e) {
         console.log("Failed to parse start response JSON");
       }
     }
@@ -229,7 +229,7 @@ export default function () {
             const data = JSON.parse(r.body as string);
             // Sessions should be empty after cleanup
             return Array.isArray(data.sessions) && data.sessions.length === 0;
-          } catch (e) {
+          } catch (_e) {
             return false;
           }
         }

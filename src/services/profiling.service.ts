@@ -66,7 +66,11 @@ class ProfilingService {
   }
 
   private generateSessionId(): string {
-    return `profile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const randomBytes = crypto.getRandomValues(new Uint8Array(6));
+    const randomPart = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return `profile-${Date.now()}-${randomPart}`;
   }
 
   async startProfiling(

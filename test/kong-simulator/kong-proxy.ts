@@ -59,7 +59,7 @@ export class KongSimulator {
   }
 
   async start(): Promise<void> {
-    const server = Bun.serve({
+    const _server = Bun.serve({
       port: this.proxyPort,
       fetch: this.handleRequest.bind(this),
     });

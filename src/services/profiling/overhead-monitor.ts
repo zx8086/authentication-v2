@@ -211,7 +211,7 @@ let overheadMonitorInstance: OverheadMonitor | null = null;
 
 export function getOverheadMonitor(): OverheadMonitor {
   if (!overheadMonitorInstance) {
-    const config = getTelemetryConfig();
+    const _config = getTelemetryConfig();
     overheadMonitorInstance = new OverheadMonitor();
   }
   return overheadMonitorInstance;

@@ -39,9 +39,10 @@ runs:
         driver: cloud
         endpoint: "zx8086/cldbuild"
 
+    # Use local buildx when credentials are not provided (empty check is intentional)
     - name: Set up Docker Buildx (Local)
       id: buildx-local
-      if: inputs.login != 'true' || inputs.username == '' || inputs.password == ''
+      if: inputs.login != 'true' || inputs.username == '' || inputs.password == ''  # lgtm[js/empty-password-in-configuration-file]
       uses: docker/setup-buildx-action@v3
 
     - name: Display Docker info

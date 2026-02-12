@@ -179,7 +179,7 @@ export class ScenarioGenerator {
         if (requestCount % 50 === 0) {
           process.stdout.write(".");
         }
-      } catch (error) {
+      } catch (_error) {
         failCount++;
         errors.set(0, (errors.get(0) || 0) + 1); // Network error
       }

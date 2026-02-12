@@ -31,7 +31,7 @@ export async function fetchWithFallback(url: string, options?: FetchOptions): Pr
     // Fallback to curl for Bun networking bug workaround
     try {
       return await fetchViaCurl(url, options);
-    } catch (curlError) {
+    } catch (_curlError) {
       // Both fetch and curl failed - throw original fetch error
       throw fetchError;
     }

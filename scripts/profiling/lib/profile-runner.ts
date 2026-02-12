@@ -81,7 +81,7 @@ export class ProfileRunner {
           console.log("Server is ready!");
           return;
         }
-      } catch (error) {
+      } catch (_error) {
         // Server not ready yet, continue waiting
       }
 
@@ -189,7 +189,7 @@ export class ProfileRunner {
     if (this.server && this.serverPid) {
       try {
         this.server.kill("SIGKILL");
-      } catch (error) {
+      } catch (_error) {
         // Ignore cleanup errors
       }
     }

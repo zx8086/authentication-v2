@@ -49,7 +49,7 @@ export class KongKonnectStrategy implements IKongModeStrategy {
   ) {
     const url = new URL(adminUrl);
 
-    if (url.hostname.includes("konghq.com")) {
+    if (url.hostname.endsWith(".konghq.com") || url.hostname === "konghq.com") {
       const pathMatch = url.pathname.match(/\/v2\/control-planes\/([a-f0-9-]+)/);
       if (!pathMatch) {
         throw new Error(

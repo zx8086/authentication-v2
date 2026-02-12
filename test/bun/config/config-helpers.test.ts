@@ -1,4 +1,6 @@
 /* test/bun/config-helpers.test.ts */
+/* cspell:disable */
+/* trunk-ignore-all(trufflehog) - Test file uses example.com URLs, not real secrets */
 
 import { describe, expect, it } from "bun:test";
 import {

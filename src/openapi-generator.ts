@@ -1246,7 +1246,7 @@ class OpenAPIGenerator {
       .map((item) => {
         const yamlValue = this._objectToYamlEnhanced(item, indent + 1);
         if (typeof item === "object" && !Array.isArray(item) && item !== null) {
-          return `\n${spaces}-${yamlValue.startsWith("\n") ? yamlValue.replace(/\n/, "\n ") : ` ${yamlValue}`}`;
+          return `\n${spaces}-${yamlValue.startsWith("\n") ? yamlValue.replace(/\n/g, "\n ") : ` ${yamlValue}`}`;
         }
         return `\n${spaces}- ${yamlValue}`;
       })

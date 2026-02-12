@@ -265,7 +265,7 @@ export const executeMetricsCheck = (): Response => {
   const response = http.get(url, params);
   const duration = Date.now() - startTime;
 
-  const success = validateMetricsResponse(response);
+  const _success = validateMetricsResponse(response);
 
   // Check performance budget
   const budget = getPerformanceBudget("metrics_endpoint");
@@ -320,7 +320,7 @@ export const executeOpenAPICheck = (): Response => {
   const response = http.get(url, params);
   const duration = Date.now() - startTime;
 
-  const success = validateOpenAPIResponse(response);
+  const _success = validateOpenAPIResponse(response);
 
   // Check performance budget
   const budget = getPerformanceBudget("openapi_spec");
@@ -398,7 +398,7 @@ export const simulateUserJourney = (consumer: ConsumerConfig): void => {
       const body = typeof tokenResponse.body === "string" ? tokenResponse.body : "";
       const tokenData = JSON.parse(body) as TokenResponse;
       console.log(`Generated token for ${consumer.username}, expires in ${tokenData.expires_in}s`);
-    } catch (e) {
+    } catch (_e) {
       console.error(`Failed to parse token response for ${consumer.username}`);
     }
   }

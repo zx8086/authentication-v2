@@ -239,9 +239,9 @@ describe("SharedRedisCache Error Handling", () => {
 
   describe("setStale operation errors", () => {
     it("should handle Redis setStale operation failure silently", async () => {
-      let callCount = 0;
+      let _callCount = 0;
       mockClient.set.mockImplementation(async (key: string) => {
-        callCount++;
+        _callCount++;
         if (key.includes("stale")) {
           throw new Error("Stale cache write failed");
         }

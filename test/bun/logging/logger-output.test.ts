@@ -14,8 +14,8 @@ import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
 
 describe("Logger Output Verification - Mutation Testing", () => {
   const originalEnv = { ...Bun.env };
-  let capturedLogs: Array<{ level: string; message: string; context: Record<string, any> }> = [];
-  let mockWinstonLogger: {
+  let _capturedLogs: Array<{ level: string; message: string; context: Record<string, any> }> = [];
+  let _mockWinstonLogger: {
     info: ReturnType<typeof mock>;
     warn: ReturnType<typeof mock>;
     error: ReturnType<typeof mock>;
@@ -35,7 +35,7 @@ describe("Logger Output Verification - Mutation Testing", () => {
     Bun.env.OTEL_SERVICE_NAME = "test-auth-service";
     Bun.env.TELEMETRY_ENVIRONMENT = "test";
 
-    capturedLogs = [];
+    _capturedLogs = [];
 
     const { resetConfigCache } = await import("../../../src/config/config");
     resetConfigCache();

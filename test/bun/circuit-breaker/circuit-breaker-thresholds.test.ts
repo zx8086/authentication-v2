@@ -42,7 +42,7 @@ describe("Circuit Breaker Thresholds - Mutation Testing", () => {
         defaultCachingConfig
       );
 
-      const stats = service.getStats();
+      const _stats = service.getStats();
 
       // Default timeout for getConsumerSecret should be 3000ms
       // This verifies the operation configs are set correctly
@@ -59,11 +59,11 @@ describe("Circuit Breaker Thresholds - Mutation Testing", () => {
 
       // Test that createConsumerSecret uses deny fallback strategy
       // First, make the operation fail multiple times to open the circuit
-      let failureCount = 0;
+      let _failureCount = 0;
       for (let i = 0; i < 10; i++) {
         try {
           await service.wrapKongConsumerOperation("createConsumerSecret", "test-consumer", () => {
-            failureCount++;
+            _failureCount++;
             throw new Error("Create operation failed");
           });
         } catch {
