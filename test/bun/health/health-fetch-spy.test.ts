@@ -202,25 +202,35 @@ describe("Health Handler Fetch Behavior - Real HTTP", () => {
 
   describe("Error scenarios with invalid Kong", () => {
     it("should handle Kong unavailable gracefully", async () => {
-      // Use invalid Kong URL to trigger failure
-      Bun.env.KONG_ADMIN_URL = "http://invalid-kong-host-that-does-not-exist:8001";
-      const { resetConfigCache } = await import("../../../src/config/config");
-      resetConfigCache();
+      // Store original URL for restoration
+      const originalKongUrl = Bun.env.KONG_ADMIN_URL;
 
-      const invalidContext = await setupKongTestContext();
-      const invalidKongService = invalidContext.adapter
-        ? new APIGatewayService(invalidContext.adapter)
-        : null;
+      try {
+        // Use invalid Kong URL to trigger failure
+        Bun.env.KONG_ADMIN_URL = "http://invalid-kong-host-that-does-not-exist:8001";
+        const { resetConfigCache } = await import("../../../src/config/config");
+        resetConfigCache();
 
-      if (!invalidKongService) {
-        console.log("Skipping: Cannot create Kong service for unavailable test");
-        return;
+        const invalidContext = await setupKongTestContext();
+        const invalidKongService = invalidContext.adapter
+          ? new APIGatewayService(invalidContext.adapter)
+          : null;
+
+        if (!invalidKongService) {
+          console.log("Skipping: Cannot create Kong service for unavailable test");
+          return;
+        }
+
+        const { handleHealthCheck } = await import("../../../src/handlers/health");
+        const response = await handleHealthCheck(invalidKongService);
+
+        expect(response.status).toBe(503);
+      } finally {
+        // Always restore original URL and reset config
+        Bun.env.KONG_ADMIN_URL = originalKongUrl;
+        const { resetConfigCache } = await import("../../../src/config/config");
+        resetConfigCache();
       }
-
-      const { handleHealthCheck } = await import("../../../src/handlers/health");
-      const response = await handleHealthCheck(invalidKongService);
-
-      expect(response.status).toBe(503);
     });
   });
 });
