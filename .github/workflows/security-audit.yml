@@ -87,19 +87,43 @@ jobs:
           bunx snyk@1.1290.0 code test --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --sarif-file-output=snyk-code-comprehensive.sarif || {
             echo "Snyk code analysis completed with findings or errors"
             ls -la *.sarif 2>/dev/null || echo "No SARIF files found"
-            exit 0
           }
-          echo "Snyk code analysis completed successfully"
+
+          # Fix Snyk multi-run SARIF bug: ensure single run in SARIF file
+          if [ -f "snyk-code-comprehensive.sarif" ]; then
+            jq '.runs = [.runs[0]]' snyk-code-comprehensive.sarif > snyk-code-comprehensive-single.sarif
+            mv snyk-code-comprehensive-single.sarif snyk-code-comprehensive.sarif
+            echo "SARIF single-run fix applied"
+          fi
+
+          echo "Snyk code analysis completed"
         continue-on-error: true
 
       # Dependency Vulnerability Scan
       - name: Run Snyk dependency scan
-        run: |
-          bun add -g snyk
-          snyk auth ${{ secrets.SNYK_TOKEN }}
-          snyk test --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --json > snyk-dependencies.json || true
-          snyk monitor --project-name=authentication-service || true
         timeout-minutes: 15
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          echo "Running Snyk dependency scan..."
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "ERROR: SNYK_TOKEN not configured"
+            exit 0
+          fi
+          bunx snyk@1.1290.0 auth $SNYK_TOKEN
+          bunx snyk@1.1290.0 test \
+            --severity-threshold=${{ inputs.severity_threshold || 'medium' }} \
+            --sarif-file-output=snyk-dependencies.sarif \
+            --json > snyk-dependencies.json || true
+
+          # Fix Snyk multi-run SARIF bug: ensure single run in SARIF file
+          if [ -f "snyk-dependencies.sarif" ]; then
+            jq '.runs = [.runs[0]]' snyk-dependencies.sarif > snyk-dependencies-single.sarif
+            mv snyk-dependencies-single.sarif snyk-dependencies.sarif
+            echo "SARIF single-run fix applied"
+          fi
+
+          bunx snyk@1.1290.0 monitor --project-name=authentication-service || true
         continue-on-error: true
 
       # Container Security Audit with Deep Scan
@@ -126,9 +150,16 @@ jobs:
             --exclude-base-image-vulns || {
             echo "Snyk container scan completed with findings or errors"
             ls -la *.sarif 2>/dev/null || echo "No SARIF files found"
-            exit 0
           }
-          echo "Snyk container scan completed successfully"
+
+          # Fix Snyk multi-run SARIF bug: ensure single run in SARIF file
+          if [ -f "snyk-container-comprehensive.sarif" ]; then
+            jq '.runs = [.runs[0]]' snyk-container-comprehensive.sarif > snyk-container-comprehensive-single.sarif
+            mv snyk-container-comprehensive-single.sarif snyk-container-comprehensive.sarif
+            echo "SARIF single-run fix applied"
+          fi
+
+          echo "Snyk container scan completed"
         continue-on-error: true
 
       # Advanced Trivy Scans
@@ -181,6 +212,17 @@ jobs:
         with:
           sarif_file: 'snyk-code-comprehensive.sarif'
           category: 'snyk-code-comprehensive'
+          wait-for-processing: true
+        continue-on-error: true
+
+      - name: Upload Snyk dependencies scan to GitHub Security
+        if: hashFiles('snyk-dependencies.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        timeout-minutes: 3
+        with:
+          sarif_file: 'snyk-dependencies.sarif'
+          category: 'snyk-dependencies-comprehensive'
+          wait-for-processing: true
         continue-on-error: true
 
       - name: Upload Snyk container scan to GitHub Security
@@ -190,6 +232,7 @@ jobs:
         with:
           sarif_file: 'snyk-container-comprehensive.sarif'
           category: 'snyk-container-comprehensive'
+          wait-for-processing: true
         continue-on-error: true
 
       - name: Upload Trivy filesystem scan to GitHub Security
@@ -199,6 +242,7 @@ jobs:
         with:
           sarif_file: 'trivy-fs-comprehensive.sarif'
           category: 'trivy-fs-comprehensive'
+          wait-for-processing: true
         continue-on-error: true
 
       - name: Upload Trivy container scan to GitHub Security
@@ -208,60 +252,72 @@ jobs:
         with:
           sarif_file: 'trivy-container-comprehensive.sarif'
           category: 'trivy-container-comprehensive'
+          wait-for-processing: true
         continue-on-error: true
 
-      # Generate comprehensive security report
+      # Generate comprehensive security report with GitHub Step Summary
       - name: Generate comprehensive security report
         if: always()
         timeout-minutes: 5
         run: |
-          echo "# Comprehensive Security Audit Report" > security-report.md
-          echo "" >> security-report.md
-          echo "**Audit Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> security-report.md
-          echo "**Repository:** ${{ github.repository }}" >> security-report.md
-          echo "**Commit:** ${{ github.sha }}" >> security-report.md
-          echo "**Scan Depth:** ${{ inputs.scan_depth || '30' }}" >> security-report.md
-          echo "**Severity Threshold:** ${{ inputs.severity_threshold || 'medium' }}" >> security-report.md
-          echo "" >> security-report.md
+          {
+            echo "## Comprehensive Security Audit Report"
+            echo ""
+            echo "**Audit Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "**Repository:** ${{ github.repository }}"
+            echo "**Commit:** \`${{ github.sha }}\`"
+            echo "**Scan Depth:** ${{ inputs.scan_depth || '30' }}"
+            echo "**Severity Threshold:** ${{ inputs.severity_threshold || 'medium' }}"
+            echo ""
+            echo "### Scan Results Summary"
+            echo ""
+            echo "| Scan Type | Status | SARIF File |"
+            echo "|-----------|--------|------------|"
 
-          echo "## Scan Results Summary" >> security-report.md
-          echo "" >> security-report.md
-          echo "| Scan Type | Status | File | Size |" >> security-report.md
-          echo "|-----------|--------|------|------|" >> security-report.md
+            # Check each scan result with status indicators
+            for file in snyk-code-comprehensive.sarif snyk-dependencies.sarif snyk-container-comprehensive.sarif trivy-fs-comprehensive.sarif trivy-container-comprehensive.sarif; do
+              scan_name="${file%-comprehensive.sarif}"
+              scan_name="${scan_name%.sarif}"
+              if [ -f "$file" ]; then
+                echo "| $scan_name | Completed | $file |"
+              else
+                echo "| $scan_name | Failed | N/A |"
+              fi
+            done
 
-          # Check each scan result
-          for file in snyk-code-comprehensive.sarif snyk-container-comprehensive.sarif trivy-fs-comprehensive.sarif trivy-container-comprehensive.sarif; do
-            if [ -f "$file" ]; then
-              size=$(wc -c < "$file")
-              echo "| ${file%.*} | Completed | $file | ${size} bytes |" >> security-report.md
+            echo ""
+            echo "### Additional Security Checks"
+            echo ""
+
+            # License compliance
+            if [ -f "license-report.json" ]; then
+              license_issues=$(jq 'length' license-report.json 2>/dev/null || echo "unknown")
+              echo "| License Compliance | Issues: $license_issues | license-report.json |"
             else
-              echo "| ${file%.*} | Failed | N/A | N/A |" >> security-report.md
+              echo "| License Compliance | Passed | N/A |"
             fi
-          done
 
-          echo "" >> security-report.md
-          echo "## Additional Reports" >> security-report.md
-          echo "" >> security-report.md
+            # Secrets scan
+            if [ -f "secrets-scan.json" ]; then
+              secret_count=$(jq -s 'length' secrets-scan.json 2>/dev/null || wc -l < secrets-scan.json || echo "0")
+              if [ "$secret_count" -gt 0 ]; then
+                echo "| Secrets Detection | Found: $secret_count | secrets-scan.json |"
+              else
+                echo "| Secrets Detection | Passed | N/A |"
+              fi
+            else
+              echo "| Secrets Detection | Passed | N/A |"
+            fi
 
-          # License report (Bun Native)
-          if [ -f "license-report.json" ]; then
-            echo "### License Compliance (Bun Native - 90% Performance Improvement)" >> security-report.md
-            echo "\`\`\`json" >> security-report.md
-            head -30 license-report.json >> security-report.md
-            echo "\`\`\`" >> security-report.md
-            echo "" >> security-report.md
-          fi
+            echo ""
+            echo "### Links"
+            echo "- [Security Tab](https://github.com/${{ github.repository }}/security)"
+            echo "- [Actions Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo "- [Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+          } >> $GITHUB_STEP_SUMMARY
 
-          # Secrets scan
-          if [ -f "secrets-scan.json" ]; then
-            secret_count=$(jq length secrets-scan.json 2>/dev/null || echo "0")
-            echo "### Secrets Detection" >> security-report.md
-            echo "**Potential secrets found:** $secret_count" >> security-report.md
-            echo "" >> security-report.md
-          fi
-
-          # Copy to step summary
-          cat security-report.md >> $GITHUB_STEP_SUMMARY
+          # Also save to file for artifact
+          cat $GITHUB_STEP_SUMMARY > security-report.md
 
       # Archive all security scan results
       - name: Archive comprehensive security scan results

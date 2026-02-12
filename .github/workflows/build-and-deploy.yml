@@ -499,9 +499,16 @@ jobs:
             echo "Snyk code analysis completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
-            exit 0
           }
-          echo "Snyk code analysis completed successfully"
+
+          # Fix Snyk multi-run SARIF bug: ensure single run in SARIF file
+          if [ -f "snyk-code-results.sarif" ]; then
+            jq '.runs = [.runs[0]]' snyk-code-results.sarif > snyk-code-results-single.sarif
+            mv snyk-code-results-single.sarif snyk-code-results.sarif
+            echo "SARIF single-run fix applied"
+          fi
+
+          echo "Snyk code analysis completed"
           ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
         continue-on-error: true
 
@@ -534,9 +541,16 @@ jobs:
             echo "Snyk container scan completed with findings or errors"
             echo "Exit code: $?"
             ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
-            exit 0
           }
-          echo "Snyk container scan completed successfully"
+
+          # Fix Snyk multi-run SARIF bug: ensure single run in SARIF file
+          if [ -f "snyk-container-results.sarif" ]; then
+            jq '.runs = [.runs[0]]' snyk-container-results.sarif > snyk-container-results-single.sarif
+            mv snyk-container-results-single.sarif snyk-container-results.sarif
+            echo "SARIF single-run fix applied"
+          fi
+
+          echo "Snyk container scan completed"
           ls -la *.sarif *.json 2>/dev/null || echo "No SARIF or JSON files found"
         continue-on-error: true
 
