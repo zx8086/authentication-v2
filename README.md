@@ -132,7 +132,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (1500+ tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2800+ live tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Operational runbook and diagnostics |
@@ -157,7 +157,7 @@ bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 
 ### Testing
 ```bash
-bun run test:bun              # Unit + integration tests (1523 tests)
+bun run test:bun              # Unit + integration tests (2800+ live tests)
 bun run test:e2e              # E2E tests (3 suites)
 bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
 bun run test:suite            # Full test suite with parallel execution
@@ -217,9 +217,10 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **Zero Client Secrets**: JWT signing secrets never leave the server
 - **OWASP Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options on all responses
 - **Circuit Breaker Protection**: Kong API resilience with stale cache fallback
-- **Security Scanning**: Automated vulnerability detection (Snyk, Trivy, Docker Scout)
+- **Security Scanning**: 6 automated scanners (Snyk Code, Snyk Container, Trivy, Docker Scout, License, CodeQL)
 - **Container Security**: DHI distroless base (0 CVEs, 12/12 security score), non-root user, read-only filesystem
 - **Supply Chain Security**: SBOM generation, VEX attestations, SLSA Level 3 provenance
+- **CVE Monitoring**: Automated 6-hour scans with 7-day remediation SLA for HIGH/CRITICAL
 
 ## Technology Stack
 
@@ -228,9 +229,10 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **HTTP**: Native Bun.serve() Routes API
 - **JWT**: Web Crypto API (crypto.subtle)
 - **Caching**: Redis with in-memory fallback
-- **Monitoring**: OpenTelemetry with OTLP
-- **Testing**: Bun Test + Playwright + K6
-- **Container**: Docker Hardened Images (DHI) distroless base - 0 CVEs, SLSA Level 3
+- **Monitoring**: OpenTelemetry with OTLP (field deduplication optimized)
+- **Testing**: Bun Test + Playwright + K6 (live backend testing)
+- **Container**: Docker Hardened Images (DHI) `dhi.io/static:20230311` - 0 CVEs, SLSA Level 3
+- **Security**: 6 scanners (Snyk, Trivy, Scout, CodeQL, TruffleHog, License)
 
 ## Support & Contributing
 

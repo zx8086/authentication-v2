@@ -12,7 +12,7 @@ Comprehensive documentation for the Authentication Service - a high-performance 
 | API Reference | [endpoints.md](api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](../test/README.md) | Comprehensive testing documentation (1500+ tests) |
+| Testing | [test/README.md](../test/README.md) | Comprehensive testing documentation (2800+ tests) |
 
 ## Documentation Structure
 
@@ -50,7 +50,7 @@ Development workflow and testing documentation.
 | Document | Description |
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow (includes Bun 1.3.9 parallel execution) |
-| [test/README.md](../test/README.md) | Testing strategy (1400+ unit + 4 integration + 3 E2E + 15 K6) |
+| [test/README.md](../test/README.md) | Testing strategy (2800+ tests with live backend testing) |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
 | [integration-tests-network-setup.md](development/integration-tests-network-setup.md) | Live Kong endpoint testing and network configuration |
 | [mutation-testing-guide.md](development/mutation-testing-guide.md) | Comprehensive mutation testing guide (100% mutation score) |
@@ -63,13 +63,13 @@ Container builds and production deployment.
 
 | Document | Description |
 |----------|-------------|
-| [docker.md](deployment/docker.md) | Docker container builds and deployment |
+| [docker.md](deployment/docker.md) | Docker container builds with DHI base (0 CVEs, SLSA Level 3) |
 | [kubernetes.md](deployment/kubernetes.md) | Production Kubernetes deployment |
-| [ci-cd.md](deployment/ci-cd.md) | GitHub Actions pipeline with security scanning |
+| [ci-cd.md](deployment/ci-cd.md) | GitHub Actions pipeline with parallel security scanning |
 | [DHI-MIGRATION-FINAL-REPORT.md](deployment/DHI-MIGRATION-FINAL-REPORT.md) | DHI distroless migration complete (0 CVEs, 12/12 security score) |
 | [DHI-DEPLOYMENT-GUIDE.md](deployment/DHI-DEPLOYMENT-GUIDE.md) | DHI staging deployment procedures and validation |
 | [DHI-PHASE-6-VALIDATION-REPORT.md](deployment/DHI-PHASE-6-VALIDATION-REPORT.md) | Phase 6 local deployment validation results |
-| [DOCKER-SCOUT-TROUBLESHOOTING.md](deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Docker Scout health score troubleshooting and organization configuration |
+| [DOCKER-SCOUT-TROUBLESHOOTING.md](deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Docker Scout health score and policy compliance troubleshooting |
 
 ### Operations
 
@@ -104,7 +104,8 @@ Security scanning and validation.
 
 | Document | Description |
 |----------|-------------|
-| [PARALLEL-SECURITY-SCANNING.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning (5 scanners) |
+| [PARALLEL-SECURITY-SCANNING.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning (5 scanners + CodeQL) |
+| [codeql-analysis.yml](../.github/workflows/codeql-analysis.yml) | CodeQL workflow for GitHub Security Overview compliance |
 
 ### Workarounds
 
@@ -156,14 +157,14 @@ Legacy system migration documentation.
 
 | Category | Status |
 |----------|--------|
-| Security | Complete - OWASP headers, audit logging, no hardcoded secrets, 0 CVEs |
-| Testing | Complete - 1500+ tests (48 unit + 4 integration + 3 E2E + 15 K6), 100% pass rate |
-| Observability | Complete - OpenTelemetry traces, metrics, logs |
+| Security | Complete - OWASP headers, audit logging, no hardcoded secrets, 0 CVEs, CodeQL |
+| Testing | Complete - 2800+ tests (live backend testing), 100% pass rate |
+| Observability | Complete - OpenTelemetry traces, metrics, logs (field deduplication fixed) |
 | Error Handling | Complete - Structured error codes, circuit breaker |
 | Documentation | Complete - OpenAPI spec, API docs, comprehensive guides |
 | Configuration | Complete - 4-pillar pattern, .env.example comprehensive |
-| Container Security | Complete - DHI distroless base (0 CVEs, 12/12 security score, SLSA Level 3) |
-| CI/CD | Complete - Parallel security scanning, consolidated workflow, Bun 1.3.9 parallel execution |
+| Container Security | Complete - DHI distroless base (0 CVEs, 12/12 security score, SLSA Level 3, VEX) |
+| CI/CD | Complete - Parallel security scanning (5 scanners + CodeQL), Scout policy compliance |
 
 ### Technology Stack
 

@@ -2,52 +2,80 @@
 
 ## Container Overview
 
-The authentication service uses a **distroless base image** for maximum security and minimal attack surface.
+The authentication service uses **Docker Hardened Images (DHI)** - a distroless base image for maximum security and minimal attack surface with enterprise-grade supply chain security.
 
 ### Key Characteristics
-- **Base Image**: `gcr.io/distroless/base:nonroot` (no shell, no package manager)
-- **Image Size**: 58MB (production optimized)
-- **Security Score**: 10/10 (distroless + non-root user)
+- **Base Image**: `dhi.io/static:20230311` (Docker Hardened Images - distroless)
+- **Security Score**: 12/12 (0 CVEs, SLSA Level 3)
 - **User**: Non-root (UID 65532)
 - **Signal Handling**: dumb-init for proper PID 1 behavior
+- **Supply Chain**: SLSA Level 3 provenance, VEX attestations, SBOM generation
+- **CVE SLA**: 7-day remediation for HIGH/CRITICAL vulnerabilities
 
 ## Dockerfile
 
 ```dockerfile
-# Multi-stage build for minimal production image
-FROM oven/bun:1.2.23-alpine AS deps-base
+# Multi-stage optimized Dockerfile for Bun + Authentication Service
+# syntax=docker/dockerfile:1
+FROM oven/bun:1.3.9-alpine AS deps-base
 WORKDIR /app
-RUN apk add --no-cache dumb-init ca-certificates && \
-    apk upgrade curl openssl
 
+# Install minimal system dependencies
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk update && apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates dumb-init
+
+# Dependencies stage - cache layer optimization
 FROM deps-base AS deps-prod
-COPY package.json bun.lockb* ./
-RUN bun install --frozen-lockfile --production
+COPY package.json bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    bun install --frozen-lockfile --production
 
-# Production stage - distroless for security
-FROM gcr.io/distroless/base:nonroot AS production
+# Build stage
+FROM deps-base AS builder
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run generate-docs && bun run build
 
-# Copy dumb-init and Bun runtime
-COPY --from=deps-base /usr/bin/dumb-init /usr/bin/dumb-init
-COPY --from=oven/bun:1.2.23-alpine /usr/local/bin/bun /usr/local/bin/bun
+# Docker Hardened Images production stage - SLSA Level 3 + VEX + SBOM
+FROM dhi.io/static:20230311 AS production
+
+# Copy Bun runtime
+COPY --from=oven/bun:1.3.9-alpine --chown=65532:65532 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=deps-base --chown=65532:65532 /usr/bin/dumb-init /usr/bin/dumb-init
+
+# Copy musl dynamic linker and shared libraries
+COPY --from=deps-base --chown=65532:65532 /lib/ld-musl-*.so.1 /lib/
+COPY --from=deps-base --chown=65532:65532 /usr/lib/libgcc_s.so.1 /usr/lib/libstdc++.so.6 /usr/lib/
 
 WORKDIR /app
 
-# Copy application files
-COPY --from=deps-prod /app/node_modules ./node_modules/
-COPY . .
+# Copy production dependencies and application
+COPY --from=deps-prod --chown=65532:65532 /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=65532:65532 /app/package.json ./package.json
+COPY --from=builder --chown=65532:65532 /app/src ./src
+COPY --from=builder --chown=65532:65532 /app/public ./public
 
-# Non-root user (65532 is the distroless nonroot user)
+# Explicitly set non-root user (required for Docker Scout "Default Non-Root User" policy)
 USER 65532:65532
 
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 TELEMETRY_MODE=otlp
 EXPOSE 3000
 
 # Health check using Bun native fetch (no curl in distroless)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD ["/usr/local/bin/bun", "--eval", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/usr/local/bin/bun", "--eval", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/local/bin/bun", "src/index.ts"]
+
+# OCI labels for DHI compliance
+LABEL org.opencontainers.image.base.name="dhi.io/static:20230311" \
+    security.dhi.enabled="true" \
+    security.dhi.slsa.level="3" \
+    security.dhi.vex.enabled="true" \
+    security.dhi.cve.sla="7-days"
 ```
 
 ## Build Commands
@@ -252,25 +280,32 @@ services:
 
 ## Container Security
 
-### Security Features (10/10 Score)
-- **Distroless base**: No shell, no package manager - minimal attack surface
+### Security Features (12/12 Score)
+- **DHI Base Image**: Docker Hardened Images (0 CVEs, SLSA Level 3)
 - **Non-root user**: Runs as UID 65532 (distroless nonroot)
-- **Read-only filesystem**: Immutable container with tmpfs for /tmp
+- **Read-only filesystem**: Immutable container with tmpfs for /tmp and /app/profiles
 - **Dropped capabilities**: All capabilities dropped, minimal additions
 - **No privilege escalation**: `no-new-privileges:true`
 - **OWASP headers**: All responses include security headers (HSTS, CSP, X-Frame-Options)
 - **Health checks**: Built-in health monitoring via Bun native fetch
 - **TLS/SSL**: Supports secure Redis connections (REDISS)
+- **SLSA Level 3**: Cryptographic provenance attestations
+- **VEX Attestations**: Vulnerability exploitability analysis (~30% false positive reduction)
+- **SBOM Generation**: Complete software inventory
+- **7-Day CVE SLA**: Automated patching for HIGH/CRITICAL vulnerabilities
 
 ### Security Validation
 ```bash
 # Run full security validation
 bun run docker:security:full
 
-# Trivy vulnerability scan
-bun run docker:security:trivy
+# DHI-specific commands
+bun run docker:dhi:verify-provenance    # Verify SLSA Level 3
+bun run docker:dhi:extract-sbom         # Extract SBOM
+bun run docker:dhi:check-vex            # Check VEX attestations
+bun run docker:dhi:cve-scan             # Scan for CVEs
 
-# Expected output: 10/10 security score
+# Expected output: 12/12 security score
 ```
 
 ## Performance Characteristics

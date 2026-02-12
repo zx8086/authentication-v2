@@ -4,6 +4,12 @@
 
 This document describes the implementation of parallel security scanning services in the CI/CD pipeline, resulting in a **60-70% improvement** in scan completion time.
 
+**Security Scanning Stack:**
+- 5 parallel scanners in main workflow (Snyk, Trivy, Docker Scout, License)
+- CodeQL analysis for GitHub Security Overview compliance (separate workflow)
+- DHI CVE monitoring with 6-hour scan frequency
+- Comprehensive security audit (scheduled daily)
+
 ## Implementation Details
 
 ### Architecture: Job-Level Matrix Parallelization
@@ -72,6 +78,14 @@ strategy:
 - **Duration**: <1 minute
 - **Output**: `license-report.json`
 
+### 6. CodeQL Analysis (Separate Workflow)
+- **Type**: Semantic code analysis for security vulnerabilities
+- **Workflow**: `.github/workflows/codeql-analysis.yml`
+- **Languages**: JavaScript/TypeScript
+- **Duration**: 5-10 minutes
+- **Output**: GitHub Security tab integration
+- **Purpose**: GitHub Security Overview compliance, advanced vulnerability detection
+
 ## Workflow Architecture
 
 ### Job Dependencies
@@ -120,7 +134,9 @@ Each matrix job includes:
   - `snyk-container`
   - `trivy-container`
   - `docker-scout`
+  - `codeql` (JavaScript/TypeScript analysis)
 - License compliance reports in artifacts
+- Comprehensive audit results with 90-day retention
 
 ## Usage and Maintenance
 
@@ -244,7 +260,10 @@ The implementation includes a comprehensive validation script (`test-parallel-wo
 
 ## Related Files
 
-- `.github/workflows/build-and-deploy.yml` - Main workflow configuration
+- `.github/workflows/build-and-deploy.yml` - Main workflow with parallel security scanning
+- `.github/workflows/codeql-analysis.yml` - CodeQL semantic analysis (GitHub Security Overview)
+- `.github/workflows/security-audit.yml` - Comprehensive daily security audit
+- `.github/workflows/dhi-cve-monitor.yml` - DHI CVE monitoring (6-hour scans)
 - `test-parallel-workflow.ts` - Validation script
 - `docs/PARALLEL-SECURITY-SCANNING.md` - This documentation
 
