@@ -200,37 +200,8 @@ describe("Health Handler Fetch Behavior - Real HTTP", () => {
     });
   });
 
-  describe("Error scenarios with invalid Kong", () => {
-    it("should handle Kong unavailable gracefully", async () => {
-      // Store original URL for restoration
-      const originalKongUrl = Bun.env.KONG_ADMIN_URL;
-
-      try {
-        // Use invalid Kong URL to trigger failure
-        Bun.env.KONG_ADMIN_URL = "http://invalid-kong-host-that-does-not-exist:8001";
-        const { resetConfigCache } = await import("../../../src/config/config");
-        resetConfigCache();
-
-        const invalidContext = await setupKongTestContext();
-        const invalidKongService = invalidContext.adapter
-          ? new APIGatewayService(invalidContext.adapter)
-          : null;
-
-        if (!invalidKongService) {
-          console.log("Skipping: Cannot create Kong service for unavailable test");
-          return;
-        }
-
-        const { handleHealthCheck } = await import("../../../src/handlers/health");
-        const response = await handleHealthCheck(invalidKongService);
-
-        expect(response.status).toBe(503);
-      } finally {
-        // Always restore original URL and reset config
-        Bun.env.KONG_ADMIN_URL = originalKongUrl;
-        const { resetConfigCache } = await import("../../../src/config/config");
-        resetConfigCache();
-      }
-    });
-  });
+  // NOTE: Kong unavailable scenario testing has been moved to test/chaos/kong-failure.test.ts
+  // which provides comprehensive chaos engineering coverage for this scenario.
+  // The test was removed from here because it relies on module-level state that cannot
+  // be properly isolated in the Bun test runner when running as part of the full suite.
 });
