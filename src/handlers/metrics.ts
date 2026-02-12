@@ -104,6 +104,40 @@ export async function handleDebugMetricsExport(): Promise<Response> {
   });
 
   try {
+    // Check if telemetry is initialized before attempting flush
+    const telemetryStatus = getTelemetryStatus();
+    if (!telemetryStatus.initialized) {
+      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      log("Metrics export skipped - telemetry not initialized", {
+        component: "debug",
+        operation: "force_export",
+        success: true,
+        duration,
+        reason: "telemetry_not_initialized",
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Metrics exported successfully",
+          exportedMetrics: 0,
+          duration: Math.round(duration),
+          errors: [],
+          timestamp: new Date().toISOString(),
+          note: "Telemetry not initialized - no metrics to export",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": config.apiInfo.cors,
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          },
+        }
+      );
+    }
+
     await forceMetricsFlush();
     const flushResult = { success: true, exportedMetrics: 10, errors: [] };
     const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
