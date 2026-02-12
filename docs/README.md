@@ -2,122 +2,74 @@
 
 **Production Ready: 9.5/10 - Exceptional Quality**
 
-Comprehensive documentation for the Authentication Service - a high-performance JWT token generation service built with Bun runtime for Kong Gateway integration.
-
 ## Quick Navigation
 
-| Category | Key Document | Description |
-|----------|-------------|-------------|
-| Getting Started | [getting-started.md](development/getting-started.md) | Development setup and workflow |
-| API Reference | [endpoints.md](api/endpoints.md) | Complete API documentation (16 endpoints) |
-| Configuration | [environment-setup.md](configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
-| Deployment | [docker.md](deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](../test/README.md) | Comprehensive testing documentation (2900+ tests) |
+| Need to... | Go to... |
+|------------|----------|
+| Start developing | [Getting Started](development/getting-started.md) |
+| Understand the API | [API Reference](api/endpoints.md) |
+| Configure the service | [Configuration Guide](configuration/environment.md) |
+| Run tests | [Testing Guide](development/testing.md) |
+| Deploy to production | [Container Security](deployment/container-security.md) |
+| Debug issues | [Troubleshooting](operations/troubleshooting.md) |
+| Monitor the service | [Observability Guide](operations/monitoring.md) |
 
-## Documentation Structure
+---
 
-### Architecture
-
-System design and component relationships.
-
-| Document | Description |
-|----------|-------------|
-| [system-overview.md](architecture/system-overview.md) | High-level architecture and component relationships |
-| [authentication-flow.md](architecture/authentication-flow.md) | JWT token generation and Kong integration flow |
+## By Category
 
 ### API Reference
-
-Complete API documentation and specifications.
 
 | Document | Description |
 |----------|-------------|
 | [endpoints.md](api/endpoints.md) | All 16 API endpoints with request/response formats |
 | [jwt-tokens.md](api/jwt-tokens.md) | JWT token structure, claims, and validation |
 
-### Configuration
-
-Environment setup and configuration management.
+### Architecture
 
 | Document | Description |
 |----------|-------------|
-| [environment-setup.md](configuration/environment-setup.md) | Environment variables and 4-pillar configuration pattern |
-| [dependencies.md](configuration/dependencies.md) | Package requirements and runtime dependencies |
+| [overview.md](architecture/overview.md) | System design, authentication flow, and technology stack |
+
+### Configuration
+
+| Document | Description |
+|----------|-------------|
+| [environment.md](configuration/environment.md) | Environment variables, 4-pillar configuration, dependencies |
 
 ### Development
 
-Development workflow and testing documentation.
-
 | Document | Description |
 |----------|-------------|
-| [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow (includes Bun 1.3.9 parallel execution) |
-| [test/README.md](../test/README.md) | Testing strategy (2900+ tests with live backend testing) |
-| [chaos/](../test/chaos/) | Chaos engineering tests (57 tests for resilience validation) |
-| [kong-test-setup.md](development/kong-test-setup.md) | Kong test consumer setup and configuration |
-| [integration-tests-network-setup.md](development/integration-tests-network-setup.md) | Live Kong endpoint testing and network configuration |
-| [mutation-testing-guide.md](development/mutation-testing-guide.md) | Comprehensive mutation testing guide (100% mutation score) |
-| [mutation-testing-optimization.md](development/mutation-testing-optimization.md) | Performance optimization for mutation testing (79 min → 26 sec with cache) |
-| [testing.md](development/testing.md) | Testing best practices and mutation testing fundamentals |
-| [profiling-workflows.md](development/profiling-workflows.md) | CPU/memory profiling, API endpoints, and performance analysis |
+| [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
+| [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation) |
+| [kong-test-setup.md](development/kong-test-setup.md) | Test consumers and Kong configuration |
+| [profiling.md](development/profiling.md) | CPU/memory profiling and Bun fetch workaround |
 
 ### Deployment
 
-Container builds and production deployment.
-
 | Document | Description |
 |----------|-------------|
-| [docker.md](deployment/docker.md) | Docker container builds with DHI base (0 CVEs, SLSA Level 3) |
+| [docker.md](deployment/docker.md) | Docker container builds |
 | [kubernetes.md](deployment/kubernetes.md) | Production Kubernetes deployment |
-| [ci-cd.md](deployment/ci-cd.md) | GitHub Actions pipeline with parallel security scanning |
-| [DHI-MIGRATION-FINAL-REPORT.md](deployment/DHI-MIGRATION-FINAL-REPORT.md) | DHI distroless migration complete (0 CVEs, 12/12 security score) |
-| [DHI-DEPLOYMENT-GUIDE.md](deployment/DHI-DEPLOYMENT-GUIDE.md) | DHI staging deployment procedures and validation |
-| [DHI-PHASE-6-VALIDATION-REPORT.md](deployment/DHI-PHASE-6-VALIDATION-REPORT.md) | Phase 6 local deployment validation results |
-| [DOCKER-SCOUT-TROUBLESHOOTING.md](deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Docker Scout health score and policy compliance troubleshooting |
+| [ci-cd.md](deployment/ci-cd.md) | GitHub Actions pipeline |
+| [container-security.md](deployment/container-security.md) | DHI migration, security features, CVE remediation |
 
 ### Operations
 
-Monitoring, observability, SLAs, memory management, and performance.
-
 | Document | Description |
 |----------|-------------|
-| [monitoring.md](operations/monitoring.md) | OpenTelemetry observability, metrics, and alerting |
-| [SLA.md](operations/SLA.md) | Performance SLAs, availability targets, RTO/RPO, and monitoring thresholds |
-| [TROUBLESHOOTING.md](operations/TROUBLESHOOTING.md) | Runbook-style troubleshooting guide with common issues |
-| [MEMORY_MONITORING_GUIDE.md](operations/MEMORY_MONITORING_GUIDE.md) | Enhanced memory monitoring using bun:jsc APIs |
+| [monitoring.md](operations/monitoring.md) | OpenTelemetry observability and memory monitoring |
+| [sla.md](operations/sla.md) | Performance SLAs and availability targets |
+| [troubleshooting.md](operations/troubleshooting.md) | Runbook-style troubleshooting guide |
 
 ### Security
 
-Security scanning and validation.
-
 | Document | Description |
 |----------|-------------|
-| [PARALLEL-SECURITY-SCANNING.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning (5 scanners + CodeQL) |
-| [codeql-analysis.yml](../.github/workflows/codeql-analysis.yml) | CodeQL workflow for GitHub Security Overview compliance |
+| [security-scanning.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning |
 
-### Workarounds
-
-Known issues and production-ready workarounds.
-
-| Document | Description |
-|----------|-------------|
-| [SIO-276-bun-executable-workaround.md](workarounds/SIO-276-bun-executable-workaround.md) | ENOEXEC bug fix with bundled Bun executable for mutation testing |
-| [SIO-287-strykerjs-bun-output-parser.md](workarounds/SIO-287-strykerjs-bun-output-parser.md) | StrykerJS output parser fix (dots reporter + silent logging) |
-| [SIO-288-bun-fetch-curl-fallback.md](workarounds/SIO-288-bun-fetch-curl-fallback.md) | Bun fetch networking bug fix with automatic curl fallback |
-
-### Plans
-
-Future implementation plans and architectural proposals.
-
-| Document | Description |
-|----------|-------------|
-| [bun-test-runner-plugin.md](plans/bun-test-runner-plugin.md) | Future @stryker-mutator/bun-runner plugin (planning phase) |
-
-### Migration
-
-Legacy system migration documentation.
-
-| Document | Description |
-|----------|-------------|
-| [MIGRATION_GAPS.md](MIGRATION_GAPS.md) | .NET to Bun migration gaps and verification checklist |
+---
 
 ## Related Documentation
 
@@ -126,41 +78,32 @@ Legacy system migration documentation.
 | [README.md](../README.md) | Main project documentation |
 | [CLAUDE.md](../CLAUDE.md) | Claude Code agent instructions |
 | [test/README.md](../test/README.md) | Complete testing documentation |
-| [test/k6/README-CONDITIONAL-TESTING.md](../test/k6/README-CONDITIONAL-TESTING.md) | K6 conditional testing configuration |
+
+---
 
 ## Service Overview
 
 ### Key Capabilities
 
-- **Performance**: 100,000+ requests/second with native Bun runtime
-- **Security**: Zero client-side secrets, centralized token management
-- **Error Handling**: RFC 7807 Problem Details with structured error codes (AUTH_001-012)
-- **Resilience**: Circuit breaker with stale cache fallback
-- **Observability**: Comprehensive OpenTelemetry instrumentation
-- **Container**: Multi-stage distroless builds with security hardening
-
-### Production Readiness Checklist
-
-| Category | Status |
-|----------|--------|
-| Security | Complete - OWASP headers, audit logging, no hardcoded secrets, 0 CVEs, CodeQL |
-| Testing | Complete - 2900+ tests (live backend + 57 chaos tests), 100% pass rate |
-| Observability | Complete - OpenTelemetry traces, metrics, logs |
-| Error Handling | Complete - RFC 7807 Problem Details, structured error codes, circuit breaker |
-| Documentation | Complete - OpenAPI spec, RFC 8594 Sunset headers, RTO/RPO targets |
-| Configuration | Complete - 4-pillar pattern, .env.example comprehensive |
-| Container Security | Complete - DHI distroless base (0 CVEs, 12/12 security score, SLSA Level 3, VEX) |
-| CI/CD | Complete - Parallel security scanning (5 scanners + CodeQL), Scout policy compliance |
-| Kubernetes | Complete - PDB, HPA, 22 Prometheus AlertManager rules, External Secrets options |
+| Capability | Description |
+|------------|-------------|
+| **Performance** | 100,000+ requests/second with native Bun runtime |
+| **Security** | Zero client-side secrets, centralized token management |
+| **Error Handling** | RFC 7807 Problem Details with structured error codes |
+| **Resilience** | Circuit breaker with stale cache fallback |
+| **Observability** | Comprehensive OpenTelemetry instrumentation |
+| **Container** | DHI distroless builds (0 CVEs, 12/12 security score) |
 
 ### Technology Stack
 
-- **Runtime**: Bun v1.3.9+ (native performance with parallel execution support)
-- **Language**: TypeScript with strict validation
-- **HTTP**: Native Bun.serve() Routes API
-- **JWT**: Web Crypto API (crypto.subtle)
-- **Monitoring**: OpenTelemetry with OTLP
-- **Container**: Docker Hardened Images (DHI) distroless base - 0 CVEs, SLSA Level 3
+| Category | Technology |
+|----------|------------|
+| Runtime | Bun v1.3.9+ |
+| Language | TypeScript |
+| HTTP | Bun.serve() Routes API |
+| JWT | Web Crypto API |
+| Monitoring | OpenTelemetry + OTLP |
+| Container | DHI distroless (SLSA Level 3) |
 
 ### API Endpoints Summary
 
@@ -169,12 +112,8 @@ Legacy system migration documentation.
 | `/` | GET | OpenAPI specification |
 | `/tokens` | GET | Issue JWT token |
 | `/tokens/validate` | GET | Validate JWT token |
-| `/health` | GET | Service health (liveness) |
+| `/health` | GET | Service health |
 | `/health/ready` | GET | Readiness probe |
-| `/health/telemetry` | GET | Telemetry status |
-| `/health/metrics` | GET | Metrics system health |
 | `/metrics` | GET | Performance metrics |
-| `/debug/metrics/*` | POST | Metrics debugging |
-| `/debug/profiling/*` | GET/POST | Profiling endpoints |
 
 See [endpoints.md](api/endpoints.md) for complete API documentation.

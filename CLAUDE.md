@@ -18,7 +18,7 @@ This project follows a **live environment testing strategy**:
 - Tests gracefully skip if live Kong is unavailable
 - **NEVER hardcode `http://kong:8001` or `http://localhost:8001`** in tests
 - **Automatic Curl Fallback**: `fetchWithFallback()` handles Bun networking bugs with remote IPs
-  - See `docs/workarounds/SIO-288-bun-fetch-curl-fallback.md` for details
+  - See `docs/development/profiling.md` Bun Fetch Curl Fallback section for details
   - No manual SSH/kubectl port forwarding needed
 
 **Test Environment Variables:**
@@ -40,16 +40,14 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 |----------|----------|-------------|
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup, commands, and workflow |
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
-| Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
-| Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2900+ tests) |
-| Kong Test Setup | [kong-test-setup.md](docs/development/kong-test-setup.md) | Test consumers, API keys, and Kong configuration |
-| Profiling | [profiling-workflows.md](docs/development/profiling-workflows.md) | Bun native profiling workflows and performance optimization |
-| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
-| SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
-| Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Runbook, error codes, and FAQ |
-| Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
-| Docker Scout | [DOCKER-SCOUT-TROUBLESHOOTING.md](docs/deployment/DOCKER-SCOUT-TROUBLESHOOTING.md) | Scout health score troubleshooting |
+| Architecture | [overview.md](docs/architecture/overview.md) | System design and authentication flow |
+| Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
+| Testing | [testing.md](docs/development/testing.md) | Complete testing guide (2900+ tests, mutation testing) |
+| Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
+| Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability and memory monitoring |
+| SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
+| Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Runbook, error codes, and FAQ |
 
 ## Core Practices
 
@@ -183,7 +181,7 @@ The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum
 - **Authentication Routing**: Managed by Kong
 - **Traffic Management**: Kong handles load balancing, retries
 
-For detailed architecture, see [system-overview.md](docs/architecture/system-overview.md).
+For detailed architecture, see [overview.md](docs/architecture/overview.md).
 
 ## Critical Runtime Requirements
 
@@ -274,7 +272,7 @@ CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA=true
 CONTINUOUS_PROFILING_THROTTLE_MINUTES=60
 ```
 
-For complete profiling documentation, see [profiling-workflows.md](docs/development/profiling-workflows.md).
+For complete profiling documentation, see [profiling.md](docs/development/profiling.md).
 
 ## API Versioning
 
@@ -346,10 +344,7 @@ bun run test:mutation:with-kong
 ```
 
 **Mutation Testing Documentation:**
-- `docs/development/mutation-testing-optimization.md` - Performance optimization guide
-- `docs/workarounds/SIO-287-strykerjs-bun-output-parser.md` - Output parser fix
-- `docs/workarounds/SIO-276-bun-executable-workaround.md` - Bundled Bun executable
-- `docs/plans/bun-test-runner-plugin.md` - Future plugin implementation plan
+- `docs/development/testing.md` - Complete testing guide including mutation testing (Section 5-6)
 
 ### CI/CD Rules
 - **NEVER add timeouts to critical installation steps**
@@ -373,7 +368,7 @@ bun run test:mutation:with-kong
 | AUTH_011 | 400 | Invalid Token |
 | AUTH_012 | 400 | Missing Authorization |
 
-For troubleshooting each error, see [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md).
+For troubleshooting each error, see [troubleshooting.md](docs/operations/troubleshooting.md).
 
 ## Production Readiness
 
@@ -390,7 +385,7 @@ For troubleshooting each error, see [TROUBLESHOOTING.md](docs/operations/TROUBLE
 | CI/CD | Parallel security scanning (5 scanners + CodeQL) |
 | Kubernetes | PDB, HPA, 22 Prometheus AlertManager rules, External Secrets options |
 
-For detailed production considerations, see [SLA.md](docs/operations/SLA.md) and [monitoring.md](docs/operations/monitoring.md).
+For detailed production considerations, see [sla.md](docs/operations/sla.md) and [monitoring.md](docs/operations/monitoring.md).
 
 ### Observability Cost Management
 OpenTelemetry sampling is NOT needed at the application level - telemetry collectors handle intelligent sampling upstream. Do NOT implement application-level sampling unless specifically requested.

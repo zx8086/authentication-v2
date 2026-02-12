@@ -744,3 +744,168 @@ curl http://localhost:3000/tokens \
 # Stop profiling session
 curl -X POST http://localhost:3000/debug/profiling/stop
 ```
+
+---
+
+## Enhanced Memory Monitoring
+
+### Overview
+
+The service implements enhanced memory monitoring to address Bun v1.3.1 memory measurement issues and provide production-ready memory management.
+
+**Problem Solved:** Bun's JavaScriptCore engine reports impossible memory ratios where `heapUsed > heapTotal`, causing false memory pressure alerts.
+
+**Solution:** Multi-layered memory monitoring using `bun:jsc` APIs as primary source with adaptive memory management.
+
+### Memory Endpoints
+
+#### Memory Health
+```bash
+# Basic health check
+curl http://localhost:3000/memory/health
+
+# Detailed health with leak detection
+curl http://localhost:3000/memory/health?details=true
+```
+
+**Response:**
+```json
+{
+  "status": "healthy|warning|unhealthy|critical",
+  "timestamp": 1729648800000,
+  "memory": {
+    "state": "normal",
+    "heapUtilization": 0.23,
+    "memoryPressure": "low",
+    "reliability": 95,
+    "queuedRequests": 0
+  },
+  "recommendations": ["Enhanced monitoring active"],
+  "alerts": []
+}
+```
+
+#### Memory Metrics
+```bash
+# Current metrics
+curl http://localhost:3000/memory/metrics
+
+# Include object type breakdown
+curl http://localhost:3000/memory/metrics?objectTypes=true
+
+# Trigger GC and measure effect
+curl http://localhost:3000/memory/metrics?gc=true
+```
+
+#### Memory Actions
+```bash
+# Force garbage collection
+curl -X POST http://localhost:3000/memory/actions?action=gc
+
+# Clear request queue
+curl -X POST http://localhost:3000/memory/actions?action=clearQueue
+
+# Reset monitoring history
+curl -X POST http://localhost:3000/memory/actions?action=reset
+```
+
+#### Memory Baseline
+```bash
+# Check baseline status
+curl http://localhost:3000/memory/baseline?action=status
+
+# Run baseline establishment
+curl -X POST http://localhost:3000/memory/baseline?action=run
+
+# Get full baseline report
+curl http://localhost:3000/memory/baseline?action=report
+```
+
+### Memory Thresholds
+
+| Level | Threshold | Behavior |
+|-------|-----------|----------|
+| **Normal** | <60% | Requests processed immediately |
+| **Warning** | 60% | Enhanced monitoring |
+| **High** | 75% | Periodic GC, reduced optimizations |
+| **Critical** | 85% | Request queuing, aggressive GC |
+| **Emergency** | 95% | Emergency protocols, low-priority request dropping |
+
+### Memory Leak Detection
+
+The system automatically detects several leak patterns:
+
+1. **RSS Growth Without Heap Growth**: Indicates external memory leaks
+2. **Excessive Promise Objects**: Unresolved promises accumulating
+3. **Object Count Divergence**: Objects not being garbage collected
+4. **Reliability Degradation**: Measurement system becoming unreliable
+
+**Manual Investigation:**
+```bash
+# Get detailed metrics with object breakdown
+curl http://localhost:3000/memory/metrics?objectTypes=true
+
+# Check for specific object types
+curl http://localhost:3000/memory/metrics | jq '.objectTypes[] | select(.type == "Promise")'
+```
+
+### Memory Troubleshooting
+
+#### "heapUsed > heapTotal" Errors
+**Cause:** JavaScriptCore measurement artifact during GC
+**Solution:** Automatically handled by validation layer
+**Action:** Monitor reliability score - should remain >70%
+
+#### High Memory Pressure Alerts
+```bash
+# Check reliability
+curl http://localhost:3000/memory/health?details=true
+
+# Force GC and remeasure
+curl http://localhost:3000/memory/metrics?gc=true
+
+# Check for leaks
+curl http://localhost:3000/memory/metrics | jq '.trends.memoryLeakDetection'
+```
+
+#### Emergency Memory Crisis
+```bash
+# 1. Check current status
+curl http://localhost:3000/memory/health
+
+# 2. Force garbage collection
+curl -X POST http://localhost:3000/memory/actions?action=gc
+
+# 3. Clear request queue
+curl -X POST http://localhost:3000/memory/actions?action=clearQueue
+
+# 4. Check for leaks
+curl http://localhost:3000/memory/metrics?objectTypes=true
+```
+
+### Memory Alert Thresholds
+
+| Level | Condition |
+|-------|-----------|
+| **Warning** | Reliability < 80% OR Health = warning |
+| **Critical** | Reliability < 50% OR Health = critical |
+| **Emergency** | Health = critical + Queue size > 100 |
+
+### OpenTelemetry Memory Metrics
+
+```
+# Gauge metrics
+bun_auth_service.process.memory.heap.size
+bun_auth_service.process.memory.heap.utilization
+bun_auth_service.process.memory.reliability.score
+
+# Counter metrics
+bun_auth_service.process.memory.gc.detected.total
+bun_auth_service.process.memory.anomalies.detected.total
+```
+
+**Attributes:**
+- `service.name`: authentication-service
+- `runtime.name`: bun
+- `memory.source`: jsc|process|hybrid
+- `memory.pressure.level`: low|moderate|high|critical
