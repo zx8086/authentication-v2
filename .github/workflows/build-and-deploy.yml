@@ -334,21 +334,22 @@ jobs:
           path: sbom-${{ github.sha }}.json
           retention-days: 90
 
-      - name: Verify DHI VEX attestations
+      - name: Check DHI base image vulnerabilities (includes VEX)
         if: github.event_name != 'pull_request'
         uses: docker/scout-action@v1.15.1
         continue-on-error: true
-        id: vex-check
         with:
-          command: attestation
+          command: cves
           image: dhi.io/static:20230311
           organization: zx8086
+          only-severities: critical,high
+          summary: true
 
-      - name: Report VEX status
+      - name: Report DHI base image status
         if: github.event_name != 'pull_request'
         run: |
-          # VEX is optional - DHI base images may not always publish VEX data
-          echo "::notice::DHI VEX attestation check completed (VEX is optional for DHI images)"
+          # VEX attestations are automatically applied during CVE analysis
+          echo "::notice::DHI base image CVE check completed (VEX attestations applied if available)"
 
       - name: License compliance check (Bun Native)
         run: |
