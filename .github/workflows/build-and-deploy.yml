@@ -316,51 +316,39 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Extract SBOM (Software Bill of Materials)
+      - name: Extract SBOM using Docker Scout Action
         if: github.event_name != 'pull_request'
+        uses: docker/scout-action@v1.15.1
         continue-on-error: true
-        run: |
-          echo "Extracting SBOM from built image..."
-          docker scout sbom ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }} > sbom-${{ github.sha }}.json || {
-            echo "Warning: Docker Scout not available, skipping SBOM extraction"
-            echo "Install Docker Scout CLI: https://docs.docker.com/scout/install/"
-            exit 0
-          }
-
-          echo "SBOM extracted: sbom-${{ github.sha }}.json"
-          echo "SBOM size: $(du -h sbom-${{ github.sha }}.json | cut -f1)"
-
-      - name: Verify DHI VEX attestations
-        if: github.event_name != 'pull_request'
-        continue-on-error: true
-        run: |
-          echo "Verifying DHI VEX (Vulnerability Exploitability eXchange) attestations..."
-          docker scout attestation dhi.io/static:20230311 --type vex > dhi-vex-${{ github.sha }}.json 2>/dev/null || true
-
-          if [ -s dhi-vex-${{ github.sha }}.json ]; then
-            VEX_COUNT=$(jq '[.statements[] | select(.status == "not_affected")] | length' dhi-vex-${{ github.sha }}.json 2>/dev/null || echo "0")
-            echo "VEX attestations found: $VEX_COUNT vulnerabilities marked as not_affected"
-            echo "::notice::DHI VEX attestations verified - $VEX_COUNT non-exploitable CVEs suppressed"
-          else
-            # VEX is optional - DHI base images may not always publish VEX data
-            echo "::notice::No VEX attestations available for DHI base image (this is expected - VEX is optional)"
-          fi
+        with:
+          command: sbom
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || github.ref_name }}
+          output: sbom-${{ github.sha }}.json
+          organization: zx8086
 
       - name: Upload SBOM artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && hashFiles('sbom-*.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ github.sha }}
           path: sbom-${{ github.sha }}.json
           retention-days: 90
 
-      - name: Upload VEX artifact
-        if: github.event_name != 'pull_request' && hashFiles('dhi-vex-*.json') != ''
-        uses: actions/upload-artifact@v4
+      - name: Verify DHI VEX attestations
+        if: github.event_name != 'pull_request'
+        uses: docker/scout-action@v1.15.1
+        continue-on-error: true
+        id: vex-check
         with:
-          name: vex-${{ github.sha }}
-          path: dhi-vex-${{ github.sha }}.json
-          retention-days: 90
+          command: attestation
+          image: dhi.io/static:20230311
+          organization: zx8086
+
+      - name: Report VEX status
+        if: github.event_name != 'pull_request'
+        run: |
+          # VEX is optional - DHI base images may not always publish VEX data
+          echo "::notice::DHI VEX attestation check completed (VEX is optional for DHI images)"
 
       - name: License compliance check (Bun Native)
         run: |
