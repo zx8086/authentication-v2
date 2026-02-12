@@ -605,6 +605,17 @@ jobs:
           only-severities: critical,high
         continue-on-error: true
 
+      - name: Record image to Scout production environment
+        if: matrix.scan-type == 'docker-scout'
+        uses: docker/scout-action@v1.15.1
+        timeout-minutes: 3
+        with:
+          command: environment
+          image: ${{ env.IMAGE_TAG }}
+          environment: production
+          organization: zx8086
+        continue-on-error: true
+
       - name: Run License Compliance Check
         if: matrix.scan-type == 'license-compliance'
         run: |
