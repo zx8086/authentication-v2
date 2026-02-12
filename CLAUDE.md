@@ -42,7 +42,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (1500+ tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2800+ tests) |
 | Kong Test Setup | [kong-test-setup.md](docs/development/kong-test-setup.md) | Test consumers, API keys, and Kong configuration |
 | Profiling | [profiling-workflows.md](docs/development/profiling-workflows.md) | Bun native profiling workflows and performance optimization |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
@@ -167,7 +167,7 @@ The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum
 
 ### Key Features
 - Circuit breaker with stale cache fallback
-- Comprehensive testing (1500+ tests, 100% pass rate)
+- Comprehensive testing (2800+ tests, 100% pass rate)
 - Structured error codes (AUTH_001-012)
 - Security headers + audit logging (v2 only)
 - Multi-stage Docker builds with distroless base
@@ -379,7 +379,7 @@ For troubleshooting each error, see [TROUBLESHOOTING.md](docs/operations/TROUBLE
 | Category | Status |
 |----------|--------|
 | Security | OWASP headers, audit logging, no hardcoded secrets |
-| Testing | 1500+ tests (48 unit + 4 integration + 3 E2E + 15 K6), 100% pass rate |
+| Testing | 2800+ tests, 100% pass rate |
 | Observability | OpenTelemetry traces, metrics, logs |
 | Error Handling | Structured error codes, circuit breaker |
 | Documentation | OpenAPI spec, comprehensive guides |

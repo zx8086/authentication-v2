@@ -377,10 +377,115 @@ CONTINUOUS_PROFILING_MAX_STORAGE_GB=2
 - Heap growth: <50MB per hour
 - Peak heap: <300MB under load
 
+## Profiling API Endpoints
+
+All profiling endpoints are restricted to development and staging environments only.
+
+### POST /debug/profiling/start
+Start a profiling session for performance analysis.
+
+**Request**
+```http
+POST /debug/profiling/start HTTP/1.1
+Host: localhost:3000
+```
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling session started",
+  "sessionId": "prof-12345",
+  "devToolsUrl": "chrome-devtools://devtools/bundled/inspector.html?ws=localhost:9229/12345"
+}
+```
+
+### POST /debug/profiling/stop
+Stop the current profiling session.
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling session stopped",
+  "sessionId": "prof-12345",
+  "duration": "45.2s",
+  "artifacts": [
+    "profiling/profile-12345.cpuprofile",
+    "profiling/heap-12345.heapsnapshot"
+  ]
+}
+```
+
+### GET /debug/profiling/status
+Check profiling system status.
+
+**Response - Success (200 OK)**
+```json
+{
+  "enabled": true,
+  "active": false,
+  "lastSession": {
+    "id": "prof-12345",
+    "startTime": "2025-01-15T11:30:00.000Z",
+    "endTime": "2025-01-15T11:35:00.000Z",
+    "duration": "5m"
+  },
+  "reports": [
+    {
+      "id": "prof-12345",
+      "type": "cpu",
+      "size": "2.4MB",
+      "created": "2025-01-15T11:35:00.000Z"
+    }
+  ]
+}
+```
+
+### GET /debug/profiling/reports
+List available profiling reports.
+
+**Response - Success (200 OK)**
+```json
+{
+  "reports": [
+    {
+      "sessionId": "prof-12345",
+      "type": "cpu",
+      "filename": "profile-12345.cpuprofile",
+      "size": "2.4MB",
+      "created": "2025-01-15T11:35:00.000Z"
+    },
+    {
+      "sessionId": "prof-12345",
+      "type": "heap",
+      "filename": "heap-12345.heapsnapshot",
+      "size": "8.1MB",
+      "created": "2025-01-15T11:35:00.000Z"
+    }
+  ]
+}
+```
+
+### DELETE /debug/profiling/cleanup
+Clean up profiling artifacts and sessions.
+
+**Response - Success (200 OK)**
+```json
+{
+  "success": true,
+  "message": "Profiling cleanup completed",
+  "cleaned": {
+    "reports": 3,
+    "sessions": 2
+  }
+}
+```
+
 ## Related Documentation
 
 - [Getting Started](./getting-started.md) - Development setup
-- [Testing Guide](../testing/README.md) - Test execution
+- [Testing Guide](../../test/README.md) - Test execution
 - [Monitoring](../operations/monitoring.md) - OpenTelemetry observability
 - [SLA Guide](../operations/SLA.md) - Performance targets
 

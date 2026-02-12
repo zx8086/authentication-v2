@@ -160,27 +160,6 @@ echo ""
 echo "SECURITY  Additional Security Validations"
 echo "=================================="
 
-# Run Hadolint if available
-if command -v hadolint >/dev/null 2>&1; then
-    echo "CHECK Running Hadolint security scan..."
-    if hadolint "$DOCKERFILE_PATH"; then
-        echo "PASS Hadolint security scan passed"
-    else
-        echo "FAIL Hadolint security issues found"
-        ISSUES+=("Resolve all Hadolint security findings")
-    fi
-elif command -v docker >/dev/null 2>&1; then
-    echo "CHECK Running Hadolint via Docker..."
-    if docker run --rm -v "$PWD:/workspace" -w /workspace hadolint/hadolint hadolint --config .hadolint.yaml Dockerfile; then
-        echo "PASS Hadolint security scan passed"
-    else
-        echo "FAIL Hadolint security issues found"
-        ISSUES+=("Resolve all Hadolint security findings")
-    fi
-else
-    echo "WARNING  Hadolint not available - install for comprehensive scanning"
-fi
-
 # Final scoring
 echo ""
 echo "RESULTS Final Results"

@@ -56,6 +56,7 @@ Development workflow and testing documentation.
 | [mutation-testing-guide.md](development/mutation-testing-guide.md) | Comprehensive mutation testing guide (100% mutation score) |
 | [mutation-testing-optimization.md](development/mutation-testing-optimization.md) | Performance optimization for mutation testing (79 min → 26 sec with cache) |
 | [testing.md](development/testing.md) | Testing best practices and mutation testing fundamentals |
+| [profiling-workflows.md](development/profiling-workflows.md) | CPU/memory profiling, API endpoints, and performance analysis |
 
 ### Deployment
 
@@ -73,30 +74,14 @@ Container builds and production deployment.
 
 ### Operations
 
-Monitoring, observability, SLAs, and performance.
+Monitoring, observability, SLAs, memory management, and performance.
 
 | Document | Description |
 |----------|-------------|
 | [monitoring.md](operations/monitoring.md) | OpenTelemetry observability, metrics, and alerting |
 | [SLA.md](operations/SLA.md) | Performance SLAs, availability targets, and monitoring thresholds |
 | [TROUBLESHOOTING.md](operations/TROUBLESHOOTING.md) | Runbook-style troubleshooting guide with common issues |
-| [profiling.md](operations/profiling.md) | Performance analysis and debugging endpoints |
-
-### Memory Management
-
-Bun runtime memory monitoring and optimization.
-
-| Document | Description |
-|----------|-------------|
-| [MEMORY_MONITORING_GUIDE.md](memory/MEMORY_MONITORING_GUIDE.md) | Enhanced memory monitoring using bun:jsc APIs |
-
-### Docker
-
-Container optimization and security.
-
-| Document | Description |
-|----------|-------------|
-| [DOCKER-VALIDATION.md](docker/DOCKER-VALIDATION.md) | Container security validation procedures |
+| [MEMORY_MONITORING_GUIDE.md](operations/MEMORY_MONITORING_GUIDE.md) | Enhanced memory monitoring using bun:jsc APIs |
 
 ### Security
 
