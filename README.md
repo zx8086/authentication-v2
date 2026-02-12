@@ -256,10 +256,6 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **Circuit Breaker**: Ensures service availability during Kong outages
 - **4-Pillar Configuration**: Enterprise-grade configuration management
 
-## License
-
-See LICENSE file for details.
-
 ---
 
 **Built with Bun runtime for maximum performance and developer experience.**
