@@ -109,17 +109,6 @@ jobs:
         run: bun run test:bun:coverage:ci
         continue-on-error: true
 
-      - name: Upload coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: bun-coverage
-          fail_ci_if_error: false
-          verbose: true
-        continue-on-error: true
-
       - name: Upload coverage report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -138,15 +127,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install Playwright
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install chromium
+      - name: Install Playwright browsers
+        run: |
+          # Always install to ensure browsers are available (cache may be stale)
+          bunx playwright install chromium --with-deps
+          echo "Playwright installation complete"
 
       - name: Run Kong-independent E2E tests
-        run: bunx playwright test --project=ci-chromium
+        run: |
+          echo "Running E2E tests against http://localhost:3000"
+          curl -s http://localhost:3000/health || echo "Warning: Server health check failed"
+          bunx playwright test --project=ci-chromium
         continue-on-error: true
         env:
           API_BASE_URL: http://localhost:3000
+          CI: true
 
       - name: Install K6 for performance testing
         run: |
