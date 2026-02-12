@@ -215,6 +215,10 @@
       "format": "esm"
     }
   },
+  "overrides": {
+    "js-yaml": "^4.1.1",
+    "@isaacs/brace-expansion": "^5.0.1"
+  },
   "dependencies": {
     "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
