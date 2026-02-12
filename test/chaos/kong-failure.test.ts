@@ -402,12 +402,6 @@ describe("Kong Failure Chaos Tests", () => {
       const healthResult = await circuitBreaker.wrapKongOperation("healthCheck", slowHealthCheck);
       expect(healthResult).toEqual({ healthy: true, responseTime: 500 });
 
-      // getConsumerSecret has 3000ms timeout by default
-      const slowConsumerOp = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200)); // Exceeds base 100ms
-        return mockConsumerSecret;
-      };
-
       // Note: with volumeThreshold and operation-specific config,
       // this might behave differently
       const stats = circuitBreaker.getStats();

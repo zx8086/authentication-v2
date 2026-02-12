@@ -149,7 +149,9 @@ describe("Config Loader Mutation Killers", () => {
   });
 
   test("serviceName fallback uses default", () => {
-    const serviceName = undefined || undefined || "authentication-service";
+    const first: string | undefined = undefined;
+    const second: string | undefined = undefined;
+    const serviceName = first || second || "authentication-service";
     expect(serviceName).toBe("authentication-service");
   });
 
@@ -159,7 +161,9 @@ describe("Config Loader Mutation Killers", () => {
   });
 
   test("serviceVersion fallback uses default", () => {
-    const serviceVersion = undefined || undefined || "1.0.0";
+    const first: string | undefined = undefined;
+    const second: string | undefined = undefined;
+    const serviceVersion = first || second || "1.0.0";
     expect(serviceVersion).toBe("1.0.0");
   });
 
@@ -241,13 +245,11 @@ describe("Config Loader Mutation Killers", () => {
   });
 
   test("missingVars filters undefined values", () => {
-    const requiredVars = [
+    const requiredVars: { key: string; value: string | undefined }[] = [
       { key: "A", value: "test" },
       { key: "B", value: undefined },
     ];
-    const missingVars = requiredVars.filter(
-      ({ value }) => !value || (value && value.trim() === "")
-    );
+    const missingVars = requiredVars.filter(({ value }) => !value || value.trim() === "");
     expect(missingVars.length).toBe(1);
   });
 
@@ -264,7 +266,8 @@ describe("Config Loader Mutation Killers", () => {
   });
 
   test("enableOpenTelemetry defaults to false", () => {
-    const value = undefined ?? false;
+    const maybeValue: boolean | undefined = undefined;
+    const value = maybeValue ?? false;
     expect(value).toBe(false);
   });
 

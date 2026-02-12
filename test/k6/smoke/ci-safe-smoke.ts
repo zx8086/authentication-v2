@@ -15,10 +15,7 @@
 
 import { check, sleep } from "k6";
 import http from "k6/http";
-import { getConfig } from "../utils/config.ts";
 import { detectEnvironment, logEnvironmentInfo } from "../utils/environment.ts";
-
-const config = getConfig();
 
 export const options = {
   scenarios: {

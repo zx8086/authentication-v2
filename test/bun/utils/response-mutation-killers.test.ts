@@ -365,15 +365,15 @@ describe("Response Utils - Mutation Killers", () => {
     });
 
     it("should check acceptVersion && isValidApiVersion(acceptVersion)", () => {
-      const acceptVersion1 = null;
-      const acceptVersion2 = "v1";
-      const acceptVersion3 = "invalid";
+      const acceptVersion1: string | null = null;
+      const acceptVersion2: string | null = "v1";
+      const acceptVersion3: string | null = "invalid";
 
       const validVersions = ["v1", "v2"];
 
-      expect(!acceptVersion1).toBe(true); // Kill: && mutations
-      expect(!!acceptVersion2 && validVersions.includes(acceptVersion2)).toBe(true);
-      expect(!!acceptVersion3 && validVersions.includes(acceptVersion3)).toBe(false);
+      expect(acceptVersion1 === null).toBe(true); // Kill: && mutations
+      expect(acceptVersion2 !== null && validVersions.includes(acceptVersion2)).toBe(true);
+      expect(acceptVersion3 !== null && validVersions.includes(acceptVersion3)).toBe(false);
     });
 
     it("should check details && { details } pattern", () => {

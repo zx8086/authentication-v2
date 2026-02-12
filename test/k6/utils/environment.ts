@@ -45,7 +45,7 @@ export function shouldRunTest(requiresKong: boolean): boolean {
   }
 
   // For gateway-dependent tests, check if Kong is available
-  if (requiresKong && env.skipGatewayTests) {
+  if (env.skipGatewayTests) {
     console.log(
       "[SKIP] Kong Gateway not available in current environment - skipping gateway-dependent test"
     );

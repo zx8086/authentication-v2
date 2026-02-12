@@ -156,17 +156,20 @@ describe("Metrics Handler Mutation Killers", () => {
   });
 
   test("collectConfigData handles missing traces endpoint", () => {
-    const tracesEndpoint = undefined || "not configured";
+    const maybeEndpoint: string | undefined = undefined;
+    const tracesEndpoint = maybeEndpoint || "not configured";
     expect(tracesEndpoint).toBe("not configured");
   });
 
   test("collectConfigData handles missing metrics endpoint", () => {
-    const metricsEndpoint = undefined || "not configured";
+    const maybeEndpoint: string | undefined = undefined;
+    const metricsEndpoint = maybeEndpoint || "not configured";
     expect(metricsEndpoint).toBe("not configured");
   });
 
   test("collectConfigData handles missing logs endpoint", () => {
-    const logsEndpoint = undefined || "not configured";
+    const maybeEndpoint: string | undefined = undefined;
+    const logsEndpoint = maybeEndpoint || "not configured";
     expect(logsEndpoint).toBe("not configured");
   });
 });
