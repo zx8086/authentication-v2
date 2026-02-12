@@ -215,16 +215,6 @@
       "format": "esm"
     }
   },
-  "overrides": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/core": "^2.1.0",
-    "@opentelemetry/resources": "^2.1.0",
-    "@opentelemetry/sdk-metrics": "^2.1.0",
-    "@opentelemetry/sdk-trace-base": "^2.1.0",
-    "@opentelemetry/semantic-conventions": "^1.37.0",
-    "semver": "^7.6.3",
-    "protobufjs": "^7.4.0"
-  },
   "dependencies": {
     "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
