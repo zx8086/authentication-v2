@@ -116,7 +116,6 @@ jobs:
           name: coverage-report-${{ github.run_number }}
           path: coverage/
           retention-days: 14
-        continue-on-error: true
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -186,7 +185,6 @@ jobs:
 
       - name: YAML Configuration Validation
         run: bun run yaml:check
-        continue-on-error: true
 
       - name: Setup Docker Buildx with authentication
         uses: ./.github/actions/setup-docker-buildx
@@ -662,7 +660,6 @@ jobs:
           }
 
           echo "::notice::License compliance check passed - all dependencies use allowed licenses"
-        continue-on-error: true
 
       - name: Run Secrets Detection
         if: matrix.scan-type == 'secrets-detection'
@@ -742,7 +739,6 @@ jobs:
             *.sarif
             *.json
           retention-days: 30
-        continue-on-error: true
 
       - name: Generate scan summary
         if: always()
