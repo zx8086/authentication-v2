@@ -72,9 +72,14 @@ describe("Tokens Handler", () => {
         const response = await handleTokenRequest(req, kongService);
         const body = await response.json();
 
+        // RFC 7807 Problem Details format
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_001);
-        expect(body.error.message).toBeDefined();
+        expect(body.code).toBe(ErrorCodes.AUTH_001);
+        expect(body.detail).toBeDefined();
+        expect(body.type).toBeDefined();
+        expect(body.title).toBeDefined();
+        expect(body.status).toBe(401);
+        expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       });
 
       it("should return AUTH_001 when missing username header", async () => {
@@ -90,8 +95,9 @@ describe("Tokens Handler", () => {
         const response = await handleTokenRequest(req, kongService);
         const body = await response.json();
 
+        // RFC 7807 Problem Details format
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+        expect(body.code).toBe(ErrorCodes.AUTH_001);
       });
 
       it("should return AUTH_001 when both headers are missing", async () => {
@@ -106,7 +112,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+        expect(body.code).toBe(ErrorCodes.AUTH_001);
       });
 
       it("should return AUTH_009 for anonymous consumers", async () => {
@@ -126,7 +132,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_009);
+        expect(body.code).toBe(ErrorCodes.AUTH_009);
       });
 
       it("should allow non-anonymous consumers", async () => {
@@ -164,7 +170,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_007);
+        expect(body.code).toBe(ErrorCodes.AUTH_007);
       });
 
       it("should return AUTH_007 when username exceeds max length", async () => {
@@ -183,7 +189,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_007);
+        expect(body.code).toBe(ErrorCodes.AUTH_007);
       });
 
       it("should accept headers at exactly max length (256 chars)", async () => {
@@ -226,7 +232,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_002);
+        expect(body.code).toBe(ErrorCodes.AUTH_002);
       });
 
       it("should call getConsumerSecret with correct consumer ID", async () => {
@@ -361,11 +367,16 @@ describe("Tokens Handler", () => {
         const response = await handleTokenRequest(req, kongService);
         const body = await response.json();
 
-        expect(body).toHaveProperty("error");
-        expect(body.error).toHaveProperty("code");
-        expect(body.error).toHaveProperty("message");
+        // RFC 7807 Problem Details format
+        expect(body).toHaveProperty("type");
+        expect(body).toHaveProperty("title");
+        expect(body).toHaveProperty("status");
+        expect(body).toHaveProperty("detail");
+        expect(body).toHaveProperty("code");
         expect(body).toHaveProperty("requestId");
         expect(body).toHaveProperty("timestamp");
+        expect(body).toHaveProperty("instance");
+        expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       });
 
       it("should return valid token response structure", async () => {
@@ -435,7 +446,7 @@ describe("Tokens Handler", () => {
 
         // Empty string should fail header validation
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+        expect(body.code).toBe(ErrorCodes.AUTH_001);
       });
 
       it("should handle special characters in username", async () => {
@@ -532,7 +543,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+        expect(body.code).toBe(ErrorCodes.AUTH_012);
       });
 
       it("should return AUTH_012 when Authorization header doesn't start with Bearer", async () => {
@@ -555,7 +566,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+        expect(body.code).toBe(ErrorCodes.AUTH_012);
       });
 
       it("should return AUTH_012 when Authorization is Bearer with trailing space", async () => {
@@ -578,7 +589,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+        expect(body.code).toBe(ErrorCodes.AUTH_012);
       });
     });
 
@@ -595,7 +606,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+        expect(body.code).toBe(ErrorCodes.AUTH_001);
       });
 
       it("should return AUTH_002 when consumer not found", async () => {
@@ -613,7 +624,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(401);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_002);
+        expect(body.code).toBe(ErrorCodes.AUTH_002);
       });
     });
 
@@ -634,7 +645,7 @@ describe("Tokens Handler", () => {
         const body = await response.json();
 
         expect(response.status).toBe(400);
-        expect(body.error.code).toBe(ErrorCodes.AUTH_011);
+        expect(body.code).toBe(ErrorCodes.AUTH_011);
       });
 
       it("should validate a freshly generated token successfully", async () => {
@@ -687,7 +698,7 @@ describe("Tokens Handler", () => {
     });
 
     describe("Response Structure", () => {
-      it("should set correct Content-Type header", async () => {
+      it("should set correct Content-Type header for error responses", async () => {
         if (!kongAvailable || !kongService) {
           console.log(getSkipMessage());
           return;
@@ -701,7 +712,8 @@ describe("Tokens Handler", () => {
 
         const response = await handleTokenValidation(req, kongService);
 
-        expect(response.headers.get("Content-Type")).toBe("application/json");
+        // RFC 7807 Problem Details format uses application/problem+json for errors
+        expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       });
 
       it("should include error structure in error responses", async () => {
@@ -719,9 +731,14 @@ describe("Tokens Handler", () => {
         const response = await handleTokenValidation(req, kongService);
         const body = await response.json();
 
-        expect(body).toHaveProperty("error");
-        expect(body.error).toHaveProperty("code");
-        expect(body.error).toHaveProperty("message");
+        // RFC 7807 Problem Details format
+        expect(body).toHaveProperty("type");
+        expect(body).toHaveProperty("title");
+        expect(body).toHaveProperty("status");
+        expect(body).toHaveProperty("detail");
+        expect(body).toHaveProperty("code");
+        expect(body).toHaveProperty("requestId");
+        expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       });
     });
   });

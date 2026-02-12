@@ -132,7 +132,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2800+ live tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2900+ live tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Operational runbook and diagnostics |
@@ -157,7 +157,7 @@ bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 
 ### Testing
 ```bash
-bun run test:bun              # Unit + integration tests (2800+ live tests)
+bun run test:bun              # Unit + integration tests (2900+ live tests)
 bun run test:e2e              # E2E tests (3 suites)
 bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
 bun run test:suite            # Full test suite with parallel execution
@@ -217,6 +217,8 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **Zero Client Secrets**: JWT signing secrets never leave the server
 - **OWASP Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options on all responses
 - **Circuit Breaker Protection**: Kong API resilience with stale cache fallback
+- **RFC Compliance**: RFC 7807 Problem Details errors, RFC 8594 Sunset headers for deprecation
+- **Chaos Testing**: 57 chaos engineering tests (Kong, Redis, resource, network failures)
 - **Security Scanning**: 6 automated scanners (Snyk Code, Snyk Container, Trivy, Docker Scout, License, CodeQL)
 - **Container Security**: DHI distroless base (0 CVEs, 12/12 security score), non-root user, read-only filesystem
 - **Supply Chain Security**: SBOM generation, VEX attestations, SLSA Level 3 provenance

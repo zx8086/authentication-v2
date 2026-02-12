@@ -117,7 +117,8 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createErrorResponse(401, "Unauthorized", "No token", testRequestId);
 
       expect(response.headers).toBeDefined();
-      expect(response.headers.get("Content-Type")).toBe("application/json");
+      // RFC 7807 uses application/problem+json for error responses
+      expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       expect(response.headers.get("X-Request-Id")).toBe(testRequestId);
     });
 
@@ -125,10 +126,10 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createErrorResponse(500, "Error", "Something went wrong", testRequestId);
       const body = await response.json();
 
-      // Kill mutations that change error structure
-      expect(body.error).toBe("Error");
-      expect(body.message).toBe("Something went wrong");
-      expect(body.statusCode).toBe(500);
+      // RFC 7807 Problem Details format
+      expect(body.title).toBe("Error");
+      expect(body.detail).toBe("Something went wrong");
+      expect(body.status).toBe(500);
       expect(body.requestId).toBe(testRequestId);
       expect(body.timestamp).toBeDefined();
       expect(typeof body.timestamp).toBe("string");
@@ -138,13 +139,16 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createErrorResponse(403, "Forbidden", "Access denied", testRequestId);
       const body = await response.json();
 
-      // Verify all fields are present (kills field removal mutations)
-      expect(Object.keys(body)).toContain("error");
-      expect(Object.keys(body)).toContain("message");
-      expect(Object.keys(body)).toContain("statusCode");
+      // RFC 7807 required fields: type, title, status, detail, instance, code, requestId, timestamp
+      expect(Object.keys(body)).toContain("type");
+      expect(Object.keys(body)).toContain("title");
+      expect(Object.keys(body)).toContain("status");
+      expect(Object.keys(body)).toContain("detail");
       expect(Object.keys(body)).toContain("timestamp");
       expect(Object.keys(body)).toContain("requestId");
-      expect(Object.keys(body).length).toBe(5);
+      expect(Object.keys(body)).toContain("instance");
+      expect(Object.keys(body)).toContain("code");
+      expect(Object.keys(body).length).toBe(8);
     });
   });
 
@@ -162,10 +166,12 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createStructuredErrorResponse("AUTH_001", testRequestId);
       const body = await response.json();
 
-      expect(body.error).toBeDefined();
-      expect(body.error.code).toBe("AUTH_001");
-      expect(body.error.title).toBeDefined();
-      expect(body.error.message).toBeDefined();
+      // RFC 7807 Problem Details format
+      expect(body.type).toBeDefined();
+      expect(body.code).toBe("AUTH_001");
+      expect(body.title).toBeDefined();
+      expect(body.detail).toBeDefined();
+      expect(body.status).toBeDefined();
     });
 
     it("should include details when provided (kills optional field mutations)", async () => {
@@ -173,14 +179,16 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createStructuredErrorResponse("AUTH_007", testRequestId, details);
       const body = await response.json();
 
-      expect(body.error.details).toBeDefined();
-      expect(body.error.details).toEqual(details);
+      // RFC 7807 uses extensions field for additional details
+      expect(body.extensions).toBeDefined();
+      expect(body.extensions).toEqual(details);
     });
 
     it("should include headers (kills headers mutation)", () => {
       const response = createStructuredErrorResponse("AUTH_002", testRequestId);
 
-      expect(response.headers.get("Content-Type")).toBe("application/json");
+      // RFC 7807 uses application/problem+json content type
+      expect(response.headers.get("Content-Type")).toBe("application/problem+json");
       expect(response.headers.get("X-Request-Id")).toBe(testRequestId);
     });
   });
@@ -191,15 +199,16 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createStructuredErrorWithMessage("AUTH_001", customMessage, testRequestId);
       const body = await response.json();
 
-      expect(body.error.message).toBe(customMessage);
-      expect(body.error.message).not.toBe(""); // Not empty
+      // RFC 7807 uses detail for the message
+      expect(body.detail).toBe(customMessage);
+      expect(body.detail).not.toBe(""); // Not empty
     });
 
     it("should still use error code from definition (kills code mutation)", async () => {
       const response = createStructuredErrorWithMessage("AUTH_003", "JWT failed", testRequestId);
       const body = await response.json();
 
-      expect(body.error.code).toBe("AUTH_003");
+      expect(body.code).toBe("AUTH_003");
     });
 
     it("should return correct HTTP status (kills status mutation)", () => {
@@ -311,8 +320,9 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createUnauthorizedResponse("Invalid credentials", testRequestId);
       const body = await response.json();
 
-      expect(body.error).toBe("Unauthorized");
-      expect(body.error).not.toBe("");
+      // RFC 7807 format uses title instead of error
+      expect(body.title).toBe("Unauthorized");
+      expect(body.title).not.toBe("");
     });
   });
 
@@ -330,8 +340,9 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createInternalErrorResponse("Something broke", testRequestId);
       const body = await response.json();
 
-      expect(body.error).toBe("Internal Server Error");
-      expect(body.error).not.toBe("");
+      // RFC 7807 format uses title instead of error
+      expect(body.title).toBe("Internal Server Error");
+      expect(body.title).not.toBe("");
     });
   });
 
@@ -349,8 +360,9 @@ describe("Response Utilities Mutation Tests", () => {
       const response = createServiceUnavailableResponse("Maintenance", testRequestId);
       const body = await response.json();
 
-      expect(body.error).toBe("Service Unavailable");
-      expect(body.error).not.toBe("");
+      // RFC 7807 format uses title instead of error
+      expect(body.title).toBe("Service Unavailable");
+      expect(body.title).not.toBe("");
     });
   });
 
@@ -611,20 +623,21 @@ describe("Response Utilities Mutation Tests", () => {
    */
   describe("LogicalOperator mutation killers - optional spreading", () => {
     // Kill mutation: line 178/210 - details && { details } -> details || { details }
-    it("should NOT include details property when details is undefined (kills && to || mutation)", async () => {
+    it("should NOT include extensions property when details is undefined (kills && to || mutation)", async () => {
       // createStructuredErrorWithMessage without details parameter
       const response = createStructuredErrorWithMessage("AUTH_001", "Test message", testRequestId);
       const body = await response.json();
 
-      // The details property should NOT exist at all when not provided
-      // If mutated to ||, it would be `...({ details: undefined })` which includes the key
-      expect(body.error).toBeDefined();
-      expect("details" in body.error).toBe(false);
-      expect(body.error.details).toBeUndefined();
-      expect(Object.keys(body.error)).not.toContain("details");
+      // The extensions property should NOT exist at all when not provided
+      // If mutated to ||, it would be `...({ extensions: undefined })` which includes the key
+      // RFC 7807 uses extensions for additional details
+      expect(body.type).toBeDefined();
+      expect("extensions" in body).toBe(false);
+      expect(body.extensions).toBeUndefined();
+      expect(Object.keys(body)).not.toContain("extensions");
     });
 
-    it("should include details property when details IS provided", async () => {
+    it("should include extensions property when details IS provided", async () => {
       const details = { field: "username", reason: "required" };
       const response = createStructuredErrorWithMessage(
         "AUTH_001",
@@ -634,42 +647,53 @@ describe("Response Utilities Mutation Tests", () => {
       );
       const body = await response.json();
 
-      // When details is provided, it SHOULD be in the response
-      expect(body.error.details).toBeDefined();
-      expect(body.error.details).toEqual(details);
-      expect("details" in body.error).toBe(true);
+      // When details is provided, it SHOULD be in the response as extensions (RFC 7807)
+      expect(body.extensions).toBeDefined();
+      expect(body.extensions).toEqual(details);
+      expect("extensions" in body).toBe(true);
     });
 
-    it("should NOT include details in createStructuredErrorResponse when not provided (kills line 178)", async () => {
+    it("should NOT include extensions in createStructuredErrorResponse when not provided (kills line 178)", async () => {
       const response = createStructuredErrorResponse("AUTH_002", testRequestId);
       const body = await response.json();
 
-      // details should not be present
-      expect("details" in body.error).toBe(false);
-      expect(Object.keys(body.error).length).toBe(3); // code, title, message only
+      // extensions should not be present in RFC 7807 format
+      expect("extensions" in body).toBe(false);
+      // RFC 7807 required fields: type, title, status, detail, instance, code, requestId, timestamp
+      expect(Object.keys(body).length).toBe(8);
     });
 
-    it("should include details in createStructuredErrorResponse when provided", async () => {
+    it("should include extensions in createStructuredErrorResponse when provided", async () => {
       const details = { consumerId: "test-123" };
       const response = createStructuredErrorResponse("AUTH_002", testRequestId, details);
       const body = await response.json();
 
-      // details should be present
-      expect("details" in body.error).toBe(true);
-      expect(body.error.details).toEqual(details);
-      expect(Object.keys(body.error).length).toBe(4); // code, title, message, details
+      // extensions should be present in RFC 7807 format
+      expect("extensions" in body).toBe(true);
+      expect(body.extensions).toEqual(details);
+      expect(Object.keys(body).length).toBe(9); // 8 required fields + extensions
     });
 
     it("should verify exact object structure without details (strict check)", async () => {
       const response = createStructuredErrorWithMessage("AUTH_003", "JWT failed", testRequestId);
       const body = await response.json();
 
-      // Verify the exact structure of the error object
-      const errorKeys = Object.keys(body.error).sort();
-      expect(errorKeys).toEqual(["code", "message", "title"]);
+      // Verify the exact structure for RFC 7807 format
+      const bodyKeys = Object.keys(body).sort();
+      // RFC 7807 required fields: type, title, status, detail, instance, code, requestId, timestamp
+      expect(bodyKeys).toEqual([
+        "code",
+        "detail",
+        "instance",
+        "requestId",
+        "status",
+        "timestamp",
+        "title",
+        "type",
+      ]);
 
-      // This would fail if && was mutated to || because details key would exist
-      expect(errorKeys).not.toContain("details");
+      // This would fail if && was mutated to || because extensions key would exist
+      expect(bodyKeys).not.toContain("extensions");
     });
 
     it("should have different object key count with and without details", async () => {
@@ -688,13 +712,13 @@ describe("Response Utilities Mutation Tests", () => {
       const bodyWithout = await withoutDetails.json();
       const bodyWith = await withDetails.json();
 
-      // Without details: code, title, message = 3 keys
-      // With details: code, title, message, details = 4 keys
-      expect(Object.keys(bodyWithout.error).length).toBe(3);
-      expect(Object.keys(bodyWith.error).length).toBe(4);
+      // RFC 7807: Without extensions: 8 keys (type, title, status, detail, instance, code, requestId, timestamp)
+      // With extensions: 9 keys (+ extensions)
+      expect(Object.keys(bodyWithout).length).toBe(8);
+      expect(Object.keys(bodyWith).length).toBe(9);
 
-      // This proves the && operator correctly omits the details key
-      expect(Object.keys(bodyWith.error).length - Object.keys(bodyWithout.error).length).toBe(1);
+      // This proves the && operator correctly omits the extensions key
+      expect(Object.keys(bodyWith).length - Object.keys(bodyWithout).length).toBe(1);
     });
   });
 });

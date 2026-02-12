@@ -63,7 +63,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
     });
 
     it("should reject when username is missing", async () => {
@@ -79,7 +79,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
     });
 
     it("should reject when both headers are missing", async () => {
@@ -92,7 +92,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
     });
 
     it("should reject consumerId exceeding MAX_HEADER_LENGTH (256)", async () => {
@@ -109,7 +109,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_007);
+      expect(body.code).toBe(ErrorCodes.AUTH_007);
     });
 
     it("should reject username exceeding MAX_HEADER_LENGTH (256)", async () => {
@@ -126,7 +126,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_007);
+      expect(body.code).toBe(ErrorCodes.AUTH_007);
     });
 
     it("should accept exactly 256 character header values", async () => {
@@ -145,7 +145,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
       // If error exists, it should not be AUTH_007
       if (body.error) {
-        expect(body.error.code).not.toBe(ErrorCodes.AUTH_007);
+        expect(body.code).not.toBe(ErrorCodes.AUTH_007);
       } else {
         // Success case - should have access_token
         expect(body).toHaveProperty("access_token");
@@ -166,7 +166,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_009);
+      expect(body.code).toBe(ErrorCodes.AUTH_009);
     });
 
     it("should allow when X-Anonymous-Consumer is 'false'", async () => {
@@ -184,7 +184,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // Should succeed - not rejected as anonymous
       if (body.error) {
-        expect(body.error.code).not.toBe(ErrorCodes.AUTH_009);
+        expect(body.code).not.toBe(ErrorCodes.AUTH_009);
       } else {
         expect(body).toHaveProperty("access_token");
       }
@@ -204,7 +204,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // Should succeed - not rejected as anonymous
       if (body.error) {
-        expect(body.error.code).not.toBe(ErrorCodes.AUTH_009);
+        expect(body.code).not.toBe(ErrorCodes.AUTH_009);
       } else {
         expect(body).toHaveProperty("access_token");
       }
@@ -230,7 +230,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_002);
+      expect(body.code).toBe(ErrorCodes.AUTH_002);
     });
 
     it("should return AUTH_004 when Kong is unavailable", async () => {
@@ -251,7 +251,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(503);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_004);
+      expect(body.code).toBe(ErrorCodes.AUTH_004);
       expect(response.headers.get("Retry-After")).toBe("30");
     });
 
@@ -273,7 +273,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(503);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_004);
+      expect(body.code).toBe(ErrorCodes.AUTH_004);
     });
   });
 
@@ -343,7 +343,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // AUTH_012 has httpStatus 400
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should reject when Authorization header does not start with 'Bearer '", async () => {
@@ -361,7 +361,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // AUTH_012 has httpStatus 400
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should reject when token is empty after Bearer", async () => {
@@ -381,7 +381,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // Header trimming causes this to fail the Bearer check
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should reject when token is only whitespace after Bearer", async () => {
@@ -400,7 +400,7 @@ describe("Tokens Handler Mutation Tests", () => {
 
       // Header trimming causes this to fail the Bearer check
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should extract token correctly from 'Bearer <token>'", async () => {
@@ -443,7 +443,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
     });
   });
 
@@ -467,7 +467,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_002);
+      expect(body.code).toBe(ErrorCodes.AUTH_002);
     });
   });
 
@@ -561,7 +561,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const body = await response.json();
 
       // Token may fail signature validation before expiry check in some cases
-      expect([ErrorCodes.AUTH_010, ErrorCodes.AUTH_011]).toContain(body.error.code);
+      expect([ErrorCodes.AUTH_010, ErrorCodes.AUTH_011]).toContain(body.code);
     });
 
     it("should return AUTH_011 for invalid token signature", async () => {
@@ -585,8 +585,9 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenValidation(request, mockKongService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_011);
-      expect(body.error.details).toHaveProperty("reason");
+      expect(body.code).toBe(ErrorCodes.AUTH_011);
+      // RFC 7807 uses extensions instead of error.details
+      expect(body.extensions).toHaveProperty("reason");
     });
 
     it("should return AUTH_011 for malformed token", async () => {
@@ -602,7 +603,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenValidation(request, mockKongService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_011);
+      expect(body.code).toBe(ErrorCodes.AUTH_011);
     });
   });
 
@@ -625,7 +626,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenValidation(request, exceptionService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_008);
+      expect(body.code).toBe(ErrorCodes.AUTH_008);
     });
 
     it("should handle non-Error exception in validation", async () => {
@@ -646,7 +647,7 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenValidation(request, stringExceptionService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_008);
+      expect(body.code).toBe(ErrorCodes.AUTH_008);
     });
   });
 
@@ -957,9 +958,10 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenRequest(request, notFoundService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_002);
-      expect(body.error.details).toBeDefined();
-      expect(body.error.details.consumerId).toBe("specific-consumer-id");
+      expect(body.code).toBe(ErrorCodes.AUTH_002);
+      // RFC 7807 uses extensions instead of error.details
+      expect(body.extensions).toBeDefined();
+      expect(body.extensions.consumerId).toBe("specific-consumer-id");
     });
 
     it("should include reason in AUTH_001 error details (kills line 178 ObjectLiteral mutant)", async () => {
@@ -971,9 +973,10 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenRequest(request, mockKongService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
-      expect(body.error.details).toBeDefined();
-      expect(body.error.details.reason).toBe("Missing Kong consumer headers");
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
+      // RFC 7807 uses extensions instead of error.details
+      expect(body.extensions).toBeDefined();
+      expect(body.extensions.reason).toBe("Missing Kong consumer headers");
     });
 
     it("should include retryAfter in AUTH_004 error details (kills line 250 ObjectLiteral mutant)", async () => {
@@ -993,10 +996,11 @@ describe("Tokens Handler Mutation Tests", () => {
       const response = await handleTokenRequest(request, unavailableService);
       const body = await response.json();
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_004);
-      expect(body.error.details).toBeDefined();
-      expect(body.error.details.reason).toBe("Kong gateway connectivity issues");
-      expect(body.error.details.retryAfter).toBe(30);
+      expect(body.code).toBe(ErrorCodes.AUTH_004);
+      // RFC 7807 uses extensions instead of error.details
+      expect(body.extensions).toBeDefined();
+      expect(body.extensions.reason).toBe("Kong gateway connectivity issues");
+      expect(body.extensions.retryAfter).toBe(30);
     });
   });
 });

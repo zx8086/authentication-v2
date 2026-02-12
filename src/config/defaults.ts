@@ -90,5 +90,17 @@ export const defaultConfig: AppConfig = {
     licenseName: "Proprietary",
     licenseIdentifier: "UNLICENSED",
     cors: "*",
+    versioning: {
+      defaultVersion: "v1",
+      supportedVersions: ["v1", "v2"],
+      // Example deprecation config (commented out - no versions deprecated by default):
+      // deprecation: {
+      //   v1: {
+      //     sunsetDate: "2025-12-31T23:59:59Z",
+      //     migrationUrl: "https://docs.example.com/api/v2-migration",
+      //     message: "v1 API is deprecated. Please migrate to v2.",
+      //   },
+      // },
+    },
   },
 };

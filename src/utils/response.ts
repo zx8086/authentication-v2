@@ -1,7 +1,30 @@
 /* src/utils/response.ts */
 
+/**
+ * Response utilities implementing RFC 7807 Problem Details for HTTP APIs.
+ * @see https://www.rfc-editor.org/rfc/rfc7807
+ *
+ * All error responses follow the Problem Details specification with:
+ * - type: URI reference identifying the problem type
+ * - title: Short, human-readable summary
+ * - status: HTTP status code
+ * - detail: Human-readable explanation
+ * - instance: URI reference for the specific occurrence
+ *
+ * Extensions (beyond RFC 7807):
+ * - code: Internal error code (AUTH_001, etc.)
+ * - requestId: Correlation ID for tracing
+ * - timestamp: ISO 8601 timestamp
+ *
+ * RFC 8594 Sunset Header Support:
+ * @see https://www.rfc-editor.org/rfc/rfc8594
+ * - Sunset: HTTP date when the API version will be retired
+ * - Deprecation: Indicates the resource is deprecated
+ * - Link: Points to migration documentation
+ */
+
 import { loadConfig } from "../config/index";
-import { type ErrorCode, getErrorDefinition } from "../errors/error-codes";
+import { type ErrorCode, getErrorDefinition, getProblemTypeUri } from "../errors/error-codes";
 
 const config = loadConfig();
 
@@ -49,24 +72,29 @@ export function generateKeyId(): string {
   return crypto.randomUUID().replace(/-/g, "");
 }
 
-interface ErrorResponseData {
-  error: {
-    code: string;
-    title: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-  statusCode: number;
-  timestamp: string;
+/**
+ * RFC 7807 Problem Details response structure.
+ * @see https://www.rfc-editor.org/rfc/rfc7807#section-3.1
+ */
+interface ProblemDetailsResponse {
+  /** URI reference that identifies the problem type */
+  type: string;
+  /** Short, human-readable summary of the problem type */
+  title: string;
+  /** HTTP status code */
+  status: number;
+  /** Human-readable explanation specific to this occurrence */
+  detail: string;
+  /** URI reference that identifies the specific occurrence */
+  instance: string;
+  /** Internal error code for programmatic handling */
+  code: string;
+  /** Correlation ID for distributed tracing */
   requestId: string;
-}
-
-interface LegacyErrorResponseData {
-  error: string;
-  message: string;
-  statusCode: number;
+  /** ISO 8601 timestamp of when the error occurred */
   timestamp: string;
-  requestId: string;
+  /** Additional context-specific details */
+  extensions?: Record<string, unknown>;
 }
 
 interface SuccessResponseData {
@@ -110,6 +138,20 @@ export function getDefaultHeaders(
   return baseHeaders;
 }
 
+/**
+ * Get headers for RFC 7807 Problem Details error responses.
+ * Uses application/problem+json content type as per RFC 7807.
+ */
+export function getProblemDetailsHeaders(
+  requestId: string,
+  apiVersion?: ApiVersion
+): Record<string, string> {
+  const headers = getDefaultHeaders(requestId, apiVersion);
+  // RFC 7807 specifies application/problem+json for error responses
+  headers["Content-Type"] = "application/problem+json";
+  return headers;
+}
+
 export function getCacheHeaders(): Record<string, string> {
   return {
     "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -139,90 +181,132 @@ export function createSuccessResponse(
   });
 }
 
+/**
+ * Create an RFC 7807 Problem Details error response.
+ * @deprecated Use createStructuredErrorResponse with ErrorCodes for better type safety.
+ */
 export function createErrorResponse(
   statusCode: number,
   error: string,
   message: string,
   requestId: string,
-  additionalHeaders?: Record<string, string>
+  additionalHeaders?: Record<string, string>,
+  instance?: string
 ): Response {
-  const errorData: LegacyErrorResponseData = {
-    error,
-    message,
-    statusCode,
-    timestamp: new Date().toISOString(),
+  const problemDetails: ProblemDetailsResponse = {
+    type: "about:blank", // Generic type for legacy errors
+    title: error,
+    status: statusCode,
+    detail: message,
+    instance: instance || "/",
+    code: "LEGACY_ERROR",
     requestId,
+    timestamp: new Date().toISOString(),
   };
 
   const headers = {
-    ...getDefaultHeaders(requestId),
+    ...getProblemDetailsHeaders(requestId),
     ...additionalHeaders,
   };
 
-  return new Response(JSON.stringify(errorData), {
+  return new Response(JSON.stringify(problemDetails), {
     status: statusCode,
     headers,
   });
 }
 
+/**
+ * Create an RFC 7807 Problem Details error response from a structured error code.
+ *
+ * @param errorCode - The error code (AUTH_001, etc.)
+ * @param requestId - Correlation ID for tracing
+ * @param details - Additional context-specific details
+ * @param additionalHeaders - Extra headers to include
+ * @param instance - The specific resource/endpoint that caused the error
+ * @returns RFC 7807 compliant error response
+ *
+ * @example
+ * ```typescript
+ * return createStructuredErrorResponse(
+ *   ErrorCodes.AUTH_001,
+ *   requestId,
+ *   { reason: "X-Consumer-ID header missing" },
+ *   undefined,
+ *   "/tokens"
+ * );
+ * ```
+ */
 export function createStructuredErrorResponse(
   errorCode: ErrorCode,
   requestId: string,
   details?: Record<string, unknown>,
-  additionalHeaders?: Record<string, string>
+  additionalHeaders?: Record<string, string>,
+  instance?: string
 ): Response {
   const errorDef = getErrorDefinition(errorCode);
 
-  const errorData: ErrorResponseData = {
-    error: {
-      code: errorDef.code,
-      title: errorDef.title,
-      message: errorDef.description,
-      ...(details && { details }),
-    },
-    statusCode: errorDef.httpStatus,
-    timestamp: new Date().toISOString(),
+  const problemDetails: ProblemDetailsResponse = {
+    type: getProblemTypeUri(errorCode),
+    title: errorDef.title,
+    status: errorDef.httpStatus,
+    detail: errorDef.description,
+    instance: instance || "/",
+    code: errorDef.code,
     requestId,
+    timestamp: new Date().toISOString(),
+    ...(details && Object.keys(details).length > 0 && { extensions: details }),
   };
 
   const headers = {
-    ...getDefaultHeaders(requestId),
+    ...getProblemDetailsHeaders(requestId),
     ...additionalHeaders,
   };
 
-  return new Response(JSON.stringify(errorData), {
+  return new Response(JSON.stringify(problemDetails), {
     status: errorDef.httpStatus,
     headers,
   });
 }
 
+/**
+ * Create an RFC 7807 Problem Details error response with a custom detail message.
+ *
+ * @param errorCode - The error code (AUTH_001, etc.)
+ * @param customMessage - Custom detail message (overrides default description)
+ * @param requestId - Correlation ID for tracing
+ * @param details - Additional context-specific details
+ * @param additionalHeaders - Extra headers to include
+ * @param instance - The specific resource/endpoint that caused the error
+ * @returns RFC 7807 compliant error response
+ */
 export function createStructuredErrorWithMessage(
   errorCode: ErrorCode,
   customMessage: string,
   requestId: string,
   details?: Record<string, unknown>,
-  additionalHeaders?: Record<string, string>
+  additionalHeaders?: Record<string, string>,
+  instance?: string
 ): Response {
   const errorDef = getErrorDefinition(errorCode);
 
-  const errorData: ErrorResponseData = {
-    error: {
-      code: errorDef.code,
-      title: errorDef.title,
-      message: customMessage,
-      ...(details && { details }),
-    },
-    statusCode: errorDef.httpStatus,
-    timestamp: new Date().toISOString(),
+  const problemDetails: ProblemDetailsResponse = {
+    type: getProblemTypeUri(errorCode),
+    title: errorDef.title,
+    status: errorDef.httpStatus,
+    detail: customMessage,
+    instance: instance || "/",
+    code: errorDef.code,
     requestId,
+    timestamp: new Date().toISOString(),
+    ...(details && Object.keys(details).length > 0 && { extensions: details }),
   };
 
   const headers = {
-    ...getDefaultHeaders(requestId),
+    ...getProblemDetailsHeaders(requestId),
     ...additionalHeaders,
   };
 
-  return new Response(JSON.stringify(errorData), {
+  return new Response(JSON.stringify(problemDetails), {
     status: errorDef.httpStatus,
     headers,
   });
@@ -264,14 +348,154 @@ export function createTokenResponse(
   });
 }
 
-export function createUnauthorizedResponse(message: string, requestId: string): Response {
-  return createErrorResponse(401, "Unauthorized", message, requestId);
+/**
+ * Create an unauthorized (401) RFC 7807 error response.
+ * @deprecated Use createStructuredErrorResponse with specific ErrorCodes.
+ */
+export function createUnauthorizedResponse(
+  message: string,
+  requestId: string,
+  instance?: string
+): Response {
+  return createErrorResponse(401, "Unauthorized", message, requestId, undefined, instance);
 }
 
-export function createInternalErrorResponse(message: string, requestId: string): Response {
-  return createErrorResponse(500, "Internal Server Error", message, requestId);
+/**
+ * Create an internal server error (500) RFC 7807 error response.
+ * @deprecated Use createStructuredErrorResponse with ErrorCodes.AUTH_008.
+ */
+export function createInternalErrorResponse(
+  message: string,
+  requestId: string,
+  instance?: string
+): Response {
+  return createErrorResponse(500, "Internal Server Error", message, requestId, undefined, instance);
 }
 
-export function createServiceUnavailableResponse(message: string, requestId: string): Response {
-  return createErrorResponse(503, "Service Unavailable", message, requestId);
+/**
+ * Create a service unavailable (503) RFC 7807 error response.
+ * @deprecated Use createStructuredErrorResponse with ErrorCodes.AUTH_004 or AUTH_005.
+ */
+export function createServiceUnavailableResponse(
+  message: string,
+  requestId: string,
+  instance?: string
+): Response {
+  return createErrorResponse(503, "Service Unavailable", message, requestId, undefined, instance);
+}
+
+/**
+ * RFC 8594 Sunset header configuration for API deprecation.
+ */
+export interface DeprecationConfig {
+  /** The date when the API version will be retired (RFC 7231 HTTP-date format) */
+  sunsetDate: Date;
+  /** URL to migration documentation */
+  migrationUrl?: string;
+  /** Additional deprecation message */
+  message?: string;
+}
+
+/**
+ * Version-specific deprecation configurations.
+ * Set to undefined for non-deprecated versions.
+ */
+export type VersionDeprecationMap = Partial<Record<ApiVersion, DeprecationConfig>>;
+
+/**
+ * Add RFC 8594 deprecation headers to a Headers object.
+ *
+ * Implements the Sunset HTTP Header Field specification for communicating
+ * API version deprecation to clients.
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc8594
+ *
+ * Headers added:
+ * - Sunset: HTTP-date when the resource will be removed (RFC 7231 format)
+ * - Deprecation: "true" to indicate the resource is deprecated
+ * - Link: Optional rel="sunset" pointing to migration documentation
+ *
+ * @param headers - The Headers object to add deprecation headers to
+ * @param deprecationConfig - Configuration for the deprecation headers
+ *
+ * @example
+ * ```typescript
+ * const headers = new Headers();
+ * addDeprecationHeaders(headers, {
+ *   sunsetDate: new Date('2025-06-01T00:00:00Z'),
+ *   migrationUrl: 'https://docs.example.com/api/v2-migration'
+ * });
+ * // Adds:
+ * // Sunset: Sun, 01 Jun 2025 00:00:00 GMT
+ * // Deprecation: true
+ * // Link: <https://docs.example.com/api/v2-migration>; rel="sunset"
+ * ```
+ */
+export function addDeprecationHeaders(
+  headers: Headers,
+  deprecationConfig: DeprecationConfig
+): void {
+  // RFC 8594: Sunset header uses RFC 7231 HTTP-date format
+  headers.set("Sunset", deprecationConfig.sunsetDate.toUTCString());
+
+  // Deprecation header indicates the resource is deprecated
+  headers.set("Deprecation", "true");
+
+  // Optional Link header with rel="sunset" pointing to migration docs
+  if (deprecationConfig.migrationUrl) {
+    const existingLink = headers.get("Link");
+    const sunsetLink = `<${deprecationConfig.migrationUrl}>; rel="sunset"`;
+
+    if (existingLink) {
+      // Append to existing Link header with comma separation
+      headers.set("Link", `${existingLink}, ${sunsetLink}`);
+    } else {
+      headers.set("Link", sunsetLink);
+    }
+  }
+}
+
+/**
+ * Get deprecation headers as a record for use with response utilities.
+ *
+ * @param deprecationConfig - Configuration for the deprecation headers
+ * @returns Record of deprecation headers
+ */
+export function getDeprecationHeaders(
+  deprecationConfig: DeprecationConfig
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    Sunset: deprecationConfig.sunsetDate.toUTCString(),
+    Deprecation: "true",
+  };
+
+  if (deprecationConfig.migrationUrl) {
+    headers.Link = `<${deprecationConfig.migrationUrl}>; rel="sunset"`;
+  }
+
+  return headers;
+}
+
+/**
+ * Check if an API version is deprecated based on a deprecation map.
+ *
+ * @param version - The API version to check
+ * @param deprecationMap - Map of version-specific deprecation configs
+ * @returns The deprecation config if deprecated, undefined otherwise
+ */
+export function getVersionDeprecation(
+  version: ApiVersion,
+  deprecationMap: VersionDeprecationMap
+): DeprecationConfig | undefined {
+  return deprecationMap[version];
+}
+
+/**
+ * Check if a sunset date has passed (version is fully retired).
+ *
+ * @param deprecationConfig - The deprecation configuration
+ * @returns true if the sunset date has passed
+ */
+export function isSunsetPassed(deprecationConfig: DeprecationConfig): boolean {
+  return new Date() > deprecationConfig.sunsetDate;
 }

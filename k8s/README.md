@@ -13,6 +13,8 @@ The deployment includes:
 - **ServiceAccount**: Security context for pods
 - **HPA**: Horizontal Pod Autoscaler for automatic scaling
 - **Ingress**: External access configuration with security headers
+- **PDB**: PodDisruptionBudget for maintenance stability
+- **PrometheusRule**: AlertManager rules based on SLA thresholds
 - **Kustomization**: Kustomize configuration for environment-specific deployments
 
 ## Security Features
@@ -226,11 +228,79 @@ kubectl get endpoints -n authentication
 kubectl get events -n authentication --sort-by='.lastTimestamp'
 ```
 
+## Secret Management Options
+
+The service supports multiple secret management approaches. Choose based on your compliance requirements.
+
+### Option 1: Kubernetes Secrets (Default)
+
+Use `secret.yaml` for simple deployments with good RBAC:
+
+```bash
+kubectl apply -f k8s/secret.yaml
+```
+
+**Recommended when:**
+- Simple deployment with limited secret scope
+- etcd encryption at rest is enabled
+- Strong RBAC policies in place
+
+### Option 2: External Secrets Operator
+
+Use `external-secret.yaml` for centralized secret management:
+
+```bash
+# Install ESO
+helm repo add external-secrets https://charts.external-secrets.io
+helm install external-secrets external-secrets/external-secrets -n external-secrets --create-namespace
+
+# Apply ExternalSecret (choose AWS or Vault variant)
+kubectl apply -f k8s/external-secret.yaml
+```
+
+**Recommended when:**
+- SOC2/PCI compliance required
+- Secret rotation needed
+- Multi-team secret access
+- Centralized audit logging required
+
+### Option 3: Sealed Secrets
+
+Use `sealed-secret.yaml` for GitOps-compatible encrypted secrets:
+
+```bash
+# Install Sealed Secrets
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
+
+# Seal your secrets
+kubeseal --format yaml < k8s/secret.yaml > k8s/sealed-secret-generated.yaml
+
+# Apply sealed secret
+kubectl apply -f k8s/sealed-secret-generated.yaml
+```
+
+**Recommended when:**
+- GitOps workflow required
+- Simpler than ESO but more secure than plain secrets
+- No external secret store available
+
+### Decision Matrix
+
+| Requirement | K8s Secrets | Sealed Secrets | External Secrets |
+|-------------|-------------|----------------|------------------|
+| Simple setup | Yes | Medium | Complex |
+| GitOps compatible | No | Yes | Yes |
+| Secret rotation | Manual | Manual | Automatic |
+| Audit logging | K8s audit | K8s audit | Backend audit |
+| SOC2/PCI | Maybe | Maybe | Yes |
+| Multi-cluster | Manual sync | Per-cluster | Centralized |
+
 ## Security Considerations
 
 ### Production Hardening
 
-1. **Use external secret management** (AWS Secrets Manager, Vault)
+1. **Use external secret management** (AWS Secrets Manager, Vault) - see above
 2. **Enable Pod Security Standards**
 3. **Configure Network Policies**
 4. **Use private container registry**
@@ -314,15 +384,81 @@ metrics:
       averageUtilization: 80  # Scale at 80% memory
 ```
 
+## Prometheus AlertManager Rules
+
+The `prometheus-rules.yaml` defines AlertManager rules based on the SLA thresholds documented in `docs/operations/SLA.md`.
+
+### Alert Groups
+
+| Group | Alerts | Description |
+|-------|--------|-------------|
+| `auth-service-resources` | Memory warning/critical | Memory usage >70%/80% of 256MB limit |
+| `auth-service-event-loop` | Event loop delay warning/critical | Event loop delay >50ms/100ms |
+| `auth-service-http-errors` | HTTP 5xx rate warning/critical | Error rate >2%/5% |
+| `auth-service-kong-latency` | Kong latency warning/critical | P95 latency >200ms/500ms |
+| `auth-service-circuit-breaker` | Circuit breaker opens | Opens >1/3 per hour |
+| `auth-service-token-errors` | Token error rate warning/critical | Error rate >1%/5% |
+| `auth-service-response-time` | Endpoint SLA violations | P95 exceeds SLA targets |
+| `auth-service-availability` | Service down, pods not ready | Availability issues |
+| `auth-service-cache` | Cache hit rate, Redis status | Cache performance |
+
+### Severity Levels
+
+- **warning**: Non-critical issues requiring attention
+- **critical**: Immediate action required, potential service impact
+
+### Prerequisites
+
+Requires Prometheus Operator (kube-prometheus-stack) to be installed:
+
+```bash
+# Install kube-prometheus-stack
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install kube-prometheus prometheus-community/kube-prometheus-stack -n monitoring
+```
+
+### Customizing Runbook URLs
+
+Update the `runbook_url` annotations in `prometheus-rules.yaml` to point to your organization's runbooks.
+
+## Pod Disruption Budget
+
+The `pdb.yaml` ensures service availability during Kubernetes node maintenance, upgrades, and voluntary disruptions.
+
+### Configuration
+
+```yaml
+spec:
+  maxUnavailable: 1  # Only 1 pod can be disrupted at a time
+```
+
+With 3 replicas configured, at least 2 pods will always be available during voluntary disruptions (node drains, upgrades).
+
+### Testing PDB During Node Drain
+
+```bash
+# Check PDB status
+kubectl get pdb -n authentication
+
+# View PDB details
+kubectl describe pdb authentication-service-pdb -n authentication
+
+# Simulate node drain (on a test node)
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+
+# Verify pods are evicted one at a time
+kubectl get pods -n authentication -w
+```
+
 ## Production Checklist
 
 - [ ] Replace all placeholder values in `secret.yaml`
 - [ ] Update image references to your registry
 - [ ] Configure TLS certificates
-- [ ] Set up monitoring and alerting
+- [x] Set up monitoring and alerting
 - [ ] Configure backup and disaster recovery
 - [ ] Enable audit logging
 - [ ] Configure network policies
 - [ ] Set resource quotas
-- [ ] Configure pod disruption budgets
+- [x] Configure pod disruption budgets
 - [ ] Test scaling and failover scenarios

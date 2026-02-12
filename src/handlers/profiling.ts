@@ -61,7 +61,9 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
         400,
         "Bad Request",
         "Cannot start profiling session - another session is already running",
-        requestId
+        requestId,
+        undefined,
+        "/debug/profiling/start"
       );
     }
 
@@ -100,7 +102,9 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to start profiling: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/start"
     );
   }
 }
@@ -158,7 +162,9 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
         500,
         "Internal Server Error",
         "Failed to stop profiling session",
-        requestId
+        requestId,
+        undefined,
+        "/debug/profiling/stop"
       );
     }
 
@@ -194,7 +200,9 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to stop profiling: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/stop"
     );
   }
 }
@@ -252,7 +260,9 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to get profiling status: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/status"
     );
   }
 }
@@ -330,7 +340,9 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to list profiling reports: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/reports"
     );
   }
 }
@@ -407,7 +419,9 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to cleanup profiling artifacts: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/cleanup"
     );
   }
 }
@@ -459,7 +473,14 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(400, "Bad Request", "File parameter is required", requestId);
+      return createErrorResponse(
+        400,
+        "Bad Request",
+        "File parameter is required",
+        requestId,
+        undefined,
+        "/debug/profiling/report"
+      );
     }
 
     const reports = profilingService.getReports();
@@ -474,7 +495,14 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(404, "Not Found", "Report file not found", requestId);
+      return createErrorResponse(
+        404,
+        "Not Found",
+        "Report file not found",
+        requestId,
+        undefined,
+        "/debug/profiling/report"
+      );
     }
 
     try {
@@ -514,7 +542,9 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         500,
         "Internal Server Error",
         "Failed to read report file",
-        requestId
+        requestId,
+        undefined,
+        "/debug/profiling/report"
       );
     }
   } catch (error) {
@@ -531,7 +561,9 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       500,
       "Internal Server Error",
       `Failed to serve profiling report: ${error instanceof Error ? error.message : "Unknown error"}`,
-      requestId
+      requestId,
+      undefined,
+      "/debug/profiling/report"
     );
   }
 }

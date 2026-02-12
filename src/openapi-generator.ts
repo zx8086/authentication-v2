@@ -2,6 +2,12 @@
 
 import type { RouteDefinition } from "./config";
 import { type AppConfig, loadConfig } from "./config/index";
+import {
+  createCommonParameters,
+  createErrorSchemas,
+  createSecuritySchemes,
+  createTags,
+} from "./openapi/schemas";
 
 class OpenAPIGenerator {
   private routes: RouteDefinition[] = [];
@@ -17,10 +23,11 @@ class OpenAPIGenerator {
 
   private _initializeImmutableCache(): void {
     // Pre-compute immutable schema components that never change
-    this._immutableCache.set("securitySchemes", Object.freeze(this._createSecuritySchemes()));
-    this._immutableCache.set("commonParameters", Object.freeze(this._createCommonParameters()));
-    this._immutableCache.set("tags", Object.freeze(this._createTags()));
-    this._immutableCache.set("errorSchemas", Object.freeze(this._createErrorSchemas()));
+    // Uses extracted schema functions from ./openapi/schemas for maintainability
+    this._immutableCache.set("securitySchemes", createSecuritySchemes());
+    this._immutableCache.set("commonParameters", createCommonParameters());
+    this._immutableCache.set("tags", createTags());
+    this._immutableCache.set("errorSchemas", createErrorSchemas());
     this._immutableCache.set("openapi311Info", Object.freeze(this._createOpenAPI311Info()));
   }
 
@@ -237,7 +244,7 @@ class OpenAPIGenerator {
       "400": {
         description: "Bad Request",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -245,7 +252,7 @@ class OpenAPIGenerator {
       "500": {
         description: "Internal Server Error",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -257,7 +264,7 @@ class OpenAPIGenerator {
       responses["401"] = {
         description: "Unauthorized - Token expired or invalid consumer credentials",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -268,7 +275,7 @@ class OpenAPIGenerator {
       responses["401"] = {
         description: "Unauthorized - Missing or invalid Kong consumer headers",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -276,7 +283,7 @@ class OpenAPIGenerator {
       responses["403"] = {
         description: "Forbidden - Anonymous consumers are not allowed",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -284,7 +291,7 @@ class OpenAPIGenerator {
       responses["429"] = {
         description: "Rate limit exceeded",
         content: {
-          "application/json": {
+          "application/problem+json": {
             schema: { $ref: "#/components/schemas/ErrorResponse" },
           },
         },
@@ -618,7 +625,7 @@ class OpenAPIGenerator {
       "400": Object.freeze({
         description: "Bad Request",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -626,7 +633,7 @@ class OpenAPIGenerator {
       "500": Object.freeze({
         description: "Internal Server Error",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -637,7 +644,7 @@ class OpenAPIGenerator {
       responses["401"] = Object.freeze({
         description: "Unauthorized - Missing or invalid Kong consumer headers",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -645,7 +652,7 @@ class OpenAPIGenerator {
       responses["403"] = Object.freeze({
         description: "Forbidden - Anonymous consumers are not allowed",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -653,7 +660,7 @@ class OpenAPIGenerator {
       responses["429"] = Object.freeze({
         description: "Rate limit exceeded",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -664,7 +671,7 @@ class OpenAPIGenerator {
       responses["401"] = Object.freeze({
         description: "Unauthorized - Token expired or invalid consumer credentials",
         content: Object.freeze({
-          "application/json": Object.freeze({
+          "application/problem+json": Object.freeze({
             schema: Object.freeze({ $ref: "#/components/schemas/ErrorResponse" }),
           }),
         }),
@@ -721,250 +728,10 @@ class OpenAPIGenerator {
     return schema;
   }
 
-  private _createTags(): readonly any[] {
-    return Object.freeze([
-      Object.freeze({
-        name: "Documentation",
-        description: "API documentation and specification endpoints",
-      }),
-      Object.freeze({
-        name: "Authentication",
-        description: "JWT token issuance and authentication operations",
-      }),
-      Object.freeze({
-        name: "Health",
-        description: "System health and dependency status monitoring",
-      }),
-      Object.freeze({
-        name: "Metrics",
-        description: "Performance metrics and operational statistics",
-      }),
-      Object.freeze({
-        name: "Debug",
-        description: "Debug endpoints for development and troubleshooting",
-      }),
-      Object.freeze({
-        name: "Profiling",
-        description: "CPU and memory profiling for performance analysis",
-      }),
-    ]);
-  }
-
   private _createOpenAPI311Info(): any {
     return Object.freeze({
       openapi: "3.1.1",
       jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
-    });
-  }
-
-  private _createSecuritySchemes(): any {
-    return Object.freeze({
-      KongAdminToken: Object.freeze({
-        type: "apiKey",
-        in: "header",
-        name: "Kong-Admin-Token",
-        description: "Kong Admin API authentication token",
-      }),
-    });
-  }
-
-  private _createCommonParameters(): any {
-    return Object.freeze({
-      ConsumerIdHeader: Object.freeze({
-        name: "x-consumer-id",
-        in: "header",
-        required: true,
-        description: "Kong consumer ID",
-        schema: Object.freeze({
-          type: "string",
-          example: "demo_user",
-        }),
-      }),
-      ConsumerUsernameHeader: Object.freeze({
-        name: "x-consumer-username",
-        in: "header",
-        required: true,
-        description: "Kong consumer username",
-        schema: Object.freeze({
-          type: "string",
-          example: "demo_user",
-        }),
-      }),
-      AnonymousConsumerHeader: Object.freeze({
-        name: "x-anonymous-consumer",
-        in: "header",
-        required: false,
-        description: "Indicates if the request is from an anonymous consumer",
-        schema: Object.freeze({
-          type: "string",
-          enum: Object.freeze(["true", "false"]),
-          example: "false",
-        }),
-      }),
-    });
-  }
-
-  private _createErrorSchemas(): any {
-    return Object.freeze({
-      DebugResponse: Object.freeze({
-        type: "object",
-        required: Object.freeze(["timestamp", "message", "success"]),
-        properties: Object.freeze({
-          timestamp: Object.freeze({
-            type: "string",
-            format: "date-time",
-            description: "Operation timestamp",
-            example: new Date().toISOString(),
-          }),
-          message: Object.freeze({
-            type: "string",
-            description: "Operation result message",
-            example: "Test metrics recorded successfully",
-          }),
-          success: Object.freeze({
-            type: "boolean",
-            description: "Operation success status",
-            example: true,
-          }),
-          details: Object.freeze({
-            type: "object",
-            description: "Additional operation details",
-            additionalProperties: true,
-          }),
-        }),
-        description: "Debug operation response",
-      }),
-      ErrorResponse: Object.freeze({
-        type: "object",
-        required: Object.freeze(["error", "statusCode", "timestamp", "requestId"]),
-        properties: Object.freeze({
-          error: Object.freeze({
-            type: "object",
-            required: Object.freeze(["code", "title", "message"]),
-            properties: Object.freeze({
-              code: Object.freeze({
-                type: "string",
-                description: "Structured error code for client handling",
-                pattern: "^AUTH_\\d{3}$",
-                example: "AUTH_001",
-                enum: Object.freeze([
-                  "AUTH_001",
-                  "AUTH_002",
-                  "AUTH_003",
-                  "AUTH_004",
-                  "AUTH_005",
-                  "AUTH_006",
-                  "AUTH_007",
-                  "AUTH_008",
-                  "AUTH_009",
-                  "AUTH_010",
-                  "AUTH_011",
-                  "AUTH_012",
-                ]),
-              }),
-              title: Object.freeze({
-                type: "string",
-                description: "Short human-readable error title",
-                example: "Missing Consumer Headers",
-              }),
-              message: Object.freeze({
-                type: "string",
-                description: "Detailed human-readable error message",
-                example: "Required Kong consumer headers are missing from the request",
-              }),
-              details: Object.freeze({
-                type: "object",
-                description: "Additional error context and details",
-                additionalProperties: true,
-                example: Object.freeze({
-                  reason: "Missing Kong consumer headers",
-                }),
-              }),
-            }),
-            description: "Structured error information",
-          }),
-          statusCode: Object.freeze({
-            type: "integer",
-            description: "HTTP status code",
-            example: 401,
-            minimum: 400,
-            maximum: 599,
-          }),
-          timestamp: Object.freeze({
-            type: "string",
-            format: "date-time",
-            description: "Error occurrence timestamp",
-            example: new Date().toISOString(),
-          }),
-          requestId: Object.freeze({
-            type: "string",
-            format: "uuid",
-            description: "Unique request identifier for tracing",
-            example: "550e8400-e29b-41d4-a716-446655440000",
-          }),
-        }),
-        description: "Structured error response with typed error codes for client consumption",
-      }),
-      ErrorCodeReference: Object.freeze({
-        type: "object",
-        description: "Reference table of all structured error codes",
-        properties: Object.freeze({
-          AUTH_001: Object.freeze({
-            description:
-              "Missing Consumer Headers - Required Kong consumer headers are missing from the request",
-            httpStatus: 401,
-          }),
-          AUTH_002: Object.freeze({
-            description:
-              "Consumer Not Found - The specified consumer was not found or has no JWT credentials",
-            httpStatus: 401,
-          }),
-          AUTH_003: Object.freeze({
-            description:
-              "JWT Creation Failed - Failed to create JWT token due to an internal error",
-            httpStatus: 500,
-          }),
-          AUTH_004: Object.freeze({
-            description: "Kong API Unavailable - The Kong gateway API is temporarily unavailable",
-            httpStatus: 503,
-          }),
-          AUTH_005: Object.freeze({
-            description:
-              "Circuit Breaker Open - Service is temporarily unavailable due to circuit breaker protection",
-            httpStatus: 503,
-          }),
-          AUTH_006: Object.freeze({
-            description: "Rate Limit Exceeded - Request rate limit has been exceeded",
-            httpStatus: 429,
-          }),
-          AUTH_007: Object.freeze({
-            description: "Invalid Request Format - The request format is invalid or malformed",
-            httpStatus: 400,
-          }),
-          AUTH_008: Object.freeze({
-            description: "Internal Server Error - An unexpected internal server error occurred",
-            httpStatus: 500,
-          }),
-          AUTH_009: Object.freeze({
-            description:
-              "Anonymous Consumer - Anonymous consumers are not allowed to request tokens",
-            httpStatus: 401,
-          }),
-          AUTH_010: Object.freeze({
-            description: "Token Expired - The provided JWT token has expired",
-            httpStatus: 401,
-          }),
-          AUTH_011: Object.freeze({
-            description: "Invalid Token - The provided JWT token is invalid or malformed",
-            httpStatus: 400,
-          }),
-          AUTH_012: Object.freeze({
-            description:
-              "Missing Authorization - Authorization header with Bearer token is required",
-            httpStatus: 400,
-          }),
-        }),
-      }),
     });
   }
 

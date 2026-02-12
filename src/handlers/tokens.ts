@@ -202,9 +202,13 @@ export async function handleTokenRequest(
         errorCode: headerValidation.errorCode,
       });
 
-      return createStructuredErrorResponse(headerValidation.errorCode, requestId, {
-        reason: headerValidation.error,
-      });
+      return createStructuredErrorResponse(
+        headerValidation.errorCode,
+        requestId,
+        { reason: headerValidation.error },
+        undefined,
+        "/tokens"
+      );
     }
 
     try {
@@ -258,9 +262,8 @@ export async function handleTokenRequest(
             reason: "Kong gateway connectivity issues",
             retryAfter: 30,
           },
-          {
-            "Retry-After": "30",
-          }
+          { "Retry-After": "30" },
+          "/tokens"
         );
       }
 
@@ -297,9 +300,13 @@ export async function handleTokenRequest(
           errorCode: ErrorCodes.AUTH_002,
         });
 
-        return createStructuredErrorResponse(ErrorCodes.AUTH_002, requestId, {
-          consumerId,
-        });
+        return createStructuredErrorResponse(
+          ErrorCodes.AUTH_002,
+          requestId,
+          { consumerId },
+          undefined,
+          "/tokens"
+        );
       }
 
       // Use original username for JWT claims
@@ -372,7 +379,10 @@ export async function handleTokenRequest(
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_008,
         "An unexpected error occurred during token generation",
-        requestId
+        requestId,
+        undefined,
+        undefined,
+        "/tokens"
       );
     }
   });
@@ -402,7 +412,13 @@ export async function handleTokenValidation(
         requestId,
         errorCode: ErrorCodes.AUTH_012,
       });
-      return createStructuredErrorResponse(ErrorCodes.AUTH_012, requestId);
+      return createStructuredErrorResponse(
+        ErrorCodes.AUTH_012,
+        requestId,
+        undefined,
+        undefined,
+        "/tokens/validate"
+      );
     }
 
     const token = authHeader.substring(7);
@@ -418,7 +434,10 @@ export async function handleTokenValidation(
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_011,
         "Token cannot be empty",
-        requestId
+        requestId,
+        undefined,
+        undefined,
+        "/tokens/validate"
       );
     }
 
@@ -433,9 +452,13 @@ export async function handleTokenValidation(
         error: headerValidation.error,
         errorCode: headerValidation.errorCode,
       });
-      return createStructuredErrorResponse(headerValidation.errorCode, requestId, {
-        reason: headerValidation.error,
-      });
+      return createStructuredErrorResponse(
+        headerValidation.errorCode,
+        requestId,
+        { reason: headerValidation.error },
+        undefined,
+        "/tokens/validate"
+      );
     }
 
     const { consumerId, username } = headerValidation;
@@ -453,9 +476,13 @@ export async function handleTokenValidation(
           requestId,
           errorCode: ErrorCodes.AUTH_002,
         });
-        return createStructuredErrorResponse(ErrorCodes.AUTH_002, requestId, {
-          consumerId,
-        });
+        return createStructuredErrorResponse(
+          ErrorCodes.AUTH_002,
+          requestId,
+          { consumerId },
+          undefined,
+          "/tokens/validate"
+        );
       }
 
       // Validate the token
@@ -511,7 +538,13 @@ export async function handleTokenValidation(
         details.reason = validationResult.error;
       }
 
-      return createStructuredErrorResponse(errorCode, requestId, details);
+      return createStructuredErrorResponse(
+        errorCode,
+        requestId,
+        details,
+        undefined,
+        "/tokens/validate"
+      );
     } catch (err) {
       const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordException(err as Error);
@@ -528,7 +561,10 @@ export async function handleTokenValidation(
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_008,
         "An unexpected error occurred during token validation",
-        requestId
+        requestId,
+        undefined,
+        undefined,
+        "/tokens/validate"
       );
     }
   });

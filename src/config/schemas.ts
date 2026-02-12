@@ -346,6 +346,24 @@ export const ContinuousProfilingConfigSchema = z.strictObject({
     .describe("Number of requests to track for P95/P99 calculation"),
 });
 
+export const VersionDeprecationConfigSchema = z.strictObject({
+  sunsetDate: z.string().describe("ISO 8601 date when the API version will be retired"),
+  migrationUrl: z.string().optional().describe("URL to migration documentation"),
+  message: z.string().optional().describe("Additional deprecation message"),
+});
+
+export const ApiVersioningConfigSchema = z.strictObject({
+  defaultVersion: z.enum(["v1", "v2"]).default("v1").describe("Default API version"),
+  supportedVersions: z
+    .array(z.enum(["v1", "v2"]))
+    .default(["v1", "v2"])
+    .describe("Supported API versions"),
+  deprecation: z
+    .record(z.enum(["v1", "v2"]), VersionDeprecationConfigSchema)
+    .optional()
+    .describe("Version-specific deprecation configurations"),
+});
+
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -355,6 +373,7 @@ export const ApiInfoConfigSchema = z.strictObject({
   licenseName: NonEmptyString.describe("License name"),
   licenseIdentifier: NonEmptyString.describe("License identifier"),
   cors: NonEmptyString.describe("CORS origin configuration"),
+  versioning: ApiVersioningConfigSchema.optional().describe("API versioning configuration"),
 });
 
 export const TelemetryConfigSchema = z
@@ -417,6 +436,8 @@ export const SchemaRegistry = {
   ContinuousProfiling: ContinuousProfilingConfigSchema,
   SlaThreshold: SlaThresholdSchema,
   ApiInfo: ApiInfoConfigSchema,
+  ApiVersioning: ApiVersioningConfigSchema,
+  VersionDeprecation: VersionDeprecationConfigSchema,
   AppConfig: AppConfigSchema,
   ConsumerSecret: ConsumerSecretSchema,
   ConsumerResponse: ConsumerResponseSchema,
@@ -462,6 +483,8 @@ export type TelemetryConfig = z.infer<typeof TelemetryConfigSchema>;
 export type ApiInfoConfig = z.infer<typeof ApiInfoConfigSchema>;
 export type SlaThreshold = z.infer<typeof SlaThresholdSchema>;
 export type ContinuousProfilingConfig = z.infer<typeof ContinuousProfilingConfigSchema>;
+export type VersionDeprecationConfig = z.infer<typeof VersionDeprecationConfigSchema>;
+export type ApiVersioningConfig = z.infer<typeof ApiVersioningConfigSchema>;
 
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;

@@ -883,27 +883,48 @@ Host: auth-service.example.com
 
 ## Error Handling
 
+### RFC 7807 Problem Details
+
+All error responses follow the [RFC 7807 Problem Details](https://www.rfc-editor.org/rfc/rfc7807) standard for consistent, machine-readable error responses.
+
+**Content-Type**: `application/problem+json`
+
 ### HTTP Status Codes
 | Status Code | Scenario | Response Body |
 |-------------|----------|---------------|
 | 200 OK | Successful operation | JSON response with data |
-| 400 Bad Request | Invalid parameters or request | Error details |
-| 401 Unauthorized | Missing consumer ID or anonymous consumer | Error details |
-| 404 Not Found | Endpoint or resource not found | Error details |
-| 500 Internal Server Error | Unexpected errors | Error details |
-| 503 Service Unavailable | Kong Admin API unreachable | Error details |
+| 400 Bad Request | Invalid parameters or request | Problem Details |
+| 401 Unauthorized | Missing consumer ID or anonymous consumer | Problem Details |
+| 404 Not Found | Endpoint or resource not found | Problem Details |
+| 500 Internal Server Error | Unexpected errors | Problem Details |
+| 503 Service Unavailable | Kong Admin API unreachable | Problem Details |
 
-### Error Response Format
+### Error Response Format (RFC 7807)
 ```json
 {
-  "error": "Error Type",
-  "message": "Detailed error message",
-  "timestamp": "2025-01-15T12:00:00.000Z",
-  "statusCode": 401,
+  "type": "urn:problem-type:auth-service:auth-001",
+  "title": "Missing Consumer Headers",
+  "status": 401,
+  "detail": "Required Kong consumer headers are missing from the request",
+  "instance": "/tokens",
+  "code": "AUTH_001",
   "requestId": "550e8400-e29b-41d4-a716-446655440000",
-  "errorCode": "AUTH_001"
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
+
+### RFC 7807 Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | String | URN identifying the problem type (e.g., `urn:problem-type:auth-service:auth-001`) |
+| `title` | String | Short, human-readable summary |
+| `status` | Integer | HTTP status code |
+| `detail` | String | Human-readable explanation specific to this occurrence |
+| `instance` | String | URI reference identifying the specific occurrence (e.g., `/tokens`) |
+| `code` | String | Application-specific error code (e.g., `AUTH_001`) |
+| `requestId` | String | UUID for request tracing |
+| `timestamp` | String | ISO-8601 timestamp |
+| `extensions` | Object | Additional context-specific data (optional) |
 
 ### Structured Error Codes
 
@@ -983,6 +1004,44 @@ Access-Control-Allow-Methods: GET, POST, OPTIONS
 Access-Control-Allow-Headers: Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username, X-Anonymous-Consumer
 Access-Control-Max-Age: 86400
 ```
+
+## API Deprecation (RFC 8594 Sunset Headers)
+
+The service supports [RFC 8594 Sunset headers](https://www.rfc-editor.org/rfc/rfc8594) for signaling API version deprecation to clients.
+
+### Deprecation Headers
+
+When an API version is deprecated, responses include:
+
+```http
+Sunset: Sat, 01 Jan 2028 00:00:00 GMT
+Deprecation: true
+Link: <https://api.example.com/docs/migration>; rel="sunset"
+```
+
+| Header | Description |
+|--------|-------------|
+| `Sunset` | RFC 7231 HTTP-date when the API will be removed |
+| `Deprecation` | Boolean indicating the API is deprecated |
+| `Link` | URL to migration documentation (rel="sunset") |
+
+### Configuration
+
+Deprecation is configured per API version:
+
+```typescript
+// Environment configuration
+API_V1_SUNSET_DATE=2028-01-01T00:00:00Z
+API_V1_MIGRATION_URL=https://api.example.com/docs/v2-migration
+```
+
+### Client Handling
+
+Clients should:
+1. Monitor for `Deprecation: true` header
+2. Parse the `Sunset` date to plan migration
+3. Follow the `Link` header for migration guidance
+4. Complete migration before the sunset date
 
 ## Circuit Breaker Protection
 

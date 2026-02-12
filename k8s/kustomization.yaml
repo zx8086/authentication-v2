@@ -23,6 +23,8 @@ resources:
 - service.yaml
 - hpa.yaml
 - ingress.yaml
+- pdb.yaml
+- prometheus-rules.yaml
 
 images:
 - name: authentication-service

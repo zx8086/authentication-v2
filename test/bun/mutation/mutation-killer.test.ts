@@ -157,18 +157,19 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       expect(response.status).toBe(401);
 
       // STRICT error structure assertions (kills ObjectLiteral mutations)
-      expect(body).toHaveProperty("error");
-      expect(body.error).toHaveProperty("code");
-      expect(body.error).toHaveProperty("title");
-      expect(body.error).toHaveProperty("message");
+      // RFC 7807 Problem Details format
+      expect(body).toHaveProperty("type");
+      expect(body).toHaveProperty("title");
+      expect(body).toHaveProperty("status");
+      expect(body).toHaveProperty("detail");
+      expect(body).toHaveProperty("code");
 
-      expect(body.error.code).toBe(ErrorCodes.AUTH_001);
-      expect(body.error.title).toBe("Missing Consumer Headers");
-      expect(typeof body.error.message).toBe("string");
-      expect(body.error.message.length).toBeGreaterThan(0);
+      expect(body.code).toBe(ErrorCodes.AUTH_001);
+      expect(body.title).toBe("Missing Consumer Headers");
+      expect(typeof body.detail).toBe("string");
+      expect(body.detail.length).toBeGreaterThan(0);
 
-      expect(body).toHaveProperty("statusCode");
-      expect(body.statusCode).toBe(401);
+      expect(body.status).toBe(401);
 
       expect(body).toHaveProperty("timestamp");
       expect(typeof body.timestamp).toBe("string");
@@ -197,13 +198,13 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_009);
-      expect(body.statusCode).toBe(401);
+      expect(body.code).toBe(ErrorCodes.AUTH_009);
+      expect(body.status).toBe(401);
 
-      // Details should contain reason
-      if (body.error.details) {
-        expect(body.error.details).toHaveProperty("reason");
-        expect(typeof body.error.details.reason).toBe("string");
+      // Extensions should contain reason in RFC 7807
+      if (body.extensions) {
+        expect(body.extensions).toHaveProperty("reason");
+        expect(typeof body.extensions.reason).toBe("string");
       }
 
       // Kong service should NOT have been called for anonymous
@@ -223,9 +224,9 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(401);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_002);
-      expect(body.statusCode).toBe(401);
-      expect(body.error.title).toBe("Consumer Not Found");
+      expect(body.code).toBe(ErrorCodes.AUTH_002);
+      expect(body.status).toBe(401);
+      expect(body.title).toBe("Consumer Not Found");
 
       // Verify Kong was called with the actual consumer ID
       expect(getConsumerSecretCalls).toEqual(["nonexistent-consumer"]);
@@ -265,7 +266,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_007);
+      expect(body.code).toBe(ErrorCodes.AUTH_007);
 
       // Kong should NOT be called for invalid headers
       expect(getConsumerSecretCalls).toEqual([]);
@@ -382,8 +383,8 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
-      expect(body.statusCode).toBe(400);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.status).toBe(400);
     });
 
     it("should return EXACT error for malformed Bearer token", async () => {
@@ -400,7 +401,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should return EXACT error for empty token after Bearer", async () => {
@@ -420,7 +421,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
 
       // After trimming, this becomes "Bearer" which fails startsWith("Bearer ") check
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_012);
+      expect(body.code).toBe(ErrorCodes.AUTH_012);
     });
 
     it("should return EXACT error for invalid token signature", async () => {
@@ -437,8 +438,8 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error.code).toBe(ErrorCodes.AUTH_011);
-      expect(body.statusCode).toBe(400);
+      expect(body.code).toBe(ErrorCodes.AUTH_011);
+      expect(body.status).toBe(400);
     });
   });
 

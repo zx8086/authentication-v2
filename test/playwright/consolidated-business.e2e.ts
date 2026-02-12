@@ -170,8 +170,9 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
       expect(response.status()).toBe(401);
 
       const data = await response.json();
-      expect(data.error.code).toBe("AUTH_009");
-      expect(data.error.message).toContain("Anonymous consumers");
+      // RFC 7807 Problem Details format
+      expect(data.code).toBe("AUTH_009");
+      expect(data.detail).toContain("Anonymous consumers");
     });
 
     test("Requires both consumer headers", async ({ request }) => {
@@ -204,12 +205,12 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
       const data = await response.json();
 
       if (response.status() === 401) {
-        // Standard unauthorized response - AUTH_002 for consumer not found
-        expect(data.error.code).toBe("AUTH_002");
+        // RFC 7807 - Standard unauthorized response - AUTH_002 for consumer not found
+        expect(data.code).toBe("AUTH_002");
         expect(data).toHaveProperty("requestId");
       } else if (response.status() === 503) {
-        // Circuit breaker or Kong connectivity response - AUTH_004
-        expect(data.error.code).toBe("AUTH_004");
+        // RFC 7807 - Circuit breaker or Kong connectivity response - AUTH_004
+        expect(data.code).toBe("AUTH_004");
         expect(data).toHaveProperty("timestamp");
       }
     });
@@ -317,12 +318,14 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
         expect(response.status()).toBe(expectedStatus);
 
         const data = await response.json();
-        expect(data).toHaveProperty("error");
 
         if (expectedStatus === 401) {
-          // Structured error format for auth errors
-          expect(data.error).toHaveProperty("code");
-          expect(data.error).toHaveProperty("message");
+          // RFC 7807 Problem Details format for auth errors
+          expect(data).toHaveProperty("type");
+          expect(data).toHaveProperty("title");
+          expect(data).toHaveProperty("status");
+          expect(data).toHaveProperty("detail");
+          expect(data).toHaveProperty("code");
           expect(data).toHaveProperty("timestamp");
           expect(data).toHaveProperty("requestId");
         } else {

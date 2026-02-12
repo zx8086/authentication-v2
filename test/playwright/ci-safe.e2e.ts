@@ -61,9 +61,10 @@ test.describe("Authentication Service - CI-Safe Tests", () => {
       expect(response.status()).toBe(401);
 
       const data = await response.json();
-      expect(data).toHaveProperty("error");
-      expect(data.error).toHaveProperty("message");
-      expect(data.error.code).toBe("AUTH_001");
+      // RFC 7807 Problem Details format
+      expect(data).toHaveProperty("type");
+      expect(data).toHaveProperty("detail");
+      expect(data.code).toBe("AUTH_001");
     });
 
     test("Consistent error response structure", async ({ request }) => {
@@ -71,13 +72,16 @@ test.describe("Authentication Service - CI-Safe Tests", () => {
       expect(response.status()).toBe(401);
 
       const data = await response.json();
-      expect(data).toHaveProperty("error");
-      expect(data.error).toHaveProperty("code");
-      expect(data.error).toHaveProperty("message");
+      // RFC 7807 Problem Details format
+      expect(data).toHaveProperty("type");
+      expect(data).toHaveProperty("title");
+      expect(data).toHaveProperty("status");
+      expect(data).toHaveProperty("detail");
+      expect(data).toHaveProperty("code");
       expect(data).toHaveProperty("timestamp");
-      expect(data).toHaveProperty("statusCode");
       expect(data).toHaveProperty("requestId");
-      expect(data.statusCode).toBe(401);
+      expect(data).toHaveProperty("instance");
+      expect(data.status).toBe(401);
     });
   });
 });

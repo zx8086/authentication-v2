@@ -2,11 +2,12 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 2884 tests across 101 files (100% pass rate)
+**Current Test Suite**: 2941 tests across 105 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
 | Unit Tests | 97 | 2800+ | Bun |
+| Chaos Tests | 4 | 57 | Bun |
 | Integration Tests | 4 | 50+ | Bun |
 | E2E Tests | 3 | 32 | Playwright |
 | Performance Tests | 19 | - | K6 |
