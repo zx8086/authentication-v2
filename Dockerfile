@@ -84,7 +84,9 @@ COPY --from=builder --chown=65532:65532 /app/src ./src
 # Copy public assets
 COPY --from=builder --chown=65532:65532 /app/public ./public
 
-# Already running as nonroot user (65532:65532) - distroless default
+# Explicitly set non-root user (required for Docker Scout "Default Non-Root User" policy)
+# 65532 is the standard nonroot user in distroless images
+USER 65532:65532
 
 # Set environment variables
 ENV NODE_ENV=production \
