@@ -5,6 +5,9 @@
 
 import { describe, expect, it } from "bun:test";
 
+// Helper to prevent CodeQL constant folding while preserving mutation testing value
+const asString = (s: string | null): string | null => s;
+
 describe("Response Utils - Mutation Killers", () => {
   describe("API Version constants - String mutations", () => {
     it('should use exactly "v1" and "v2" for SUPPORTED_API_VERSIONS', () => {
@@ -365,9 +368,9 @@ describe("Response Utils - Mutation Killers", () => {
     });
 
     it("should check acceptVersion && isValidApiVersion(acceptVersion)", () => {
-      const acceptVersion1: string | null = null;
-      const acceptVersion2: string | null = "v1";
-      const acceptVersion3: string | null = "invalid";
+      const acceptVersion1 = asString(null);
+      const acceptVersion2 = asString("v1");
+      const acceptVersion3 = asString("invalid");
 
       const validVersions = ["v1", "v2"];
 

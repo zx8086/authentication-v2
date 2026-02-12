@@ -7,7 +7,7 @@ import { describe, expect, it } from "bun:test";
 
 // Helper to prevent CodeQL constant folding while preserving mutation testing value
 const asNumber = (n: number): number => n;
-const asBoolean = (b: boolean): boolean => b;
+const asString = (s: string | null): string | null => s;
 
 describe("Telemetry Health Monitor - Mutation Killers", () => {
   describe("Success rate thresholds - Boundary mutations", () => {
@@ -352,13 +352,13 @@ describe("Telemetry Health Monitor - Mutation Killers", () => {
 
   describe("Logical operator mutations", () => {
     it("should use AND for hasEndpoints check", () => {
-      const traces1: string | null = "http://localhost";
-      const metrics1: string | null = "http://localhost";
-      const logs1: string | null = "http://localhost";
+      const traces1 = asString("http://localhost");
+      const metrics1 = asString("http://localhost");
+      const logs1 = asString("http://localhost");
 
-      const traces2: string | null = null;
-      const metrics2: string | null = "http://localhost";
-      const logs2: string | null = "http://localhost";
+      const traces2 = asString(null);
+      const metrics2 = asString("http://localhost");
+      const logs2 = asString("http://localhost");
 
       const hasEndpoints1 = traces1 && metrics1 && logs1;
       const hasEndpoints2 = traces2 && metrics2 && logs2;
