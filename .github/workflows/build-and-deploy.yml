@@ -159,13 +159,13 @@ jobs:
           K6_THRESHOLDS_NON_BLOCKING: "true"
 
       - name: Upload K6 test results
-        if: always()
+        if: always() && hashFiles('test/results/k6/*') != ''
         uses: actions/upload-artifact@v4
         with:
           name: k6-smoke-results-${{ github.run_number }}
           path: test/results/k6/
           retention-days: 14
-        continue-on-error: true
+          if-no-files-found: ignore
 
       - name: Stop application server
         if: always()
@@ -334,14 +334,15 @@ jobs:
         continue-on-error: true
         run: |
           echo "Verifying DHI VEX (Vulnerability Exploitability eXchange) attestations..."
-          docker scout attestation dhi.io/static:20230311 --type vex > dhi-vex-${{ github.sha }}.json || true
+          docker scout attestation dhi.io/static:20230311 --type vex > dhi-vex-${{ github.sha }}.json 2>/dev/null || true
 
           if [ -s dhi-vex-${{ github.sha }}.json ]; then
-            VEX_COUNT=$(jq '[.statements[] | select(.status == "not_affected")] | length' dhi-vex-${{ github.sha }}.json)
+            VEX_COUNT=$(jq '[.statements[] | select(.status == "not_affected")] | length' dhi-vex-${{ github.sha }}.json 2>/dev/null || echo "0")
             echo "VEX attestations found: $VEX_COUNT vulnerabilities marked as not_affected"
             echo "::notice::DHI VEX attestations verified - $VEX_COUNT non-exploitable CVEs suppressed"
           else
-            echo "::warning::No VEX attestations found (DHI may not have published VEX data yet)"
+            # VEX is optional - DHI base images may not always publish VEX data
+            echo "::notice::No VEX attestations available for DHI base image (this is expected - VEX is optional)"
           fi
 
       - name: Upload SBOM artifact
@@ -672,6 +673,7 @@ jobs:
       - name: Upload Snyk Code SARIF results
         if: matrix.scan-type == 'snyk-code' && hashFiles('snyk-code-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
+        timeout-minutes: 3
         with:
           sarif_file: snyk-code-results.sarif
           category: snyk-code
