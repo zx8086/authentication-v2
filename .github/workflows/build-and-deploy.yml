@@ -150,8 +150,9 @@ jobs:
 
       - name: Install K6 for performance testing
         run: |
-          curl -sSL https://github.com/grafana/k6/releases/download/v0.55.0/k6-v0.55.0-linux-amd64.tar.gz | tar -xzf -
-          sudo mv k6-v0.55.0-linux-amd64/k6 /usr/local/bin/
+          # K6 v0.57+ has TypeScript support enabled by default
+          curl -sSL https://github.com/grafana/k6/releases/download/v0.57.0/k6-v0.57.0-linux-amd64.tar.gz | tar -xzf -
+          sudo mv k6-v0.57.0-linux-amd64/k6 /usr/local/bin/
           k6 version
 
       - name: Run K6 smoke tests
