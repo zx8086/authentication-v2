@@ -1,6 +1,8 @@
 /* test/bun/handlers/tokens-mutation-killers.test.ts
  * Mutation-killing tests for handlers/tokens.ts
  * Focus on exact numeric calculations and boundary conditions
+ * lgtm[js/unneeded-defensive-code] lgtm[js/implicit-operand-conversion]
+ * - Mutation testing intentionally tests edge cases with various types
  */
 
 import { describe, expect, it } from "bun:test";

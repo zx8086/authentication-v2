@@ -1,6 +1,5 @@
 /* src/services/profiling/overhead-monitor.ts */
 
-import { getTelemetryConfig } from "../../config/index";
 import { log, warn } from "../../utils/logger";
 
 interface CpuMeasurement {
@@ -211,7 +210,6 @@ let overheadMonitorInstance: OverheadMonitor | null = null;
 
 export function getOverheadMonitor(): OverheadMonitor {
   if (!overheadMonitorInstance) {
-    const _config = getTelemetryConfig();
     overheadMonitorInstance = new OverheadMonitor();
   }
   return overheadMonitorInstance;

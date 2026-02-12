@@ -149,8 +149,6 @@ try {
     // Fallback fetch for OPTIONS and 404s
     async fetch(req) {
       try {
-        const _url = new URL(req.url);
-
         return await fallbackFetch(req);
       } catch (error) {
         return handleServerError(error as Error);

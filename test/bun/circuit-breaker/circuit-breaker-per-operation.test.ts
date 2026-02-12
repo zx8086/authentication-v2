@@ -126,14 +126,6 @@ describe("Per-Operation Circuit Breaker", () => {
     });
 
     it("should allow independent recovery of different operations", async () => {
-      const _intermittentFailure = async () => {
-        // Fail sometimes, succeed sometimes
-        if (Math.random() > 0.5) {
-          throw new Error("Intermittent failure");
-        }
-        return { data: "recovered" };
-      };
-
       // Force failures to open circuits
       for (let i = 0; i < 5; i++) {
         try {

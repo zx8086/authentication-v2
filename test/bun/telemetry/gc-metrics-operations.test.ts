@@ -282,8 +282,6 @@ describe("GC Metrics Operations", () => {
       arr.length = 0;
       const event = forceGC();
 
-      const _afterStats = getCurrentHeapStats();
-
       expect(event).toBeDefined();
       expect(duringStats.used_heap_size).toBeGreaterThanOrEqual(beforeStats.used_heap_size);
     });

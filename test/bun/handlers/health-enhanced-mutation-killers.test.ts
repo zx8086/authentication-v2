@@ -1,3 +1,4 @@
+/* lgtm[js/useless-comparison-test] lgtm[js/implicit-operand-conversion] - Mutation testing */
 import { describe, expect, test } from "bun:test";
 
 // Helpers to prevent CodeQL constant folding while preserving mutation testing value

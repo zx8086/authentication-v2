@@ -7,19 +7,6 @@ import { describe, expect, it } from "bun:test";
 // Import functions directly to test internal logic
 import type { FetchOptions } from "../../../src/utils/bun-fetch-fallback";
 
-// Helper to create mock curl output
-function _createMockCurlOutput(
-  status: number,
-  headers: Record<string, string>,
-  body: string
-): string {
-  const headerLines = [`HTTP/1.1 ${status}`];
-  for (const [key, value] of Object.entries(headers)) {
-    headerLines.push(`${key}: ${value}`);
-  }
-  return `${headerLines.join("\r\n")}\r\n\r\n${body}`;
-}
-
 describe("Bun Fetch Fallback - Mutation Killers", () => {
   describe("parseCurlResponse - Empty output", () => {
     it("should return status 200 for empty output", () => {

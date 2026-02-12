@@ -1,6 +1,7 @@
 /* test/bun/services/cache/local-memory-cache-mutation-killers.test.ts
  * Mutation-killing tests for services/cache/local-memory-cache.ts
  * Focus on exact numeric calculations and boundary conditions
+ * lgtm[js/useless-comparison-test] - Mutation testing
  */
 
 import { beforeEach, describe, expect, it } from "bun:test";

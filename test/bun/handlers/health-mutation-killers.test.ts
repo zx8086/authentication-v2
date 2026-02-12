@@ -1,6 +1,8 @@
 /* test/bun/handlers/health-mutation-killers.test.ts
  * Mutation-killing tests for handlers/health.ts
  * Focus on exact numeric values and boundary conditions
+ * lgtm[js/useless-comparison-test] lgtm[js/property-access-on-non-object] lgtm[js/implicit-operand-conversion]
+ * - Mutation testing intentionally tests edge cases with various types
  */
 
 import { describe, expect, it } from "bun:test";

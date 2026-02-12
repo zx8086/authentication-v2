@@ -1,3 +1,4 @@
+/* lgtm[js/comparison-between-incompatible-types] - Mutation testing */
 import { describe, expect, test } from "bun:test";
 
 // Helpers to prevent CodeQL constant folding while preserving mutation testing value

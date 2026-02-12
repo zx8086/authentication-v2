@@ -155,7 +155,6 @@ export class ProfileQueueManager {
   private async startProfiling(request: ProfileRequest): Promise<boolean> {
     try {
       const timestamp = Date.now();
-      const _formattedEndpoint = request.endpoint.replace(/\//g, "_").replace(/^_/, "");
 
       log("Starting profiling session", {
         component: "profile-queue-manager",

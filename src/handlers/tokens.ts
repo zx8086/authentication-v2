@@ -546,7 +546,6 @@ export async function handleTokenValidation(
         "/tokens/validate"
       );
     } catch (err) {
-      const _duration = (Bun.nanoseconds() - startTime) / 1_000_000;
       recordException(err as Error);
 
       error("Unexpected error during token validation", {

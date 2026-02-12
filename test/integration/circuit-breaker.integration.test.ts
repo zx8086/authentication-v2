@@ -246,15 +246,12 @@ describe("Circuit Breaker - Timeout Behavior", () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1);
 
-    let _aborted = false;
     try {
       await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`, {
         signal: controller.signal,
       });
-    } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        _aborted = true;
-      }
+    } catch {
+      // May be AbortError or network error - both are acceptable
     } finally {
       clearTimeout(timeoutId);
     }

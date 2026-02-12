@@ -737,11 +737,9 @@ describe("JWT Mutation Tests", () => {
   describe("error handling in createToken", () => {
     test.concurrent("should throw on crypto errors", async () => {
       // Empty secret might cause issues
-      let _threw = false;
       try {
         await NativeBunJWT.createToken("user", "key", "", testAuthority, testAudience);
       } catch (e) {
-        _threw = true;
         expect((e as Error).message).toBe("Failed to create JWT token");
       }
 

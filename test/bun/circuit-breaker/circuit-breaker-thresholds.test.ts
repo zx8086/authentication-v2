@@ -42,8 +42,6 @@ describe("Circuit Breaker Thresholds - Mutation Testing", () => {
         defaultCachingConfig
       );
 
-      const _stats = service.getStats();
-
       // Default timeout for getConsumerSecret should be 3000ms
       // This verifies the operation configs are set correctly
       expect(service).toBeDefined();

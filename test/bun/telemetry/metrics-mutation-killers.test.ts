@@ -1,6 +1,8 @@
 /* test/bun/telemetry/metrics-mutation-killers.test.ts
  * Mutation-killing tests for telemetry/metrics.ts
  * Focus on exact numeric calculations and boundary conditions
+ * lgtm[js/comparison-between-incompatible-types]
+ * - Mutation testing intentionally tests edge cases with various types
  */
 
 import { beforeAll, beforeEach, describe, expect, it } from "bun:test";

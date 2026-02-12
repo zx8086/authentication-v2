@@ -52,7 +52,6 @@ describe("UnifiedCacheManager - Mutation Killers", () => {
 
       await manager.set("key", "value");
       const strategyBefore = manager.getStrategy();
-      const _backendBefore = manager.getBackendName();
       expect(strategyBefore).toBe("local-memory"); // Verify initial
 
       // Reconfigure with DIFFERENT strategy request (highAvailability changes)
@@ -64,7 +63,6 @@ describe("UnifiedCacheManager - Mutation Killers", () => {
       });
 
       const strategyAfter = manager.getStrategy();
-      const _backendAfter = manager.getBackendName();
 
       // Kill mutation: The reconfigure SHOULD trigger shutdown and reinit
       // even though it falls back to same strategy due to Redis failure

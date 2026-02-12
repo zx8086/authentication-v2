@@ -265,7 +265,7 @@ export const executeMetricsCheck = (): Response => {
   const response = http.get(url, params);
   const duration = Date.now() - startTime;
 
-  const _success = validateMetricsResponse(response);
+  validateMetricsResponse(response);
 
   // Check performance budget
   const budget = getPerformanceBudget("metrics_endpoint");
@@ -320,7 +320,7 @@ export const executeOpenAPICheck = (): Response => {
   const response = http.get(url, params);
   const duration = Date.now() - startTime;
 
-  const _success = validateOpenAPIResponse(response);
+  validateOpenAPIResponse(response);
 
   // Check performance budget
   const budget = getPerformanceBudget("openapi_spec");
