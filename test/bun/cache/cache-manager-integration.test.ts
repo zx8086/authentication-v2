@@ -2,6 +2,9 @@
 
 /**
  * Integration tests that execute actual cache-manager code
+ *
+ * Note: Tests involving Redis connections use short timeouts to fail fast in CI
+ * where Redis is not available. The fallback to local-memory is still tested.
  */
 
 import { describe, expect, it } from "bun:test";
@@ -19,10 +22,11 @@ describe("UnifiedCacheManager - Integration Tests", () => {
       await manager.set("test-key", "test-value");
       expect(manager.getStrategy()).toBe("local-memory");
 
+      // Use localhost with invalid port - fails fast (no DNS resolution delay)
       await manager.reconfigure({
         highAvailability: true,
         ttlSeconds: 600,
-        redisUrl: "redis://invalid:6379",
+        redisUrl: "redis://localhost:59999",
         staleDataToleranceMinutes: 10,
       });
 
@@ -138,7 +142,8 @@ describe("UnifiedCacheManager - Integration Tests", () => {
       const manager = new UnifiedCacheManager({
         highAvailability: true,
         ttlSeconds: 300,
-        redisUrl: "redis://invalid:6379",
+        // Use localhost with invalid port - fails fast (no DNS resolution delay)
+        redisUrl: "redis://localhost:59998",
         staleDataToleranceMinutes: 5,
       });
 
@@ -154,7 +159,8 @@ describe("UnifiedCacheManager - Integration Tests", () => {
       const manager = new UnifiedCacheManager({
         highAvailability: true,
         ttlSeconds: 300,
-        redisUrl: "redis://nonexistent:9999",
+        // Use localhost with invalid port - fails fast (no DNS resolution delay)
+        redisUrl: "redis://localhost:59997",
         staleDataToleranceMinutes: 5,
       });
 
@@ -215,7 +221,8 @@ describe("UnifiedCacheManager - Integration Tests", () => {
       const manager = new UnifiedCacheManager({
         highAvailability: true,
         ttlSeconds: 300,
-        redisUrl: "redis://localhost:9999",
+        // Use localhost with invalid port - fails fast (no DNS resolution delay)
+        redisUrl: "redis://localhost:59996",
         staleDataToleranceMinutes: 5,
       });
 
