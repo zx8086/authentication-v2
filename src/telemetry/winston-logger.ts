@@ -68,31 +68,7 @@ export class WinstonTelemetryLogger {
           serviceName: config.serviceName,
           serviceVersion: config.serviceVersion,
           serviceEnvironment: config.environment,
-        }),
-        // Remove fields that ECS formatter outputs with dot notation
-        // The ECS formatter creates both nested objects (service: {name}) AND dot-notation
-        // fields (service.name). OTLP transport drops nested objects but puts dot-notation
-        // fields into labels.* (converted to snake_case: labels.service_name)
-        // This cleanup removes the dot-notation duplicates to prevent label pollution
-        winston.format((info) => {
-          const fieldsToRemove = [
-            // Service fields (ECS creates service.name AND service: {name})
-            "service.name",
-            "service.version",
-            "service.environment",
-            // Log fields
-            "log.level",
-            // Timestamp fields (keep @timestamp, remove duplicate timestamp)
-            "timestamp",
-            // ECS metadata
-            "ecs.version",
-            "event.dataset",
-          ];
-          for (const field of fieldsToRemove) {
-            delete info[field];
-          }
-          return info;
-        })()
+        })
       ),
       transports: this.configureTransports(),
     });
