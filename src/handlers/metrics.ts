@@ -10,12 +10,13 @@ import {
 } from "../telemetry/instrumentation";
 import { getMetricsStatus, testMetricRecording } from "../telemetry/metrics";
 import { log } from "../utils/logger";
+import { calculateDuration, getHighResTime } from "../utils/performance";
 import { generateRequestId, getDefaultHeaders } from "../utils/response";
 
 const config = loadConfig();
 
 export function handleDebugMetricsTest(): Response {
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
   const requestId = generateRequestId();
 
   log("Processing debug metrics test request", {
@@ -36,7 +37,7 @@ export function handleDebugMetricsTest(): Response {
       metricsRecorded: testResult.metricsRecorded,
     });
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/metrics/test",
@@ -58,7 +59,7 @@ export function handleDebugMetricsTest(): Response {
       }
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/metrics/test",
@@ -84,7 +85,7 @@ export function handleDebugMetricsTest(): Response {
 }
 
 export async function handleDebugMetricsExport(): Promise<Response> {
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
   const requestId = generateRequestId();
 
   log("Processing debug metrics export request", {
@@ -98,7 +99,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     // Check if telemetry is initialized before attempting flush
     const telemetryStatus = getTelemetryStatus();
     if (!telemetryStatus.initialized) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("Metrics export skipped - telemetry not initialized", {
         component: "debug",
         operation: "force_export",
@@ -126,7 +127,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
 
     await forceMetricsFlush();
     const flushResult = { success: true, exportedMetrics: 10, errors: [] };
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
 
     log("Metrics export forced", {
       component: "debug",
@@ -162,7 +163,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
       }
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
 
     log("HTTP request processed", {
       method: "POST",
@@ -308,7 +309,7 @@ function collectConfigData() {
 }
 
 export async function handleMetricsUnified(kongService: IKongService, url: URL): Promise<Response> {
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
   const requestId = generateRequestId();
   const view = (url.searchParams.get("view") as MetricsView) || "operational";
 
@@ -378,7 +379,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       }
 
       default: {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         log("HTTP request processed", {
           method: "GET",
           url: "/metrics",
@@ -400,7 +401,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       }
     }
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/metrics",
@@ -417,7 +418,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       },
     });
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("Failed to generate unified metrics", {
       component: "metrics",
       operation: "unified_metrics",

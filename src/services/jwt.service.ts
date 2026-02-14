@@ -2,6 +2,8 @@
 
 import { trace } from "@opentelemetry/api";
 import type { JWTPayload, TokenResponse } from "../config";
+import { calculateDuration, getHighResTime } from "../utils/performance";
+import { generateRequestId } from "../utils/response";
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
@@ -18,7 +20,7 @@ export class NativeBunJWT {
     issuer?: string,
     expirationSeconds = 900 // Default 15 minutes, can be overridden by config
   ): Promise<TokenResponse> {
-    const startTime = Bun.nanoseconds();
+    const startTime = getHighResTime();
 
     const tracer = trace.getTracer("authentication-service");
     const span = tracer.startSpan("jwt_create", {
@@ -46,7 +48,7 @@ export class NativeBunJWT {
       const payload: JWTPayload = {
         sub: username,
         key: consumerKey,
-        jti: crypto.randomUUID(),
+        jti: generateRequestId(),
         iat: now,
         nbf: now, // Not Before - backward compatibility with .NET format
         exp: expirationTime,
@@ -64,7 +66,7 @@ export class NativeBunJWT {
       const signatureB64 = NativeBunJWT.base64urlEncodeBuffer(new Uint8Array(signature));
 
       const token = `${message}.${signatureB64}`;
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
 
       span.setAttributes({
         "jwt.token_id": payload.jti,
@@ -79,7 +81,7 @@ export class NativeBunJWT {
         expires_in: expirationSeconds,
       };
     } catch (error) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
 
       span.setAttributes({
         "error.type": "jwt_creation_error",
@@ -128,7 +130,7 @@ export class NativeBunJWT {
     error?: string;
     expired?: boolean;
   }> {
-    const startTime = Bun.nanoseconds();
+    const startTime = getHighResTime();
 
     const tracer = trace.getTracer("authentication-service");
     const span = tracer.startSpan("jwt_validate", {
@@ -199,7 +201,7 @@ export class NativeBunJWT {
       // Check expiration (RFC 7519 Section 4.1.4)
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         span.setAttributes({
           "jwt.validation_error": "token_expired",
           "jwt.token_id": payload.jti,
@@ -216,7 +218,7 @@ export class NativeBunJWT {
 
       // Check not-before (RFC 7519 Section 4.1.5)
       if (payload.nbf && payload.nbf > now) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         span.setAttributes({
           "jwt.validation_error": "token_not_yet_valid",
           "jwt.token_id": payload.jti,
@@ -230,7 +232,7 @@ export class NativeBunJWT {
         };
       }
 
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       span.setAttributes({
         "jwt.valid": true,
         "jwt.token_id": payload.jti,
@@ -240,7 +242,7 @@ export class NativeBunJWT {
 
       return { valid: true, payload };
     } catch (err) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       span.setAttributes({
         "error.type": "jwt_validation_error",
         "error.message": (err as Error).message,

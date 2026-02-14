@@ -3,13 +3,19 @@
 // Stryker disable all: Profiling is a development/debugging feature with string-heavy responses.
 // These handlers are tested via E2E tests and manual profiling sessions.
 
+import { ErrorCodes } from "../errors/error-codes";
 import { profilingService } from "../services/profiling.service";
 import { log } from "../utils/logger";
-import { createErrorResponse, createSuccessResponse, generateRequestId } from "../utils/response";
+import { calculateDuration, getHighResTime } from "../utils/performance";
+import {
+  createStructuredErrorWithMessage,
+  createSuccessResponse,
+  generateRequestId,
+} from "../utils/response";
 
 export async function handleProfilingStart(req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling start request", {
     component: "profiling",
@@ -21,7 +27,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/start",
@@ -49,7 +55,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     const sessionId = await profilingService.startProfiling(type, manual);
 
     if (!sessionId) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "POST",
         url: "/debug/profiling/start",
@@ -57,17 +63,17 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(
-        400,
-        "Bad Request",
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_007,
         "Cannot start profiling session - another session is already running",
         requestId,
+        undefined,
         undefined,
         "/debug/profiling/start"
       );
     }
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/start",
@@ -89,7 +95,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/start",
@@ -98,11 +104,11 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to start profiling: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/start"
     );
@@ -111,7 +117,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
 
 export async function handleProfilingStop(req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling stop request", {
     component: "profiling",
@@ -123,7 +129,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/stop",
@@ -150,7 +156,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     const success = await profilingService.stopProfiling(sessionId || undefined);
 
     if (!success) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "POST",
         url: "/debug/profiling/stop",
@@ -158,17 +164,17 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(
-        500,
-        "Internal Server Error",
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_008,
         "Failed to stop profiling session",
         requestId,
+        undefined,
         undefined,
         "/debug/profiling/stop"
       );
     }
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/stop",
@@ -187,7 +193,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/stop",
@@ -196,11 +202,11 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to stop profiling: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/stop"
     );
@@ -209,7 +215,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
 
 export async function handleProfilingStatus(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling status request", {
     component: "profiling",
@@ -221,7 +227,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
   try {
     const status = profilingService.getStatus();
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/status",
@@ -247,7 +253,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/status",
@@ -256,11 +262,11 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to get profiling status: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/status"
     );
@@ -269,7 +275,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
 
 export async function handleProfilingReports(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling reports request", {
     component: "profiling",
@@ -281,7 +287,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/reports",
@@ -305,7 +311,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   try {
     const reports = profilingService.getReports();
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/reports",
@@ -327,7 +333,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/reports",
@@ -336,11 +342,11 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to list profiling reports: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/reports"
     );
@@ -349,7 +355,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
 
 export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling cleanup request", {
     component: "profiling",
@@ -361,7 +367,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/cleanup",
@@ -384,7 +390,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   try {
     await profilingService.cleanup();
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/cleanup",
@@ -406,7 +412,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
       requestId
     );
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "POST",
       url: "/debug/profiling/cleanup",
@@ -415,11 +421,11 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to cleanup profiling artifacts: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/cleanup"
     );
@@ -428,7 +434,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
 
 export async function handleProfilingReport(req: Request): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing profiling report request", {
     component: "profiling",
@@ -440,7 +446,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
   const status = profilingService.getStatus();
 
   if (!status.enabled) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/report",
@@ -465,7 +471,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     const filePath = url.searchParams.get("file");
 
     if (!filePath) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "GET",
         url: "/debug/profiling/report",
@@ -473,11 +479,11 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(
-        400,
-        "Bad Request",
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_007,
         "File parameter is required",
         requestId,
+        undefined,
         undefined,
         "/debug/profiling/report"
       );
@@ -487,7 +493,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     const requestedReport = reports.find((report) => report === filePath);
 
     if (!requestedReport) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "GET",
         url: "/debug/profiling/report",
@@ -495,11 +501,11 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         duration,
         requestId,
       });
-      return createErrorResponse(
-        404,
-        "Not Found",
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_007,
         "Report file not found",
         requestId,
+        undefined,
         undefined,
         "/debug/profiling/report"
       );
@@ -509,7 +515,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       const file = Bun.file(requestedReport);
       const content = await file.text();
 
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "GET",
         url: "/debug/profiling/report",
@@ -529,7 +535,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         },
       });
     } catch (_fileError) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("HTTP request processed", {
         method: "GET",
         url: "/debug/profiling/report",
@@ -538,17 +544,17 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
         requestId,
         error: "Failed to read report file",
       });
-      return createErrorResponse(
-        500,
-        "Internal Server Error",
+      return createStructuredErrorWithMessage(
+        ErrorCodes.AUTH_008,
         "Failed to read report file",
         requestId,
+        undefined,
         undefined,
         "/debug/profiling/report"
       );
     }
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/debug/profiling/report",
@@ -557,11 +563,11 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
-    return createErrorResponse(
-      500,
-      "Internal Server Error",
+    return createStructuredErrorWithMessage(
+      ErrorCodes.AUTH_008,
       `Failed to serve profiling report: ${error instanceof Error ? error.message : "Unknown error"}`,
       requestId,
+      undefined,
       undefined,
       "/debug/profiling/report"
     );

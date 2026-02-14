@@ -18,6 +18,7 @@ import {
 import { getSlaMonitor } from "../telemetry/sla-monitor";
 import { telemetryTracer } from "../telemetry/tracer";
 import { error, log } from "../utils/logger";
+import { calculateDuration, getHighResTime } from "../utils/performance";
 import {
   createStructuredErrorResponse,
   createStructuredErrorWithMessage,
@@ -102,14 +103,14 @@ async function lookupConsumerSecret(
   _username: string,
   kongService: IKongService
 ): Promise<{ key: string; secret: string } | null> {
-  const secretStartTime = Bun.nanoseconds();
+  const secretStartTime = getHighResTime();
   const secretResult = await telemetryTracer.createKongSpan(
     "getConsumerSecret",
     `${config.kong.adminUrl}/consumers/${consumerId}/jwt`,
     "GET",
     () => kongService.getConsumerSecret(consumerId)
   );
-  const secretDuration = (Bun.nanoseconds() - secretStartTime) / 1_000_000;
+  const secretDuration = calculateDuration(secretStartTime);
   recordOperationDuration("kong_get_consumer_secret", secretDuration, true);
 
   return secretResult;
@@ -120,7 +121,7 @@ async function generateJWTToken(
   key: string,
   secret: string
 ): Promise<{ access_token: string; expires_in: number }> {
-  const jwtStartTime = Bun.nanoseconds();
+  const jwtStartTime = getHighResTime();
   const expirationSeconds = config.jwt.expirationMinutes * 60;
   const tokenResponse = await telemetryTracer.createJWTSpan(
     "createToken",
@@ -136,7 +137,7 @@ async function generateJWTToken(
       ),
     username
   );
-  const jwtDuration = (Bun.nanoseconds() - jwtStartTime) / 1_000_000;
+  const jwtDuration = calculateDuration(jwtStartTime);
   recordOperationDuration("jwt_generation", jwtDuration, true);
   recordJwtTokenIssued(username, jwtDuration);
 
@@ -158,7 +159,7 @@ export async function handleTokenRequest(
 
   const requestId = generateRequestId();
   const ctx = new RequestContext(req);
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   return telemetryTracer.createHttpSpan(req.method, ctx.pathname, 200, async () => {
     log("Token request started", {
@@ -173,7 +174,7 @@ export async function handleTokenRequest(
     const consumerId = req.headers.get(config.kong.consumerIdHeader);
 
     if ("error" in headerValidation) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       recordAuthenticationAttempt("header_validation_failed", false);
       recordError("kong_header_validation_failed", {
         error: headerValidation.error,
@@ -223,7 +224,7 @@ export async function handleTokenRequest(
       try {
         secretResult = await lookupConsumerSecret(consumerId, username, kongService);
       } catch (kongError) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         // Stryker disable next-line BooleanLiteral: Telemetry success flag
         recordAuthenticationAttempt("kong_unavailable", false, username);
         recordError("kong_service_unavailable", {
@@ -268,7 +269,7 @@ export async function handleTokenRequest(
       }
 
       if (!secretResult) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         // Stryker disable next-line BooleanLiteral: Telemetry success flag
         recordAuthenticationAttempt("consumer_lookup_failed", false, username);
         recordError("kong_consumer_lookup_failed", {
@@ -318,7 +319,7 @@ export async function handleTokenRequest(
         secretResult.secret
       );
 
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       recordAuthenticationAttempt("success", true, username);
 
       // Record successful consumer metrics
@@ -345,7 +346,7 @@ export async function handleTokenRequest(
 
       return createTokenResponse(tokenData.access_token, tokenData.expires_in, requestId);
     } catch (err) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       // Stryker disable next-line BooleanLiteral: Telemetry success flag
       recordAuthenticationAttempt("exception", false, headerValidation.username);
       recordException(err as Error);
@@ -406,7 +407,7 @@ export async function handleTokenValidation(
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("Token validation failed: missing Authorization header", {
         duration,
         requestId,
@@ -425,7 +426,7 @@ export async function handleTokenValidation(
 
     // Stryker disable next-line all: Defensive validation - empty string edge case
     if (!token || token.trim() === "") {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("Token validation failed: empty token", {
         duration,
         requestId,
@@ -445,7 +446,7 @@ export async function handleTokenValidation(
     const headerValidation = validateKongHeaders(req);
 
     if ("error" in headerValidation) {
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
       log("Token validation failed: missing Kong headers", {
         duration,
         requestId,
@@ -468,7 +469,7 @@ export async function handleTokenValidation(
       const secretResult = await lookupConsumerSecret(consumerId, username, kongService);
 
       if (!secretResult) {
-        const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const duration = calculateDuration(startTime);
         log("Token validation failed: consumer not found", {
           consumerId,
           username,
@@ -487,7 +488,7 @@ export async function handleTokenValidation(
 
       // Validate the token
       const validationResult = await NativeBunJWT.validateToken(token, secretResult.secret);
-      const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+      const duration = calculateDuration(startTime);
 
       if (validationResult.valid && validationResult.payload) {
         // Record latency for SLA monitoring

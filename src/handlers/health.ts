@@ -13,6 +13,7 @@ import {
 import { getMetricsStatus } from "../telemetry/metrics";
 import { getSlaMonitor } from "../telemetry/sla-monitor";
 import { log } from "../utils/logger";
+import { calculateDuration, getHighResTime } from "../utils/performance";
 import { createHealthResponse, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
@@ -26,13 +27,13 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
     return { healthy: false, responseTime: 0, error: "URL not configured" };
   }
 
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
   try {
     const response = await fetch(url, {
       method: "HEAD",
       signal: AbortSignal.timeout(5000),
     });
-    const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const responseTime = calculateDuration(startTime);
 
     return {
       healthy: response.status < 500,
@@ -40,7 +41,7 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
       error: response.status >= 500 ? `HTTP ${response.status}` : undefined,
     };
   } catch (error) {
-    const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const responseTime = calculateDuration(startTime);
     return {
       healthy: false,
       responseTime: Math.round(responseTime),
@@ -57,11 +58,11 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
   });
 
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   try {
     // Perform Kong health check with error handling
-    const kongHealthStartTime = Bun.nanoseconds();
+    const kongHealthStartTime = getHighResTime();
     let kongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
     try {
       kongHealth = await kongService.healthCheck();
@@ -77,7 +78,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         error: kongError instanceof Error ? kongError.message : "Connection failed",
       };
     }
-    const kongHealthDuration = (Bun.nanoseconds() - kongHealthStartTime) / 1_000_000;
+    const kongHealthDuration = calculateDuration(kongHealthStartTime);
 
     // Perform cache health check
     const cacheHealthService = CacheHealthService.getInstance();
@@ -99,17 +100,17 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
       // Check stale cache availability in HA mode
       if (config.caching.highAvailability && cacheService.getStale) {
-        const staleCacheStartTime = Bun.nanoseconds();
+        const staleCacheStartTime = getHighResTime();
         try {
           // Test stale cache access with a non-existent key to verify connectivity
           await cacheService.getStale("health_check_stale_test");
-          const staleCacheResponseTime = (Bun.nanoseconds() - staleCacheStartTime) / 1_000_000;
+          const staleCacheResponseTime = calculateDuration(staleCacheStartTime);
           cacheHealth.staleCache = {
             available: true,
             responseTime: Math.round(staleCacheResponseTime),
           };
         } catch (staleCacheError) {
-          const staleCacheResponseTime = (Bun.nanoseconds() - staleCacheStartTime) / 1_000_000;
+          const staleCacheResponseTime = calculateDuration(staleCacheStartTime);
           cacheHealth.staleCache = {
             available: false,
             responseTime: Math.round(staleCacheResponseTime),
@@ -195,7 +196,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
 
     const statusCode = allHealthy ? 200 : 503;
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
 
     let healthStatus: string;
     if (allHealthy) {
@@ -290,7 +291,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
     return createHealthResponse(healthData, statusCode, requestId);
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
 
     log("Health check failed", {
       component: "health",
@@ -323,7 +324,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
 export function handleTelemetryHealth(): Response {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing telemetry health request", {
     component: "health",
@@ -358,7 +359,7 @@ export function handleTelemetryHealth(): Response {
       timestamp: new Date().toISOString(),
     };
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/health/telemetry",
@@ -369,7 +370,7 @@ export function handleTelemetryHealth(): Response {
 
     return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/health/telemetry",
@@ -393,7 +394,7 @@ export function handleTelemetryHealth(): Response {
 
 export async function handleReadinessCheck(kongService: IKongService): Promise<Response> {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing readiness check request", {
     component: "health",
@@ -405,7 +406,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
   try {
     // Readiness probe specifically checks Kong connectivity
     // Service is "ready" when it can perform authentication operations
-    const kongHealthStartTime = Bun.nanoseconds();
+    const kongHealthStartTime = getHighResTime();
     let kongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
 
     try {
@@ -424,8 +425,8 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
       };
     }
 
-    const kongHealthDuration = (Bun.nanoseconds() - kongHealthStartTime) / 1_000_000;
-    const totalDuration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const kongHealthDuration = calculateDuration(kongHealthStartTime);
+    const totalDuration = calculateDuration(startTime);
 
     const isReady = kongHealth.healthy;
     const statusCode = isReady ? 200 : 503;
@@ -467,7 +468,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
 
     return createHealthResponse(readinessData, statusCode, requestId);
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
 
     log("Readiness check failed", {
       component: "health",
@@ -493,7 +494,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
 
 export function handleMetricsHealth(kongService: IKongService): Response {
   const requestId = generateRequestId();
-  const startTime = Bun.nanoseconds();
+  const startTime = getHighResTime();
 
   log("Processing metrics health request", {
     component: "health",
@@ -561,7 +562,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
       timestamp: new Date().toISOString(),
     };
 
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/health/metrics",
@@ -572,7 +573,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
 
     return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
-    const duration = (Bun.nanoseconds() - startTime) / 1_000_000;
+    const duration = calculateDuration(startTime);
     log("HTTP request processed", {
       method: "GET",
       url: "/health/metrics",
