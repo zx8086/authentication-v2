@@ -1,0 +1,270 @@
+_format_version: "3.0"
+# Kong deck configuration - exported from k8s setup
+
+# ============================================================
+# Global Plugins
+# ============================================================
+
+plugins:
+  # JWT Authentication (global)
+  - name: jwt
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      anonymous: 56456a01-65ec-4415-aec8-49fec6403c9c
+      claims_to_verify:
+        - exp
+        - nbf
+      cookie_names: []
+      header_names:
+        - authorization
+      key_claim_name: key
+      maximum_expiration: 0
+      run_on_preflight: true
+      secret_is_base64: false
+      uri_param_names:
+        - jwt
+
+  # Global Key Authentication
+  - name: key-auth
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      key_names:
+        - X-API-Key
+        - apikey
+      key_in_body: false
+      key_in_header: true
+      key_in_query: true
+      hide_credentials: false
+      anonymous: 56456a01-65ec-4415-aec8-49fec6403c9c
+
+  # Global Rate Limiting
+  - name: rate-limiting
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      minute: 1000
+      hour: 100000
+      policy: local
+      limit_by: ip
+
+  # Global Prometheus
+  - name: prometheus
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      per_consumer: true
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+  # Global HTTP Log (to Elasticsearch/Kibana)
+  - name: http-log
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      http_endpoint: "https://kong_http_logs:TT5mBqa4ULBr@kibana.siobytes.com/logs-kong.dev-siobytes/_doc?pipeline=add-timestamp-kong-http-log"
+      method: POST
+      timeout: 10000
+      keepalive: 60000
+      retry_count: 10
+      queue_size: 1
+      flush_timeout: 2
+      content_type: "application/json"
+
+# ============================================================
+# Consumers (aligned with test/shared/test-consumers.ts)
+# ============================================================
+
+consumers:
+  - id: f48534e1-4caf-4106-9103-edf38eae7ebc
+    username: test-consumer-001
+    custom_id: test-consumer-001
+    tags:
+      - "Primary test consumer for basic authentication tests"
+    keyauth_credentials:
+      - key: test-api-key-consumer-001
+    jwt_secrets:
+      - algorithm: HS256
+        key: test-consumer-001-jwt-key
+        secret: test-consumer-001-jwt-secret
+
+  - id: 1ff7d425-917a-4858-9e99-c2a911ba1b05
+    username: test-consumer-002
+    custom_id: test-consumer-002
+    tags:
+      - "Secondary test consumer for multi-user scenarios"
+    keyauth_credentials:
+      - key: test-api-key-consumer-002
+    jwt_secrets:
+      - algorithm: HS256
+        key: test-consumer-002-jwt-key
+        secret: test-consumer-002-jwt-secret
+
+  - id: 73881280-13b4-40b3-aecf-84d981d6ac35
+    username: test-consumer-003
+    custom_id: test-consumer-003
+    tags:
+      - "Third test consumer for multi-user scenarios"
+    keyauth_credentials:
+      - key: test-api-key-consumer-003
+    jwt_secrets:
+      - algorithm: HS256
+        key: test-consumer-003-jwt-key
+        secret: test-consumer-003-jwt-secret
+
+  - id: 10f37f4d-99b2-4b93-8e10-4f9090d62ee0
+    username: test-consumer-004
+    custom_id: test-consumer-004
+    tags:
+      - "Load testing consumer for performance tests"
+    keyauth_credentials:
+      - key: test-api-key-consumer-004
+    jwt_secrets:
+      - algorithm: HS256
+        key: test-consumer-004-jwt-key
+        secret: test-consumer-004-jwt-secret
+
+  - id: 2df241f5-11db-49a3-b9fb-c797135db9c3
+    username: test-consumer-005
+    custom_id: test-consumer-005
+    tags:
+      - "Load testing consumer for performance tests"
+    keyauth_credentials:
+      - key: test-api-key-consumer-005
+    jwt_secrets:
+      - algorithm: HS256
+        key: test-consumer-005-jwt-key
+        secret: test-consumer-005-jwt-secret
+
+  - id: 56456a01-65ec-4415-aec8-49fec6403c9c
+    username: anonymous
+    custom_id: anonymous
+    tags:
+      - "Anonymous consumer for testing rejection scenarios"
+    jwt_secrets:
+      - algorithm: HS256
+        key: anonymous-jwt-key
+        secret: anonymous-jwt-secret
+
+# ============================================================
+# Services & Routes
+# ============================================================
+
+services:
+  # Simple API Service
+  - name: simple-api-service
+    host: simple-api-service.applications.svc.cluster.local
+    port: 3000
+    protocol: http
+    connect_timeout: 60000
+    read_timeout: 60000
+    write_timeout: 60000
+    routes:
+      - name: simple-api-route
+        paths:
+          - /simple
+        strip_path: true
+        preserve_host: false
+        protocols:
+          - http
+          - https
+
+  ## --------------------------------------------------------
+  ## Auth Service (currently commented out in kustomization)
+  ## Uncomment below when ready to migrate
+  ## --------------------------------------------------------
+  # - name: auth-service
+  #   host: authentication-service.authentication.svc.cluster.local
+  #   port: 3000
+  #   protocol: http
+  #   connect_timeout: 60000
+  #   read_timeout: 60000
+  #   write_timeout: 60000
+  #   routes:
+  #     - name: auth-service-route
+  #       hosts:
+  #         - auth-kong.gaaldornick.local
+  #       paths:
+  #         - /
+  #       strip_path: false
+  #       preserve_host: true
+  #       https_redirect_status_code: 301
+  #       protocols:
+  #         - http
+  #         - https
+  #       plugins:
+  #         - name: rate-limiting
+  #           config:
+  #             minute: 20
+  #             hour: 500
+  #             policy: local
+  #             limit_by: ip
+  #             hide_client_headers: false
+  #         - name: cors
+  #           config:
+  #             origins:
+  #               - "http://localhost:3000"
+  #               - "http://auth.gaaldornick.local"
+  #               - "http://auth-kong.gaaldornick.local"
+  #             methods:
+  #               - GET
+  #               - POST
+  #               - OPTIONS
+  #             headers:
+  #               - Accept
+  #               - Content-Type
+  #               - Authorization
+  #             credentials: true
+  #             max_age: 3600
+  #         - name: prometheus
+  #           config:
+  #             per_consumer: false
+  #             status_code_metrics: true
+  #             latency_metrics: true
+  #             bandwidth_metrics: true
+  #             upstream_health_metrics: true
+  #   upstreams:
+  #     - name: authentication-service.authentication.svc.cluster.local
+  #       algorithm: round-robin
+  #       healthchecks:
+  #         active:
+  #           type: http
+  #           http_path: /health
+  #           timeout: 5
+  #           concurrency: 10
+  #           healthy:
+  #             interval: 10
+  #             successes: 2
+  #           unhealthy:
+  #             interval: 10
+  #             tcp_failures: 3
+  #             http_failures: 3
+  #         passive:
+  #           healthy:
+  #             successes: 2
+  #           unhealthy:
+  #             tcp_failures: 3
+  #             http_failures: 3

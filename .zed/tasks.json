@@ -1,0 +1,128 @@
+[
+  {
+    "label": "kong: status",
+    "command": "curl -s http://kong:8001/status | python3 -m json.tool",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: list services",
+    "command": "curl -s http://kong:8001/services | python3 -m json.tool",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: list routes",
+    "command": "curl -s http://kong:8001/routes | python3 -m json.tool",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: list plugins",
+    "command": "curl -s http://kong:8001/plugins | python3 -m json.tool",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: sync config (decK)",
+    "command": "deck gateway sync kong/kong.yml --kong-addr http://kong:8001",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: dump config (decK)",
+    "command": "deck gateway dump --kong-addr http://kong:8001",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: diff config (decK)",
+    "command": "deck gateway diff kong/kong.yml --kong-addr http://kong:8001",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "kong: view logs",
+    "command": "docker logs -f $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1)",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "kong: restart",
+    "command": "docker restart $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1) && echo '[OK] Kong restarted'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "redis: ping",
+    "command": "redis-cli -h redis ping",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "redis: monitor (live commands)",
+    "command": "redis-cli -h redis monitor",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "redis: info stats",
+    "command": "redis-cli -h redis info stats",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "redis: keys (all)",
+    "command": "redis-cli -h redis keys '*'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "redis: flush all",
+    "command": "redis-cli -h redis flushall && echo '[OK] Redis flushed'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "redis: interactive CLI",
+    "command": "redis-cli -h redis",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "postgres: interactive psql",
+    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "postgres: list tables",
+    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c '\\dt'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "postgres: kong services (SQL)",
+    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c 'SELECT id, name, host, port, protocol FROM services;'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "postgres: kong routes (SQL)",
+    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c 'SELECT id, name, paths, service_id FROM routes;'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "postgres: db size",
+    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c \"SELECT pg_size_pretty(pg_database_size('kong'));\"",
+    "use_new_terminal": false,
+    "reveal": "always"
+  },
+  {
+    "label": "infra: status check",
+    "command": "echo '--- Kong ---' && curl -sf http://kong:8001/status > /dev/null && echo '[OK] Kong OK' || echo '[FAIL] Kong DOWN' && echo '--- Redis ---' && redis-cli -h redis ping && echo '--- Postgres ---' && pg_isready -h kong-db -U kong > /dev/null && echo '[OK] Postgres OK' || echo '[FAIL] Postgres DOWN'",
+    "use_new_terminal": false,
+    "reveal": "always"
+  }
+]

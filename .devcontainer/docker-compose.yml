@@ -1,0 +1,154 @@
+version: "3.9"
+
+# =============================================================================
+# Kong + Redis + Postgres Infrastructure
+# =============================================================================
+# Your Bun app runs locally and connects to these services on localhost.
+# No reverse-proxy routing to the host — your app calls Kong, not the
+# other way around.
+#
+# Services:
+#   toolbox          - Admin shell (Zed attaches here)
+#   kong             - Kong Gateway 3.9 (admin API + proxy)
+#   kong-db          - PostgreSQL 16 for Kong
+#   kong-migrations  - Bootstrap Kong schema (runs once)
+#   redis            - Redis 7 for app caching
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Toolbox — admin shell for infra management
+  # ---------------------------------------------------------------------------
+  toolbox:
+    image: mcr.microsoft.com/devcontainers/base:ubuntu
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    working_dir: /workspace
+    networks:
+      - kong-net
+    environment:
+      KONG_ADMIN_URL: http://kong:8001
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      kong:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Kong Gateway
+  # ---------------------------------------------------------------------------
+  kong:
+    image: kong/kong-gateway:3.9
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_PORT: "5432"
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+
+      KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001, 0.0.0.0:8444 ssl"
+      KONG_ADMIN_GUI_URL: "http://localhost:8002"
+
+      KONG_LOG_LEVEL: info
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+
+      # DB-less mode (uncomment to use instead of Postgres):
+      # KONG_DATABASE: "off"
+      # KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+    ports:
+      - "8000:8000"   # Kong Proxy
+      - "8443:8443"   # Kong Proxy TLS
+      - "8001:8001"   # Kong Admin API
+      - "8444:8444"   # Kong Admin API TLS
+      - "8002:8002"   # Kong Manager (Enterprise)
+    networks:
+      - kong-net
+    depends_on:
+      kong-db:
+        condition: service_healthy
+      kong-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Kong database migrations (runs once, then exits)
+  # ---------------------------------------------------------------------------
+  kong-migrations:
+    image: kong/kong-gateway:3.9
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_PORT: "5432"
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+    networks:
+      - kong-net
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL for Kong
+  # ---------------------------------------------------------------------------
+  kong-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+    volumes:
+      - kong-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis — caching for your Bun app
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  kong-db-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  kong-net:
+    driver: bridge

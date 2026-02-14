@@ -26,6 +26,22 @@ cp .env.example .env
 bun run dev
 ```
 
+### DevContainer Development (Optional)
+
+For isolated local development with Docker-based Kong, Redis, and PostgreSQL:
+
+1. **Zed IDE**: Open project folder -> Click "Open in Dev Container"
+2. **Command Line**:
+   ```bash
+   bun run devcontainer:up      # Start infrastructure
+   bun run dev:devcontainer     # Start with local Docker config
+   ```
+
+See [devcontainer.md](devcontainer.md) for detailed instructions.
+
+**Note:** DevContainer mode uses `.env.devcontainer` with `KONG_ADMIN_URL=http://localhost:8001`.
+For live endpoint testing, use the standard `.env` with production Kong URLs.
+
 ## Development Commands
 
 ### Local Development

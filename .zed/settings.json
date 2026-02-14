@@ -1,0 +1,18 @@
+{
+  "tab_size": 2,
+  "formatter": "auto",
+  "format_on_save": "on",
+
+  "languages": {
+    "TypeScript": { "tab_size": 2, "formatter": "auto" },
+    "YAML": { "tab_size": 2 },
+    "JSON": { "tab_size": 2 }
+  },
+
+  "terminal": {
+    "env": {
+      "KONG_ADMIN_URL": "http://localhost:8001",
+      "REDIS_URL": "redis://localhost:6379"
+    }
+  }
+}
