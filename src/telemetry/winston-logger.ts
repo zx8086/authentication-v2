@@ -71,38 +71,29 @@ export class WinstonTelemetryLogger {
   }
 
   private configureTransports(): winston.transport[] {
-    const transports = [];
+    const transports: winston.transport[] = [];
     let mode = "console";
     try {
-      mode = telemetryConfig.mode || "console";
+      // Read mode fresh from config to pick up any TELEMETRY_MODE changes
+      const freshConfig = loadConfig();
+      mode = freshConfig.telemetry?.mode || "console";
     } catch (_error) {
       console.warn("Could not access telemetry config mode, defaulting to console");
     }
 
-    if (mode === "console" || mode === "both") {
-      transports.push(
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize({ all: true }),
-            winston.format.simple()
-          ),
-        })
-      );
-    }
+    // Always add console transport as primary/fallback to ensure logs are never lost
+    transports.push(
+      new winston.transports.Console({
+        format: winston.format.combine(
+          winston.format.colorize({ all: true }),
+          winston.format.simple()
+        ),
+      })
+    );
 
+    // Add OTLP transport when configured (in addition to console)
     if (mode === "otlp" || mode === "both") {
       transports.push(new OpenTelemetryTransportV3());
-    }
-
-    if (transports.length === 0) {
-      transports.push(
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize({ all: true }),
-            winston.format.simple()
-          ),
-        })
-      );
     }
 
     return transports;
@@ -166,6 +157,8 @@ export class WinstonTelemetryLogger {
         transport.end(() => {
           completed++;
           if (completed === total) {
+            // Reinitialize logger after flush to restore transports
+            this.reinitialize();
             resolve();
           }
         });
@@ -175,12 +168,7 @@ export class WinstonTelemetryLogger {
 
   public reinitialize(): void {
     this.logger = null;
-    const logger = this.initializeLogger();
-    logger.clear();
-    const transports = this.configureTransports();
-    for (const transport of transports) {
-      logger.add(transport);
-    }
+    this.initializeLogger();
   }
 }
 

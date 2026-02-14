@@ -37,20 +37,25 @@ This project follows a **live environment testing strategy**:
 
 ```
 test/
-├── bun/              # Unit Tests (97 test files in 12 subdirectories)
-│   ├── cache/        # Caching functionality (14 files)
-│   ├── circuit-breaker/  # Circuit breaker patterns (6 files)
-│   ├── config/       # Configuration management (5 files)
-│   ├── handlers/     # HTTP request handlers (8 files)
-│   ├── health/       # Health check endpoints (9 files)
-│   ├── integration/  # Integration tests (4 files)
-│   ├── kong/         # Kong API Gateway integration (7 files)
-│   ├── logging/      # Logging functionality (5 files)
-│   ├── mutation/     # Mutation-specific tests (3 files)
-│   ├── services/     # Service layer tests (7 files)
-│   ├── telemetry/    # Observability (13 files)
-│   └── utils/        # Utility functions (16 files)
-├── integration/      # Integration Tests (4 test files)
+├── bun/              # Unit Tests (106 test files in 16 subdirectories)
+│   ├── adapters/     # Kong adapter tests (5 files)
+│   ├── cache/        # Caching functionality (12 files)
+│   ├── circuit-breaker/  # Circuit breaker patterns (5 files)
+│   ├── config/       # Configuration management (12 files)
+│   ├── handlers/     # HTTP request handlers (10 files)
+│   ├── health/       # Health check endpoints (6 files)
+│   ├── kong/         # Kong API Gateway integration (4 files)
+│   ├── logging/      # Logging functionality (4 files)
+│   ├── middleware/   # Middleware tests (1 file)
+│   ├── mutation/     # Mutation-specific tests (2 files)
+│   ├── openapi/      # OpenAPI specification tests (1 file)
+│   ├── services/     # Service layer tests (5 files)
+│   ├── shared/       # Tests for shared utilities (2 files)
+│   ├── telemetry/    # Observability (20 files)
+│   ├── types/        # Type definition tests (1 file)
+│   └── utils/        # Utility functions (15 files)
+├── chaos/            # Chaos Engineering Tests (57 tests across 4 files)
+├── integration/      # Integration Tests (6 test files)
 ├── k6/               # Performance Tests (19 test files)
 │   ├── smoke/        # Quick validation tests
 │   ├── load/         # Production load simulation
@@ -61,8 +66,7 @@ test/
 ├── playwright/       # E2E Scenarios (3 test suites)
 ├── kong-simulator/   # Kong proxy simulator for testing
 ├── shared/           # Shared test utilities and consumer setup
-├── telemetry/        # Telemetry-specific test files
-├── results/          # Test execution results and reports
+├── results/          # Test execution results and reports (gitignored)
 └── README.md         # This file
 ```
 
