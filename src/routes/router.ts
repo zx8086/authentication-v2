@@ -26,6 +26,7 @@ import {
 import { handleTokenRequest, handleTokenValidation } from "../handlers/tokens";
 import { handleOptionsRequest } from "../middleware/cors";
 import { handleNotFound } from "../middleware/error-handler";
+import { validateRequest } from "../middleware/validation";
 import type { IKongService } from "../services/kong.service";
 import { telemetryTracer } from "../telemetry/tracer";
 
@@ -145,6 +146,12 @@ export function createRoutes(kongService: IKongService) {
   };
 
   const fallbackFetch = async (req: Request): Promise<Response> => {
+    // Validate request (method, content-type, body size)
+    const validationError = await validateRequest(req);
+    if (validationError) {
+      return validationError;
+    }
+
     if (req.method === "OPTIONS") {
       return handleOptionsRequest();
     }
