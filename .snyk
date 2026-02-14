@@ -1,0 +1,10 @@
+# Snyk vulnerability ignore file
+# https://docs.snyk.io/scan-using-snyk/policies/the-.snyk-file
+
+version: v1.25.0
+
+ignore:
+  SNYK-JS-AJV-15274295:
+    - '@stryker-mutator/core > ajv':
+        reason: Dev dependency for mutation testing only. Not bundled in production Docker image.
+        expires: 2025-08-14T00:00:00.000Z
