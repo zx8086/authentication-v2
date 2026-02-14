@@ -65,3 +65,5 @@ stryker.config copy.json
 profiles/current/
 profiles/archive/
 !profiles/baselines/.gitkeep
+
+kong
