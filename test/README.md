@@ -2,11 +2,11 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 2941 tests across 105 files (100% pass rate)
+**Current Test Suite**: 3140 tests across 115 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
-| Unit Tests | 97 | 2800+ | Bun |
+| Unit Tests | 105 | 3000+ | Bun |
 | Chaos Tests | 4 | 57 | Bun |
 | Integration Tests | 4 | 50+ | Bun |
 | E2E Tests | 3 | 32 | Playwright |
@@ -193,7 +193,7 @@ test/
 
 **Commands**:
 ```bash
-bun run test:bun                           # All Bun tests (2884 tests)
+bun run test:bun                           # All Bun tests (3140 tests)
 bun test test/bun/jwt.service.test.ts      # Specific test file
 bun test test/bun/cache/                   # All cache tests (selective testing)
 bun test test/bun/kong/                    # All Kong integration tests (live backends)
@@ -573,7 +573,7 @@ Authorization: Bearer <jwt-token>
 
 ### Comprehensive Testing Strategy
 ```bash
-# 1. Unit & Integration (fastest) - ~25 seconds, 2884 tests
+# 1. Unit & Integration (fastest) - ~25 seconds, 3140 tests
 bun run test:bun
 
 # 2. E2E Scenarios (thorough) - 2-3 minutes
