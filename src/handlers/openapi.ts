@@ -14,6 +14,15 @@ let cachedYamlContent: string | null = null;
 let cachedJsonETag: string | null = null;
 let cachedYamlETag: string | null = null;
 
+// Reset cache function for testing
+export function resetOpenAPICache(): void {
+  cachedSpec = null;
+  cachedJsonContent = null;
+  cachedYamlContent = null;
+  cachedJsonETag = null;
+  cachedYamlETag = null;
+}
+
 function convertToYaml(obj: Record<string, unknown> | object, indent = 0): string {
   const spaces = " ".repeat(indent);
   let yaml = "";
