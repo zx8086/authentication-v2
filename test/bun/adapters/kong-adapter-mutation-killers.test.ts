@@ -1,9 +1,4 @@
-/* test/bun/adapters/kong-adapter-mutation-killers.test.ts */
-
-/**
- * Targeted tests to kill surviving mutants in kong.adapter.ts
- * Tests specific boundary conditions, edge cases, and error paths
- */
+// test/bun/adapters/kong-adapter-mutation-killers.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { KongAdapter } from "../../../src/adapters/kong.adapter";

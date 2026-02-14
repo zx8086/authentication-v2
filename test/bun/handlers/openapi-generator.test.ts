@@ -1,9 +1,4 @@
-/* test/bun/openapi-generator.test.ts */
-
-/**
- * Tests for OpenAPI generator and schema generation.
- * These tests cover route registration, schema building, and spec generation.
- */
+// test/bun/handlers/openapi-generator.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

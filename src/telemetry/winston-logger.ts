@@ -1,4 +1,4 @@
-/* src/telemetry/winston-logger.ts */
+// src/telemetry/winston-logger.ts
 
 import ecsFormat from "@elastic/ecs-winston-format";
 import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
@@ -36,11 +36,7 @@ export class WinstonTelemetryLogger {
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        // Transform custom fields to ECS-compliant structure before ECS formatter runs
         winston.format((info) => {
-          // Map consumerId and username to consumer.* fields (ECS custom namespace)
-          // Using dot notation for OTLP compatibility (nested objects get dropped)
-          // This preserves user.* fields for OS-level user (set by APM infrastructure)
           if (info.consumerId !== undefined) {
             info["consumer.id"] = info.consumerId;
             delete info.consumerId;
@@ -49,12 +45,10 @@ export class WinstonTelemetryLogger {
             info["consumer.name"] = info.username;
             delete info.username;
           }
-          // Map requestId → event.id
           if (info.requestId !== undefined) {
             info["event.id"] = info.requestId;
             delete info.requestId;
           }
-          // Map totalDuration → event.duration
           if (info.totalDuration !== undefined) {
             info["event.duration"] = info.totalDuration;
             delete info.totalDuration;

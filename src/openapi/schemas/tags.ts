@@ -1,8 +1,4 @@
-/* src/openapi/schemas/tags.ts */
-
-/**
- * OpenAPI tag definitions for API grouping.
- */
+// src/openapi/schemas/tags.ts
 
 export function createTags(): readonly any[] {
   return Object.freeze([

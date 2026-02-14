@@ -42,9 +42,6 @@ export class ScenarioGenerator {
     this.testConsumer = testConsumer;
   }
 
-  /**
-   * Get scenario configuration
-   */
   getScenarioConfig(type: ScenarioType): ScenarioConfig {
     switch (type) {
       case "tokens":
@@ -129,9 +126,6 @@ export class ScenarioGenerator {
     }
   }
 
-  /**
-   * Generate load for a scenario
-   */
   async runScenario(type: ScenarioType): Promise<ScenarioResult> {
     const config = this.getScenarioConfig(type);
     const latencies: number[] = [];
@@ -213,9 +207,6 @@ export class ScenarioGenerator {
     };
   }
 
-  /**
-   * Select endpoint based on weights
-   */
   private selectEndpoint(endpoints: ScenarioConfig["endpoints"]): ScenarioConfig["endpoints"][0] {
     const random = Math.random();
     let cumulative = 0;
@@ -231,9 +222,6 @@ export class ScenarioGenerator {
     return endpoints[0];
   }
 
-  /**
-   * Format scenario result for display
-   */
   formatResult(result: ScenarioResult): string {
     let output = "\nScenario Results:\n";
     output += "=================\n";

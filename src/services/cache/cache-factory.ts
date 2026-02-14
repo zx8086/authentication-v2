@@ -1,4 +1,4 @@
-/* src/services/cache/cache-factory.ts */
+// src/services/cache/cache-factory.ts
 
 import type { CacheManagerConfig } from "../../cache/cache.interface";
 import { UnifiedCacheManager } from "../../cache/cache-manager";
@@ -15,22 +15,17 @@ export class CacheFactory {
     const config = getCachingConfig();
     const configKey = `${config.highAvailability}-${config.redisUrl}-${config.redisDb}-${config.ttlSeconds}`;
 
-    // Return existing instance if configuration hasn't changed
     if (CacheFactory.instance && CacheFactory.currentConfig === configKey) {
       return CacheFactory.instance;
     }
 
-    // If we're already initializing, wait for it (even if config is different)
     if (CacheFactory.initializationPromise) {
       await CacheFactory.initializationPromise;
-      // After waiting, check if the config matches
       if (CacheFactory.instance && CacheFactory.currentConfig === configKey) {
         return CacheFactory.instance;
       }
-      // If config is different, fall through to reconfigure/recreate
     }
 
-    // Configuration changed, reconfigure existing instance if possible
     if (CacheFactory.instance && CacheFactory.instance instanceof UnifiedCacheManager) {
       try {
         const managerConfig = CacheFactory.createManagerConfig(config);
@@ -49,7 +44,6 @@ export class CacheFactory {
       }
     }
 
-    // Configuration changed or first time, create new instance
     CacheFactory.initializationPromise = CacheFactory.initializeCache(config, configKey);
     await CacheFactory.initializationPromise;
     CacheFactory.initializationPromise = null;
@@ -74,7 +68,6 @@ export class CacheFactory {
       const managerConfig = CacheFactory.createManagerConfig(config);
       const cacheManager = new UnifiedCacheManager(managerConfig);
 
-      // Trigger initialization by performing a health check
       await cacheManager.isHealthy();
 
       CacheFactory.instance = cacheManager;
@@ -108,7 +101,6 @@ export class CacheFactory {
     };
   }
 
-  // Method to reset the singleton (useful for testing)
   static reset(): void {
     if (CacheFactory.instance && CacheFactory.instance instanceof UnifiedCacheManager) {
       CacheFactory.instance.shutdown().catch((error) => {

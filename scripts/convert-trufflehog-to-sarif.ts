@@ -1,10 +1,5 @@
 #!/usr/bin/env bun
-
-/**
- * Convert TruffleHog JSON output to SARIF format for GitHub Security tab integration
- *
- * Usage: bun scripts/convert-trufflehog-to-sarif.ts <input.json> <output.sarif>
- */
+// scripts/convert-trufflehog-to-sarif.ts
 
 import { readFileSync, writeFileSync } from "node:fs";
 

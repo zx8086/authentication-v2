@@ -1,17 +1,5 @@
-/* src/errors/error-codes.ts */
+// src/errors/error-codes.ts
 
-/**
- * RFC 7807 Problem Details for HTTP APIs
- * @see https://www.rfc-editor.org/rfc/rfc7807
- *
- * This module defines structured error codes following the Problem Details specification.
- * Each error has a unique problem type URI for machine-readable error identification.
- */
-
-/**
- * Base URN for problem types (RFC 7807 compliant).
- * Uses URN format for identification without implying a resolvable URL.
- */
 export const PROBLEM_TYPE_BASE_URI = "urn:problem-type:auth-service";
 
 export const ErrorCodes = {
@@ -32,26 +20,13 @@ export const ErrorCodes = {
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
-/**
- * RFC 7807 Problem Details error definition.
- * @see https://www.rfc-editor.org/rfc/rfc7807#section-3.1
- */
 export interface ErrorDefinition {
-  /** The error code identifier (e.g., AUTH_001) */
   code: ErrorCode;
-  /** HTTP status code for this error */
   httpStatus: number;
-  /** Short, human-readable summary of the problem type */
   title: string;
-  /** Human-readable explanation specific to this occurrence */
   description: string;
 }
 
-/**
- * Get the RFC 7807 problem type URI for an error code.
- * @param code - The error code
- * @returns The full problem type URI
- */
 export function getProblemTypeUri(code: ErrorCode): string {
   return `${PROBLEM_TYPE_BASE_URI}/${code.toLowerCase().replace("_", "-")}`;
 }

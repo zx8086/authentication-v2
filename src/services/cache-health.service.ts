@@ -1,4 +1,4 @@
-/* src/services/cache-health.service.ts */
+// src/services/cache-health.service.ts
 
 import { getCachingConfig } from "../config";
 import type { IKongCacheService } from "../config/schemas";
@@ -26,7 +26,6 @@ export class CacheHealthService {
   async checkCacheHealth(cacheService: IKongCacheService): Promise<CacheHealthResult> {
     const now = Date.now();
 
-    // Return cached result if still fresh
     if (this.lastHealthCheck && now - this.lastCheckTime < this.CACHE_TTL_MS) {
       return this.lastHealthCheck;
     }
@@ -41,7 +40,6 @@ export class CacheHealthService {
       result = await this.checkMemoryHealth(cacheService);
     }
 
-    // Cache the result
     this.lastHealthCheck = result;
     this.lastCheckTime = now;
 
@@ -52,15 +50,10 @@ export class CacheHealthService {
     const startTime = Bun.nanoseconds();
 
     try {
-      // Use the existing cache service connection instead of creating new one
-      // Skip expensive stats call for health check - only test basic connectivity
-
-      // If we have a SharedRedisCache, we can access its Redis client for detailed health checks
       const sharedRedisCache =
         cacheService as import("../services/cache/shared-redis-cache").SharedRedisCache;
       const redisClient = sharedRedisCache.getClientForHealthCheck?.();
       if (redisClient) {
-        // Test basic connectivity with PING
         const pingResult = await Promise.race([
           redisClient.send("PING", []),
           new Promise((_, reject) =>
@@ -80,7 +73,6 @@ export class CacheHealthService {
           responseTime: Math.round(responseTime),
         };
       } else {
-        // Fallback to basic health check using cache stats if no direct Redis client access
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
         return {
@@ -111,7 +103,6 @@ export class CacheHealthService {
     const startTime = Bun.nanoseconds();
 
     try {
-      // Simple connectivity test - memory cache is always available if service exists
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       return {
@@ -138,7 +129,6 @@ export class CacheHealthService {
   }
 
   async cleanup(): Promise<void> {
-    // No cleanup needed since we use existing cache service connections
     this.lastHealthCheck = undefined;
     this.lastCheckTime = 0;
   }

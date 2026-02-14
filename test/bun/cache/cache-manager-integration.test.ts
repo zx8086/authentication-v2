@@ -1,11 +1,4 @@
-/* test/bun/cache/cache-manager-integration.test.ts */
-
-/**
- * Integration tests that execute actual cache-manager code
- *
- * Note: Tests involving Redis connections use short timeouts to fail fast in CI
- * where Redis is not available. The fallback to local-memory is still tested.
- */
+// test/bun/cache/cache-manager-integration.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { UnifiedCacheManager } from "../../../src/cache/cache-manager";

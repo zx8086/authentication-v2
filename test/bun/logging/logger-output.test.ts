@@ -1,13 +1,4 @@
-/* test/bun/logger-output.test.ts */
-
-/**
- * Mutation-resistant tests for logger output and context handling.
- * These tests verify that:
- * - Context objects are correctly passed through to the logger
- * - Service metadata is included in log output
- * - Error objects are properly structured
- * - Audit events include required fields
- */
+// test/bun/logging/logger-output.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

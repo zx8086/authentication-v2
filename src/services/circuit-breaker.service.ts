@@ -1,4 +1,4 @@
-/* src/services/circuit-breaker.service.ts */
+// src/services/circuit-breaker.service.ts
 
 import CircuitBreaker from "opossum";
 import type {
@@ -18,11 +18,9 @@ import {
   recordCircuitBreakerStateTransition,
 } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
-
-// Re-export for backwards compatibility
-export type { CircuitBreakerStats } from "../types/circuit-breaker.types";
-
 import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+
+export type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export class KongCircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();
@@ -97,8 +95,6 @@ export class KongCircuitBreakerService {
         name: operation,
       };
 
-      // Create breaker with a generic wrapper that accepts action as parameter
-      // This prevents race conditions when concurrent requests share the same breaker
       const actionWrapper = async (action: () => Promise<T>): Promise<T> => action();
       const breaker = new CircuitBreaker(actionWrapper, circuitBreakerOptions);
 
@@ -168,8 +164,6 @@ export class KongCircuitBreakerService {
     const breaker = this.getOrCreateBreaker<T>(operation);
 
     try {
-      // Pass action to fire() to ensure each call executes its own action
-      // This prevents race conditions when concurrent requests share the breaker
       const result = await breaker.fire(action);
       recordCircuitBreakerRequest(operation, "closed");
       return result;
@@ -203,13 +197,10 @@ export class KongCircuitBreakerService {
     const cacheKey = `consumer_secret:${consumerId}`;
 
     try {
-      // Pass action to fire() to ensure each call executes its own action
-      // This prevents race conditions when concurrent requests share the breaker
       const result = await breaker.fire(action);
       recordCircuitBreakerRequest(operation, "closed");
 
       if (result) {
-        // Prevent cache pollution - validate consumer ID matches before caching
         if (result.consumer && result.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
             operation,
@@ -355,7 +346,6 @@ export class KongCircuitBreakerService {
         const redisStale = await this.cacheService.getStale?.(extractedKey);
 
         if (redisStale) {
-          // Prevent cache pollution - validate consumer ID matches before returning
           if (redisStale.consumer && redisStale.consumer.id !== consumerId) {
             winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
               operation,
@@ -410,7 +400,6 @@ export class KongCircuitBreakerService {
       const start = performance.now();
       const inMemoryStale = this.getStaleData(cacheKey);
       if (inMemoryStale) {
-        // Prevent cache pollution - validate consumer ID matches before returning
         if (inMemoryStale.data.consumer && inMemoryStale.data.consumer.id !== consumerId) {
           winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
             operation,

@@ -1,9 +1,8 @@
-/* test/k6/kong-gateway/kong-tokens-test.ts */
+// test/k6/kong-gateway/kong-tokens-test.ts
 
 import { check } from "k6";
 import http from "k6/http";
 
-// Simple configuration for Kong Gateway testing
 const config = {
   host: __ENV.TARGET_HOST || "localhost",
   port: Number.parseInt(__ENV.TARGET_PORT || "8000", 10),

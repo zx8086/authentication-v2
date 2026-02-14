@@ -1,4 +1,4 @@
-/* src/telemetry/sla-monitor.ts */
+// src/telemetry/sla-monitor.ts
 
 import { loadConfig } from "../config/index";
 import type { ContinuousProfilingConfig, SlaThreshold } from "../config/schemas";

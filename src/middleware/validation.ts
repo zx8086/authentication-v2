@@ -1,13 +1,4 @@
-/* src/middleware/validation.ts */
-
-/**
- * Request validation middleware for API best practices.
- * Implements:
- * - HTTP method validation per endpoint
- * - Request body size limits
- * - Content-Type validation
- * - Request timeout configuration
- */
+// src/middleware/validation.ts
 
 import { ErrorCodes } from "../errors/error-codes";
 import { error as logError } from "../utils/logger";
@@ -17,21 +8,12 @@ import {
   generateRequestId,
 } from "../utils/response";
 
-/**
- * Maximum request body size (10MB default).
- * Prevents memory exhaustion from large payloads.
- */
+// Maximum request body size (10MB default). Prevents memory exhaustion from large payloads.
 export const MAX_REQUEST_BODY_SIZE = 10 * 1024 * 1024;
 
-/**
- * Request timeout in milliseconds (30 seconds default).
- * Prevents resource exhaustion from hanging requests.
- */
+// Request timeout in milliseconds (30 seconds default). Prevents resource exhaustion from hanging requests.
 export const REQUEST_TIMEOUT_MS = 30_000;
 
-/**
- * Allowed HTTP methods per endpoint pattern.
- */
 export const ENDPOINT_METHODS: Record<string, string[]> = {
   "/": ["GET", "OPTIONS"],
   "/health": ["GET", "OPTIONS"],
@@ -51,23 +33,10 @@ export const ENDPOINT_METHODS: Record<string, string[]> = {
   "/debug/profiling/report": ["GET", "OPTIONS"],
 };
 
-/**
- * Get allowed methods for an endpoint.
- *
- * @param pathname - The request pathname
- * @returns Array of allowed HTTP methods
- */
 export function getAllowedMethods(pathname: string): string[] {
   return ENDPOINT_METHODS[pathname] || [];
 }
 
-/**
- * Validate HTTP method for an endpoint.
- *
- * @param method - HTTP method from request
- * @param pathname - Request pathname
- * @returns true if method is allowed, false otherwise
- */
 export function isMethodAllowed(method: string, pathname: string): boolean {
   const allowedMethods = getAllowedMethods(pathname);
   // If no methods defined, allow all (fallback for dynamic routes)
@@ -77,13 +46,6 @@ export function isMethodAllowed(method: string, pathname: string): boolean {
   return allowedMethods.includes(method.toUpperCase());
 }
 
-/**
- * Validate HTTP method and return error response if invalid.
- *
- * @param request - The incoming request
- * @param pathname - Request pathname
- * @returns Error response if method not allowed, null otherwise
- */
 export function validateMethod(request: Request, pathname: string): Response | null {
   if (!isMethodAllowed(request.method, pathname)) {
     const requestId = generateRequestId();
@@ -104,17 +66,8 @@ export function validateMethod(request: Request, pathname: string): Response | n
   return null;
 }
 
-/**
- * Required content types for POST/PUT/PATCH requests.
- */
 const ACCEPTED_CONTENT_TYPES = ["application/json", "application/x-www-form-urlencoded"];
 
-/**
- * Validate Content-Type header for requests with body.
- *
- * @param request - The incoming request
- * @returns Error response if content type invalid, null otherwise
- */
 export function validateContentType(request: Request): Response | null {
   const method = request.method.toUpperCase();
 
@@ -161,12 +114,6 @@ export function validateContentType(request: Request): Response | null {
   return null;
 }
 
-/**
- * Validate request body size.
- *
- * @param request - The incoming request
- * @returns Error response if body too large, null otherwise
- */
 export async function validateBodySize(request: Request): Promise<Response | null> {
   const method = request.method.toUpperCase();
 
@@ -209,13 +156,6 @@ export async function validateBodySize(request: Request): Promise<Response | nul
   return null;
 }
 
-/**
- * Comprehensive request validation middleware.
- * Validates method, content type, and body size.
- *
- * @param request - The incoming request
- * @returns Error response if validation fails, null if valid
- */
 export async function validateRequest(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
 

@@ -1,4 +1,4 @@
-/* src/openapi-generator.ts */
+// src/openapi-generator.ts
 
 import type { RouteDefinition } from "./config";
 import { type AppConfig, loadConfig } from "./config/index";
@@ -16,14 +16,11 @@ class OpenAPIGenerator {
   private _specGenerated = false;
 
   constructor() {
-    // Use existing 4-pillar configuration system directly
     this.config = loadConfig();
     this._initializeImmutableCache();
   }
 
   private _initializeImmutableCache(): void {
-    // Pre-compute immutable schema components that never change
-    // Uses extracted schema functions from ./openapi/schemas for maintainability
     this._immutableCache.set("securitySchemes", createSecuritySchemes());
     this._immutableCache.set("commonParameters", createCommonParameters());
     this._immutableCache.set("tags", createTags());
@@ -51,7 +48,6 @@ class OpenAPIGenerator {
   }
 
   generateSpec(): any {
-    // Use immutable caching for one-time spec generation
     if (this._specGenerated && this._immutableCache.has("fullSpec")) {
       return this._immutableCache.get("fullSpec");
     }
@@ -83,7 +79,6 @@ class OpenAPIGenerator {
       tags: this._immutableCache.get("tags"),
     });
 
-    // Cache the complete spec immutably
     this._immutableCache.set("fullSpec", spec);
     this._specGenerated = true;
     return spec;
@@ -358,8 +353,6 @@ class OpenAPIGenerator {
     }
 
     const servers = [];
-
-    // Use environment-aware server generation from 4-pillar config
     const currentUrl = `http://localhost:${this.config.server.port}`;
     const envDescription = this.getEnvironmentDescription();
 
@@ -371,7 +364,6 @@ class OpenAPIGenerator {
       })
     );
 
-    // Add environment-specific servers based on configuration
     if (this.config.telemetry.environment !== "development") {
       servers.push(
         Object.freeze({
@@ -478,7 +470,6 @@ class OpenAPIGenerator {
       return this._immutableCache.get(cacheKey);
     }
 
-    // Convert path to camelCase operation ID
     const cleanPath = path
       .replace(/^\//, "") // Remove leading slash
       .replace(/\{(\w+)\}/g, "By$1") // Convert {id} to ById
@@ -691,7 +682,6 @@ class OpenAPIGenerator {
     }
 
     let schema: any;
-    // Map endpoints to their response schemas
     if (path === "/tokens" && method === "GET") {
       schema = Object.freeze({ $ref: "#/components/schemas/TokenResponse" });
     } else if (path === "/tokens/validate" && method === "GET") {

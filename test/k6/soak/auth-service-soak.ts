@@ -1,7 +1,4 @@
-/* test/k6/soak/auth-service-soak.ts */
-
-// K6 soak test for authentication service - extended duration testing
-// Following K6 best practices for soak testing: sustained average load over extended periods
+// test/k6/soak/auth-service-soak.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

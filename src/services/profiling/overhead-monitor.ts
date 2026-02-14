@@ -1,4 +1,4 @@
-/* src/services/profiling/overhead-monitor.ts */
+// src/services/profiling/overhead-monitor.ts
 
 import { log, warn } from "../../utils/logger";
 

@@ -1,9 +1,4 @@
-/* test/bun/config/config-validation-mutation-killers.test.ts */
-
-/**
- * Targeted tests to kill surviving mutants in config validation logic
- * Focuses on boundary conditions and equality operators
- */
+// test/bun/config/config-validation-mutation-killers.test.ts
 
 import { describe, expect, it } from "bun:test";
 

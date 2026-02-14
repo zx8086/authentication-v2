@@ -155,7 +155,7 @@ class TestConsumerSetup {
           // Delete existing JWT credentials to force unique credential creation
           for (const credential of jwtData.data) {
             console.log(
-              `🔑 Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
+              `Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
             );
 
             const deleteEndpoint = isKonnect
@@ -181,7 +181,7 @@ class TestConsumerSetup {
       }
 
       // Create new JWT credentials with unique key and secret
-      console.log(`🔑 Creating new unique JWT credentials for: ${consumer.username}`);
+      console.log(`Creating new unique JWT credentials for: ${consumer.username}`);
 
       const key = `test-key-${consumer.id}-${Date.now()}`;
       const secret = this.generateSecureSecret();
@@ -333,7 +333,7 @@ class TestConsumerSetup {
       : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
 
     const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : "";
-    console.log(`🧹 Cleaning up test consumers${jobDescription}\n`);
+    console.log(`Cleaning up test consumers${jobDescription}\n`);
 
     if (!(await this.checkKongHealth())) {
       return false;
@@ -368,7 +368,7 @@ class TestConsumerSetup {
       : { consumers: TEST_CONSUMERS, anonymous: ANONYMOUS_CONSUMER };
 
     const jobDescription = jobPrefix ? ` for ${jobPrefix} job` : "";
-    console.log(`📋 Listing test consumers${jobDescription}\n`);
+    console.log(`Listing test consumers${jobDescription}\n`);
 
     if (!(await this.checkKongHealth())) {
       return;

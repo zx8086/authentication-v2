@@ -1,17 +1,4 @@
-/* test/bun/kong-adapter-fetch.test.ts */
-
-/**
- * Unit tests for Kong Adapter fetch call validation
- *
- * These tests verify that fetch is called with correct parameters.
- * This kills ObjectLiteral mutations that would remove method, headers, or signal.
- *
- * Mutation killing targets:
- * - fetch(url, {}) <- Empty object mutation
- * - method: "GET" <- Method removal/change mutations
- * - headers: {...} <- Header removal mutations
- * - signal: AbortSignal.timeout(X) <- Timeout removal mutations
- */
+// test/bun/kong/kong-adapter-fetch.test.ts
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { createKongModeStrategy } from "../../../src/adapters/kong-mode-strategies";

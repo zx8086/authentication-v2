@@ -1,6 +1,4 @@
-/* test/k6/smoke/profiling-smoke.ts */
-
-// K6 smoke tests specifically for profiling endpoints
+// test/k6/smoke/profiling-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

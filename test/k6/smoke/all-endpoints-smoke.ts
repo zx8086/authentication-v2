@@ -1,6 +1,4 @@
-/* test/k6/smoke/all-endpoints-smoke.ts */
-
-// K6 smoke tests for ALL main endpoints
+// test/k6/smoke/all-endpoints-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

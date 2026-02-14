@@ -1,10 +1,4 @@
-/* test/bun/cache-stale-operations.test.ts */
-
-/**
- * Tests for local memory cache stale operations.
- * These tests cover the getStale, setStale, and clearStale methods
- * that are used for circuit breaker fallback caching.
- */
+// test/bun/cache/cache-stale-operations.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

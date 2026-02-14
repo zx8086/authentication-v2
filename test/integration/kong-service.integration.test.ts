@@ -1,12 +1,4 @@
-/* test/integration/kong-service.integration.test.ts */
-
-/**
- * Integration tests for Kong API Gateway service.
- * These tests run against a real Kong instance in the Docker test environment.
- *
- * Run: docker compose -f docker-compose.test.yml up -d
- * Then: bun test test/integration/kong-service.integration.test.ts
- */
+// test/integration/kong-service.integration.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
@@ -19,11 +11,9 @@ import {
   waitForKong,
 } from "./setup";
 
-// Skip all tests if integration environment is not available
 let integrationAvailable = false;
 
 beforeAll(async () => {
-  // Enable fetch polyfill with curl fallback for Bun networking issues
   enableFetchPolyfill();
 
   integrationAvailable = await isIntegrationEnvironmentAvailable();
@@ -31,7 +21,6 @@ beforeAll(async () => {
     return;
   }
 
-  // Wait for Kong to be fully ready
   const kongReady = await waitForKong(10, 1000);
   if (!kongReady) {
     console.log("Kong did not become ready in time");
@@ -130,7 +119,6 @@ describe("Kong JWT Credentials Integration", () => {
     expect(data).toHaveProperty("data");
     expect(Array.isArray(data.data)).toBe(true);
 
-    // Should have at least one JWT credential
     if (data.data.length > 0) {
       const cred = data.data[0];
       expect(cred).toHaveProperty("key");
@@ -155,7 +143,6 @@ describe("Kong JWT Credentials Integration", () => {
     const data = await response.json();
     expect(data.data.length).toBeGreaterThan(0);
 
-    // Verify the JWT credential has the expected structure
     const cred = data.data[0];
     expect(cred).toHaveProperty("key");
     expect(cred).toHaveProperty("secret");
@@ -175,8 +162,6 @@ describe("Kong JWT Credentials Integration", () => {
     const data = await response.json();
     expect(data).toHaveProperty("data");
     expect(Array.isArray(data.data)).toBe(true);
-
-    // Should have credentials for all test consumers
     expect(data.data.length).toBeGreaterThanOrEqual(TEST_CONSUMERS.length);
   });
 });
@@ -206,7 +191,6 @@ describe("Kong Key-Auth Integration", () => {
       return;
     }
 
-    // First get the key-auth ID
     const consumer = TEST_CONSUMERS[0];
     const keysResponse = await fetch(
       `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumer.id}/key-auth`
@@ -263,7 +247,7 @@ describe("Kong Health and Status Integration", () => {
 
     const data = await response.json();
     expect(data).toHaveProperty("version");
-    expect(data.version).toMatch(/^3\.\d+/); // Kong 3.x
+    expect(data.version).toMatch(/^3\.\d+/);
   });
 
   it("should have healthy database connection", async () => {
@@ -333,6 +317,5 @@ describe("Consumer Data Consistency", () => {
 });
 
 afterAll(() => {
-  // Restore original fetch
   disableFetchPolyfill();
 });

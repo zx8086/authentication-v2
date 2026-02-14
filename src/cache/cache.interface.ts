@@ -1,5 +1,4 @@
-/* src/cache/cache.interface.ts */
-
+// src/cache/cache.interface.ts
 import type { ConsumerSecret, KongCacheStats } from "../config/schemas";
 
 export interface ICacheService {

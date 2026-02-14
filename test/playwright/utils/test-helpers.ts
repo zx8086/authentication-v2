@@ -1,4 +1,4 @@
-/* test/playwright/utils/test-helpers.ts */
+// test/playwright/utils/test-helpers.ts
 
 import type { APIRequestContext } from "@playwright/test";
 import { expect } from "@playwright/test";

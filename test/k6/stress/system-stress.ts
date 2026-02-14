@@ -1,6 +1,4 @@
-/* test/k6/stress/system-stress.ts */
-
-// K6 stress testing scenario to determine authentication service breaking point
+// test/k6/stress/system-stress.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

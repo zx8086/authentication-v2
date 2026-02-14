@@ -1,11 +1,4 @@
-/* scripts/license-check.ts */
-
-/**
- * Bun Native License Compliance Checker
- *
- * High-performance license compliance checking using Bun's native capabilities.
- * Replaces external license-checker dependency for 90%+ performance improvement.
- */
+// scripts/license-check.ts
 
 interface LicensePolicy {
   allowedLicenses: string[];
@@ -38,9 +31,6 @@ class BunLicenseChecker {
     this.verbose = verbose;
   }
 
-  /**
-   * Run license compliance check using Bun native capabilities
-   */
   async checkCompliance(): Promise<{ violations: LicenseViolation[]; totalPackages: number }> {
     try {
       if (this.verbose) {
@@ -74,9 +64,6 @@ class BunLicenseChecker {
     }
   }
 
-  /**
-   * Get package information using Bun's package manager
-   */
   private async getPackageInfo(): Promise<PackageInfo[]> {
     try {
       // Use bun pm ls to get dependency list with versions
@@ -101,9 +88,6 @@ class BunLicenseChecker {
     }
   }
 
-  /**
-   * Parse bun pm ls output to extract package information
-   */
   private async parseBunLsOutput(output: string): Promise<PackageInfo[]> {
     const packages: PackageInfo[] = [];
     const lines = output.split("\n");
@@ -134,9 +118,6 @@ class BunLicenseChecker {
     return packages;
   }
 
-  /**
-   * Get license information for a specific package
-   */
   private async getLicenseFromPackage(name: string, _version: string): Promise<string | undefined> {
     try {
       // Try to read package.json from node_modules
@@ -154,9 +135,6 @@ class BunLicenseChecker {
     }
   }
 
-  /**
-   * Check if a package license violates the policy
-   */
   private checkPackageLicense(pkg: PackageInfo): LicenseViolation | null {
     const { name, version, license } = pkg;
 
@@ -197,9 +175,6 @@ class BunLicenseChecker {
     return null;
   }
 
-  /**
-   * Check if licenses are compatible
-   */
   private isCompatibleLicense(packageLicense: string, allowedLicense: string): boolean {
     // Handle common license variations
     const compatibilityMap: Record<string, string[]> = {
@@ -215,9 +190,6 @@ class BunLicenseChecker {
     return variants.some((variant) => packageLicense.toLowerCase().includes(variant.toLowerCase()));
   }
 
-  /**
-   * Generate detailed report
-   */
   generateReport(violations: LicenseViolation[], totalPackages: number): string {
     const errors = violations.filter((v) => v.severity === "error");
     const warnings = violations.filter((v) => v.severity === "warning");
@@ -262,9 +234,6 @@ class BunLicenseChecker {
   }
 }
 
-/**
- * Main execution function
- */
 async function main() {
   const startTime = performance.now();
 

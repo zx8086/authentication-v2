@@ -1,10 +1,4 @@
-/* test/bun/metrics-initialized.test.ts */
-
-/**
- * Tests for metrics recording functions when metrics ARE initialized.
- * These tests cover the "initialized" code paths that are skipped when
- * metrics are not initialized, improving coverage of metrics.ts.
- */
+// test/bun/telemetry/metrics-initialized.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

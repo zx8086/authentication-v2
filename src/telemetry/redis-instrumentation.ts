@@ -1,4 +1,4 @@
-/* src/telemetry/redis-instrumentation.ts */
+// src/telemetry/redis-instrumentation.ts
 
 import { context, type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { ATTR_DB_OPERATION_NAME, ATTR_DB_SYSTEM_NAME } from "@opentelemetry/semantic-conventions";
@@ -132,7 +132,6 @@ export class BunRedisInstrumentation {
   private sanitizeConnectionString(url: string): string {
     try {
       const parsed = new URL(url);
-      // Remove password from connection string for security
       parsed.password = "***";
       return parsed.toString();
     } catch {

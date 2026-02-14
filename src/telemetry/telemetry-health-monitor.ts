@@ -1,4 +1,4 @@
-/* src/telemetry/telemetry-health-monitor.ts */
+// src/telemetry/telemetry-health-monitor.ts
 
 import { loadConfig } from "../config/index";
 import { log } from "../utils/logger";
@@ -211,7 +211,6 @@ export class TelemetryHealthMonitor {
       component: string;
     }> = [];
 
-    // Check for critical issues
     const criticalIssues = [
       components.initialization.status === "failed",
       components.exports.status === "critical",
@@ -219,14 +218,11 @@ export class TelemetryHealthMonitor {
       components.configuration.status === "misconfigured",
     ].filter(Boolean).length;
 
-    // Check for degraded issues
     const degradedIssues = [
       components.exports.status === "degraded",
       components.circuitBreakers.status === "degraded",
       components.metrics.status === "degraded",
     ].filter(Boolean).length;
-
-    // Generate recommendations and alerts
     if (components.exports.stats.successRate < 95) {
       recommendations.push("Investigate telemetry export failures");
       alerts.push({
@@ -254,7 +250,6 @@ export class TelemetryHealthMonitor {
       });
     }
 
-    // Determine overall status
     let overall: "healthy" | "degraded" | "critical";
     if (criticalIssues > 0) {
       overall = "critical";
@@ -283,5 +278,4 @@ export class TelemetryHealthMonitor {
   }
 }
 
-// Singleton instance
 export const telemetryHealthMonitor = new TelemetryHealthMonitor();

@@ -1,4 +1,4 @@
-/* src/telemetry/lifecycle-logger.ts */
+// src/telemetry/lifecycle-logger.ts
 
 import { log } from "../utils/logger";
 import { getTelemetryStatus } from "./instrumentation";
@@ -18,7 +18,6 @@ export class LifecycleObservabilityLogger {
   }> = [];
   private shutdownInProgress = false;
 
-  // Batch shutdown logging to prevent race conditions - all messages queued then flushed together
   public logShutdownSequence(messages: ShutdownMessage[]): void {
     this.shutdownInProgress = true;
 
@@ -62,7 +61,6 @@ export class LifecycleObservabilityLogger {
         const { forceMetricsFlush } = await import("./instrumentation");
         await forceMetricsFlush();
 
-        // Wait for OTLP transmission
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         log(

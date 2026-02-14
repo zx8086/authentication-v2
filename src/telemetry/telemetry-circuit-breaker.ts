@@ -1,19 +1,19 @@
-/* src/telemetry/telemetry-circuit-breaker.ts */
+// src/telemetry/telemetry-circuit-breaker.ts
 
 import { error, log, warn } from "../utils/logger";
 import { recordCircuitBreakerOperation, recordCircuitBreakerState } from "./metrics";
 
 export enum CircuitBreakerState {
-  CLOSED = "closed", // Normal operation
-  OPEN = "open", // Blocking requests
-  HALF_OPEN = "half_open", // Testing recovery
+  CLOSED = "closed",
+  OPEN = "open",
+  HALF_OPEN = "half_open",
 }
 
 export interface CircuitBreakerConfig {
-  failureThreshold: number; // Number of failures to open circuit
-  recoveryTimeout: number; // Time to wait before trying half-open (ms)
-  successThreshold: number; // Successes needed in half-open to close
-  monitoringInterval: number; // How often to check circuit state (ms)
+  failureThreshold: number;
+  recoveryTimeout: number;
+  successThreshold: number;
+  monitoringInterval: number;
 }
 
 export interface CircuitBreakerStats {
@@ -43,14 +43,9 @@ export class TelemetryCircuitBreaker {
     private readonly operation: string,
     private readonly config: CircuitBreakerConfig
   ) {
-    // Start monitoring circuit breaker state
     this.monitoringIntervalId = setInterval(() => this.checkRecovery(), config.monitoringInterval);
   }
 
-  /**
-   * Shutdown this circuit breaker - clears interval to prevent memory leaks.
-   * Called during graceful shutdown.
-   */
   public shutdown(): void {
     if (this.monitoringIntervalId) {
       clearInterval(this.monitoringIntervalId);
@@ -101,7 +96,7 @@ export class TelemetryCircuitBreaker {
   public recordFailure(errorMessage?: string): void {
     this.failureCount++;
     this.lastFailureTime = Date.now();
-    this.halfOpenSuccesses = 0; // Reset half-open progress
+    this.halfOpenSuccesses = 0;
 
     if (
       this.state === CircuitBreakerState.CLOSED &&
@@ -143,7 +138,6 @@ export class TelemetryCircuitBreaker {
       totalRequests: this.totalRequests,
     });
 
-    // Log critical state changes
     if (newState === CircuitBreakerState.OPEN) {
       error(`Telemetry circuit breaker OPENED - ${this.operation} exports failing`, {
         component: "telemetry_circuit_breaker",
@@ -202,12 +196,11 @@ export class TelemetryCircuitBreaker {
   }
 }
 
-// Circuit breaker instances for different telemetry types
 const circuitBreakerConfig: CircuitBreakerConfig = {
-  failureThreshold: 5, // 5 failures to open
-  recoveryTimeout: 60000, // 60 seconds before retry
-  successThreshold: 3, // 3 successes to close
-  monitoringInterval: 10000, // Check every 10 seconds
+  failureThreshold: 5,
+  recoveryTimeout: 60000,
+  successThreshold: 3,
+  monitoringInterval: 10000,
 };
 
 export const telemetryCircuitBreakers = {
@@ -235,10 +228,6 @@ export function resetTelemetryCircuitBreakers(): void {
   });
 }
 
-/**
- * Shutdown all telemetry circuit breakers - clears all intervals to prevent memory leaks.
- * Called during graceful shutdown.
- */
 export function shutdownTelemetryCircuitBreakers(): void {
   Object.values(telemetryCircuitBreakers).forEach((cb) => {
     cb.shutdown();

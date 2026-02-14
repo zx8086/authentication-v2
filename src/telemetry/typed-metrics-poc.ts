@@ -1,4 +1,4 @@
-/* src/telemetry/typed-metrics-poc.ts */
+// src/telemetry/typed-metrics-poc.ts
 
 import {
   type Attributes,
@@ -8,11 +8,6 @@ import {
   metrics,
 } from "@opentelemetry/api";
 
-// ===========================
-// TYPE-SAFE ATTRIBUTE DEFINITIONS
-// ===========================
-
-// HTTP Request Attributes
 interface HttpRequestAttributes extends Attributes {
   method: string;
   endpoint: string;
@@ -20,51 +15,40 @@ interface HttpRequestAttributes extends Attributes {
   version?: "v1" | "v2";
 }
 
-// Process Attributes
 interface ProcessAttributes extends Attributes {
   component: string;
   pid: string;
 }
 
-// Authentication Attributes
 interface AuthAttributes extends Attributes {
   consumer_id: string;
   operation: "token_generation" | "validation" | "refresh";
   result: "success" | "failure";
 }
 
-// Kong Operation Attributes
 interface KongAttributes extends Attributes {
   operation: "get_consumer" | "create_credential" | "health_check";
   cache_status: "hit" | "miss" | "stale";
 }
 
-// Circuit Breaker Attributes
 interface CircuitBreakerAttributes extends Attributes {
   operation: string;
   state: "closed" | "open" | "half_open";
 }
 
-// API Versioning Attributes
 interface ApiVersionAttributes extends Attributes {
   version: "v1" | "v2";
   endpoint: string;
   source: "header" | "default" | "fallback";
 }
 
-// Security Attributes (V2)
 interface SecurityAttributes extends Attributes {
   event_type: "authentication_attempt" | "security_event" | "audit_event";
   severity: "low" | "medium" | "high" | "critical";
   version: "v2";
 }
 
-// ===========================
-// TYPED METRIC INSTRUMENTS INTERFACE
-// ===========================
-
 interface TypedMetricInstruments {
-  // HTTP Metrics
   httpRequestCounter: Counter<HttpRequestAttributes>;
   httpResponseTimeHistogram: Histogram<HttpRequestAttributes>;
   httpRequestsByStatusCounter: Counter<HttpRequestAttributes>;
@@ -72,27 +56,23 @@ interface TypedMetricInstruments {
   httpRequestSizeHistogram: Histogram<HttpRequestAttributes>;
   httpResponseSizeHistogram: Histogram<HttpRequestAttributes>;
 
-  // Process Metrics
   processMemoryUsageGauge: Gauge<ProcessAttributes>;
   processHeapUsageGauge: Gauge<ProcessAttributes>;
   processCpuUsageGauge: Gauge<ProcessAttributes>;
   processUptimeGauge: Gauge<ProcessAttributes>;
   processActiveHandlesGauge: Gauge<ProcessAttributes>;
 
-  // JWT/Auth Metrics
   jwtTokensIssuedCounter: Counter<AuthAttributes>;
   jwtTokenCreationTimeHistogram: Histogram<AuthAttributes>;
   authenticationAttemptsCounter: Counter<AuthAttributes>;
   authenticationSuccessCounter: Counter<AuthAttributes>;
   authenticationFailureCounter: Counter<AuthAttributes>;
 
-  // Kong Metrics
   kongOperationsCounter: Counter<KongAttributes>;
   kongResponseTimeHistogram: Histogram<KongAttributes>;
   kongCacheHitCounter: Counter<KongAttributes>;
   kongCacheMissCounter: Counter<KongAttributes>;
 
-  // Redis Metrics
   redisOperationsCounter: Counter<{ operation: string }>;
   redisOperationDurationHistogram: Histogram<{ operation: string }>;
   redisConnectionsGauge: Gauge<{ status: string }>;
@@ -100,28 +80,23 @@ interface TypedMetricInstruments {
   redisCacheMissCounter: Counter<{ key_pattern: string }>;
   redisErrorsCounter: Counter<{ error_type: string }>;
 
-  // System Metrics
   errorRateCounter: Counter<{ component: string }>;
   exceptionCounter: Counter<{ type: string; component: string }>;
   telemetryExportCounter: Counter<{ exporter: string }>;
   telemetryExportErrorCounter: Counter<{ exporter: string; error: string }>;
 
-  // Circuit Breaker Metrics
   circuitBreakerStateGauge: Gauge<CircuitBreakerAttributes>;
   circuitBreakerRequestsCounter: Counter<CircuitBreakerAttributes>;
   circuitBreakerRejectedCounter: Counter<CircuitBreakerAttributes>;
   circuitBreakerFallbackCounter: Counter<CircuitBreakerAttributes>;
   circuitBreakerStateTransitionCounter: Counter<CircuitBreakerAttributes>;
 
-  // Cache Tier Metrics
   cacheTierUsageCounter: Counter<{ tier: string; operation: string }>;
   cacheTierLatencyHistogram: Histogram<{ tier: string; operation: string }>;
   cacheTierErrorCounter: Counter<{ tier: string; error_type: string }>;
 
-  // General Operation Metrics
   operationDurationHistogram: Histogram<{ operation: string; component: string }>;
 
-  // API Versioning Metrics
   apiVersionRequestsCounter: Counter<ApiVersionAttributes>;
   apiVersionHeaderSourceCounter: Counter<ApiVersionAttributes>;
   apiVersionUnsupportedCounter: Counter<ApiVersionAttributes>;
@@ -129,22 +104,16 @@ interface TypedMetricInstruments {
   apiVersionParsingDurationHistogram: Histogram<ApiVersionAttributes>;
   apiVersionRoutingDurationHistogram: Histogram<ApiVersionAttributes>;
 
-  // Consumer Volume Metrics
   consumerRequestsByVolumeCounter: Counter<{ volume_tier: "high" | "medium" | "low" }>;
   consumerErrorsByVolumeCounter: Counter<{ volume_tier: "high" | "medium" | "low" }>;
   consumerLatencyByVolumeHistogram: Histogram<{ volume_tier: "high" | "medium" | "low" }>;
 
-  // Security Metrics (V2)
   securityEventsCounter: Counter<SecurityAttributes>;
   securityHeadersAppliedCounter: Counter<SecurityAttributes>;
   auditEventsCounter: Counter<SecurityAttributes>;
   securityRiskScoreHistogram: Histogram<SecurityAttributes>;
   securityAnomaliesCounter: Counter<SecurityAttributes>;
 }
-
-// ===========================
-// TYPED METRICS MANAGER
-// ===========================
 
 class TypedMetricsManager {
   private static instance: TypedMetricsManager | null = null;
@@ -167,9 +136,7 @@ class TypedMetricsManager {
 
     const meter = metrics.getMeter(serviceName, serviceVersion);
 
-    // Initialize all instruments with proper typing
     this.instruments = {
-      // HTTP Metrics
       httpRequestCounter: meter.createCounter<HttpRequestAttributes>("http_requests_total", {
         description: "Total number of HTTP requests",
         unit: "requests",
@@ -210,7 +177,6 @@ class TypedMetricsManager {
         }
       ),
 
-      // Process Metrics
       processMemoryUsageGauge: meter.createGauge<ProcessAttributes>("process_memory_usage_bytes", {
         description: "Process memory usage in bytes",
         unit: "bytes",
@@ -232,7 +198,6 @@ class TypedMetricsManager {
         unit: "handles",
       }),
 
-      // JWT/Auth Metrics
       jwtTokensIssuedCounter: meter.createCounter<AuthAttributes>("jwt_tokens_issued_total", {
         description: "Total number of JWT tokens issued",
         unit: "tokens",
@@ -266,7 +231,6 @@ class TypedMetricsManager {
         }
       ),
 
-      // Kong Metrics
       kongOperationsCounter: meter.createCounter<KongAttributes>("kong_operations_total", {
         description: "Total Kong operations",
         unit: "operations",
@@ -287,7 +251,6 @@ class TypedMetricsManager {
         unit: "misses",
       }),
 
-      // Redis Metrics
       redisOperationsCounter: meter.createCounter("redis_operations_total", {
         description: "Total Redis operations",
         unit: "operations",
@@ -313,7 +276,6 @@ class TypedMetricsManager {
         unit: "errors",
       }),
 
-      // System Metrics
       errorRateCounter: meter.createCounter("error_rate_total", {
         description: "Error rate counter",
         unit: "errors",
@@ -331,7 +293,6 @@ class TypedMetricsManager {
         unit: "errors",
       }),
 
-      // Circuit Breaker Metrics
       circuitBreakerStateGauge: meter.createGauge<CircuitBreakerAttributes>(
         "circuit_breaker_state",
         {
@@ -368,7 +329,6 @@ class TypedMetricsManager {
         }
       ),
 
-      // Cache Tier Metrics
       cacheTierUsageCounter: meter.createCounter("cache_tier_usage_total", {
         description: "Cache tier usage",
         unit: "operations",
@@ -382,13 +342,11 @@ class TypedMetricsManager {
         unit: "errors",
       }),
 
-      // General Operation Metrics
       operationDurationHistogram: meter.createHistogram("operation_duration_seconds", {
         description: "Operation duration in seconds",
         unit: "seconds",
       }),
 
-      // API Versioning Metrics
       apiVersionRequestsCounter: meter.createCounter<ApiVersionAttributes>(
         "api_version_requests_total",
         {
@@ -432,7 +390,6 @@ class TypedMetricsManager {
         }
       ),
 
-      // Consumer Volume Metrics
       consumerRequestsByVolumeCounter: meter.createCounter("consumer_requests_by_volume_total", {
         description: "Consumer requests by volume tier",
         unit: "requests",
@@ -449,7 +406,6 @@ class TypedMetricsManager {
         }
       ),
 
-      // Security Metrics (V2)
       securityEventsCounter: meter.createCounter<SecurityAttributes>("security_events_total", {
         description: "Security events",
         unit: "events",
@@ -493,10 +449,6 @@ class TypedMetricsManager {
   }
 }
 
-// ===========================
-// TYPED HELPER FUNCTIONS
-// ===========================
-
 export function getTypedMetrics(): TypedMetricInstruments {
   return TypedMetricsManager.getInstance().getInstruments();
 }
@@ -509,11 +461,6 @@ export function isTypedMetricsReady(): boolean {
   return TypedMetricsManager.getInstance().isReady();
 }
 
-// ===========================
-// TYPE-SAFE USAGE EXAMPLES
-// ===========================
-
-// Example: Type-safe HTTP request recording
 export function recordHttpRequest(
   method: string,
   endpoint: string,
@@ -529,7 +476,6 @@ export function recordHttpRequest(
   metrics.httpRequestsByStatusCounter.add(1, attributes);
 }
 
-// Example: Type-safe authentication recording
 export function recordAuthenticationAttempt(
   consumerId: string,
   operation: "token_generation" | "validation" | "refresh",
@@ -546,7 +492,6 @@ export function recordAuthenticationAttempt(
   }
 }
 
-// Example: Type-safe Kong operation recording
 export function recordKongOperation(
   operation: "get_consumer" | "create_credential" | "health_check",
   duration: number,
@@ -565,7 +510,6 @@ export function recordKongOperation(
   }
 }
 
-// Export types for use in other modules
 export type {
   TypedMetricInstruments,
   HttpRequestAttributes,

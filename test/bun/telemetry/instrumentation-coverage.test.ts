@@ -1,9 +1,4 @@
-/* test/bun/instrumentation-coverage.test.ts */
-
-/**
- * Additional tests to improve coverage for instrumentation.ts
- * Focuses on uncovered error paths, edge cases, and console mode scenarios
- */
+// test/bun/telemetry/instrumentation-coverage.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

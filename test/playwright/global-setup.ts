@@ -1,6 +1,4 @@
-/* test/playwright/global-setup.ts */
-
-// Load environment variables explicitly for global setup
+// test/playwright/global-setup.ts
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FullConfig } from "@playwright/test";

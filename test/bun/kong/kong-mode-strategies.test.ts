@@ -1,8 +1,4 @@
-/* test/bun/kong-mode-strategies.test.ts */
-
-/**
- * Integration tests for Kong mode strategies with live Kong
- */
+// test/bun/kong/kong-mode-strategies.test.ts
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";

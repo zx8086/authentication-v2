@@ -1,6 +1,4 @@
-/* test/k6/load/auth-load.ts */
-
-// K6 load testing scenario for authentication service under sustained traffic
+// test/k6/load/auth-load.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

@@ -1,4 +1,4 @@
-/* src/telemetry/instrumentation.ts */
+// src/telemetry/instrumentation.ts
 
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import type { ExportResult } from "@opentelemetry/core";
@@ -43,7 +43,6 @@ let metricExporter: PushMetricExporter | undefined;
 let metricReader: MetricReaderLike | undefined;
 let _meterProvider: MeterProvider | undefined;
 
-// Enhanced export stats for debugging
 const metricExportStats = {
   totalExports: 0,
   successCount: 0,
@@ -78,26 +77,21 @@ const metricExportStats = {
 };
 
 export async function initializeTelemetry(): Promise<void> {
-  // Always initialize metrics, regardless of OpenTelemetry mode
   initializeMetrics();
 
-  // Skip OTLP setup only if explicitly disabled or in console-only mode
   if (!telemetryConfig.enableOpenTelemetry || telemetryConfig.mode === "console") {
-    // Still initialize export tracking for console mode
     const noOpExporter: PushMetricExporter = {
       export: (_metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void => {
         metricExportStats.recordExportAttempt();
-        // Simulate successful export for console mode
         metricExportStats.recordExportSuccess();
-        resultCallback({ code: 0 }); // ExportResultCode.SUCCESS
+        resultCallback({ code: 0 });
       },
       forceFlush: (): Promise<void> => Promise.resolve(),
       shutdown: (): Promise<void> => Promise.resolve(),
-      selectAggregationTemporality: () => 1, // CUMULATIVE
+      selectAggregationTemporality: () => 1,
     };
     metricExporter = noOpExporter;
 
-    // Create no-op metric reader for console mode
     const noOpReader: MetricReaderLike = {
       forceFlush: (): Promise<void> => Promise.resolve(),
       shutdown: (): Promise<void> => Promise.resolve(),
@@ -134,13 +128,11 @@ export async function initializeTelemetry(): Promise<void> {
     timeoutMillis: telemetryConfig.exportTimeout,
   });
 
-  // Create wrapper to track export stats
   const trackingMetricExporter: PushMetricExporter = {
     export: (metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void => {
       metricExportStats.recordExportAttempt();
       baseOtlpMetricExporter.export(metrics, (result: ExportResult) => {
         if (result.code === 0) {
-          // ExportResultCode.SUCCESS
           metricExportStats.recordExportSuccess();
         } else {
           const errorMessage =
@@ -214,14 +206,11 @@ export async function initializeTelemetry(): Promise<void> {
   const redisInstrumentation = new RedisInstrumentation({
     enabled: true,
     dbStatementSerializer: (cmdName: string, cmdArgs: (string | Buffer)[]) => {
-      // Sanitize sensitive data in commands
       const sanitizedArgs = cmdArgs.map((arg, index) => {
         const argStr = arg instanceof Buffer ? arg.toString() : arg;
-        // For SET commands, mask the value (second argument)
         if (cmdName.toUpperCase() === "SET" && index === 1) {
           return "***";
         }
-        // For GET commands with consumer_secret keys, mask the key pattern
         if (cmdName.toUpperCase() === "GET" && argStr.includes("consumer_secret")) {
           return "consumer_secret:***";
         }
@@ -276,14 +265,13 @@ export async function forceMetricsFlush(): Promise<void> {
   await metricReader.forceFlush();
 
   if (metricExporter) {
-    // For console mode, simulate metric export to trigger tracking
     if (telemetryConfig.mode === "console") {
       const emptyMetrics: ResourceMetrics = {
         resource: resourceFromAttributes({}),
         scopeMetrics: [],
       };
       metricExporter.export(emptyMetrics, () => {
-        // No-op callback, tracking already happened in export method
+        // No-op callback required by API
       });
     } else {
       await metricExporter.forceFlush();

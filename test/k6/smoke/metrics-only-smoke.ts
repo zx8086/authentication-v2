@@ -1,6 +1,4 @@
-/* test/k6/smoke/metrics-only-smoke.ts */
-
-// K6 smoke test for metrics endpoint only - tests /metrics endpoint performance
+// test/k6/smoke/metrics-only-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

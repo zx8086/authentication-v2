@@ -1,14 +1,4 @@
-/* test/playwright/api-best-practices.e2e.ts */
-
-/**
- * E2E Tests for API Best Practices Implementation (SIO-322)
- *
- * Tests validate RFC-compliant behavior for:
- * - HTTP Method Validation (RFC 9110) - 405 Method Not Allowed
- * - ETag and Conditional Requests (RFC 7232) - 304 Not Modified
- * - Content-Type Validation
- * - Request validation middleware
- */
+// test/playwright/api-best-practices.e2e.ts
 
 import { expect, test } from "@playwright/test";
 
@@ -19,7 +9,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
 
       expect(response.status()).toBe(405);
       expect(response.headers()["content-type"]).toContain("application/problem+json");
-      expect(response.headers()["allow"]).toBe("GET, OPTIONS");
+      expect(response.headers().allow).toBe("GET, OPTIONS");
 
       const data = await response.json();
       // RFC 7807 Problem Details format
@@ -37,7 +27,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
       const response = await request.delete("/tokens");
 
       expect(response.status()).toBe(405);
-      expect(response.headers()["allow"]).toBe("GET, OPTIONS");
+      expect(response.headers().allow).toBe("GET, OPTIONS");
 
       const data = await response.json();
       expect(data.extensions.allowedMethods).toEqual(["GET", "OPTIONS"]);
@@ -47,7 +37,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
       const response = await request.put("/health");
 
       expect(response.status()).toBe(405);
-      expect(response.headers()["allow"]).toBe("GET, OPTIONS");
+      expect(response.headers().allow).toBe("GET, OPTIONS");
 
       const data = await response.json();
       expect(data.status).toBe(405);
@@ -58,14 +48,14 @@ test.describe("API Best Practices - RFC Compliance", () => {
       const response = await request.patch("/metrics");
 
       expect(response.status()).toBe(405);
-      expect(response.headers()["allow"]).toBe("GET, OPTIONS");
+      expect(response.headers().allow).toBe("GET, OPTIONS");
     });
 
     test("Returns 405 Method Not Allowed for DELETE to OpenAPI endpoint", async ({ request }) => {
       const response = await request.delete("/");
 
       expect(response.status()).toBe(405);
-      expect(response.headers()["allow"]).toBe("GET, OPTIONS");
+      expect(response.headers().allow).toBe("GET, OPTIONS");
     });
 
     test("OPTIONS requests are allowed on all endpoints", async ({ request }) => {
@@ -95,9 +85,9 @@ test.describe("API Best Practices - RFC Compliance", () => {
       const response = await request.get("/");
 
       expect(response.status()).toBe(200);
-      expect(response.headers()["etag"]).toBeTruthy();
+      expect(response.headers().etag).toBeTruthy();
       // ETag format: quoted string
-      expect(response.headers()["etag"]).toMatch(/^"[a-f0-9]+"$/);
+      expect(response.headers().etag).toMatch(/^"[a-f0-9]+"$/);
     });
 
     test("Returns 304 Not Modified when If-None-Match matches ETag", async ({ request }) => {
@@ -105,7 +95,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
       const firstResponse = await request.get("/");
       expect(firstResponse.status()).toBe(200);
 
-      const etag = firstResponse.headers()["etag"];
+      const etag = firstResponse.headers().etag;
       expect(etag).toBeTruthy();
 
       // Second request with matching If-None-Match
@@ -116,7 +106,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
       });
 
       expect(secondResponse.status()).toBe(304);
-      expect(secondResponse.headers()["etag"]).toBe(etag);
+      expect(secondResponse.headers().etag).toBe(etag);
     });
 
     test("Returns 200 when If-None-Match does not match ETag", async ({ request }) => {
@@ -127,13 +117,13 @@ test.describe("API Best Practices - RFC Compliance", () => {
       });
 
       expect(response.status()).toBe(200);
-      expect(response.headers()["etag"]).toBeTruthy();
+      expect(response.headers().etag).toBeTruthy();
     });
 
     test("304 response includes Cache-Control header", async ({ request }) => {
       // First request to get the ETag
       const firstResponse = await request.get("/");
-      const etag = firstResponse.headers()["etag"];
+      const etag = firstResponse.headers().etag;
 
       // Second request with matching If-None-Match
       const secondResponse = await request.get("/", {
@@ -149,7 +139,7 @@ test.describe("API Best Practices - RFC Compliance", () => {
     test("304 response includes CORS headers", async ({ request }) => {
       // First request to get the ETag
       const firstResponse = await request.get("/");
-      const etag = firstResponse.headers()["etag"];
+      const etag = firstResponse.headers().etag;
 
       // Second request with matching If-None-Match
       const secondResponse = await request.get("/", {
@@ -173,8 +163,8 @@ test.describe("API Best Practices - RFC Compliance", () => {
       expect(jsonResponse.status()).toBe(200);
       expect(yamlResponse.status()).toBe(200);
 
-      const jsonEtag = jsonResponse.headers()["etag"];
-      const yamlEtag = yamlResponse.headers()["etag"];
+      const jsonEtag = jsonResponse.headers().etag;
+      const yamlEtag = yamlResponse.headers().etag;
 
       expect(jsonEtag).toBeTruthy();
       expect(yamlEtag).toBeTruthy();

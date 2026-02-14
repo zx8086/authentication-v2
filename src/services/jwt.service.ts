@@ -1,4 +1,4 @@
-/* src/services/jwt.service.ts */
+// src/services/jwt.service.ts
 
 import { trace } from "@opentelemetry/api";
 import type { JWTPayload, TokenResponse } from "../config";
@@ -7,9 +7,7 @@ import { generateRequestId } from "../utils/response";
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
-
-  // Pre-computed and cached JWT header (base64URL encoded)
-  private static readonly CACHED_HEADER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"; // {"alg":"HS256","typ":"JWT"}
+  private static readonly CACHED_HEADER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
 
   static async createToken(
     username: string,
@@ -18,7 +16,7 @@ export class NativeBunJWT {
     authority: string,
     audience: string,
     issuer?: string,
-    expirationSeconds = 900 // Default 15 minutes, can be overridden by config
+    expirationSeconds = 900
   ): Promise<TokenResponse> {
     const startTime = getHighResTime();
 
@@ -50,10 +48,10 @@ export class NativeBunJWT {
         key: consumerKey,
         jti: generateRequestId(),
         iat: now,
-        nbf: now, // Not Before - backward compatibility with .NET format
+        nbf: now,
         exp: expirationTime,
         iss: issuers[0],
-        aud: audiences.length === 1 ? audiences[0] : audiences, // RFC 7519 compliant: string for single, array for multiple
+        aud: audiences.length === 1 ? audiences[0] : audiences,
         name: username,
         unique_name: `pvhcorp.com#${username}`,
       };
@@ -96,13 +94,11 @@ export class NativeBunJWT {
   }
 
   private static base64urlEncode(data: string): string {
-    // Bun always has native Buffer support
     const buffer = Buffer.from(data, "utf8");
     return buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 
   private static base64urlEncodeBuffer(buffer: Uint8Array): string {
-    // Bun always has native Buffer support - directly encode Uint8Array
     return Buffer.from(buffer)
       .toString("base64")
       .replace(/\+/g, "-")
@@ -111,13 +107,11 @@ export class NativeBunJWT {
   }
 
   private static base64urlDecode(data: string): Uint8Array {
-    // Add padding if necessary
     let base64 = data.replace(/-/g, "+").replace(/_/g, "/");
     // Stryker disable next-line ConditionalExpression: Base64 padding is required by spec
     while (base64.length % 4) {
       base64 += "=";
     }
-    // Bun always has native Buffer support
     return new Uint8Array(Buffer.from(base64, "base64"));
   }
 
@@ -152,7 +146,6 @@ export class NativeBunJWT {
 
       const [headerB64, payloadB64, signatureB64] = parts;
 
-      // Verify signature using crypto.subtle
       const message = NativeBunJWT.encoder.encode(`${headerB64}.${payloadB64}`);
       const key = await crypto.subtle.importKey(
         "raw",
@@ -177,7 +170,6 @@ export class NativeBunJWT {
         return { valid: false, error: "Invalid signature" };
       }
 
-      // Decode payload
       let payloadJson: string;
       try {
         payloadJson = atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"));
@@ -198,7 +190,6 @@ export class NativeBunJWT {
         return { valid: false, error: "Invalid payload JSON" };
       }
 
-      // Check expiration (RFC 7519 Section 4.1.4)
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
         const duration = calculateDuration(startTime);
@@ -216,7 +207,6 @@ export class NativeBunJWT {
         };
       }
 
-      // Check not-before (RFC 7519 Section 4.1.5)
       if (payload.nbf && payload.nbf > now) {
         const duration = calculateDuration(startTime);
         span.setAttributes({

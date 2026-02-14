@@ -1,17 +1,4 @@
-/* test/k6/smoke/ci-safe-smoke.ts */
-
-/**
- * CI-Safe K6 Smoke Test
- *
- * This test is designed for CI environments where external dependencies
- * (Kong, Redis, telemetry collectors) may not be available.
- *
- * The /health endpoint returns:
- * - 200 when all dependencies are healthy
- * - 503 when dependencies are unavailable (degraded mode)
- *
- * Both responses are valid - the service IS running and responding correctly.
- */
+// test/k6/smoke/ci-safe-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

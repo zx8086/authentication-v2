@@ -1,11 +1,4 @@
-/* test/bun/health/health-fetch-spy.test.ts */
-
-/**
- * Tests for health.ts fetch behavior with real HTTP servers
- *
- * These tests verify fetch parameter handling by using real test servers
- * instead of mocks, ensuring actual HTTP behavior is tested.
- */
+// test/bun/health/health-fetch-spy.test.ts
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";

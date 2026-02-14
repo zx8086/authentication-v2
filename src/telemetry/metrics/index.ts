@@ -1,36 +1,10 @@
-/* src/telemetry/metrics/index.ts */
-
-/**
- * OpenTelemetry Metrics Module
- *
- * This module provides comprehensive metrics collection for the authentication service.
- * Metrics are organized into focused sub-modules for better maintainability:
- *
- * - types.ts: Type definitions for metric attributes
- * - instruments.ts: Metric instrument declarations
- * - state.ts: Initialization state management
- * - initialization.ts: Metric initialization logic
- * - http-metrics.ts: HTTP request/response metrics
- * - auth-metrics.ts: Authentication and JWT metrics
- * - kong-metrics.ts: Kong API gateway metrics
- * - redis-metrics.ts: Redis cache metrics
- * - circuit-breaker-metrics.ts: Circuit breaker metrics
- * - cache-metrics.ts: Cache tier metrics
- * - api-version-metrics.ts: API versioning metrics
- * - security-metrics.ts: Security and audit metrics
- * - consumer-metrics.ts: Consumer volume metrics
- * - telemetry-metrics.ts: Telemetry export metrics
- * - process-metrics.ts: Process and GC metrics
- * - error-metrics.ts: Error and exception metrics
- */
+// src/telemetry/metrics/index.ts
 
 import { error, log as info, warn } from "../../utils/logger";
 import { stopMemoryPressureMonitoring } from "./process-metrics";
 import { isMetricsInitialized, setMetricsInitialized } from "./state";
 
-// Re-export cardinality stats
 export { getCardinalityStats } from "../cardinality-guard";
-// Re-export API version metrics
 export {
   recordApiVersionFallback,
   recordApiVersionHeaderSource,
@@ -41,7 +15,6 @@ export {
   recordApiVersionUnsupported,
   recordApiVersionUsage,
 } from "./api-version-metrics";
-// Re-export auth metrics
 export {
   recordAuthenticationAttempt,
   recordAuthenticationFailure,
@@ -49,14 +22,12 @@ export {
   recordJwtTokenCreation,
   recordJwtTokenIssued,
 } from "./auth-metrics";
-// Re-export cache metrics
 export {
   recordCacheTierError,
   recordCacheTierLatency,
   recordCacheTierUsage,
   recordOperationDuration,
 } from "./cache-metrics";
-// Re-export circuit breaker metrics
 export {
   recordCircuitBreakerFallback,
   recordCircuitBreakerOperation,
@@ -65,15 +36,12 @@ export {
   recordCircuitBreakerState,
   recordCircuitBreakerStateTransition,
 } from "./circuit-breaker-metrics";
-// Re-export consumer metrics
 export {
   recordConsumerError,
   recordConsumerLatency,
   recordConsumerRequest,
 } from "./consumer-metrics";
-// Re-export error metrics
 export { recordError, recordException } from "./error-metrics";
-// Re-export HTTP metrics
 export {
   recordActiveRequests,
   recordHttpRequest,
@@ -81,9 +49,7 @@ export {
   recordHttpResponseSize,
   recordHttpResponseTime,
 } from "./http-metrics";
-// Re-export initialization
 export { initializeMetrics } from "./initialization";
-// Re-export instruments
 export {
   apiVersionFallbackCounter,
   apiVersionHeaderSourceCounter,
@@ -163,14 +129,12 @@ export {
   threadPoolIdleGauge,
   threadPoolPendingGauge,
 } from "./instruments";
-// Re-export Kong metrics
 export {
   recordKongCacheHit,
   recordKongCacheMiss,
   recordKongOperation,
   recordKongResponseTime,
 } from "./kong-metrics";
-// Re-export process metrics
 export {
   recordGCCollection,
   recordGCDuration,
@@ -181,18 +145,14 @@ export {
   stopMemoryPressureMonitoring,
   stopSystemMetricsCollection,
 } from "./process-metrics";
-// Re-export Redis metrics
 export { recordCacheOperation, recordRedisConnection, recordRedisOperation } from "./redis-metrics";
-// Re-export security metrics
 export {
   recordAuditEvent,
   recordSecurityEvent,
   recordSecurityHeaders,
   recordSecurityHeadersApplied,
 } from "./security-metrics";
-// Re-export telemetry metrics
 export { recordTelemetryExport, recordTelemetryExportError } from "./telemetry-metrics";
-// Re-export types
 export type {
   ApiVersionAttributes,
   AuthAttributes,
@@ -208,7 +168,6 @@ export type {
   TelemetryAttributes,
 } from "./types";
 
-// Status and lifecycle functions
 export function getMetricsStatus(): {
   initialized: boolean;
   instrumentCount: number;
@@ -251,7 +210,6 @@ export function testMetricRecording(): void {
   info("Testing metric recording functionality");
 
   try {
-    // Import locally to avoid circular imports at module load time
     const httpMetrics = require("./http-metrics");
     const authMetrics = require("./auth-metrics");
     const kongMetrics = require("./kong-metrics");

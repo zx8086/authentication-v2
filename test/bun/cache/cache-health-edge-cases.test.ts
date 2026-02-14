@@ -1,9 +1,4 @@
-/* test/bun/cache-health-edge-cases.test.ts */
-
-/**
- * Additional edge case tests for CacheHealthService to improve coverage
- * Focuses on error paths and unusual scenarios
- */
+// test/bun/cache/cache-health-edge-cases.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { resetConfigCache } from "../../../src/config/config";

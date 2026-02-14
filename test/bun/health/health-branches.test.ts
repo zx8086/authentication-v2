@@ -1,10 +1,4 @@
-/* test/bun/health-branches.test.ts */
-
-/**
- * Mutation-resistant tests for health handler conditional branches.
- * These tests verify correct status codes (200 vs 503) and health states
- * (healthy, degraded, unhealthy) for different dependency conditions.
- */
+// test/bun/health/health-branches.test.ts
 
 import { describe, expect, it } from "bun:test";
 import type { IKongService, KongHealthCheckResult } from "../../../src/config";

@@ -1,5 +1,4 @@
-/* src/cache/cache-manager.ts */
-
+// src/cache/cache-manager.ts
 import type { IKongCacheService, KongCacheStats } from "../config/schemas";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import { LocalMemoryBackend } from "./backends/local-memory-backend";

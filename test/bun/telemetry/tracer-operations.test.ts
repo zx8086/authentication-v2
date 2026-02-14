@@ -1,10 +1,4 @@
-/* test/bun/tracer-operations.test.ts */
-
-/**
- * Tests for BunTelemetryTracer operations.
- * These tests cover span creation, attributes, exceptions,
- * and trace context retrieval.
- */
+// test/bun/telemetry/tracer-operations.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

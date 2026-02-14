@@ -1,10 +1,4 @@
-/* src/openapi/schemas/index.ts */
-
-/**
- * OpenAPI schema definitions module.
- *
- * This module exports all schema-related functions for the OpenAPI specification.
- */
+// src/openapi/schemas/index.ts
 
 export {
   createDebugResponseSchema,

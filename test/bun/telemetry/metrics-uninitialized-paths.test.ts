@@ -1,10 +1,4 @@
-/* test/bun/telemetry/metrics-uninitialized-paths.test.ts */
-
-/**
- * Tests for metrics recording functions when metrics are NOT initialized.
- * These tests cover the warning paths that execute when operations
- * are called before initialization, improving coverage of metrics.ts.
- */
+// test/bun/telemetry/metrics-uninitialized-paths.test.ts
 
 import { beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

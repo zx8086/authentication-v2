@@ -1,4 +1,4 @@
-/* src/services/cache/local-memory-cache.ts */
+// src/services/cache/local-memory-cache.ts
 
 import type {
   ConsumerSecret,
@@ -47,10 +47,8 @@ export class LocalMemoryCache implements IKongCacheService {
       createdAt: now,
     };
 
-    // Store in both regular and stale cache
     this.cache.set(key, entry);
 
-    // Stale cache keeps data 24x longer
     const staleEntry: GenericCacheEntry<CacheValue> = {
       data: value as CacheValue,
       expires: now + ttl * 1000 * 24,
@@ -130,7 +128,6 @@ export class LocalMemoryCache implements IKongCacheService {
       }
     }
 
-    // Also enforce for stale cache (allow 2x the normal limit)
     const staleMaxEntries = this.config.maxEntries * 2;
     if (this.staleCache.size > staleMaxEntries) {
       const staleEntries = Array.from(this.staleCache.entries()).sort(

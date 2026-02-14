@@ -1,9 +1,7 @@
-/* test/playwright/consolidated-business.e2e.ts */
+// test/playwright/consolidated-business.e2e.ts
 
 import { expect, test } from "@playwright/test";
 
-// Use shared test consumer definitions for consistency
-// NOTE: id must be the UUID that Kong uses, not the username
 const TEST_CONSUMER = {
   id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
   username: "test-consumer-001",

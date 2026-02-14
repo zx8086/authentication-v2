@@ -1,8 +1,4 @@
-/* test/bun/jwt-error-path.test.ts */
-
-/**
- * Tests for JWT error paths to improve coverage
- */
+// test/bun/services/jwt-error-path.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { NativeBunJWT } from "../../../src/services/jwt.service";

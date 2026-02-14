@@ -1,5 +1,4 @@
-/* src/cache/backends/shared-redis-backend.ts */
-
+// src/cache/backends/shared-redis-backend.ts
 import type { KongCacheStats } from "../../config/schemas";
 import { SharedRedisCache } from "../../services/cache/shared-redis-cache";
 import { log } from "../../utils/logger";

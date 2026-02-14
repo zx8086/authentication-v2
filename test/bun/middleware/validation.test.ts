@@ -1,8 +1,4 @@
-/* test/bun/middleware/validation.test.ts */
-
-/**
- * Tests for request validation middleware
- */
+// test/bun/middleware/validation.test.ts
 
 import { describe, expect, it } from "bun:test";
 import {

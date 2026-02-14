@@ -1,6 +1,4 @@
-/* test/k6/spike/spike-test.ts */
-
-// K6 spike testing scenario for authentication service under traffic bursts
+// test/k6/spike/spike-test.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

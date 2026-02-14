@@ -1,9 +1,4 @@
-/* test/bun/cache/cache-manager-mutation-killers.test.ts */
-
-/**
- * Targeted tests to kill surviving mutants in cache-manager.ts
- * These tests use specific assertions to catch boundary conditions and conditional logic
- */
+// test/bun/cache/cache-manager-mutation-killers.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { UnifiedCacheManager } from "../../../src/cache/cache-manager";

@@ -1,6 +1,4 @@
-/* test/k6/smoke/tokens-smoke.ts */
-
-// K6 smoke tests for JWT token generation endpoint performance validation
+// test/k6/smoke/tokens-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

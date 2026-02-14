@@ -1,4 +1,4 @@
-/* src/telemetry/tracer.ts */
+// src/telemetry/tracer.ts
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
@@ -95,7 +95,6 @@ class BunTelemetryTracer {
       "http.server.type": "bun_serve",
     };
 
-    // Add API versioning attributes if provided
     if (versionContext) {
       baseAttributes["api.version"] = versionContext.version;
       baseAttributes["api.version.source"] = versionContext.source;

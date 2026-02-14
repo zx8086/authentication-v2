@@ -1,28 +1,18 @@
-/* test/shared/test-consumer-secrets.ts */
+// test/shared/test-consumer-secrets.ts
 
 import type { ConsumerSecret } from "../../src/config/schemas";
 
-/**
- * Factory for creating test ConsumerSecret objects to avoid hardcoded values
- * This addresses Snyk security warnings about hardcoded secrets in tests
- *
- * Creates deterministic values for consistent testing while avoiding hardcoded secrets
- */
+// Factory for creating test ConsumerSecret objects to avoid hardcoded values (CWE-547).
+// Creates deterministic values for consistent testing while avoiding hardcoded secrets.
 export class TestConsumerSecretFactory {
   private static counter = 0;
 
-  /**
-   * Generate a unique test suffix to ensure data isolation
-   */
   private static getUniqueSuffix(): string {
     return `${Date.now()}-${++TestConsumerSecretFactory.counter}`;
   }
 
-  /**
-   * Generate a deterministic suffix based on input for consistent testing
-   */
   private static getDeterministicSuffix(baseId: string): string {
-    // Use a simple hash-like approach to create consistent but non-obvious values
+    // Simple hash-like approach for consistent but non-obvious values
     let hash = 0;
     for (let i = 0; i < baseId.length; i++) {
       const char = baseId.charCodeAt(i);
@@ -32,9 +22,6 @@ export class TestConsumerSecretFactory {
     return `${Math.abs(hash)}`;
   }
 
-  /**
-   * Create a ConsumerSecret for testing with dynamic values
-   */
   static create(
     options: {
       consumerIdPrefix?: string;
@@ -62,10 +49,6 @@ export class TestConsumerSecretFactory {
     };
   }
 
-  /**
-   * Create a ConsumerSecret with specific identifier for predictable testing
-   * Uses deterministic values that are consistent across test runs but not hardcoded
-   */
   static createWithId(
     baseId: string,
     options: {
@@ -84,9 +67,6 @@ export class TestConsumerSecretFactory {
     };
   }
 
-  /**
-   * Create multiple ConsumerSecret objects for batch testing
-   */
   static createBatch(
     count: number,
     options: {
@@ -104,9 +84,6 @@ export class TestConsumerSecretFactory {
     return secrets;
   }
 
-  /**
-   * Create a ConsumerSecret for TTL testing with deterministic values
-   */
   static createForTTL(
     testName: string,
     options: {
@@ -116,9 +93,6 @@ export class TestConsumerSecretFactory {
     return TestConsumerSecretFactory.createWithId(`ttl-${testName}`, options);
   }
 
-  /**
-   * Create a ConsumerSecret for performance testing with deterministic values
-   */
   static createForPerformance(
     index: number,
     options: {
@@ -128,9 +102,6 @@ export class TestConsumerSecretFactory {
     return TestConsumerSecretFactory.createWithId(`perf-${index}`, options);
   }
 
-  /**
-   * Create a ConsumerSecret for concurrency testing with deterministic values
-   */
   static createForConcurrency(
     index: number,
     options: {
@@ -140,9 +111,6 @@ export class TestConsumerSecretFactory {
     return TestConsumerSecretFactory.createWithId(`concurrent-${index}`, options);
   }
 
-  /**
-   * Create a ConsumerSecret for cache testing scenarios with deterministic values
-   */
   static createForCache(
     scenario: string,
     options: {
@@ -152,10 +120,6 @@ export class TestConsumerSecretFactory {
     return TestConsumerSecretFactory.createWithId(`cache-${scenario}`, options);
   }
 
-  /**
-   * Create a ConsumerSecret with new format (id, key, secret, consumer.id)
-   * Uses deterministic values when given consistent prefixes
-   */
   static createNew(
     options: {
       idPrefix?: string;
@@ -188,9 +152,6 @@ export class TestConsumerSecretFactory {
   }
 }
 
-/**
- * Pre-defined test scenarios for common use cases
- */
 export const TestScenarios = {
   BASIC_CACHE: () => TestConsumerSecretFactory.createForCache("basic"),
   CUSTOM_TTL: () => TestConsumerSecretFactory.createForTTL("custom"),

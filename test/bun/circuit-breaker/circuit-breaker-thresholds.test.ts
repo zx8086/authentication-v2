@@ -1,13 +1,4 @@
-/* test/bun/circuit-breaker-thresholds.test.ts */
-
-/**
- * Mutation-resistant tests for circuit breaker threshold logic.
- * These tests verify correct behavior at boundary conditions for:
- * - Error threshold percentage calculations
- * - Timeout configurations
- * - State transition triggers
- * - Stale data age tolerance
- */
+// test/bun/circuit-breaker/circuit-breaker-thresholds.test.ts
 
 import { describe, expect, it } from "bun:test";
 import type { CachingConfig, CircuitBreakerConfig } from "../../../src/config/schemas";

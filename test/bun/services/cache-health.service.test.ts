@@ -1,9 +1,4 @@
-/* test/bun/cache-health.service.test.ts */
-
-/**
- * Unit tests for CacheHealthService
- * Tests the cache health checking functionality with strong assertions for mutation testing
- */
+// test/bun/services/cache-health.service.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { resetConfigCache } from "../../../src/config/config";

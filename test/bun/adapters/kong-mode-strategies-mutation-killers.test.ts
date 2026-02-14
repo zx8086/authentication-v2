@@ -1,9 +1,4 @@
-/* test/bun/adapters/kong-mode-strategies-mutation-killers.test.ts */
-
-/**
- * Targeted tests to kill surviving mutants in kong-mode-strategies.ts
- * Tests specific regex patterns, boundary conditions, and edge cases
- */
+// test/bun/adapters/kong-mode-strategies-mutation-killers.test.ts
 
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {

@@ -1,7 +1,4 @@
-/* test/k6/run-all-tests.ts */
-
-// Comprehensive test suite runner for authentication service K6 tests
-// Executes all test scenarios in sequence with proper reporting
+// test/k6/run-all-tests.ts
 
 export interface TestSuite {
   name: string;

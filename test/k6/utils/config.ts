@@ -1,6 +1,4 @@
-/* test/k6/utils/config.ts */
-
-// Centralized configuration for K6 authentication service tests
+// test/k6/utils/config.ts
 
 import { getTestConsumer as getStandardTestConsumer } from "./test-consumers.js";
 

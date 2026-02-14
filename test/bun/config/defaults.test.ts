@@ -1,9 +1,4 @@
-/* test/bun/defaults.test.ts */
-
-/**
- * Unit tests for default configuration values
- * Tests the default configuration object to ensure all defaults are correct
- */
+// test/bun/config/defaults.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { defaultConfig } from "../../../src/config/defaults";

@@ -1,4 +1,4 @@
-/* src/services/api-gateway.service.ts */
+// src/services/api-gateway.service.ts
 
 import type { IAPIGatewayAdapter } from "../adapters/api-gateway-adapter.interface";
 import type {
@@ -9,7 +9,6 @@ import type {
 } from "../config";
 import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
 
-// Adapter pattern service - delegates all operations to the underlying adapter
 export class APIGatewayService implements IKongService {
   constructor(private readonly adapter: IAPIGatewayAdapter) {}
 

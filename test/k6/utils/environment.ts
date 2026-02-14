@@ -1,6 +1,4 @@
-/* test/k6/utils/environment.ts */
-
-// K6 test environment detection and configuration utility
+// test/k6/utils/environment.ts
 
 export interface EnvironmentConfig {
   hasKongGateway: boolean;

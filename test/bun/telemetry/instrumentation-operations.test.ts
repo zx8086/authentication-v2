@@ -1,10 +1,4 @@
-/* test/bun/instrumentation-operations.test.ts */
-
-/**
- * Tests for OpenTelemetry instrumentation operations.
- * These tests cover the initialization, shutdown, and export
- * stat tracking for the telemetry instrumentation module.
- */
+// test/bun/telemetry/instrumentation-operations.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

@@ -1,4 +1,4 @@
-/* src/services/kong.service.ts */
+// src/services/kong.service.ts
 
 export type { IAPIGatewayAdapter } from "../adapters/api-gateway-adapter.interface";
 export { KongAdapter } from "../adapters/kong.adapter";

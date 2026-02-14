@@ -1,15 +1,4 @@
-/* test/integration/redis-cache.integration.test.ts */
-
-/**
- * Integration tests for Redis cache with real Redis instance.
- * Tests SharedRedisCache and SharedRedisBackend functionality.
- *
- * Prerequisites:
- * - Redis must be running (docker compose up or local instance)
- * - REDIS_URL environment variable should point to the Redis instance
- *
- * Run: bun test test/integration/redis-cache.integration.test.ts
- */
+// test/integration/redis-cache.integration.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SharedRedisBackend } from "../../src/cache/backends/shared-redis-backend";
@@ -22,16 +11,12 @@ import {
   TEST_CONSUMERS,
 } from "./setup";
 
-// Connection timeout for Redis operations (3 seconds)
 const CONNECTION_TIMEOUT_MS = 3000;
 
 let redisAvailable = false;
 let redisCache: SharedRedisCache | null = null;
 let redisBackend: SharedRedisBackend | null = null;
 
-/**
- * Wrap a promise with a timeout to prevent hanging
- */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
   return Promise.race([
     promise,
@@ -41,9 +26,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: strin
   ]);
 }
 
-/**
- * Safely disconnect a cache instance with timeout
- */
 async function safeDisconnect(
   instance: SharedRedisCache | SharedRedisBackend | null,
   name: string
@@ -52,12 +34,10 @@ async function safeDisconnect(
   try {
     await withTimeout(instance.disconnect(), CONNECTION_TIMEOUT_MS, `${name}.disconnect`);
   } catch (error) {
-    // Log but don't throw - we're in cleanup
     console.warn(`Warning: ${name} disconnect failed:`, error);
   }
 }
 
-// Helper to check if Redis is available
 async function isRedisAvailable(): Promise<boolean> {
   try {
     const { RedisClient } = await import("bun");
@@ -73,7 +53,6 @@ async function isRedisAvailable(): Promise<boolean> {
   }
 }
 
-// Create mock consumer secret for testing
 function createMockConsumerSecret(consumerId: string, index: number): ConsumerSecret {
   return {
     id: `jwt-cred-${index}`,
@@ -87,7 +66,6 @@ function createMockConsumerSecret(consumerId: string, index: number): ConsumerSe
 }
 
 beforeAll(async () => {
-  // Enable fetch polyfill with curl fallback for Bun networking issues
   enableFetchPolyfill();
 
   redisAvailable = await isRedisAvailable();
@@ -96,8 +74,7 @@ beforeAll(async () => {
   }
 
   try {
-    // Use a unique database (10) to avoid cache pollution during parallel test execution
-    // Database 0 is used by other tests, so we use a different database for isolation
+    // Use database 10 to avoid cache pollution during parallel test execution
     redisCache = new SharedRedisCache({
       url: INTEGRATION_CONFIG.REDIS_URL,
       password: process.env.REDIS_PASSWORD || undefined,
@@ -107,7 +84,6 @@ beforeAll(async () => {
     });
     await withTimeout(redisCache.connect(), CONNECTION_TIMEOUT_MS, "SharedRedisCache.connect");
 
-    // Initialize SharedRedisBackend with timeout using same database (10) for isolation
     redisBackend = new SharedRedisBackend({
       url: INTEGRATION_CONFIG.REDIS_URL,
       password: process.env.REDIS_PASSWORD || undefined,
@@ -119,7 +95,6 @@ beforeAll(async () => {
   } catch (error) {
     console.error("Failed to initialize Redis connections:", error);
     redisAvailable = false;
-    // Clean up any partial connections
     await safeDisconnect(redisCache, "redisCache");
     await safeDisconnect(redisBackend, "redisBackend");
     redisCache = null;
@@ -130,7 +105,6 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!redisAvailable || !redisCache) return;
 
-  // Clean up test data with timeouts - don't let cleanup hang
   try {
     await withTimeout(redisCache.clear(), CONNECTION_TIMEOUT_MS, "redisCache.clear");
   } catch {
@@ -143,11 +117,9 @@ afterAll(async () => {
     // Ignore cleanup errors
   }
 
-  // Disconnect with safety wrapper
   await safeDisconnect(redisCache, "redisCache");
   await safeDisconnect(redisBackend, "redisBackend");
 
-  // Restore original fetch
   disableFetchPolyfill();
 });
 
@@ -159,8 +131,6 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Connection was already made in beforeAll
-      // Verify we can perform operations
       const stats = await redisCache.getStats();
       expect(stats.redisConnected).toBe(true);
     });
@@ -202,7 +172,6 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Set multiple values
       for (let i = 0; i < TEST_CONSUMERS.length; i++) {
         const consumer = TEST_CONSUMERS[i];
         const cacheKey = `consumer_secret:${consumer.id}`;
@@ -210,7 +179,6 @@ describe("SharedRedisCache Integration", () => {
         await redisCache.set(cacheKey, secret);
       }
 
-      // Verify all values
       for (const consumer of TEST_CONSUMERS) {
         const cacheKey = `consumer_secret:${consumer.id}`;
         const retrieved = await redisCache.get<ConsumerSecret>(cacheKey);
@@ -229,16 +197,12 @@ describe("SharedRedisCache Integration", () => {
       const consumer1 = TEST_CONSUMERS[0];
       const consumer2 = TEST_CONSUMERS[1];
 
-      // Try to cache a secret with mismatched consumer ID in the key
       const mismatchedSecret = createMockConsumerSecret(consumer2.id, 99);
-      const wrongKey = `consumer_secret:${consumer1.id}`; // Key says consumer1
+      const wrongKey = `consumer_secret:${consumer1.id}`;
 
-      // This should NOT cache due to mismatch protection
       await redisCache.set(wrongKey, mismatchedSecret);
 
-      // The mismatched data should not have been cached
       const retrieved = await redisCache.get<ConsumerSecret>(wrongKey);
-      // If protection works, either null or the correct consumer ID
       if (retrieved !== null) {
         expect(retrieved.consumer?.id).toBe(consumer1.id);
       }
@@ -256,11 +220,9 @@ describe("SharedRedisCache Integration", () => {
       const cacheKey = `consumer_secret:${consumer.id}`;
       const secret = createMockConsumerSecret(consumer.id, 2);
 
-      // Set then delete
       await redisCache.set(cacheKey, secret);
       await redisCache.delete(cacheKey);
 
-      // Should be gone
       const retrieved = await redisCache.get(cacheKey);
       expect(retrieved).toBeNull();
     });
@@ -273,7 +235,6 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Set multiple values
       for (let i = 0; i < 3; i++) {
         const consumer = TEST_CONSUMERS[i];
         const cacheKey = `consumer_secret:${consumer.id}`;
@@ -281,10 +242,8 @@ describe("SharedRedisCache Integration", () => {
         await redisCache.set(cacheKey, secret);
       }
 
-      // Clear all
       await redisCache.clear();
 
-      // All should be gone
       const stats = await redisCache.getStats();
       expect(stats.size).toBe(0);
     });
@@ -297,7 +256,6 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Clear and populate with known data
       await redisCache.clear();
 
       const consumer = TEST_CONSUMERS[0];
@@ -321,10 +279,9 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Create fresh cache for clean hit tracking
       const freshCache = new SharedRedisCache({
         url: INTEGRATION_CONFIG.REDIS_URL,
-        db: 1, // Use different DB to avoid interference
+        db: 1,
         ttlSeconds: 300,
       });
 
@@ -335,25 +292,19 @@ describe("SharedRedisCache Integration", () => {
         const cacheKey = `consumer_secret:${consumer.id}`;
         const secret = createMockConsumerSecret(consumer.id, 1);
 
-        // Miss
         await freshCache.get(cacheKey);
-
-        // Set
         await freshCache.set(cacheKey, secret);
-
-        // Hit
         await freshCache.get(cacheKey);
         await freshCache.get(cacheKey);
 
         const stats = await freshCache.getStats();
 
-        // Hit rate should be positive (2 hits out of 3 gets = 66.67%)
         expect(Number.parseFloat(stats.hitRate)).toBeGreaterThan(0);
       } finally {
         try {
           await withTimeout(freshCache.clear(), CONNECTION_TIMEOUT_MS, "freshCache.clear");
         } catch {
-          // Ignore
+          // Ignore cleanup errors
         }
         await safeDisconnect(freshCache, "freshCache");
       }
@@ -395,17 +346,13 @@ describe("SharedRedisCache Integration", () => {
         return;
       }
 
-      // Set stale data
       const consumer = TEST_CONSUMERS[0];
       const cacheKey = `consumer_secret:${consumer.id}`;
       const secret = createMockConsumerSecret(consumer.id, 1);
 
       await redisCache.setStale(cacheKey, secret);
-
-      // Clear stale
       await redisCache.clearStale();
 
-      // Should be gone
       const retrieved = await redisCache.getStale(cacheKey);
       expect(retrieved).toBeNull();
     });
@@ -425,10 +372,8 @@ describe("SharedRedisCache Integration", () => {
       const cacheKey = `consumer_secret:${consumer.id}`;
       const secret = createMockConsumerSecret(consumer.id, 1);
 
-      // Set should populate both caches
       await redisCache.set(cacheKey, secret);
 
-      // Both should have the data
       const primary = await redisCache.get<ConsumerSecret>(cacheKey);
       const stale = await redisCache.getStale(cacheKey);
 
@@ -493,7 +438,6 @@ describe("SharedRedisBackend Integration", () => {
         return;
       }
 
-      // Set some values
       for (let i = 0; i < 3; i++) {
         const consumer = TEST_CONSUMERS[i];
         const cacheKey = `backend_test:${consumer.id}`;
@@ -546,10 +490,8 @@ describe("SharedRedisBackend Integration", () => {
       const cacheKey = `backend_stale_test:${consumer.id}`;
       const secret = createMockConsumerSecret(consumer.id, 1);
 
-      // Set via cache (which populates stale)
       await redisCache.set(cacheKey, secret);
 
-      // Get stale via backend
       const stale = await redisBackend.getStale<ConsumerSecret>(cacheKey);
       expect(stale).not.toBeNull();
       expect(stale?.key).toBe(secret.key);
@@ -597,7 +539,6 @@ describe("Redis Cache Performance", () => {
 
     console.log(`Redis GET latency - Avg: ${avgLatency.toFixed(2)}ms, P99: ${p99.toFixed(2)}ms`);
 
-    // Should be very fast (< 10ms on average)
     expect(avgLatency).toBeLessThan(50);
     expect(p99).toBeLessThan(100);
   });
@@ -608,7 +549,6 @@ describe("Redis Cache Performance", () => {
       return;
     }
 
-    // Concurrent sets
     const setPromises = TEST_CONSUMERS.map((consumer, i) => {
       const cacheKey = `concurrent_test:${consumer.id}`;
       const secret = createMockConsumerSecret(consumer.id, i);
@@ -616,14 +556,12 @@ describe("Redis Cache Performance", () => {
     });
     await Promise.all(setPromises);
 
-    // Concurrent gets
     const getPromises = TEST_CONSUMERS.map((consumer) => {
       const cacheKey = `concurrent_test:${consumer.id}`;
       return redisCache!.get<ConsumerSecret>(cacheKey);
     });
     const results = await Promise.all(getPromises);
 
-    // All should succeed
     for (let i = 0; i < results.length; i++) {
       expect(results[i]).not.toBeNull();
       expect(results[i]?.consumer?.id).toBe(TEST_CONSUMERS[i].id);

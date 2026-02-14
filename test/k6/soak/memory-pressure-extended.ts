@@ -1,6 +1,4 @@
-/* test/k6/soak/memory-monitoring-soak.ts */
-
-// K6 soak test for enhanced memory monitoring endpoints
+// test/k6/soak/memory-pressure-extended.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

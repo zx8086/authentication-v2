@@ -1,9 +1,4 @@
-/* test/bun/adapters/kong-utils-mutation-killers.test.ts */
-
-/**
- * Targeted tests to kill surviving mutants in kong-utils.ts
- * Tests the actual KongApiError implementation
- */
+// test/bun/adapters/kong-utils-mutation-killers.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { KongApiError } from "../../../src/adapters/kong-utils";

@@ -1,4 +1,4 @@
-/* src/handlers/tokens.ts */
+// src/handlers/tokens.ts
 
 import { loadConfig } from "../config/index";
 import { ErrorCodes } from "../errors/error-codes";
@@ -29,7 +29,6 @@ import {
 
 const config = loadConfig();
 
-// Simple URL parsing cache for performance optimization
 class RequestContext {
   private _url: URL | null = null;
   private _pathname: string | null = null;
@@ -65,7 +64,6 @@ interface HeaderValidationError {
   errorCode: ErrorCode;
 }
 
-// Maximum allowed header length to prevent injection attacks
 const MAX_HEADER_LENGTH = 256;
 
 function validateKongHeaders(req: Request): HeaderValidationSuccess | HeaderValidationError {
@@ -80,7 +78,6 @@ function validateKongHeaders(req: Request): HeaderValidationSuccess | HeaderVali
     };
   }
 
-  // Validate header length to prevent injection attacks
   if (consumerId.length > MAX_HEADER_LENGTH || username.length > MAX_HEADER_LENGTH) {
     return {
       error: "Header value exceeds maximum allowed length",
@@ -170,7 +167,6 @@ export async function handleTokenRequest(
 
     const headerValidation = validateKongHeaders(req);
 
-    // Extract consumer ID for volume tracking
     const consumerId = req.headers.get(config.kong.consumerIdHeader);
 
     if ("error" in headerValidation) {
@@ -186,7 +182,6 @@ export async function handleTokenRequest(
         },
       });
 
-      // Record consumer error metrics if consumer ID available
       if (consumerId) {
         const volume = getVolumeBucket(consumerId);
         recordConsumerError(volume);
@@ -215,7 +210,6 @@ export async function handleTokenRequest(
     try {
       const { consumerId, username } = headerValidation;
 
-      // Track consumer request and get volume bucket
       incrementConsumerRequest(consumerId);
       const volume = getVolumeBucket(consumerId);
       recordConsumerRequest(volume);
@@ -234,7 +228,6 @@ export async function handleTokenRequest(
           errorCode: ErrorCodes.AUTH_004,
         });
 
-        // Record consumer error metrics
         recordConsumerError(volume);
         recordConsumerLatency(volume, duration);
 
@@ -279,7 +272,6 @@ export async function handleTokenRequest(
           errorCode: ErrorCodes.AUTH_002,
         });
 
-        // Record consumer error metrics
         recordConsumerError(volume);
         recordConsumerLatency(volume, duration);
 
@@ -310,7 +302,6 @@ export async function handleTokenRequest(
         );
       }
 
-      // Use original username for JWT claims
       const effectiveUsername = username;
 
       const tokenData = await generateJWTToken(
@@ -322,10 +313,8 @@ export async function handleTokenRequest(
       const duration = calculateDuration(startTime);
       recordAuthenticationAttempt("success", true, username);
 
-      // Record successful consumer metrics
       recordConsumerLatency(volume, duration);
 
-      // Record latency for SLA monitoring
       const slaMonitor = getSlaMonitor();
       await slaMonitor.recordLatency("/tokens", duration);
 
@@ -351,7 +340,6 @@ export async function handleTokenRequest(
       recordAuthenticationAttempt("exception", false, headerValidation.username);
       recordException(err as Error);
 
-      // Record consumer error metrics for exceptions
       if (consumerId) {
         const volume = getVolumeBucket(consumerId);
         recordConsumerError(volume);
@@ -403,7 +391,6 @@ export async function handleTokenValidation(
   const startTime = Bun.nanoseconds();
 
   return telemetryTracer.createHttpSpan(req.method, "/tokens/validate", 200, async () => {
-    // Extract token from Authorization header
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -442,7 +429,6 @@ export async function handleTokenValidation(
       );
     }
 
-    // Validate Kong headers for consumer identification
     const headerValidation = validateKongHeaders(req);
 
     if ("error" in headerValidation) {
@@ -465,7 +451,6 @@ export async function handleTokenValidation(
     const { consumerId, username } = headerValidation;
 
     try {
-      // Get consumer secret to validate signature
       const secretResult = await lookupConsumerSecret(consumerId, username, kongService);
 
       if (!secretResult) {
@@ -486,12 +471,10 @@ export async function handleTokenValidation(
         );
       }
 
-      // Validate the token
       const validationResult = await NativeBunJWT.validateToken(token, secretResult.secret);
       const duration = calculateDuration(startTime);
 
       if (validationResult.valid && validationResult.payload) {
-        // Record latency for SLA monitoring
         const slaMonitor = getSlaMonitor();
         await slaMonitor.recordLatency("/tokens/validate", duration);
 
@@ -518,7 +501,6 @@ export async function handleTokenValidation(
         );
       }
 
-      // Token is invalid
       const errorCode = validationResult.expired ? ErrorCodes.AUTH_010 : ErrorCodes.AUTH_011;
       log("Token validation failed", {
         consumerId,

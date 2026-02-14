@@ -25,15 +25,11 @@ export class ProfileRunner {
   private serverPid?: number;
 
   constructor(private options: ProfileRunnerOptions) {
-    // Ensure output directory exists
     if (!existsSync(this.options.outputDir)) {
       mkdirSync(this.options.outputDir, { recursive: true });
     }
   }
 
-  /**
-   * Start server with profiling flags enabled
-   */
   async startServer(): Promise<void> {
     const args: string[] = [];
 
@@ -68,9 +64,6 @@ export class ProfileRunner {
     await this.waitForServerReady();
   }
 
-  /**
-   * Wait for server to be ready (health check)
-   */
   private async waitForServerReady(maxAttempts = 30, intervalMs = 1000): Promise<void> {
     console.log("Waiting for server to be ready...");
 
@@ -91,9 +84,6 @@ export class ProfileRunner {
     throw new Error("Server failed to start within timeout period");
   }
 
-  /**
-   * Stop server gracefully to trigger profile generation
-   */
   async stopServer(): Promise<void> {
     if (!this.server || !this.serverPid) {
       throw new Error("Server not running");
@@ -111,9 +101,6 @@ export class ProfileRunner {
     console.log("Server stopped successfully");
   }
 
-  /**
-   * Find generated profile files
-   */
   async findProfileFiles(): Promise<{
     cpuProfile?: string;
     heapProfile?: string;
@@ -144,9 +131,6 @@ export class ProfileRunner {
     }
   }
 
-  /**
-   * Run complete profiling session
-   */
   async run(): Promise<ProfileResult> {
     const startTime = Date.now();
 
@@ -182,9 +166,6 @@ export class ProfileRunner {
     }
   }
 
-  /**
-   * Cleanup resources
-   */
   async cleanup(): Promise<void> {
     if (this.server && this.serverPid) {
       try {

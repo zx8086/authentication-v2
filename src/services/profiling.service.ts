@@ -1,4 +1,4 @@
-/* src/services/profiling.service.ts */
+// src/services/profiling.service.ts
 
 // Stryker disable all: Profiling service is a development tool with V8 inspector integration.
 // Tested via manual profiling sessions and E2E tests, not unit tests.
@@ -39,10 +39,8 @@ class ProfilingService {
   }
 
   private isProfilingEnabled(): boolean {
-    // Check if profiling is explicitly enabled via config
     const configEnabled = this.profilingConfig.enabled;
 
-    // In production, require explicit configuration to enable profiling
     if (this.serverConfig.nodeEnv === "production") {
       if (configEnabled) {
         log("Profiling enabled in production via explicit configuration", {
@@ -61,8 +59,7 @@ class ProfilingService {
       return configEnabled;
     }
 
-    // In non-production environments, default to enabled if not explicitly configured
-    return configEnabled !== false; // true if enabled=true or undefined, false only if explicitly false
+    return configEnabled !== false;
   }
 
   private generateSessionId(): string {
@@ -87,7 +84,6 @@ class ProfilingService {
       return null;
     }
 
-    // Check for existing running sessions - only allow one at a time
     const runningSessions = Array.from(this.sessions.values()).filter(
       (session) => session.status === "running"
     );
@@ -183,7 +179,6 @@ class ProfilingService {
     }
 
     try {
-      // Stop all running sessions when no specific sessionId provided
       const runningSessions = Array.from(this.sessions.values()).filter(
         (session) => session.status === "running"
       );

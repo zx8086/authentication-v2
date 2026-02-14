@@ -1,8 +1,4 @@
-/* test/bun/local-memory-cache-maxentries.test.ts */
-
-/**
- * Tests for LocalMemoryCache max entries enforcement
- */
+// test/bun/cache/local-memory-cache-maxentries.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { LocalMemoryCache } from "../../../src/services/cache/local-memory-cache";

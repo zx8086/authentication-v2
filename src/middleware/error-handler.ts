@@ -1,4 +1,4 @@
-/* src/middleware/error-handler.ts */
+// src/middleware/error-handler.ts
 
 // Stryker disable all: Error handling middleware with logging.
 // Tested via E2E tests for 404/500 responses.

@@ -1,10 +1,4 @@
-/* test/bun/config-getters.test.ts */
-
-/**
- * Mutation-resistant tests for config getter functions.
- * These tests verify that getter functions return the correct config sections,
- * catching Stryker mutations that might change return values or property access.
- */
+// test/bun/config/config-getters.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

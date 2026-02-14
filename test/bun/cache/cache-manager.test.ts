@@ -1,9 +1,4 @@
-/* test/bun/cache-manager.test.ts */
-
-/**
- * Unit tests for UnifiedCacheManager
- * Tests the unified cache manager that supports both local memory and Redis backends
- */
+// test/bun/cache/cache-manager.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { UnifiedCacheManager } from "../../../src/cache/cache-manager";

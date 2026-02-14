@@ -1,5 +1,4 @@
-/* src/cache/backends/local-memory-backend.ts */
-
+// src/cache/backends/local-memory-backend.ts
 import type { KongCacheStats } from "../../config/schemas";
 import { LocalMemoryCache } from "../../services/cache/local-memory-cache";
 import type { CacheStrategy, ICacheBackend } from "../cache.interface";

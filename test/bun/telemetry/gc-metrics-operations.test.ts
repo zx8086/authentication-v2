@@ -1,10 +1,4 @@
-/* test/bun/gc-metrics-operations.test.ts */
-
-/**
- * Tests for GC metrics collection and callbacks.
- * These tests cover the garbage collection metrics functionality
- * including forceGC, initialization, shutdown, and state management.
- */
+// test/bun/telemetry/gc-metrics-operations.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

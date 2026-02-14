@@ -1,12 +1,4 @@
-/* test/bun/tokens-handler.test.ts */
-
-/**
- * Tests for token request and validation handlers.
- *
- * Uses real Kong integration when available for happy path tests.
- * Tests skip gracefully when Kong is not accessible.
- * Uses test consumers seeded via scripts/seed-test-consumers.ts
- */
+// test/bun/handlers/tokens-handler.test.ts
 
 import { afterAll, beforeAll, describe, expect, it, test } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";

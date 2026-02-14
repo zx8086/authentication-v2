@@ -1,13 +1,4 @@
-/* test/bun/kong.adapter.test.ts */
-
-/**
- * Unit tests for KongAdapter
- * Tests the unified adapter for Kong API Gateway and Kong Konnect
- *
- * Note: These tests use real Kong integration when available.
- * Tests skip gracefully when Kong is not accessible.
- * Uses test consumers seeded via scripts/seed-test-consumers.ts
- */
+// test/bun/kong/kong.adapter.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { KongAdapter } from "../../../src/adapters/kong.adapter";

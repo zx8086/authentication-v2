@@ -1,6 +1,4 @@
-/* test/k6/smoke/health-only-smoke.ts */
-
-// K6 smoke test for health endpoint only - tests /health endpoint with OTLP connectivity checks
+// test/k6/smoke/health-only-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

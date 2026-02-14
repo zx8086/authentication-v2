@@ -1,18 +1,4 @@
-/* test/bun/response.mutation.test.ts */
-
-/**
- * Mutation-killing tests for response.ts
- *
- * These tests specifically target ObjectLiteral mutations that change:
- * - new Response(data, { status: X, headers }) -> new Response(data, {})
- * - Header object mutations
- * - Spread operator mutations
- *
- * Key assertion patterns:
- * - Always verify response.status explicitly (kills status mutations)
- * - Always verify response.headers has specific values (kills headers mutations)
- * - Verify object property count (kills spread operator mutations)
- */
+// test/bun/utils/response.mutation.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { resetConfigCache } from "../../../src/config/config";

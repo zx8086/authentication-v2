@@ -1,9 +1,7 @@
-/* src/openapi/schemas/security-schemas.ts */
+// src/openapi/schemas/security-schemas.ts
 
-/**
- * Security scheme definitions for OpenAPI specification.
- * Includes RFC 8594 Sunset header documentation for API deprecation.
- */
+// Security scheme definitions for OpenAPI specification.
+// Includes RFC 8594 Sunset header documentation for API deprecation.
 
 export function createSecuritySchemes(): any {
   return Object.freeze({
@@ -52,10 +50,8 @@ export function createCommonParameters(): any {
   });
 }
 
-/**
- * Create RFC 8594 deprecation response headers documentation.
- * @see https://www.rfc-editor.org/rfc/rfc8594
- */
+// Create RFC 8594 deprecation response headers documentation.
+// @see https://www.rfc-editor.org/rfc/rfc8594
 export function createDeprecationHeaders(): any {
   return Object.freeze({
     Sunset: Object.freeze({

@@ -1,17 +1,5 @@
 #!/usr/bin/env bun
-/* scripts/seed-test-consumers.ts */
-
-/**
- * Seeds Kong with test consumers and JWT credentials for integration testing.
- * Uses the exact consumer definitions from test/shared/test-consumers.ts to ensure
- * consistency between unit tests, E2E tests, and integration tests.
- *
- * Usage:
- *   KONG_ADMIN_URL=http://localhost:8101 bun scripts/seed-test-consumers.ts
- *
- * Environment Variables:
- *   KONG_ADMIN_URL - Kong Admin API URL (default: http://localhost:8101)
- */
+// scripts/seed-test-consumers.ts
 
 import {
   ANONYMOUS_CONSUMER,

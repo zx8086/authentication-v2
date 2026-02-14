@@ -1,4 +1,4 @@
-/* test/shared/test-consumers.ts */
+// test/shared/test-consumers.ts
 
 export interface TestConsumer {
   id: string;

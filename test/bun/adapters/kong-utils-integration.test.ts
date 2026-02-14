@@ -1,8 +1,4 @@
-/* test/bun/adapters/kong-utils-integration.test.ts */
-
-/**
- * Integration tests that execute actual kong-utils code
- */
+// test/bun/adapters/kong-utils-integration.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { KongApiError } from "../../../src/adapters/kong-utils";

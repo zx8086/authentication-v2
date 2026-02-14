@@ -1,17 +1,4 @@
-/* test/playwright/ci-safe.e2e.ts */
-
-/**
- * CI-Safe E2E Tests
- *
- * These tests are designed to run in CI environments where external dependencies
- * (Kong, Redis, telemetry collectors) may not be available. The service will report
- * as "degraded" (503) when dependencies are unavailable, which is expected behavior.
- *
- * Tests validate:
- * - Service is running and responding
- * - API contracts are correct
- * - Error handling works properly
- */
+// test/playwright/ci-safe.e2e.ts
 
 import { expect, test } from "@playwright/test";
 

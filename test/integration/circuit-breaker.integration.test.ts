@@ -1,12 +1,4 @@
-/* test/integration/circuit-breaker.integration.test.ts */
-
-/**
- * Integration tests for circuit breaker behavior with real Kong API.
- * Tests circuit breaker state transitions, timeout handling, and recovery.
- *
- * Run: docker compose -f docker-compose.test.yml up -d
- * Then: bun test test/integration/circuit-breaker.integration.test.ts
- */
+// test/integration/circuit-breaker.integration.test.ts
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
@@ -19,12 +11,8 @@ import {
   waitForKong,
 } from "./setup";
 
-// Timeout for fetch operations to prevent hanging during parallel test execution
 const FETCH_TIMEOUT_MS = 5000;
 
-/**
- * Wrap a fetch call with a timeout to prevent hanging
- */
 function fetchWithTimeout(
   url: string | Request,
   options: RequestInit & { timeout?: number } = {}
@@ -39,12 +27,10 @@ function fetchWithTimeout(
   ]);
 }
 
-// Skip all tests if integration environment is not available
 let integrationAvailable = false;
 let authServiceAvailable = false;
 
 beforeAll(async () => {
-  // Enable fetch polyfill with curl fallback for Bun networking issues
   enableFetchPolyfill();
 
   integrationAvailable = await isIntegrationEnvironmentAvailable();
@@ -52,7 +38,6 @@ beforeAll(async () => {
     return;
   }
 
-  // Wait for Kong to be fully ready
   const kongReady = await waitForKong(10, 1000);
   if (!kongReady) {
     console.log("Kong did not become ready in time");
@@ -60,7 +45,6 @@ beforeAll(async () => {
     return;
   }
 
-  // Check if auth service is running (quick check - 2 retries, 500ms each)
   authServiceAvailable = await waitForAuthService(2, 500);
   if (!authServiceAvailable) {
     console.log("Auth service not running. Some tests will be skipped. Start with: bun run dev");
@@ -79,7 +63,6 @@ describe("Circuit Breaker - Kong API Connectivity", () => {
     const duration = Date.now() - startTime;
 
     expect(response.ok).toBe(true);
-    // Response should be fast when Kong is healthy
     expect(duration).toBeLessThan(1000);
   });
 
@@ -112,7 +95,6 @@ describe("Circuit Breaker - Kong API Connectivity", () => {
       results.push(response.ok);
     }
 
-    // All requests should succeed
     expect(results.every((r) => r)).toBe(true);
   });
 });
@@ -135,9 +117,8 @@ describe("Circuit Breaker - Consumer Lookup Performance", () => {
       expect(response.ok).toBe(true);
     }
 
-    // Average should be reasonable
     const avgTime = timings.reduce((a, b) => a + b, 0) / timings.length;
-    expect(avgTime).toBeLessThan(500); // Less than 500ms average
+    expect(avgTime).toBeLessThan(500);
   });
 
   it("should efficiently lookup JWT credentials", async () => {
@@ -159,7 +140,6 @@ describe("Circuit Breaker - Consumer Lookup Performance", () => {
       expect(response.ok).toBe(true);
     }
 
-    // Average should be reasonable
     const avgTime = timings.reduce((a, b) => a + b, 0) / timings.length;
     expect(avgTime).toBeLessThan(500);
   });
@@ -177,7 +157,6 @@ describe("Circuit Breaker - Error Handling", () => {
     );
 
     expect(response.status).toBe(404);
-    // Should not throw, circuit breaker should not trip on 404s
   });
 
   it("should handle invalid endpoint gracefully", async () => {
@@ -188,7 +167,6 @@ describe("Circuit Breaker - Error Handling", () => {
 
     const response = await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/invalid-endpoint-xyz`);
 
-    // Kong returns 404 for invalid endpoints
     expect(response.status).toBe(404);
   });
 
@@ -198,15 +176,13 @@ describe("Circuit Breaker - Error Handling", () => {
       return;
     }
 
-    // Test with various malformed IDs
     const malformedIds = ["not-a-uuid", "12345", "", "spaces in id", "special!@#$%chars"];
 
     for (const id of malformedIds) {
-      if (id === "") continue; // Skip empty string
+      if (id === "") continue;
       const response = await fetch(
         `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${encodeURIComponent(id)}`
       );
-      // Should return 404 or 400, not 500
       expect(response.status).toBeLessThan(500);
     }
   });
@@ -219,7 +195,6 @@ describe("Circuit Breaker - Timeout Behavior", () => {
       return;
     }
 
-    // Test with a short timeout - normal requests should complete
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -231,7 +206,6 @@ describe("Circuit Breaker - Timeout Behavior", () => {
       expect(response.ok).toBe(true);
     } catch (error) {
       clearTimeout(timeoutId);
-      // If it times out, that's a problem
       throw error;
     }
   });
@@ -242,7 +216,6 @@ describe("Circuit Breaker - Timeout Behavior", () => {
       return;
     }
 
-    // Test with an extremely short timeout - should abort
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1);
 
@@ -251,13 +224,10 @@ describe("Circuit Breaker - Timeout Behavior", () => {
         signal: controller.signal,
       });
     } catch {
-      // May be AbortError or network error - both are acceptable
+      // Expected: timeout aborts request
     } finally {
       clearTimeout(timeoutId);
     }
-
-    // May or may not abort depending on network speed, so we don't assert
-    // Just ensure it doesn't hang
   });
 });
 
@@ -276,7 +246,6 @@ describe("Circuit Breaker - Auth Service Integration", () => {
       },
     });
 
-    // Should get a successful response
     expect(response.ok).toBe(true);
 
     const data = await response.json();
@@ -291,7 +260,6 @@ describe("Circuit Breaker - Auth Service Integration", () => {
 
     const response = await fetchWithTimeout(`${INTEGRATION_CONFIG.AUTH_SERVICE_URL}/tokens`);
 
-    // Should get 401 for missing headers
     expect(response.status).toBe(401);
   });
 
@@ -330,7 +298,6 @@ describe("Circuit Breaker - Auth Service Integration", () => {
       expect(response.ok).toBe(true);
     }
 
-    // Average should be reasonable (< 200ms for token generation)
     const avgTime = timings.reduce((a, b) => a + b, 0) / timings.length;
     expect(avgTime).toBeLessThan(500);
   });
@@ -343,26 +310,22 @@ describe("Circuit Breaker - Recovery Testing", () => {
       return;
     }
 
-    // First verify Kong is up
     const response1 = await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`);
     expect(response1.ok).toBe(true);
 
-    // Simulate brief network issue (connect to wrong port)
     try {
       await fetch("http://localhost:8199/status", {
         signal: AbortSignal.timeout(100),
       });
     } catch {
-      // Expected to fail
+      // Expected: invalid URL fails
     }
 
-    // Kong should still be accessible
     const response2 = await fetch(`${INTEGRATION_CONFIG.KONG_ADMIN_URL}/status`);
     expect(response2.ok).toBe(true);
   });
 });
 
 afterAll(() => {
-  // Restore original fetch
   disableFetchPolyfill();
 });

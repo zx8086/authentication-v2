@@ -1,6 +1,4 @@
-/* test/k6/utils/metrics.ts */
-
-// Custom metrics and business KPIs for authentication service testing
+// test/k6/utils/metrics.ts
 
 import { Counter, Gauge, Rate, Trend } from "k6/metrics";
 

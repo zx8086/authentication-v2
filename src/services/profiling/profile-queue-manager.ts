@@ -1,4 +1,4 @@
-/* src/services/profiling/profile-queue-manager.ts */
+// src/services/profiling/profile-queue-manager.ts
 
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";

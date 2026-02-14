@@ -1,8 +1,6 @@
-/* src/openapi/schemas/error-schemas.ts */
+// src/openapi/schemas/error-schemas.ts
 
-/**
- * RFC 7807 Problem Details error schemas for OpenAPI specification.
- */
+// RFC 7807 Problem Details error schemas for OpenAPI specification.
 
 export function createDebugResponseSchema(): any {
   return Object.freeze({

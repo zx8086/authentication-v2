@@ -1,4 +1,4 @@
-/* test/playwright/profiling.e2e.ts */
+// test/playwright/profiling.e2e.ts
 
 import { expect, test } from "@playwright/test";
 

@@ -1,9 +1,7 @@
-/* src/telemetry/consumer-volume.ts */
+// src/telemetry/consumer-volume.ts
 
-// 3-bucket classification: high (>5K/hr), medium (100-5K/hr), low (<100/hr)
 const consumerRequestCounts = new Map<string, number>();
 
-// Store interval ID for cleanup on shutdown
 let consumerVolumeIntervalId: ReturnType<typeof setInterval> | null = null;
 
 export function incrementConsumerRequest(consumerId: string): void {
@@ -49,16 +47,11 @@ export function getConsumerVolumeStats(): {
   };
 }
 
-// Reset counts hourly to maintain hourly classification
 const HOUR_IN_MS = 60 * 60 * 1000;
 consumerVolumeIntervalId = setInterval(() => {
   consumerRequestCounts.clear();
 }, HOUR_IN_MS);
 
-/**
- * Shutdown consumer volume tracking - clears interval to prevent memory leaks.
- * Called during graceful shutdown.
- */
 export function shutdownConsumerVolume(): void {
   if (consumerVolumeIntervalId) {
     clearInterval(consumerVolumeIntervalId);

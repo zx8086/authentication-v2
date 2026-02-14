@@ -1,4 +1,4 @@
-/* src/adapters/kong.adapter.ts */
+// src/adapters/kong.adapter.ts
 
 import type {
   ConsumerResponse,

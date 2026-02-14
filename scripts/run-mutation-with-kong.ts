@@ -1,18 +1,5 @@
 #!/usr/bin/env bun
-/* scripts/run-mutation-with-kong.ts */
-
-/**
- * Mutation Testing with Docker Kong
- *
- * This script starts Docker Kong, seeds test consumers, runs mutation tests,
- * and cleans up after. This enables integration tests to actually run during
- * mutation testing, significantly improving mutation kill rate.
- *
- * Usage:
- *   bun scripts/run-mutation-with-kong.ts
- *   bun scripts/run-mutation-with-kong.ts --keep-running  # Don't stop Kong after tests
- *   bun scripts/run-mutation-with-kong.ts --fresh         # Remove incremental cache
- */
+// scripts/run-mutation-with-kong.ts
 
 import { spawn, spawnSync } from "bun";
 

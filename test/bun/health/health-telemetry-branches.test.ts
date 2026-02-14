@@ -1,12 +1,4 @@
-/* test/bun/health-telemetry-branches.test.ts */
-
-/**
- * Tests for health handler telemetry branches and HA mode behavior using LIVE Kong.
- * These tests cover code paths that require specific configurations:
- * - High Availability mode stale cache checks
- * - Telemetry endpoint health checks
- * - Cache health error paths
- */
+// test/bun/health/health-telemetry-branches.test.ts
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";

@@ -1,4 +1,4 @@
-/* src/telemetry/gc-metrics.ts */
+// src/telemetry/gc-metrics.ts
 
 import * as v8 from "node:v8";
 import { log, warn } from "../utils/logger";

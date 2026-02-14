@@ -1,8 +1,4 @@
-/* test/bun/cache-factory-errors.test.ts */
-
-/**
- * Tests for CacheFactory error scenarios and edge cases to improve coverage
- */
+// test/bun/cache/cache-factory-errors.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { resetConfigCache } from "../../../src/config/config";

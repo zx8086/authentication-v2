@@ -1,12 +1,4 @@
-/* test/bun/metrics-attributes.test.ts */
-
-/**
- * Mutation-resistant tests for metrics recording functions.
- * These tests verify that:
- * - Correct attribute values are used (catches string literal mutations)
- * - Correct numeric values are recorded (catches arithmetic mutations)
- * - Initialization state is properly checked (catches boolean mutations)
- */
+// test/bun/telemetry/metrics-attributes.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";

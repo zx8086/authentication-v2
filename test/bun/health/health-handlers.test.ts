@@ -1,11 +1,4 @@
-/* test/bun/health-handlers.test.ts */
-
-/**
- * Tests for health check handlers.
- *
- * Uses real Kong integration when available.
- * Tests skip gracefully when Kong is not accessible.
- */
+// test/bun/health/health-handlers.test.ts
 
 import { afterAll, beforeAll, describe, expect, it, test } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";

@@ -1,4 +1,4 @@
-/* src/telemetry/profiling-metrics.ts */
+// src/telemetry/profiling-metrics.ts
 
 import { metrics } from "@opentelemetry/api";
 

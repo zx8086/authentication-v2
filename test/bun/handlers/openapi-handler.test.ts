@@ -1,9 +1,4 @@
-/* test/bun/openapi-handler.test.ts */
-
-/**
- * Unit tests for OpenAPI handler
- * Tests the OpenAPI spec generation and format handling
- */
+// test/bun/handlers/openapi-handler.test.ts
 
 import { describe, expect, it } from "bun:test";
 import { handleOpenAPISpec } from "../../../src/handlers/openapi";

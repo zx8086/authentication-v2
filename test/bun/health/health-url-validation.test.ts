@@ -1,9 +1,4 @@
-/* test/bun/health/health-url-validation.test.ts */
-
-/**
- * Tests for health handler URL validation paths.
- * These tests target uncovered lines in the checkEndpoint function.
- */
+// test/bun/health/health-url-validation.test.ts
 
 import { describe, expect, it } from "bun:test";
 

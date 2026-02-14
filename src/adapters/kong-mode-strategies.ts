@@ -1,4 +1,4 @@
-/* src/adapters/kong-mode-strategies.ts */
+// src/adapters/kong-mode-strategies.ts
 
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import type { IKongModeStrategy } from "./api-gateway-adapter.interface";

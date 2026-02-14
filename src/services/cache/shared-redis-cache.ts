@@ -1,4 +1,4 @@
-/* src/services/cache/shared-redis-cache.ts */
+// src/services/cache/shared-redis-cache.ts
 
 import { RedisClient } from "bun";
 import type { ConsumerSecret, IKongCacheService, KongCacheStats } from "../../config/schemas";
@@ -111,7 +111,6 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async set<T = ConsumerSecret>(key: string, value: T, ttlSeconds?: number): Promise<void> {
-    // CRITICAL FIX: Validate cache key and consumer data consistency to prevent cache pollution
     const typedValue = value as Record<string, unknown>;
     if (
       key.startsWith("consumer_secret:") &&
@@ -133,7 +132,6 @@ export class SharedRedisCache implements IKongCacheService {
               action: "cache_pollution_prevention",
             }
           );
-          // Don't cache mismatched data
           return;
         }
       }
@@ -151,12 +149,11 @@ export class SharedRedisCache implements IKongCacheService {
     return instrumentRedisOperation(context, async () => {
       const ttl = ttlSeconds || this.config.ttlSeconds;
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
-      const staleTtl = staleTtlMinutes * 60; // Convert minutes to seconds
+      const staleTtl = staleTtlMinutes * 60;
 
       await this.client.set(redisKey, JSON.stringify(value));
       await this.client.expire(redisKey, ttl);
 
-      // Also store in stale cache with consistent tolerance
       await this.client.set(staleRedisKey, JSON.stringify(value));
       await this.client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
@@ -194,7 +191,6 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clear(): Promise<void> {
     try {
-      // Use SCAN instead of KEYS for better performance and reliability
       let cursor = "0";
       do {
         const result = (await this.client.send("SCAN", [
@@ -223,7 +219,6 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     try {
-      // Use SCAN instead of KEYS for better performance
       const keys: string[] = [];
       let cursor = "0";
       do {
@@ -267,7 +262,7 @@ export class SharedRedisCache implements IKongCacheService {
       return {
         strategy: "shared-redis",
         size: totalEntries,
-        entries: keys.map((key) => key.replace(this.keyPrefix, "")), // Strip prefix for cleaner interface
+        entries: keys.map((key) => key.replace(this.keyPrefix, "")),
         activeEntries: estimatedActive,
         hitRate: this.calculateHitRate(),
         redisConnected: true,
@@ -381,7 +376,7 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
-      const staleTtl = staleTtlMinutes * 60; // Convert minutes to seconds
+      const staleTtl = staleTtlMinutes * 60;
 
       await this.client.set(staleRedisKey, JSON.stringify(value));
       await this.client.expire(staleRedisKey, staleTtl);

@@ -1,4 +1,4 @@
-/* src/config/loader.ts */
+// src/config/loader.ts
 
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
@@ -18,23 +18,19 @@ import {
 
 const envSchema = z
   .object({
-    // Server Configuration
     PORT: z.coerce.number().int().min(1).max(65535).optional(),
     NODE_ENV: EnvironmentType.optional(),
 
-    // JWT Configuration (required fields for security)
     KONG_JWT_AUTHORITY: NonEmptyString,
     KONG_JWT_AUDIENCE: NonEmptyString,
     KONG_JWT_ISSUER: NonEmptyString.optional(),
     KONG_JWT_KEY_CLAIM_NAME: NonEmptyString.optional(),
     JWT_EXPIRATION_MINUTES: z.coerce.number().int().min(1).max(60).optional(),
 
-    // Kong Configuration (required fields for connectivity)
     KONG_MODE: KongMode.optional(),
     KONG_ADMIN_URL: HttpsUrl,
     KONG_ADMIN_TOKEN: z.string(),
 
-    // Circuit Breaker Configuration (optional with sensible defaults)
     CIRCUIT_BREAKER_ENABLED: z.string().optional(),
     CIRCUIT_BREAKER_TIMEOUT: z.coerce.number().int().min(100).max(10000).optional(),
     CIRCUIT_BREAKER_ERROR_THRESHOLD: z.coerce.number().min(1).max(100).optional(),
@@ -44,7 +40,6 @@ const envSchema = z
     CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS: z.coerce.number().int().min(1).max(20).optional(),
     STALE_DATA_TOLERANCE_MINUTES: z.coerce.number().int().min(1).max(120).optional(),
 
-    // Telemetry Configuration
     OTEL_SERVICE_NAME: NonEmptyString.optional(),
     OTEL_SERVICE_VERSION: NonEmptyString.optional(),
     TELEMETRY_MODE: TelemetryMode.optional(),
@@ -57,20 +52,16 @@ const envSchema = z
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).optional(),
     OTEL_BSP_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(50000).optional(),
 
-    // Caching Configuration
     HIGH_AVAILABILITY: z
       .string()
       .optional()
       .transform((val) => val === "true"),
-    // Redis URL - accepts redis:// or rediss:// protocols for flexibility
     REDIS_URL: z.url().optional(),
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
 
-    // Profiling Configuration
     PROFILING_ENABLED: z.string().optional(),
 
-    // Continuous Profiling Configuration
     CONTINUOUS_PROFILING_ENABLED: z.string().optional(),
     CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA: z.string().optional(),
     CONTINUOUS_PROFILING_THROTTLE_MINUTES: z.string().optional(),
@@ -78,7 +69,6 @@ const envSchema = z
     CONTINUOUS_PROFILING_MAX_CONCURRENT: z.string().optional(),
     CONTINUOUS_PROFILING_BUFFER_SIZE: z.string().optional(),
 
-    // API Info Configuration
     API_TITLE: NonEmptyString.optional(),
     API_DESCRIPTION: NonEmptyString.optional(),
     API_VERSION: NonEmptyString.optional(),
@@ -97,7 +87,6 @@ const envSchema = z
     });
   })
   .transform((data) => {
-    // Derive OTLP endpoints from base endpoint when not specified
     const baseEndpoint = data.OTEL_EXPORTER_OTLP_ENDPOINT;
 
     return {
@@ -158,7 +147,6 @@ function loadConfigFromEnv() {
 export function initializeConfig(): AppConfig {
   const envConfig = loadConfigFromEnv();
 
-  // Define intermediate type for structured environment config with proper literal types
   type KongModeType = "API_GATEWAY" | "KONNECT";
   type EnvironmentTypeValue = "local" | "development" | "staging" | "production" | "test";
   type TelemetryModeValue = "console" | "otlp" | "both";
@@ -234,7 +222,6 @@ export function initializeConfig(): AppConfig {
     }>;
   }
 
-  // Convert environment config to structured format for merging (simplified with proper filtering)
   const structuredEnvConfig: StructuredEnvConfig = {
     server: Object.fromEntries(
       Object.entries({
@@ -335,13 +322,11 @@ export function initializeConfig(): AppConfig {
     ),
   };
 
-  // Merge environment variables with defaults using object spreading (original 4-pillar pattern)
   const mergedConfig: AppConfig = {
     server: { ...defaultConfig.server, ...structuredEnvConfig.server },
     jwt: {
       ...defaultConfig.jwt,
       ...structuredEnvConfig.jwt,
-      // Special handling for issuer fallback to authority
       issuer:
         (structuredEnvConfig.jwt.issuer as string) ||
         (structuredEnvConfig.jwt.authority as string) ||
@@ -359,7 +344,6 @@ export function initializeConfig(): AppConfig {
     telemetry: {
       ...defaultConfig.telemetry,
       ...structuredEnvConfig.telemetry,
-      // Handle derived OTLP endpoints
       logsEndpoint: deriveOtlpEndpoint(
         structuredEnvConfig.telemetry.endpoint,
         envConfig.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
@@ -375,7 +359,6 @@ export function initializeConfig(): AppConfig {
         envConfig.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
         "/v1/metrics"
       ),
-      // Handle computed properties - ensure boolean values
       enabled:
         ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
         "console",
@@ -391,7 +374,6 @@ export function initializeConfig(): AppConfig {
     apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
   };
 
-  // Final validation of the merged configuration
   const result = AppConfigSchema.safeParse(mergedConfig);
 
   if (!result.success) {
@@ -407,14 +389,12 @@ export function initializeConfig(): AppConfig {
     );
   }
 
-  // Final validation of critical configuration
   const requiredVars = [
     { key: "KONG_JWT_AUTHORITY", value: mergedConfig.jwt.authority },
     { key: "KONG_JWT_AUDIENCE", value: mergedConfig.jwt.audience },
     { key: "KONG_ADMIN_URL", value: mergedConfig.kong.adminUrl },
   ];
 
-  // KONG_ADMIN_TOKEN is only required for KONNECT mode, not API_GATEWAY mode
   if (mergedConfig.kong.mode === "KONNECT") {
     requiredVars.push({ key: "KONG_ADMIN_TOKEN", value: mergedConfig.kong.adminToken });
   }
@@ -428,7 +408,6 @@ export function initializeConfig(): AppConfig {
     );
   }
 
-  // Ensure telemetry computed properties are properly set
   const finalConfig: AppConfig = {
     ...result.data,
     telemetry: {

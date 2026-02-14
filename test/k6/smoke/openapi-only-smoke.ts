@@ -1,6 +1,4 @@
-/* test/k6/smoke/openapi-only-smoke.ts */
-
-// K6 smoke test for OpenAPI endpoint only - tests / endpoint (OpenAPI spec generation)
+// test/k6/smoke/openapi-only-smoke.ts
 
 import { check, sleep } from "k6";
 import http from "k6/http";

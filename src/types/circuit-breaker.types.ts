@@ -1,9 +1,5 @@
-/* src/types/circuit-breaker.types.ts */
+// src/types/circuit-breaker.types.ts
 
-/**
- * Circuit breaker statistics interface.
- * Extracted to break circular dependency between config/schemas.ts and services/circuit-breaker.service.ts
- */
 export interface CircuitBreakerStats {
   state: "closed" | "open" | "half-open";
   stats: {

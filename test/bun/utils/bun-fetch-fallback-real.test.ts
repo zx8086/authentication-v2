@@ -1,14 +1,8 @@
-/* test/bun/utils/bun-fetch-fallback-real.test.ts
- * Real integration tests for utils/bun-fetch-fallback.ts using live HTTP servers
- */
+// test/bun/utils/bun-fetch-fallback-real.test.ts
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { fetchWithFallback } from "../../../src/utils/bun-fetch-fallback";
 
-/**
- * Build test server URL with validated localhost base
- * Prevents SSRF detection by centralizing URL construction
- */
 function buildTestUrl(port: number, path: string): string {
   // Validate port is in safe test range
   if (port < 1024 || port > 65535) {

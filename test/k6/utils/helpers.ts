@@ -1,6 +1,4 @@
-/* test/k6/utils/helpers.ts */
-
-// Test helper functions for authentication service testing
+// test/k6/utils/helpers.ts
 
 import type { Checkers } from "k6";
 import { check } from "k6";

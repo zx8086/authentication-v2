@@ -36,9 +36,6 @@ export interface ProfileRecommendation {
 }
 
 export class MarkdownProfileParser {
-  /**
-   * Parse CPU profile markdown
-   */
   parseCPUProfile(filePath: string): ProfileMetrics {
     const content = readFileSync(filePath, "utf-8");
     const lines = content.split("\n");
@@ -117,9 +114,6 @@ export class MarkdownProfileParser {
     };
   }
 
-  /**
-   * Parse heap profile markdown
-   */
   parseHeapProfile(filePath: string): ProfileMetrics {
     const content = readFileSync(filePath, "utf-8");
     const lines = content.split("\n");
@@ -158,9 +152,6 @@ export class MarkdownProfileParser {
     };
   }
 
-  /**
-   * Parse time string (e.g., "12.7s", "450ms")
-   */
   private parseTime(timeStr: string): number {
     const match = timeStr.match(/(\d+\.?\d*)\s*(s|ms)?/i);
     if (!match) return 0;
@@ -174,17 +165,11 @@ export class MarkdownProfileParser {
     return value;
   }
 
-  /**
-   * Parse percentage string (e.g., "42.3%")
-   */
   private parsePercent(percentStr: string): number {
     const match = percentStr.match(/(\d+\.?\d*)/);
     return match ? Number.parseFloat(match[1]) : 0;
   }
 
-  /**
-   * Parse byte string (e.g., "12.4 MB", "185MB")
-   */
   private parseBytes(byteStr: string): number {
     const match = byteStr.match(/(\d+\.?\d*)\s*(KB|MB|GB|B)?/i);
     if (!match) return 0;
@@ -204,9 +189,6 @@ export class MarkdownProfileParser {
     }
   }
 
-  /**
-   * Generate analysis summary
-   */
   generateSummary(metrics: ProfileMetrics): string {
     let summary = "\nProfile Analysis:\n";
     summary += "================\n\n";
@@ -231,9 +213,6 @@ export class MarkdownProfileParser {
     return summary;
   }
 
-  /**
-   * Format bytes for display
-   */
   private formatBytes(bytes: number): string {
     if (bytes >= 1024 * 1024 * 1024) {
       return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -249,9 +228,6 @@ export class MarkdownProfileParser {
 }
 
 export class ProfileAnalyzer {
-  /**
-   * Generate actionable recommendations based on profile analysis
-   */
   generateRecommendations(metrics: ProfileMetrics): ProfileRecommendation[] {
     const recommendations: ProfileRecommendation[] = [];
 
@@ -460,9 +436,6 @@ export class ProfileAnalyzer {
     };
   }
 
-  /**
-   * Generate enhanced markdown analysis report with recommendations
-   */
   generateEnhancedReport(
     metrics: ProfileMetrics,
     recommendations: ProfileRecommendation[]

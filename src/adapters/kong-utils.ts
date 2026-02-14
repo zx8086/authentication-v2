@@ -1,4 +1,4 @@
-/* src/adapters/kong-utils.ts */
+// src/adapters/kong-utils.ts
 
 import { context, propagation } from "@opentelemetry/api";
 import type { ConsumerSecret } from "../config";
