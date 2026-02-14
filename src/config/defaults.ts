@@ -1,5 +1,6 @@
 /* src/config/defaults.ts */
 
+import pkg from "../../package.json" with { type: "json" };
 import type { AppConfig } from "./schemas";
 
 // Type for the telemetry config with required enabled fields
@@ -52,7 +53,7 @@ export const defaultConfig: AppConfig = {
   },
   telemetry: {
     serviceName: "authentication-service",
-    serviceVersion: "1.0.0",
+    serviceVersion: pkg.version,
     environment: "development",
     mode: "both",
     logLevel: "info",
@@ -97,7 +98,7 @@ export const defaultConfig: AppConfig = {
     title: "Authentication Service API",
     description:
       "High-performance authentication service with Kong integration, OpenTelemetry observability, and comprehensive health monitoring",
-    version: "1.0.0",
+    version: pkg.version,
     contactName: "Simon Owusu",
     contactEmail: "simonowusu@pvh.com",
     licenseName: "Proprietary",
