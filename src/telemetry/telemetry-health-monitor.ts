@@ -1,10 +1,10 @@
 // src/telemetry/telemetry-health-monitor.ts
 
 import { loadConfig } from "../config/index";
+import type { TelemetryCircuitBreakerStats } from "../types/circuit-breaker.types";
 import { log } from "../utils/logger";
 import { getMetricsExportStats, getTelemetryStatus } from "./instrumentation";
 import { getMetricsStatus } from "./metrics";
-import type { CircuitBreakerStats } from "./telemetry-circuit-breaker";
 import {
   getTelemetryCircuitBreakerStats,
   telemetryCircuitBreakers,
@@ -40,7 +40,7 @@ export interface TelemetryHealthStatus {
         open: number;
         halfOpen: number;
       };
-      details: Record<string, CircuitBreakerStats>;
+      details: Record<string, TelemetryCircuitBreakerStats>;
     };
     metrics: {
       status: "healthy" | "degraded";
@@ -132,7 +132,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private assessCircuitBreakers(circuitBreakerStats: Record<string, CircuitBreakerStats>) {
+  private assessCircuitBreakers(circuitBreakerStats: Record<string, TelemetryCircuitBreakerStats>) {
     const summary = {
       total: Object.keys(circuitBreakerStats).length,
       closed: 0,

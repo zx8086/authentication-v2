@@ -10,10 +10,10 @@ import type {
 } from "../config";
 import { getCachingConfig, getKongConfig } from "../config";
 import { CacheFactory } from "../services/cache/cache-factory";
-import type { CircuitBreakerStats } from "../services/circuit-breaker.service";
 import { KongCircuitBreakerService } from "../services/circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { withRetry } from "../utils/retry";
 import type { IAPIGatewayAdapter, IKongModeStrategy } from "./api-gateway-adapter.interface";
@@ -395,7 +395,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
     return await this.cache.getStats();
   }
 
-  getCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
+  getCircuitBreakerStats(): Record<string, OpossumCircuitBreakerStats> {
     return this.circuitBreaker.getStats();
   }
 

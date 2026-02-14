@@ -7,7 +7,7 @@ import type {
   KongCacheStats,
   KongHealthCheckResult,
 } from "../config";
-import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export class APIGatewayService implements IKongService {
   constructor(private readonly adapter: IAPIGatewayAdapter) {}
@@ -32,7 +32,7 @@ export class APIGatewayService implements IKongService {
     return await this.adapter.getCacheStats();
   }
 
-  getCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
+  getCircuitBreakerStats(): Record<string, OpossumCircuitBreakerStats> {
     return this.adapter.getCircuitBreakerStats();
   }
 }

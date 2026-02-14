@@ -3,6 +3,7 @@
 // Stryker disable all: Profiling is a development/debugging feature with string-heavy responses.
 // These handlers are tested via E2E tests and manual profiling sessions.
 
+import { getServerConfig } from "../config/config";
 import { ErrorCodes } from "../errors/error-codes";
 import { profilingService } from "../services/profiling.service";
 import { log } from "../utils/logger";
@@ -240,7 +241,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
       {
         enabled: status.enabled,
         sessions: status.sessions,
-        environment: process.env.NODE_ENV || "local",
+        environment: getServerConfig().nodeEnv,
         integration: "Chrome DevTools Protocol",
         instructions: "Use Chrome DevTools at chrome://inspect for profiling",
         availableCommands: {

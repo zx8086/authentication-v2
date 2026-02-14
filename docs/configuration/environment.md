@@ -57,15 +57,35 @@ The authentication service implements a robust configuration pattern with compre
 | `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size | `2048` | No |
 | `OTEL_BSP_MAX_QUEUE_SIZE` | Queue size | `10000` | No |
 
-### Circuit Breaker
+### Kong Circuit Breaker
 
 | Variable | Description | Default | Range |
 |----------|-------------|---------|-------|
+| `CIRCUIT_BREAKER_ENABLED` | Enable circuit breaker | `true` | boolean |
 | `CIRCUIT_BREAKER_TIMEOUT` | Request timeout (ms) | `5000` | 100-10000 |
 | `CIRCUIT_BREAKER_ERROR_THRESHOLD` | Error threshold (%) | `50` | 1-100 |
 | `CIRCUIT_BREAKER_RESET_TIMEOUT` | Reset timeout (ms) | `60000` | 1000-300000 |
-| `STALE_DATA_TOLERANCE_MINUTES` | Stale cache window | `30` | 1-120 |
+| `CIRCUIT_BREAKER_VOLUME_THRESHOLD` | Min requests before tripping | `3` | 1-100 |
+| `CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT` | Rolling window (ms) | `10000` | 1000-60000 |
+| `CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS` | Rolling window buckets | `10` | 1-20 |
+| `STALE_DATA_TOLERANCE_MINUTES` | Stale cache window | `30` | 5-240 |
 | `HIGH_AVAILABILITY` | Enable Redis stale cache | `false` | boolean |
+
+### Kong Settings
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `KONG_SECRET_CREATION_MAX_RETRIES` | Secret creation retry attempts | `3` | 1-10 |
+| `KONG_MAX_HEADER_LENGTH` | Maximum header length | `256` | 64-8192 |
+
+### Telemetry Circuit Breaker
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `TELEMETRY_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-100 |
+| `TELEMETRY_CB_RECOVERY_TIMEOUT` | Recovery timeout (ms) | `60000` | 1000-600000 |
+| `TELEMETRY_CB_SUCCESS_THRESHOLD` | Successes to close | `3` | 1-20 |
+| `TELEMETRY_CB_MONITORING_INTERVAL` | Monitoring interval (ms) | `10000` | 1000-60000 |
 
 #### Per-Operation Overrides
 
@@ -94,9 +114,8 @@ operations: {
 | `REDIS_PASSWORD` | Authentication password | - | No |
 | `REDIS_DB` | Database number | `0` | No |
 | `REDIS_MAX_RETRIES` | Retry attempts | `3` | No |
-| `REDIS_RETRY_DELAY_MS` | Retry delay (ms) | `100` | No |
-| `REDIS_COMMAND_TIMEOUT_MS` | Command timeout (ms) | `5000` | No |
-| `REDIS_CONNECT_TIMEOUT_MS` | Connection timeout (ms) | `10000` | No |
+| `REDIS_CONNECTION_TIMEOUT` | Connection timeout (ms) | `5000` | No |
+| `CACHE_HEALTH_TTL_MS` | Health check cache TTL (ms) | `2000` | No |
 
 ### API Documentation
 
@@ -214,6 +233,15 @@ const corsHeaders = {
 
 | File | Purpose |
 |------|---------|
-| `src/config/schemas.ts` | Zod schema definitions |
-| `src/config/config.ts` | 4-pillar implementation |
+| `src/config/defaults.ts` | Pillar 1: Default configuration values |
+| `src/config/envMapping.ts` | Pillar 2: Environment variable mappings |
+| `src/config/loader.ts` | Pillar 3: Configuration loading and merging |
+| `src/config/schemas.ts` | Pillar 4: Zod schema validation |
+| `src/config/config.ts` | Configuration getters and cache |
 | `src/config/index.ts` | Module exports |
+
+## Type Definitions
+
+| File | Purpose |
+|------|---------|
+| `src/types/circuit-breaker.types.ts` | Circuit breaker types (opossum + telemetry) |

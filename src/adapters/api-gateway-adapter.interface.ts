@@ -1,7 +1,7 @@
 // src/adapters/api-gateway-adapter.interface.ts
 
 import type { ConsumerSecret, KongCacheStats, KongHealthCheckResult } from "../config";
-import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
 // Unified interface for API gateway operations (Kong API Gateway, Kong Konnect, etc.)
 export interface IAPIGatewayAdapter {
@@ -10,7 +10,7 @@ export interface IAPIGatewayAdapter {
   healthCheck(): Promise<KongHealthCheckResult>;
   clearCache(consumerId?: string): Promise<void>;
   getCacheStats(): Promise<KongCacheStats>;
-  getCircuitBreakerStats(): Record<string, CircuitBreakerStats>;
+  getCircuitBreakerStats(): Record<string, OpossumCircuitBreakerStats>;
 }
 
 // Strategy interface for mode-specific operations (API_GATEWAY vs KONNECT)

@@ -162,7 +162,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     // Get circuit breaker stats for telemetry health summary
     let circuitBreakerStats: Record<
       string,
-      import("../services/circuit-breaker.service").CircuitBreakerStats
+      import("../types/circuit-breaker.types").OpossumCircuitBreakerStats
     > = {};
     try {
       circuitBreakerStats = kongService.getCircuitBreakerStats();
@@ -509,7 +509,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
 
     let circuitBreakerStats: Record<
       string,
-      import("../services/circuit-breaker.service").CircuitBreakerStats
+      import("../types/circuit-breaker.types").OpossumCircuitBreakerStats
     >;
     try {
       circuitBreakerStats = kongService.getCircuitBreakerStats();

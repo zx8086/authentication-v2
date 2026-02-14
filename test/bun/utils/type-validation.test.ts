@@ -124,11 +124,15 @@ describe.concurrent("TypeScript Type Validation", () => {
       const validServerData = {
         port: 3000,
         nodeEnv: "test",
+        maxRequestBodySize: 10 * 1024 * 1024,
+        requestTimeoutMs: 30000,
       };
 
       const invalidServerData = {
         port: "invalid",
         nodeEnv: 123,
+        maxRequestBodySize: 10 * 1024 * 1024,
+        requestTimeoutMs: 30000,
       };
 
       const validResult = SchemaRegistry.Server.safeParse(validServerData);
@@ -231,6 +235,8 @@ describe.concurrent("TypeScript Type Validation", () => {
       const serverConfigData = {
         port: 3000,
         nodeEnv: "test",
+        maxRequestBodySize: 10 * 1024 * 1024,
+        requestTimeoutMs: 30000,
       };
 
       const jwtConfigData = {

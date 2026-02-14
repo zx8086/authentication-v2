@@ -18,9 +18,9 @@ import {
   recordCircuitBreakerStateTransition,
 } from "../telemetry/metrics";
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
-import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
-export type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+export type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export class KongCircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();
@@ -477,8 +477,8 @@ export class KongCircuitBreakerService {
     return cached;
   }
 
-  getStats(): Record<string, CircuitBreakerStats> {
-    const stats: Record<string, CircuitBreakerStats> = {};
+  getStats(): Record<string, OpossumCircuitBreakerStats> {
+    const stats: Record<string, OpossumCircuitBreakerStats> = {};
 
     for (const [operation, breaker] of this.breakers) {
       const breakerStats = breaker.stats;

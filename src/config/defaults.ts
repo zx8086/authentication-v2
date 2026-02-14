@@ -10,6 +10,8 @@ export const defaultConfig: AppConfig = {
   server: {
     port: 3000,
     nodeEnv: "development",
+    maxRequestBodySize: 10 * 1024 * 1024,
+    requestTimeoutMs: 30000,
   },
   jwt: {
     authority: "https://api.example.com",
@@ -34,6 +36,8 @@ export const defaultConfig: AppConfig = {
       rollingCountBuckets: 10,
       volumeThreshold: 3,
     },
+    secretCreationMaxRetries: 3,
+    maxHeaderLength: 256,
   },
   caching: {
     highAvailability: false,
@@ -42,6 +46,9 @@ export const defaultConfig: AppConfig = {
     redisDb: 0,
     ttlSeconds: 300,
     staleDataToleranceMinutes: 30,
+    healthCheckTtlMs: 2000,
+    redisMaxRetries: 3,
+    redisConnectionTimeout: 5000,
   },
   telemetry: {
     serviceName: "authentication-service",
@@ -62,6 +69,12 @@ export const defaultConfig: AppConfig = {
       isEcs: false,
       podName: undefined,
       namespace: undefined,
+    },
+    circuitBreaker: {
+      failureThreshold: 5,
+      recoveryTimeout: 60000,
+      successThreshold: 3,
+      monitoringInterval: 10000,
     },
   } satisfies TelemetryConfigWithEnabled,
   profiling: {

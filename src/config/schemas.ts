@@ -1,7 +1,7 @@
 /* src/config/schemas.ts */
 
 import { z } from "zod";
-import type { CircuitBreakerStats } from "../types/circuit-breaker.types";
+import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export const ConsumerSecretSchema = z.strictObject({
   id: z.string(),
@@ -101,6 +101,9 @@ export const CachingConfigSchema = z.strictObject({
     .min(5)
     .max(240)
     .describe("Tolerance for serving stale cache data in minutes"),
+  healthCheckTtlMs: z.number().int().min(100).max(60000),
+  redisMaxRetries: z.number().int().min(1).max(10),
+  redisConnectionTimeout: z.number().int().min(1000).max(30000),
 });
 
 export const OperationCircuitBreakerConfigSchema = z.strictObject({
@@ -259,6 +262,12 @@ export const NonEmptyString = z.string().min(1);
 export const ServerConfigSchema = z.strictObject({
   port: PortNumber,
   nodeEnv: NonEmptyString,
+  maxRequestBodySize: z
+    .number()
+    .int()
+    .min(1024)
+    .max(100 * 1024 * 1024),
+  requestTimeoutMs: z.number().int().min(1000).max(300000),
 });
 
 export const JwtConfigSchema = z.strictObject({
@@ -279,6 +288,8 @@ export const KongConfigSchema = z
     anonymousHeader: NonEmptyString,
     circuitBreaker: CircuitBreakerConfigSchema,
     highAvailability: z.boolean().optional(),
+    secretCreationMaxRetries: z.number().int().min(1).max(10),
+    maxHeaderLength: z.number().int().min(64).max(8192),
   })
   .refine(
     (data) => {
@@ -398,6 +409,12 @@ export const TelemetryConfigSchema = z
       podName: z.string().optional(),
       namespace: z.string().optional(),
     }),
+    circuitBreaker: z.strictObject({
+      failureThreshold: z.number().int().min(1).max(100),
+      recoveryTimeout: z.number().int().min(1000).max(600000),
+      successThreshold: z.number().int().min(1).max(20),
+      monitoringInterval: z.number().int().min(1000).max(60000),
+    }),
   })
   .superRefine((data, ctx) => {
     addProductionSecurityValidation(data, ctx, {
@@ -492,7 +509,7 @@ export interface IKongService {
   clearCache(consumerId?: string): Promise<void>;
   getCacheStats(): Promise<KongCacheStats>;
   healthCheck(): Promise<KongHealthCheckResult>;
-  getCircuitBreakerStats(): Record<string, CircuitBreakerStats>;
+  getCircuitBreakerStats(): Record<string, OpossumCircuitBreakerStats>;
 }
 
 export interface IKongCacheService {

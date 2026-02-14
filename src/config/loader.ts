@@ -20,6 +20,13 @@ const envSchema = z
   .object({
     PORT: z.coerce.number().int().min(1).max(65535).optional(),
     NODE_ENV: EnvironmentType.optional(),
+    MAX_REQUEST_BODY_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(100 * 1024 * 1024)
+      .optional(),
+    REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300000).optional(),
 
     KONG_JWT_AUTHORITY: NonEmptyString,
     KONG_JWT_AUDIENCE: NonEmptyString,
@@ -38,6 +45,8 @@ const envSchema = z
     CIRCUIT_BREAKER_VOLUME_THRESHOLD: z.coerce.number().int().min(1).max(100).optional(),
     CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT: z.coerce.number().int().min(1000).max(60000).optional(),
     CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS: z.coerce.number().int().min(1).max(20).optional(),
+    KONG_SECRET_CREATION_MAX_RETRIES: z.coerce.number().int().min(1).max(10).optional(),
+    KONG_MAX_HEADER_LENGTH: z.coerce.number().int().min(64).max(8192).optional(),
     STALE_DATA_TOLERANCE_MINUTES: z.coerce.number().int().min(1).max(120).optional(),
 
     OTEL_SERVICE_NAME: NonEmptyString.optional(),
@@ -51,6 +60,10 @@ const envSchema = z
     OTEL_EXPORTER_OTLP_TIMEOUT: z.coerce.number().int().min(1000).max(60000).optional(),
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).optional(),
     OTEL_BSP_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(50000).optional(),
+    TELEMETRY_CB_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(100).optional(),
+    TELEMETRY_CB_RECOVERY_TIMEOUT: z.coerce.number().int().min(1000).max(600000).optional(),
+    TELEMETRY_CB_SUCCESS_THRESHOLD: z.coerce.number().int().min(1).max(20).optional(),
+    TELEMETRY_CB_MONITORING_INTERVAL: z.coerce.number().int().min(1000).max(60000).optional(),
 
     HIGH_AVAILABILITY: z
       .string()
@@ -59,6 +72,9 @@ const envSchema = z
     REDIS_URL: z.url().optional(),
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
+    CACHE_HEALTH_TTL_MS: z.coerce.number().int().min(100).max(60000).optional(),
+    REDIS_MAX_RETRIES: z.coerce.number().int().min(1).max(10).optional(),
+    REDIS_CONNECTION_TIMEOUT: z.coerce.number().int().min(1000).max(30000).optional(),
 
     PROFILING_ENABLED: z.string().optional(),
 
@@ -168,6 +184,8 @@ export function initializeConfig(): AppConfig {
       consumerUsernameHeader?: string;
       anonymousHeader?: string;
       highAvailability?: boolean;
+      secretCreationMaxRetries?: number;
+      maxHeaderLength?: number;
       circuitBreaker: Partial<{
         enabled: boolean;
         timeout: number;
@@ -184,6 +202,9 @@ export function initializeConfig(): AppConfig {
       redisPassword: string;
       redisDb: number;
       staleDataToleranceMinutes: number;
+      healthCheckTtlMs: number;
+      redisMaxRetries: number;
+      redisConnectionTimeout: number;
     }>;
     telemetry: {
       serviceName?: string;
@@ -200,6 +221,12 @@ export function initializeConfig(): AppConfig {
         podName?: string;
         namespace?: string;
       };
+      circuitBreaker: Partial<{
+        failureThreshold: number;
+        recoveryTimeout: number;
+        successThreshold: number;
+        monitoringInterval: number;
+      }>;
     };
     profiling: Partial<{ enabled: boolean }>;
     continuousProfiling: Partial<{
@@ -227,6 +254,8 @@ export function initializeConfig(): AppConfig {
       Object.entries({
         port: envConfig.PORT,
         nodeEnv: envConfig.NODE_ENV,
+        maxRequestBodySize: envConfig.MAX_REQUEST_BODY_SIZE,
+        requestTimeoutMs: envConfig.REQUEST_TIMEOUT_MS,
       }).filter(([, value]) => value !== undefined)
     ),
     jwt: Object.fromEntries(
@@ -248,6 +277,8 @@ export function initializeConfig(): AppConfig {
           consumerUsernameHeader: "x-consumer-username",
           anonymousHeader: "x-anonymous-consumer",
           highAvailability: toBool(envConfig.HIGH_AVAILABILITY, false),
+          secretCreationMaxRetries: envConfig.KONG_SECRET_CREATION_MAX_RETRIES,
+          maxHeaderLength: envConfig.KONG_MAX_HEADER_LENGTH,
         }).filter(([, value]) => value !== undefined)
       ),
       circuitBreaker: Object.fromEntries(
@@ -269,6 +300,9 @@ export function initializeConfig(): AppConfig {
         redisPassword: envConfig.REDIS_PASSWORD,
         redisDb: envConfig.REDIS_DB,
         staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
+        healthCheckTtlMs: envConfig.CACHE_HEALTH_TTL_MS,
+        redisMaxRetries: envConfig.REDIS_MAX_RETRIES,
+        redisConnectionTimeout: envConfig.REDIS_CONNECTION_TIMEOUT,
       }).filter(([, value]) => value !== undefined)
     ),
     telemetry: {
@@ -286,6 +320,14 @@ export function initializeConfig(): AppConfig {
         }).filter(([, value]) => value !== undefined)
       ),
       infrastructure: detectInfrastructure(),
+      circuitBreaker: Object.fromEntries(
+        Object.entries({
+          failureThreshold: envConfig.TELEMETRY_CB_FAILURE_THRESHOLD,
+          recoveryTimeout: envConfig.TELEMETRY_CB_RECOVERY_TIMEOUT,
+          successThreshold: envConfig.TELEMETRY_CB_SUCCESS_THRESHOLD,
+          monitoringInterval: envConfig.TELEMETRY_CB_MONITORING_INTERVAL,
+        }).filter(([, value]) => value !== undefined)
+      ),
     },
     profiling: Object.fromEntries(
       Object.entries({
@@ -365,6 +407,10 @@ export function initializeConfig(): AppConfig {
       enableOpenTelemetry:
         ((structuredEnvConfig.telemetry.mode ?? defaultConfig.telemetry.mode) as string) !==
         "console",
+      circuitBreaker: {
+        ...defaultConfig.telemetry.circuitBreaker,
+        ...structuredEnvConfig.telemetry.circuitBreaker,
+      },
     },
     profiling: { ...defaultConfig.profiling, ...structuredEnvConfig.profiling },
     continuousProfiling: {

@@ -2,7 +2,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, test } from "bun:test";
 import { SchemaRegistry } from "../../../src/config/schemas";
-import { TEST_KONG_ADMIN_TOKEN } from "../../shared/test-constants";
+import {
+  TEST_KONG_ADMIN_TOKEN,
+  TEST_SERVER_CONFIG_DEFAULTS,
+  TEST_TELEMETRY_CIRCUIT_BREAKER,
+} from "../../shared/test-constants";
+
+const TELEMETRY_CIRCUIT_BREAKER = TEST_TELEMETRY_CIRCUIT_BREAKER;
+const SERVER_DEFAULTS = TEST_SERVER_CONFIG_DEFAULTS;
 
 describe("Configuration System", () => {
   describe("Schema Validation", () => {
@@ -10,6 +17,7 @@ describe("Configuration System", () => {
       const validServerConfig = {
         port: 3000,
         nodeEnv: "development",
+        ...SERVER_DEFAULTS,
       };
 
       const result = SchemaRegistry.Server.safeParse(validServerConfig);
@@ -25,6 +33,7 @@ describe("Configuration System", () => {
       const invalidServerConfig = {
         port: -1,
         nodeEnv: "development",
+        ...SERVER_DEFAULTS,
       };
 
       const result = SchemaRegistry.Server.safeParse(invalidServerConfig);
@@ -70,6 +79,8 @@ describe("Configuration System", () => {
           rollingCountBuckets: 10,
           volumeThreshold: 20,
         },
+        secretCreationMaxRetries: 3,
+        maxHeaderLength: 256,
       };
 
       const result = SchemaRegistry.Kong.safeParse(validKongConfig);
@@ -118,13 +129,13 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(validTelemetryConfig);
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // Verify parsed data values (kills mutations)
         expect(result.data.serviceName).toBe("authentication-service");
         expect(result.data.serviceVersion).toBe("1.0.0");
         expect(result.data.environment).toBe("development");
@@ -218,13 +229,13 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // Verify parsed data values (kills mutations)
         expect(result.data.serviceName).toBe("authentication-service");
         expect(result.data.environment).toBe("production");
         expect(result.data.mode).toBe("otlp");
@@ -248,6 +259,7 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -270,6 +282,7 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -292,6 +305,7 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -302,7 +316,7 @@ describe("Configuration System", () => {
       const prodKongConfig = {
         mode: "KONNECT",
         adminUrl: "https://kong.example.com",
-        adminToken: process.env.TEST_KONG_TOKEN_LONG || Array(41).fill("x").join(""), // Mock 40-char token
+        adminToken: process.env.TEST_KONG_TOKEN_LONG || Array(41).fill("x").join(""),
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",
         anonymousHeader: "x-anonymous-consumer",
@@ -315,13 +329,14 @@ describe("Configuration System", () => {
           rollingCountBuckets: 10,
           volumeThreshold: 20,
         },
+        secretCreationMaxRetries: 3,
+        maxHeaderLength: 256,
       };
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // Verify parsed data values (kills mutations)
         expect(result.data.mode).toBe("KONNECT");
         expect(result.data.adminUrl).toBe("https://kong.example.com");
         expect(result.data.consumerIdHeader).toBe("x-consumer-id");
@@ -334,7 +349,7 @@ describe("Configuration System", () => {
       const prodKongConfig = {
         mode: "KONNECT",
         adminUrl: "https://kong.example.com",
-        adminToken: process.env.TEST_KONG_TOKEN_PROD || Array(61).fill("y").join(""), // Mock 60-char token
+        adminToken: process.env.TEST_KONG_TOKEN_PROD || Array(61).fill("y").join(""),
         consumerIdHeader: "x-consumer-id",
         consumerUsernameHeader: "x-consumer-username",
         anonymousHeader: "x-anonymous-consumer",
@@ -347,13 +362,14 @@ describe("Configuration System", () => {
           rollingCountBuckets: 10,
           volumeThreshold: 20,
         },
+        secretCreationMaxRetries: 3,
+        maxHeaderLength: 256,
       };
 
       const result = SchemaRegistry.Kong.safeParse(prodKongConfig);
       expect(result.success).toBe(true);
 
       if (result.success) {
-        // Verify parsed data values (kills mutations)
         expect(result.data.mode).toBe("KONNECT");
         expect(result.data.adminUrl).toBe("https://kong.example.com");
         expect(typeof result.data.adminToken).toBe("string");
@@ -365,8 +381,9 @@ describe("Configuration System", () => {
   describe("Range Validation", () => {
     it("should enforce valid port range", () => {
       const invalidServerConfig = {
-        port: 70000, // Too high
+        port: 70000,
         nodeEnv: "development",
+        ...SERVER_DEFAULTS,
       };
 
       const result = SchemaRegistry.Server.safeParse(invalidServerConfig);
@@ -393,7 +410,7 @@ describe("Configuration System", () => {
         environment: "development",
         mode: "console",
         logLevel: "info",
-        exportTimeout: 70000, // Too high (max 60000)
+        exportTimeout: 70000,
         batchSize: 2048,
         maxQueueSize: 10000,
         infrastructure: {
@@ -402,6 +419,7 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
@@ -416,7 +434,7 @@ describe("Configuration System", () => {
         mode: "console",
         logLevel: "info",
         exportTimeout: 30000,
-        batchSize: 6000, // Too high (max 5000)
+        batchSize: 6000,
         maxQueueSize: 10000,
         infrastructure: {
           isKubernetes: false,
@@ -424,6 +442,7 @@ describe("Configuration System", () => {
           podName: undefined,
           namespace: undefined,
         },
+        circuitBreaker: TELEMETRY_CIRCUIT_BREAKER,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(invalidTelemetryConfig);
@@ -485,6 +504,12 @@ describe("Configuration System", () => {
             podName: undefined,
             namespace: undefined,
           },
+          circuitBreaker: {
+            failureThreshold: 5,
+            recoveryTimeout: 60000,
+            successThreshold: 3,
+            monitoringInterval: 10000,
+          },
         });
         expect(result.success).toBe(true);
       });
@@ -496,14 +521,14 @@ describe("Configuration System", () => {
       const serverConfig = {
         port: 3000,
         nodeEnv: "development",
+        maxRequestBodySize: 10 * 1024 * 1024,
+        requestTimeoutMs: 30000,
       };
 
       const result = SchemaRegistry.Server.parse(serverConfig);
 
-      // TypeScript should infer these types correctly
       expect(typeof result.port).toBe("number");
       expect(typeof result.nodeEnv).toBe("string");
-      // Verify actual values (kills mutations)
       expect(result.port).toBe(3000);
       expect(result.nodeEnv).toBe("development");
     });
@@ -512,7 +537,7 @@ describe("Configuration System", () => {
       const invalidTelemetryConfig = {
         serviceName: "authentication-service",
         serviceVersion: "1.0.0",
-        environment: "invalid-env", // Not in enum
+        environment: "invalid-env",
         mode: "console",
         logLevel: "info",
         exportTimeout: 30000,
@@ -523,6 +548,12 @@ describe("Configuration System", () => {
           isEcs: false,
           podName: undefined,
           namespace: undefined,
+        },
+        circuitBreaker: {
+          failureThreshold: 5,
+          recoveryTimeout: 60000,
+          successThreshold: 3,
+          monitoringInterval: 10000,
         },
       };
 

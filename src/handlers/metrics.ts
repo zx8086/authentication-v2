@@ -216,7 +216,7 @@ async function collectOperationalData(kongService: IKongService) {
 
   let circuitBreakerStats: Record<
     string,
-    import("../services/circuit-breaker.service").CircuitBreakerStats
+    import("../types/circuit-breaker.types").OpossumCircuitBreakerStats
   >;
   try {
     circuitBreakerStats = kongService.getCircuitBreakerStats();

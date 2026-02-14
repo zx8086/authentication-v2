@@ -5,6 +5,8 @@ export const envVarMapping = {
   server: {
     port: "PORT",
     nodeEnv: "NODE_ENV",
+    maxRequestBodySize: "MAX_REQUEST_BODY_SIZE",
+    requestTimeoutMs: "REQUEST_TIMEOUT_MS",
   },
   jwt: {
     authority: "KONG_JWT_AUTHORITY",
@@ -25,6 +27,8 @@ export const envVarMapping = {
     circuitBreakerVolumeThreshold: "CIRCUIT_BREAKER_VOLUME_THRESHOLD",
     circuitBreakerRollingCountTimeout: "CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT",
     circuitBreakerRollingCountBuckets: "CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS",
+    secretCreationMaxRetries: "KONG_SECRET_CREATION_MAX_RETRIES",
+    maxHeaderLength: "KONG_MAX_HEADER_LENGTH",
   },
   caching: {
     highAvailability: "HIGH_AVAILABILITY",
@@ -32,6 +36,9 @@ export const envVarMapping = {
     redisPassword: "REDIS_PASSWORD",
     redisDb: "REDIS_DB",
     staleDataToleranceMinutes: "STALE_DATA_TOLERANCE_MINUTES",
+    healthCheckTtlMs: "CACHE_HEALTH_TTL_MS",
+    redisMaxRetries: "REDIS_MAX_RETRIES",
+    redisConnectionTimeout: "REDIS_CONNECTION_TIMEOUT",
   },
   telemetry: {
     serviceName: "OTEL_SERVICE_NAME",
@@ -46,6 +53,10 @@ export const envVarMapping = {
     exportTimeout: "OTEL_EXPORTER_OTLP_TIMEOUT",
     batchSize: "OTEL_BSP_MAX_EXPORT_BATCH_SIZE",
     maxQueueSize: "OTEL_BSP_MAX_QUEUE_SIZE",
+    circuitBreakerFailureThreshold: "TELEMETRY_CB_FAILURE_THRESHOLD",
+    circuitBreakerRecoveryTimeout: "TELEMETRY_CB_RECOVERY_TIMEOUT",
+    circuitBreakerSuccessThreshold: "TELEMETRY_CB_SUCCESS_THRESHOLD",
+    circuitBreakerMonitoringInterval: "TELEMETRY_CB_MONITORING_INTERVAL",
   },
   profiling: {
     enabled: "PROFILING_ENABLED",

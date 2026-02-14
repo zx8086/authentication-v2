@@ -1,34 +1,19 @@
 // src/telemetry/telemetry-circuit-breaker.ts
 
+import {
+  CircuitBreakerStateEnum,
+  type TelemetryCircuitBreakerConfig,
+  type TelemetryCircuitBreakerStats,
+} from "../types/circuit-breaker.types";
 import { error, log, warn } from "../utils/logger";
 import { recordCircuitBreakerOperation, recordCircuitBreakerState } from "./metrics";
 
-export enum CircuitBreakerState {
-  CLOSED = "closed",
-  OPEN = "open",
-  HALF_OPEN = "half_open",
-}
-
-export interface CircuitBreakerConfig {
-  failureThreshold: number;
-  recoveryTimeout: number;
-  successThreshold: number;
-  monitoringInterval: number;
-}
-
-export interface CircuitBreakerStats {
-  state: CircuitBreakerState;
-  failureCount: number;
-  successCount: number;
-  lastFailureTime: number;
-  lastSuccessTime: number;
-  totalRequests: number;
-  rejectedRequests: number;
-  lastStateChange: number;
-}
+export { CircuitBreakerStateEnum as CircuitBreakerState };
+export type { TelemetryCircuitBreakerConfig as CircuitBreakerConfig };
+export type { TelemetryCircuitBreakerStats as CircuitBreakerStats };
 
 export class TelemetryCircuitBreaker {
-  private state: CircuitBreakerState = CircuitBreakerState.CLOSED;
+  private state: CircuitBreakerStateEnum = CircuitBreakerStateEnum.CLOSED;
   private failureCount = 0;
   private successCount = 0;
   private lastFailureTime = 0;
@@ -41,7 +26,7 @@ export class TelemetryCircuitBreaker {
 
   constructor(
     private readonly operation: string,
-    private readonly config: CircuitBreakerConfig
+    private readonly config: TelemetryCircuitBreakerConfig
   ) {
     this.monitoringIntervalId = setInterval(() => this.checkRecovery(), config.monitoringInterval);
   }
@@ -57,19 +42,19 @@ export class TelemetryCircuitBreaker {
     this.totalRequests++;
 
     switch (this.state) {
-      case CircuitBreakerState.CLOSED:
+      case CircuitBreakerStateEnum.CLOSED:
         return true;
 
-      case CircuitBreakerState.OPEN:
+      case CircuitBreakerStateEnum.OPEN:
         if (Date.now() - this.lastFailureTime >= this.config.recoveryTimeout) {
-          this.transitionTo(CircuitBreakerState.HALF_OPEN);
+          this.transitionTo(CircuitBreakerStateEnum.HALF_OPEN);
           return true;
         }
         this.rejectedRequests++;
         recordCircuitBreakerOperation(this.operation, this.state, "rejected");
         return false;
 
-      case CircuitBreakerState.HALF_OPEN:
+      case CircuitBreakerStateEnum.HALF_OPEN:
         return true;
 
       default:
@@ -82,10 +67,10 @@ export class TelemetryCircuitBreaker {
     this.successCount++;
     this.lastSuccessTime = Date.now();
 
-    if (this.state === CircuitBreakerState.HALF_OPEN) {
+    if (this.state === CircuitBreakerStateEnum.HALF_OPEN) {
       this.halfOpenSuccesses++;
       if (this.halfOpenSuccesses >= this.config.successThreshold) {
-        this.transitionTo(CircuitBreakerState.CLOSED);
+        this.transitionTo(CircuitBreakerStateEnum.CLOSED);
         this.halfOpenSuccesses = 0;
       }
     }
@@ -99,12 +84,12 @@ export class TelemetryCircuitBreaker {
     this.halfOpenSuccesses = 0;
 
     if (
-      this.state === CircuitBreakerState.CLOSED &&
+      this.state === CircuitBreakerStateEnum.CLOSED &&
       this.failureCount >= this.config.failureThreshold
     ) {
-      this.transitionTo(CircuitBreakerState.OPEN);
-    } else if (this.state === CircuitBreakerState.HALF_OPEN) {
-      this.transitionTo(CircuitBreakerState.OPEN);
+      this.transitionTo(CircuitBreakerStateEnum.OPEN);
+    } else if (this.state === CircuitBreakerStateEnum.HALF_OPEN) {
+      this.transitionTo(CircuitBreakerStateEnum.OPEN);
     }
 
     recordCircuitBreakerOperation(this.operation, this.state, "request");
@@ -120,7 +105,7 @@ export class TelemetryCircuitBreaker {
     }
   }
 
-  private transitionTo(newState: CircuitBreakerState): void {
+  private transitionTo(newState: CircuitBreakerStateEnum): void {
     const previousState = this.state;
     this.state = newState;
     this.lastStateChange = Date.now();
@@ -138,7 +123,7 @@ export class TelemetryCircuitBreaker {
       totalRequests: this.totalRequests,
     });
 
-    if (newState === CircuitBreakerState.OPEN) {
+    if (newState === CircuitBreakerStateEnum.OPEN) {
       error(`Telemetry circuit breaker OPENED - ${this.operation} exports failing`, {
         component: "telemetry_circuit_breaker",
         operation: this.operation,
@@ -147,8 +132,8 @@ export class TelemetryCircuitBreaker {
         impact: "Telemetry exports will be rejected until recovery",
       });
     } else if (
-      newState === CircuitBreakerState.CLOSED &&
-      previousState === CircuitBreakerState.HALF_OPEN
+      newState === CircuitBreakerStateEnum.CLOSED &&
+      previousState === CircuitBreakerStateEnum.HALF_OPEN
     ) {
       log(`Telemetry circuit breaker RECOVERED - ${this.operation} exports healthy`, {
         component: "telemetry_circuit_breaker",
@@ -161,14 +146,14 @@ export class TelemetryCircuitBreaker {
 
   private checkRecovery(): void {
     if (
-      this.state === CircuitBreakerState.OPEN &&
+      this.state === CircuitBreakerStateEnum.OPEN &&
       Date.now() - this.lastFailureTime >= this.config.recoveryTimeout
     ) {
-      this.transitionTo(CircuitBreakerState.HALF_OPEN);
+      this.transitionTo(CircuitBreakerStateEnum.HALF_OPEN);
     }
   }
 
-  public getStats(): CircuitBreakerStats {
+  public getStats(): TelemetryCircuitBreakerStats {
     return {
       state: this.state,
       failureCount: this.failureCount,
@@ -182,7 +167,7 @@ export class TelemetryCircuitBreaker {
   }
 
   public reset(): void {
-    this.transitionTo(CircuitBreakerState.CLOSED);
+    this.transitionTo(CircuitBreakerStateEnum.CLOSED);
     this.failureCount = 0;
     this.successCount = 0;
     this.halfOpenSuccesses = 0;
@@ -196,7 +181,7 @@ export class TelemetryCircuitBreaker {
   }
 }
 
-const circuitBreakerConfig: CircuitBreakerConfig = {
+const circuitBreakerConfig: TelemetryCircuitBreakerConfig = {
   failureThreshold: 5,
   recoveryTimeout: 60000,
   successThreshold: 3,
@@ -209,7 +194,7 @@ export const telemetryCircuitBreakers = {
   logs: new TelemetryCircuitBreaker("telemetry_logs_export", circuitBreakerConfig),
 };
 
-export function getTelemetryCircuitBreakerStats(): Record<string, CircuitBreakerStats> {
+export function getTelemetryCircuitBreakerStats(): Record<string, TelemetryCircuitBreakerStats> {
   return {
     traces: telemetryCircuitBreakers.traces.getStats(),
     metrics: telemetryCircuitBreakers.metrics.getStats(),

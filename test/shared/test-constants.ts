@@ -38,3 +38,26 @@ export const TEST_JWT_KEY = "test-jwt-key-12345";
 export const JWT_STANDARD_HEADER = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
 
 export const TEST_SECRET_MIN_32 = generateTestSecret(34);
+
+export const TEST_TELEMETRY_CIRCUIT_BREAKER = {
+  failureThreshold: 5,
+  recoveryTimeout: 60000,
+  successThreshold: 3,
+  monitoringInterval: 10000,
+} as const;
+
+export const TEST_SERVER_CONFIG_DEFAULTS = {
+  maxRequestBodySize: 10 * 1024 * 1024,
+  requestTimeoutMs: 30000,
+} as const;
+
+export const TEST_KONG_CONFIG_DEFAULTS = {
+  secretCreationMaxRetries: 3,
+  maxHeaderLength: 256,
+} as const;
+
+export const TEST_CACHING_CONFIG_DEFAULTS = {
+  healthCheckTtlMs: 2000,
+  redisMaxRetries: 3,
+  redisConnectionTimeout: 5000,
+} as const;
