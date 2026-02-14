@@ -1,5 +1,6 @@
 // src/telemetry/instrumentation.ts
 
+import { logs } from "@opentelemetry/api-logs";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import type { ExportResult } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
@@ -8,7 +9,7 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HostMetrics } from "@opentelemetry/host-metrics";
 import { RedisInstrumentation } from "@opentelemetry/instrumentation-redis";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 import {
   type MeterProvider,
   PeriodicExportingMetricReader,
@@ -27,6 +28,7 @@ import {
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
 import { loadConfig } from "../config/index";
 import { initializeMetrics } from "./metrics";
+import { winstonTelemetryLogger } from "./winston-logger";
 
 interface MetricReaderLike {
   forceFlush(): Promise<void>;
@@ -38,6 +40,7 @@ const config = loadConfig();
 const telemetryConfig = config.telemetry;
 
 let sdk: NodeSDK | undefined;
+let loggerProvider: LoggerProvider | undefined;
 let hostMetrics: HostMetrics | undefined;
 let metricExporter: PushMetricExporter | undefined;
 let metricReader: MetricReaderLike | undefined;
@@ -174,6 +177,16 @@ export async function initializeTelemetry(): Promise<void> {
 
   const logProcessor = new BatchLogRecordProcessor(otlpLogExporter);
 
+  // OTel SDK 0.212.0 breaking change: LoggerProvider must be explicitly registered
+  // as the global provider for OpenTelemetryTransportV3 (Winston) to work.
+  // NodeSDK no longer automatically sets the global LoggerProvider.
+  // See: https://github.com/open-telemetry/opentelemetry-js/releases (0.212.0)
+  loggerProvider = new LoggerProvider({
+    resource,
+    processors: [logProcessor],
+  });
+  logs.setGlobalLoggerProvider(loggerProvider);
+
   const baseInstrumentations = getNodeAutoInstrumentations({
     "@opentelemetry/instrumentation-http": {
       enabled: true,
@@ -226,7 +239,8 @@ export async function initializeTelemetry(): Promise<void> {
     resource,
     spanProcessors: [traceProcessor],
     metricReaders: [periodicReader],
-    logRecordProcessors: [logProcessor],
+    // LoggerProvider is managed separately and registered globally above
+    // to ensure OpenTelemetryTransportV3 (Winston) can access it
     instrumentations: [instrumentations],
   });
 
@@ -234,11 +248,26 @@ export async function initializeTelemetry(): Promise<void> {
 
   hostMetrics = new HostMetrics({});
   hostMetrics.start();
+
+  // OTel SDK 0.212.0 breaking change fix:
+  // Winston logger must be reinitialized AFTER the global LoggerProvider is set.
+  // OpenTelemetryTransportV3 captures the global LoggerProvider at construction time,
+  // so any transports created before logs.setGlobalLoggerProvider() will not send logs.
+  // See: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/packages/winston-transport/README.md
+  winstonTelemetryLogger.reinitialize();
 }
 
 export async function shutdownTelemetry(): Promise<void> {
   if (hostMetrics) {
     hostMetrics = undefined;
+  }
+
+  if (loggerProvider) {
+    try {
+      await loggerProvider.shutdown();
+    } catch (error) {
+      console.warn("Error shutting down LoggerProvider:", error);
+    }
   }
 
   if (sdk) {
