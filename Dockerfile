@@ -109,7 +109,7 @@ CMD ["/usr/local/bin/bun", "src/index.ts"]
 ARG BUILD_DATE
 ARG VCS_REF
 ARG SERVICE_NAME="authentication-service"
-ARG SERVICE_VERSION="2.4.0"
+ARG SERVICE_VERSION="2.5.0"
 ARG SERVICE_DESCRIPTION="High-performance JWT authentication service built with Bun"
 ARG SERVICE_AUTHOR="Simon Owusu"
 ARG SERVICE_LICENSE="UNLICENSED"

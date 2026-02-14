@@ -1,6 +1,7 @@
 // test/bun/config/defaults.test.ts
 
 import { describe, expect, it } from "bun:test";
+import pkg from "../../../package.json" with { type: "json" };
 import { defaultConfig } from "../../../src/config/defaults";
 
 describe("Default Configuration", () => {
@@ -161,7 +162,7 @@ describe("Default Configuration", () => {
     });
 
     it("should have correct default serviceVersion", () => {
-      expect(defaultConfig.telemetry.serviceVersion).toBe("1.0.0");
+      expect(defaultConfig.telemetry.serviceVersion).toBe(pkg.version);
       expect(typeof defaultConfig.telemetry.serviceVersion).toBe("string");
     });
 
@@ -264,7 +265,7 @@ describe("Default Configuration", () => {
     });
 
     it("should have correct default version", () => {
-      expect(defaultConfig.apiInfo.version).toBe("1.0.0");
+      expect(defaultConfig.apiInfo.version).toBe(pkg.version);
       expect(typeof defaultConfig.apiInfo.version).toBe("string");
     });
 
