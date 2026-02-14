@@ -16,19 +16,26 @@ export function handleNotFound(url: URL): Response {
     requestId,
   });
 
-  return new Response(
-    JSON.stringify({
-      error: "Not Found",
-      message: `Path ${url.pathname} not found`,
-      statusCode: 404,
-      timestamp: new Date().toISOString(),
+  // RFC 7807 Problem Details format for 404 responses
+  const problemDetails = {
+    type: "about:blank",
+    title: "Not Found",
+    status: 404,
+    detail: `The requested resource '${url.pathname}' was not found`,
+    instance: url.pathname,
+    timestamp: new Date().toISOString(),
+    extensions: {
       requestId,
-    }),
-    {
-      status: 404,
-      headers: getDefaultHeaders(requestId),
-    }
-  );
+    },
+  };
+
+  return new Response(JSON.stringify(problemDetails), {
+    status: 404,
+    headers: {
+      ...getDefaultHeaders(requestId),
+      "Content-Type": "application/problem+json",
+    },
+  });
 }
 
 export function handleServerError(error: Error, request?: Request): Response {

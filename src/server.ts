@@ -145,6 +145,7 @@ try {
 
     // Request size and timeout limits for security
     maxRequestBodySize: 10 * 1024 * 1024, // 10MB max request body
+    idleTimeout: 30, // 30 seconds idle timeout (in seconds)
     development: config.server.nodeEnv === "development",
 
     // Modern Routes API

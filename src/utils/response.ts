@@ -123,6 +123,8 @@ export function getDefaultHeaders(
     "Access-Control-Allow-Origin": config.apiInfo.cors,
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept-Version",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    // RFC 7231: Vary header indicates response varies based on Accept-Version
+    Vary: "Accept-Version",
   };
 
   // V2 includes security headers and API-Version response header

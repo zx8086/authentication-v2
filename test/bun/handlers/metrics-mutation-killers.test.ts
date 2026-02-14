@@ -69,7 +69,7 @@ describe("metrics mutation killers", () => {
     it("includes all expected Access-Control headers", async () => {
       const response = handleDebugMetricsTest();
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization"
+        "Content-Type, Authorization, Accept-Version"
       );
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
     });
@@ -128,7 +128,7 @@ describe("metrics mutation killers", () => {
     it("includes all CORS headers", async () => {
       const response = await handleDebugMetricsExport();
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization"
+        "Content-Type, Authorization, Accept-Version"
       );
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
     });

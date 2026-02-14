@@ -427,10 +427,11 @@ describe("Response Utilities Mutation Tests", () => {
       expect(headers["Access-Control-Allow-Methods"]).toContain("GET");
     });
 
-    it("should have 5 headers for v1 (kills spread mutations)", () => {
+    it("should have 6 headers for v1 (kills spread mutations)", () => {
       const headers = getDefaultHeaders(testRequestId);
 
-      expect(Object.keys(headers).length).toBe(5);
+      // 6 headers: Content-Type, X-Request-Id, CORS origin/headers/methods, Vary
+      expect(Object.keys(headers).length).toBe(6);
     });
 
     it("should include security headers for v2 (kills conditional spread mutation)", () => {

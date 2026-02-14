@@ -10,12 +10,13 @@ import {
 } from "../telemetry/instrumentation";
 import { getMetricsStatus, testMetricRecording } from "../telemetry/metrics";
 import { log } from "../utils/logger";
+import { generateRequestId, getDefaultHeaders } from "../utils/response";
 
 const config = loadConfig();
 
 export function handleDebugMetricsTest(): Response {
   const startTime = Bun.nanoseconds();
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
 
   log("Processing debug metrics test request", {
     component: "debug",
@@ -53,12 +54,7 @@ export function handleDebugMetricsTest(): Response {
       }),
       {
         status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+        headers: getDefaultHeaders(requestId),
       }
     );
   } catch (error) {
@@ -81,12 +77,7 @@ export function handleDebugMetricsTest(): Response {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+        headers: getDefaultHeaders(requestId),
       }
     );
   }
@@ -94,7 +85,7 @@ export function handleDebugMetricsTest(): Response {
 
 export async function handleDebugMetricsExport(): Promise<Response> {
   const startTime = Bun.nanoseconds();
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
 
   log("Processing debug metrics export request", {
     component: "debug",
@@ -128,12 +119,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
         }),
         {
           status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": config.apiInfo.cors,
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
+          headers: getDefaultHeaders(requestId),
         }
       );
     }
@@ -172,12 +158,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
       }),
       {
         status: flushResult.success ? 200 : 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+        headers: getDefaultHeaders(requestId),
       }
     );
   } catch (error) {
@@ -202,12 +183,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+        headers: getDefaultHeaders(requestId),
       }
     );
   }
@@ -333,7 +309,7 @@ function collectConfigData() {
 
 export async function handleMetricsUnified(kongService: IKongService, url: URL): Promise<Response> {
   const startTime = Bun.nanoseconds();
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
   const view = (url.searchParams.get("view") as MetricsView) || "operational";
 
   log("Processing unified metrics request", {
@@ -418,12 +394,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
           }),
           {
             status: 400,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": config.apiInfo.cors,
-              "Access-Control-Allow-Headers": "Content-Type, Authorization",
-              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            },
+            headers: getDefaultHeaders(requestId),
           }
         );
       }
@@ -441,11 +412,8 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
     return new Response(JSON.stringify(responseData, null, 2), {
       status: 200,
       headers: {
-        "Content-Type": "application/json",
+        ...getDefaultHeaders(requestId),
         "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       },
     });
   } catch (error) {
@@ -473,12 +441,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+        headers: getDefaultHeaders(requestId),
       }
     );
   }
