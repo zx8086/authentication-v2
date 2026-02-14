@@ -1,5 +1,3 @@
-// src/utils/bun-fetch-fallback.ts
-
 export interface FetchOptions {
   method?: string;
   headers?: Record<string, string>;
@@ -11,6 +9,9 @@ export async function fetchWithFallback(url: string, options?: FetchOptions): Pr
   try {
     return await fetch(url, options);
   } catch (fetchError) {
+    if (options?.signal?.aborted) {
+      throw fetchError;
+    }
     try {
       return await fetchViaCurl(url, options);
     } catch (_curlError) {
@@ -23,6 +24,11 @@ async function fetchViaCurl(url: string, options?: FetchOptions): Promise<Respon
   const method = options?.method || "GET";
   const headers = options?.headers || {};
   const body = options?.body;
+  const signal = options?.signal;
+
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
 
   const args = ["curl", "-s", "-i", "-X", method, "-m", "10"];
 
@@ -39,9 +45,14 @@ async function fetchViaCurl(url: string, options?: FetchOptions): Promise<Respon
   const proc = Bun.spawn(args, {
     stdout: "pipe",
     stderr: "pipe",
+    signal: signal,
   });
 
   const exitCode = await proc.exited;
+
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
 
   if (exitCode !== 0) {
     const stderr = await new Response(proc.stderr).text();

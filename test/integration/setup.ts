@@ -167,18 +167,15 @@ export async function fetchWithFallback(
   options?: RequestInit
 ): Promise<Response> {
   try {
-    // Try native fetch first
-    return await fetch(url, options);
+    return await originalFetch(url, options);
   } catch (_fetchError) {
-    // Fallback to curl for problematic network configs
     const urlString = url.toString();
     const method = options?.method || "GET";
     const headers = options?.headers;
     const signal = options?.signal;
 
-    const args = ["curl", "-s", "-i", "-X", method];
+    const args = ["curl", "-s", "-i", "-X", method, "-m", "10"];
 
-    // Add headers
     if (headers) {
       const headerEntries =
         headers instanceof Headers ? Array.from(headers.entries()) : Object.entries(headers);
@@ -187,27 +184,29 @@ export async function fetchWithFallback(
       }
     }
 
-    // Add body if present
     if (options?.body) {
       args.push("-d", options.body.toString());
     }
 
     args.push(urlString);
 
-    // Spawn curl process
+    if (signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
     const proc = Bun.spawn(args, {
       stdout: "pipe",
       stderr: "ignore",
+      signal: signal,
     });
 
-    // Handle timeout
+    await proc.exited;
+
     if (signal?.aborted) {
-      proc.kill();
-      throw new Error("Request aborted");
+      throw new DOMException("The operation was aborted.", "AbortError");
     }
 
     const output = await new Response(proc.stdout).text();
-    await proc.exited;
 
     // Parse curl output (format: HTTP/1.1 200 OK\nheaders...\n\nbody)
     // Handle both \r\n\r\n and \n\n separators
