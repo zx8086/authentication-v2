@@ -109,6 +109,15 @@ operations: {
 | `API_CONTACT_NAME` | Contact name | No |
 | `API_CONTACT_EMAIL` | Contact email | No |
 
+### Request Validation (API Best Practices)
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `MAX_REQUEST_BODY_SIZE` | Maximum request body size (bytes) | `10485760` (10MB) | 1KB-100MB |
+| `REQUEST_TIMEOUT_MS` | Request processing timeout (ms) | `30000` (30s) | 1000-120000 |
+
+These settings are part of the API best practices implementation. See [api-best-practices.md](../development/api-best-practices.md) for details.
+
 ---
 
 ## Example Configuration

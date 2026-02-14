@@ -42,7 +42,8 @@
 | Document | Description |
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
-| [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation) |
+| [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation, chaos) |
+| [api-best-practices.md](development/api-best-practices.md) | API standards: method validation, ETag, rate limiting |
 | [kong-test-setup.md](development/kong-test-setup.md) | Test consumers and Kong configuration |
 | [profiling.md](development/profiling.md) | CPU/memory profiling and Bun fetch workaround |
 

@@ -4,16 +4,71 @@
 
 The Authentication Service provides a RESTful API for JWT token generation and system monitoring. All endpoints return JSON responses with appropriate HTTP status codes.
 
+## HTTP Method Validation (RFC 9110)
+
+All endpoints enforce strict HTTP method validation per [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110). Invalid methods return `405 Method Not Allowed` with an `Allow` header listing valid methods.
+
+### Allowed Methods by Endpoint
+
+| Endpoint | Methods | Description |
+|----------|---------|-------------|
+| `/` | GET, OPTIONS | OpenAPI specification |
+| `/tokens` | GET, OPTIONS | JWT token generation |
+| `/tokens/validate` | GET, OPTIONS | Token validation |
+| `/health` | GET, OPTIONS | Main health check |
+| `/health/ready` | GET, OPTIONS | Readiness probe |
+| `/health/telemetry` | GET, OPTIONS | Telemetry health |
+| `/health/metrics` | GET, OPTIONS | Metrics health |
+| `/metrics` | GET, OPTIONS | Operational metrics |
+| `/debug/metrics/test` | POST, OPTIONS | Test metrics (debug) |
+| `/debug/metrics/export` | POST, OPTIONS | Force export (debug) |
+| `/debug/profiling/*` | POST, GET, OPTIONS | Profiling endpoints |
+
+### Method Not Allowed Response (405)
+
+```json
+{
+  "type": "https://httpwg.org/specs/rfc9110.html#status.405",
+  "title": "Method Not Allowed",
+  "status": 405,
+  "detail": "POST is not allowed on /health. Allowed methods: GET, OPTIONS",
+  "instance": "/health",
+  "code": "AUTH_007",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-02-14T12:00:00.000Z"
+}
+```
+
+**Response Headers**:
+```http
+HTTP/1.1 405 Method Not Allowed
+Allow: GET, OPTIONS
+Content-Type: application/problem+json
+```
+
 ## Core Endpoints
 
 ### GET /
 Returns the OpenAPI specification for the service.
+
+**Features**:
+- **ETag Support (RFC 7232)**: Returns SHA-256 based ETag for caching
+- **Conditional Requests**: Supports `If-None-Match` header for 304 responses
+- **Content Negotiation**: Returns JSON (default) or YAML based on `Accept` header
 
 **Request**
 ```http
 GET / HTTP/1.1
 Host: auth-service.example.com
 Accept: application/json
+```
+
+**Request with Conditional Caching**
+```http
+GET / HTTP/1.1
+Host: auth-service.example.com
+Accept: application/json
+If-None-Match: "a1b2c3d4e5f6..."
 ```
 
 **Response - JSON (200 OK)**
@@ -37,6 +92,22 @@ info:
   title: Authentication Service API
   version: 1.0.0
   description: JWT token generation service for Kong consumers
+```
+
+**Response - Not Modified (304)**
+
+When the client sends `If-None-Match` header matching the current ETag:
+```http
+HTTP/1.1 304 Not Modified
+ETag: "a1b2c3d4e5f6..."
+Cache-Control: public, max-age=300
+```
+
+**Response Headers (All 200 responses)**:
+```http
+ETag: "a1b2c3d4e5f6..."
+Cache-Control: public, max-age=300
+Content-Type: application/json
 ```
 
 ### GET /tokens

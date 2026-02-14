@@ -241,3 +241,92 @@ Auth Service
 - **Stale Cache Resilience**: Up to 2 hours during Kong outages
 - **4-Pillar Configuration**: Enterprise-grade configuration management
 - **Profiling Service**: Chrome DevTools integration for performance analysis
+
+---
+
+## API Standards Compliance
+
+The service implements comprehensive RFC compliance for interoperability and industry best practices.
+
+### RFC Standards Implemented
+
+| RFC | Standard | Implementation |
+|-----|----------|----------------|
+| **RFC 7519** | JSON Web Token | JWT claims (iss, aud, exp, nbf, iat, jti, sub) |
+| **RFC 7518** | JSON Web Algorithms | HS256 (HMAC-SHA256) signing via crypto.subtle |
+| **RFC 7807** | Problem Details | Structured error responses with `application/problem+json` |
+| **RFC 8594** | Sunset Header | API deprecation signaling with migration URLs |
+| **RFC 9110** | HTTP Semantics | Method validation, 405 responses with Allow header |
+| **RFC 7232** | Conditional Requests | ETag generation, If-None-Match, 304 responses |
+| **RFC 6585** | Additional HTTP Status Codes | Rate limiting headers (429 infrastructure) |
+| **RFC 7231** | HTTP/1.1 Semantics | HTTP-date format in Sunset header |
+
+### Error Response Standards (RFC 7807)
+
+All error responses use the Problem Details format:
+
+```json
+{
+  "type": "urn:problem-type:auth-service:auth-001",
+  "title": "Missing Consumer Headers",
+  "status": 401,
+  "detail": "Required Kong consumer headers are missing from the request",
+  "instance": "/tokens",
+  "code": "AUTH_001",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-02-14T12:00:00.000Z"
+}
+```
+
+**Key Fields**:
+- `type`: URN identifying the problem type
+- `title`: Short, human-readable summary
+- `status`: HTTP status code
+- `detail`: Specific explanation for this occurrence
+- `instance`: URI reference identifying the request
+- `code`: Application-specific error code (AUTH_001-012)
+- `requestId`: UUID for distributed tracing
+- `timestamp`: ISO-8601 timestamp
+
+### API Deprecation (RFC 8594)
+
+Deprecated API versions include sunset headers:
+
+```http
+Sunset: Sat, 01 Jan 2028 00:00:00 GMT
+Deprecation: true
+Link: <https://api.example.com/docs/migration>; rel="sunset"
+```
+
+### HTTP Method Validation (RFC 9110)
+
+Invalid HTTP methods return 405 with allowed methods:
+
+```http
+HTTP/1.1 405 Method Not Allowed
+Allow: GET, OPTIONS
+Content-Type: application/problem+json
+```
+
+### Conditional Requests (RFC 7232)
+
+The OpenAPI endpoint supports ETag-based caching:
+
+```http
+GET / HTTP/1.1
+If-None-Match: "a1b2c3d4e5f6..."
+
+HTTP/1.1 304 Not Modified
+ETag: "a1b2c3d4e5f6..."
+Cache-Control: public, max-age=300
+```
+
+### Request Validation
+
+| Validation | Default | Purpose |
+|------------|---------|---------|
+| Max Request Body Size | 10MB | Prevent memory exhaustion |
+| Request Timeout | 30 seconds | Prevent hanging requests |
+| Content-Type | application/json | Enforce expected formats |
+
+See [api-best-practices.md](../development/api-best-practices.md) for detailed implementation guidance.

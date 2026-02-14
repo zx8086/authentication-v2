@@ -8,6 +8,7 @@ This document consolidates all testing documentation for the authentication serv
 |--------|-------|
 | **Total Test Count** | 2900+ tests (100% pass rate) |
 | **Bun Unit/Integration Tests** | 2900+ tests across 101 files |
+| **Chaos Engineering Tests** | 57 tests across 4 suites |
 | **Playwright E2E Tests** | 32 tests across 3 files |
 | **Mutation Score** | 100% (all mutants killed) |
 | **Overall Coverage** | 80%+ line coverage |
@@ -565,3 +566,131 @@ Key files:
 - Keep test execution time <5 minutes for full suite
 - Use parallel execution where possible
 - Regular cleanup of test artifacts
+
+---
+
+## 11. Chaos Testing
+
+Located in `test/chaos/` directory. **57 chaos engineering tests** across 4 test suites validate system resilience under failure conditions.
+
+### Overview
+
+| Suite | Tests | Purpose |
+|-------|-------|---------|
+| `kong-failure.test.ts` | 19 | Kong Admin API failure scenarios |
+| `redis-failure.test.ts` | 14 | Redis cache failure scenarios |
+| `network-partition.test.ts` | 10 | Network connectivity issues |
+| `resource-exhaustion.test.ts` | 14 | Memory/CPU pressure scenarios |
+
+### Running Chaos Tests
+
+```bash
+# Run all chaos tests
+bun test test/chaos/
+
+# Run specific suite
+bun test test/chaos/kong-failure.test.ts
+bun test test/chaos/redis-failure.test.ts
+bun test test/chaos/network-partition.test.ts
+bun test test/chaos/resource-exhaustion.test.ts
+```
+
+### Kong Failure Scenarios
+
+Tests circuit breaker behavior during Kong outages:
+- Kong Admin API timeouts (100ms timeout configuration)
+- Kong 500 errors with error threshold tracking
+- Connection refused scenarios
+- Stale cache fallback behavior
+- Circuit breaker state transitions (closed -> open -> half-open -> closed)
+- Multiple consumers under Kong failure
+- Per-operation circuit breaker isolation
+
+### Redis Failure Scenarios
+
+Tests graceful degradation when Redis is unavailable:
+- Redis connection timeout with local memory fallback
+- Redis READONLY mode (reads succeed, writes fail)
+- Connection drop mid-operation
+- Cache miss handling
+- TTL expiration in local memory fallback
+- Concurrent access during failure
+- Memory pressure with max entry limits
+
+### Network Partition Scenarios
+
+Tests resilience under network issues:
+- Intermittent connectivity (alternating success/failure)
+- Occasional failures (below 50% threshold - circuit stays closed)
+- Frequent failures (80% - circuit opens)
+- High latency responses at timeout boundary
+- Variable latency handling
+- Flapping connectivity prevention
+- Recovery after extended outage
+
+### Resource Exhaustion Scenarios
+
+Tests behavior under resource pressure:
+- Large payload processing (100 payloads, 10KB each)
+- Memory tracking and garbage collection
+- Rapid allocation/deallocation cycles
+- Event loop delay measurement
+- CPU-intensive operations
+- High concurrent connections (100 simultaneous requests)
+- Deep promise chains (100 levels)
+- Large JSON serialization (10K+ items)
+
+### What Chaos Tests Validate
+
+| Behavior | Expected Result |
+|----------|-----------------|
+| Circuit breaker opens | After 50% error rate over rolling window |
+| Stale cache fallback | Returns cached data up to 30 minutes old |
+| Fast rejection | <50ms when circuit is open |
+| Memory fallback | Transparent switch when Redis unavailable |
+| Concurrent safety | No data corruption under parallel access |
+| Recovery | Circuit half-opens after 60 seconds |
+
+---
+
+## 12. API Best Practices E2E Tests
+
+Located in `test/playwright/api-best-practices.e2e.ts`. Tests validate RFC compliance and API best practices implementation.
+
+### Test Coverage
+
+| Category | Tests | Validates |
+|----------|-------|-----------|
+| Method Validation | 3 | 405 responses with Allow header (RFC 9110) |
+| ETag Support | 3 | SHA-256 ETag, If-None-Match, 304 responses (RFC 7232) |
+| Request Size Limits | 2 | 10MB limit, proper error responses |
+| Content-Type Validation | 2 | Accepted types, rejection of invalid types |
+| CORS Headers | 2 | Preflight handling, required headers |
+
+### Running API Best Practices Tests
+
+```bash
+# Run all API best practices tests
+npx playwright test api-best-practices.e2e.ts
+
+# Run with UI for debugging
+npx playwright test api-best-practices.e2e.ts --ui
+```
+
+### Key Assertions
+
+```typescript
+// Method validation (405)
+expect(response.status()).toBe(405);
+expect(response.headers()['allow']).toContain('GET');
+
+// ETag and conditional requests (304)
+expect(firstResponse.headers()['etag']).toBeDefined();
+expect(conditionalResponse.status()).toBe(304);
+
+// Request size limits
+expect(response.status()).toBe(413);  // Payload Too Large
+
+// Content-Type validation
+expect(response.status()).toBe(415);  // Unsupported Media Type
+```

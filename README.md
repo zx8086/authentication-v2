@@ -97,6 +97,8 @@ The client never sees, stores, or transmits the JWT signing secret. They only ha
 - **Resilient Operation**: Circuit breaker with stale cache fallback ensures token generation continues even during Kong Admin API outages
 - **Full Observability**: W3C Trace Context propagation and OpenTelemetry instrumentation for end-to-end distributed tracing
 - **Kong Flexibility**: Unified adapter supporting both self-hosted Kong API Gateway and Kong Konnect SaaS
+- **RFC Compliance**: 8 RFC standards implemented (JWT 7519, Problem Details 7807, Sunset 8594, HTTP Semantics 9110, Conditional Requests 7232, and more)
+- **API Best Practices**: Method validation (405), ETag/conditional requests (304), request size limits, content-type validation
 
 ### Who Benefits
 
@@ -130,21 +132,21 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 |----------|----------|-------------|
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
-| Configuration | [environment-setup.md](docs/configuration/environment-setup.md) | Environment variables and 4-pillar configuration |
+| Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
 | Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2900+ live tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
-| SLA | [SLA.md](docs/operations/SLA.md) | Performance SLAs and monitoring thresholds |
-| Troubleshooting | [TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) | Operational runbook and diagnostics |
+| SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
+| Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Operational runbook and diagnostics |
 | Security | [PARALLEL-SECURITY-SCANNING.md](docs/security/PARALLEL-SECURITY-SCANNING.md) | CI/CD security scanning |
 
 ### Additional Documentation
 
-- **Architecture**: [system-overview.md](docs/architecture/system-overview.md), [authentication-flow.md](docs/architecture/authentication-flow.md)
-- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [DHI Migration](docs/deployment/DHI-MIGRATION-FINAL-REPORT.md), [Scout Troubleshooting](docs/deployment/DOCKER-SCOUT-TROUBLESHOOTING.md)
-- **API**: [jwt-tokens.md](docs/api/jwt-tokens.md)
-- **Operations**: [profiling.md](docs/operations/profiling.md), [MEMORY_MONITORING_GUIDE.md](docs/memory/MEMORY_MONITORING_GUIDE.md)
-- **Testing**: [test/README.md](test/README.md), [K6 Conditional Testing](test/k6/README-CONDITIONAL-TESTING.md)
+- **Architecture**: [overview.md](docs/architecture/overview.md) (system design, authentication flow, RFC compliance)
+- **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [container-security.md](docs/deployment/container-security.md) (DHI, CVE remediation)
+- **API**: [jwt-tokens.md](docs/api/jwt-tokens.md), [api-best-practices.md](docs/development/api-best-practices.md)
+- **Operations**: [profiling.md](docs/development/profiling.md), [monitoring.md](docs/operations/monitoring.md) (includes memory monitoring)
+- **Testing**: [testing.md](docs/development/testing.md) (unit, E2E, K6, chaos testing)
 
 ## Quick Commands
 
