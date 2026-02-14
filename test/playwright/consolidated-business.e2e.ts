@@ -303,8 +303,11 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
       expect(response.status()).toBe(404);
 
       const data = await response.json();
-      expect(data.error).toBe("Not Found");
-      expect(data).toHaveProperty("message");
+      // RFC 7807 Problem Details format
+      expect(data.title).toBe("Not Found");
+      expect(data).toHaveProperty("detail");
+      expect(data).toHaveProperty("status");
+      expect(data.status).toBe(404);
     });
 
     test("Consistent error response structure", async ({ request }) => {
@@ -319,18 +322,19 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
 
         const data = await response.json();
 
+        // RFC 7807 Problem Details format for all errors
+        expect(data).toHaveProperty("type");
+        expect(data).toHaveProperty("title");
+        expect(data).toHaveProperty("status");
+        expect(data).toHaveProperty("detail");
+        expect(data).toHaveProperty("timestamp");
+
         if (expectedStatus === 401) {
-          // RFC 7807 Problem Details format for auth errors
-          expect(data).toHaveProperty("type");
-          expect(data).toHaveProperty("title");
-          expect(data).toHaveProperty("status");
-          expect(data).toHaveProperty("detail");
           expect(data).toHaveProperty("code");
-          expect(data).toHaveProperty("timestamp");
           expect(data).toHaveProperty("requestId");
-        } else {
-          // 404 errors may have different format
-          expect(data).toHaveProperty("message");
+        } else if (expectedStatus === 404) {
+          expect(data).toHaveProperty("instance");
+          expect(data).toHaveProperty("extensions");
         }
       }
     });
