@@ -499,3 +499,217 @@ export function getVersionDeprecation(
 export function isSunsetPassed(deprecationConfig: DeprecationConfig): boolean {
   return new Date() > deprecationConfig.sunsetDate;
 }
+
+/**
+ * Rate limit information for RFC 6585 compliant responses.
+ * @see https://www.rfc-editor.org/rfc/rfc6585#section-4
+ */
+export interface RateLimitInfo {
+  /** Maximum requests allowed in the time window */
+  limit: number;
+  /** Remaining requests in current window */
+  remaining: number;
+  /** Time when the rate limit resets (Unix timestamp in seconds) */
+  reset: number;
+  /** Time window duration in seconds (optional) */
+  window?: number;
+}
+
+/**
+ * Get RFC 6585 compliant rate limit headers.
+ * Uses standardized X-RateLimit-* headers for client visibility.
+ *
+ * @param rateLimitInfo - Rate limit information
+ * @returns Record of rate limit headers
+ *
+ * @example
+ * ```typescript
+ * const headers = getRateLimitHeaders({
+ *   limit: 100,
+ *   remaining: 42,
+ *   reset: Math.floor(Date.now() / 1000) + 3600
+ * });
+ * // Returns:
+ * // {
+ * //   "X-RateLimit-Limit": "100",
+ * //   "X-RateLimit-Remaining": "42",
+ * //   "X-RateLimit-Reset": "1234567890"
+ * // }
+ * ```
+ */
+export function getRateLimitHeaders(rateLimitInfo: RateLimitInfo): Record<string, string> {
+  const headers: Record<string, string> = {
+    "X-RateLimit-Limit": String(rateLimitInfo.limit),
+    "X-RateLimit-Remaining": String(rateLimitInfo.remaining),
+    "X-RateLimit-Reset": String(rateLimitInfo.reset),
+  };
+
+  if (rateLimitInfo.window) {
+    headers["X-RateLimit-Window"] = String(rateLimitInfo.window);
+  }
+
+  return headers;
+}
+
+/**
+ * Create a 429 Too Many Requests RFC 7807 error response with rate limit headers.
+ *
+ * @param errorCode - Should be ErrorCodes.AUTH_006
+ * @param requestId - Correlation ID for tracing
+ * @param rateLimitInfo - Rate limit information for headers
+ * @param retryAfter - Seconds until client should retry (optional)
+ * @param instance - The specific resource/endpoint that caused the error
+ * @returns RFC 7807 compliant error response with rate limit headers
+ */
+export function createRateLimitErrorResponse(
+  errorCode: ErrorCode,
+  requestId: string,
+  rateLimitInfo: RateLimitInfo,
+  retryAfter?: number,
+  instance?: string
+): Response {
+  const additionalHeaders: Record<string, string> = {
+    ...getRateLimitHeaders(rateLimitInfo),
+  };
+
+  if (retryAfter) {
+    additionalHeaders["Retry-After"] = String(retryAfter);
+  }
+
+  const details = {
+    limit: rateLimitInfo.limit,
+    resetAt: new Date(rateLimitInfo.reset * 1000).toISOString(),
+  };
+
+  return createStructuredErrorResponse(errorCode, requestId, details, additionalHeaders, instance);
+}
+
+/**
+ * Generate an ETag for response content.
+ * Uses SHA-256 hash for strong validation.
+ *
+ * @param content - Content to generate ETag for
+ * @returns ETag header value (with quotes)
+ */
+export async function generateETag(content: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  // ETag should be quoted per RFC 7232
+  return `"${hashHex.substring(0, 32)}"`;
+}
+
+/**
+ * Check if request has matching ETag (for conditional requests).
+ *
+ * @param request - The incoming request
+ * @param etag - The current ETag value
+ * @returns true if ETags match (resource not modified)
+ */
+export function hasMatchingETag(request: Request, etag: string): boolean {
+  const ifNoneMatch = request.headers.get("If-None-Match");
+  return ifNoneMatch === etag;
+}
+
+/**
+ * Create a 304 Not Modified response for conditional requests.
+ *
+ * @param requestId - Correlation ID for tracing
+ * @param etag - ETag value for the resource
+ * @param additionalHeaders - Extra headers to include
+ * @returns 304 response with minimal headers
+ */
+export function createNotModifiedResponse(
+  requestId: string,
+  etag: string,
+  additionalHeaders?: Record<string, string>
+): Response {
+  const headers = {
+    "X-Request-Id": requestId,
+    ETag: etag,
+    ...additionalHeaders,
+  };
+
+  return new Response(null, {
+    status: 304,
+    headers,
+  });
+}
+
+/**
+ * Validation error detail for RFC 7807 responses.
+ */
+export interface ValidationError {
+  /** Field name that failed validation */
+  field: string;
+  /** Validation error message */
+  message: string;
+  /** Expected value or format (optional) */
+  expected?: string;
+  /** Actual value received (optional, be careful with sensitive data) */
+  actual?: string;
+}
+
+/**
+ * Create an RFC 7807 error response for validation failures.
+ * Returns 400 Bad Request with detailed field-level errors.
+ *
+ * @param errorCode - Should be ErrorCodes.AUTH_007
+ * @param requestId - Correlation ID for tracing
+ * @param validationErrors - Array of validation errors
+ * @param instance - The specific resource/endpoint that caused the error
+ * @returns RFC 7807 compliant error response with validation details
+ */
+export function createValidationErrorResponse(
+  errorCode: ErrorCode,
+  requestId: string,
+  validationErrors: ValidationError[],
+  instance?: string
+): Response {
+  const details = {
+    validationErrors,
+    count: validationErrors.length,
+  };
+
+  return createStructuredErrorResponse(errorCode, requestId, details, undefined, instance);
+}
+
+/**
+ * Create a 405 Method Not Allowed RFC 7807 error response.
+ * Includes Allow header with supported methods.
+ *
+ * @param requestId - Correlation ID for tracing
+ * @param allowedMethods - Array of allowed HTTP methods
+ * @param instance - The specific resource/endpoint that caused the error
+ * @returns 405 response with Allow header
+ */
+export function createMethodNotAllowedResponse(
+  requestId: string,
+  allowedMethods: string[],
+  instance?: string
+): Response {
+  const problemDetails = {
+    type: "https://httpwg.org/specs/rfc9110.html#status.405",
+    title: "Method Not Allowed",
+    status: 405,
+    detail: `The requested method is not allowed for this endpoint. Allowed methods: ${allowedMethods.join(", ")}`,
+    instance: instance || "/",
+    requestId,
+    timestamp: new Date().toISOString(),
+    extensions: {
+      allowedMethods,
+    },
+  };
+
+  const headers = {
+    ...getProblemDetailsHeaders(requestId),
+    Allow: allowedMethods.join(", "),
+  };
+
+  return new Response(JSON.stringify(problemDetails), {
+    status: 405,
+    headers,
+  });
+}

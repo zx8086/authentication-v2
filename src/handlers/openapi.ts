@@ -3,8 +3,25 @@
 import { loadConfig } from "../config/index";
 import { getApiDocGenerator } from "../openapi-generator";
 import { log } from "../utils/logger";
+import { createNotModifiedResponse, generateETag, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
+
+// Cache for generated spec and ETag
+let cachedSpec: Record<string, unknown> | null = null;
+let cachedJsonContent: string | null = null;
+let cachedYamlContent: string | null = null;
+let cachedJsonETag: string | null = null;
+let cachedYamlETag: string | null = null;
+
+// Reset cache function for testing
+export function resetOpenAPICache(): void {
+  cachedSpec = null;
+  cachedJsonContent = null;
+  cachedYamlContent = null;
+  cachedJsonETag = null;
+  cachedYamlETag = null;
+}
 
 function convertToYaml(obj: Record<string, unknown> | object, indent = 0): string {
   const spaces = " ".repeat(indent);
@@ -36,45 +53,95 @@ function convertToYaml(obj: Record<string, unknown> | object, indent = 0): strin
   return yaml;
 }
 
-export function handleOpenAPISpec(acceptHeader?: string): Response {
+export async function handleOpenAPISpec(req: Request): Promise<Response> {
+  const requestId = generateRequestId();
+  const acceptHeader = req.headers.get("Accept") || undefined;
+
   log("Processing OpenAPI spec request", {
     component: "openapi",
     operation: "handle_openapi_spec",
     endpoint: "/",
     accept_header: acceptHeader,
+    requestId,
   });
 
   try {
-    const spec = getApiDocGenerator().generateSpec();
+    // Generate or use cached spec
+    if (!cachedSpec) {
+      const spec = getApiDocGenerator().generateSpec();
+      cachedSpec = spec;
+      cachedJsonContent = JSON.stringify(spec, null, 2);
+      cachedYamlContent = convertToYaml(spec);
+
+      // Generate ETags asynchronously
+      cachedJsonETag = await generateETag(cachedJsonContent);
+      cachedYamlETag = await generateETag(cachedYamlContent);
+
+      log("OpenAPI spec cached with ETags", {
+        component: "openapi",
+        jsonETag: cachedJsonETag,
+        yamlETag: cachedYamlETag,
+      });
+    }
+
+    // Ensure spec is available
+    if (!cachedJsonContent || !cachedYamlContent) {
+      throw new Error("OpenAPI spec not generated");
+    }
 
     const preferYaml =
       acceptHeader?.includes("application/yaml") ||
       acceptHeader?.includes("text/yaml") ||
       acceptHeader?.includes("application/x-yaml");
 
-    if (preferYaml) {
-      const yamlContent = convertToYaml(spec);
-      return new Response(yamlContent, {
-        status: 200,
-        headers: {
-          "Content-Type": "application/yaml",
-          "Cache-Control": "public, max-age=300",
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
+    const contentType = preferYaml ? "application/yaml" : "application/json";
+    const content = preferYaml ? cachedYamlContent : cachedJsonContent;
+    const etag = preferYaml ? cachedYamlETag : cachedJsonETag;
+
+    // Check for conditional request using actual request headers (Bun native pattern)
+    const ifNoneMatch = req.headers.get("If-None-Match");
+    if (etag && ifNoneMatch === etag) {
+      log("OpenAPI spec not modified (304)", {
+        component: "openapi",
+        etag,
+        requestId,
+      });
+
+      return createNotModifiedResponse(requestId, etag, {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=300",
+        "Access-Control-Allow-Origin": config.apiInfo.cors,
       });
     }
 
-    return new Response(JSON.stringify(spec, null, 2), {
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "X-Request-Id": requestId,
+      "Cache-Control": "public, max-age=300",
+      "Access-Control-Allow-Origin": config.apiInfo.cors,
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    };
+
+    // Add ETag if available
+    if (etag) {
+      headers.ETag = etag;
+    }
+
+    // Add Last-Modified header
+    headers["Last-Modified"] = new Date().toUTCString();
+
+    log("OpenAPI spec served", {
+      component: "openapi",
+      contentType,
+      size: content?.length || 0,
+      etag,
+      requestId,
+    });
+
+    return new Response(content, {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      },
+      headers,
     });
   } catch (error) {
     return new Response(
@@ -82,11 +149,13 @@ export function handleOpenAPISpec(acceptHeader?: string): Response {
         error: "Failed to generate OpenAPI specification",
         message: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
+        requestId,
       }),
       {
         status: 500,
         headers: {
           "Content-Type": "application/json",
+          "X-Request-Id": requestId,
           "Access-Control-Allow-Origin": config.apiInfo.cors,
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

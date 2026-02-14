@@ -143,6 +143,10 @@ try {
     port: config.server.port,
     hostname: "0.0.0.0",
 
+    // Request size and timeout limits for security
+    maxRequestBodySize: 10 * 1024 * 1024, // 10MB max request body
+    development: config.server.nodeEnv === "development",
+
     // Modern Routes API
     routes,
 

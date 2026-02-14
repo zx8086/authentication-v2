@@ -1,15 +1,28 @@
 /* test/bun/openapi-yaml-converter.test.ts */
 
-import { describe, expect, it, spyOn } from "bun:test";
+import { beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { handleOpenAPISpec, resetOpenAPICache } from "../../../src/handlers/openapi";
+import { getApiDocGenerator } from "../../../src/openapi-generator";
+
+// Helper to create a Request with optional Accept header
+function createRequest(acceptHeader?: string): Request {
+  const headers: Record<string, string> = {};
+  if (acceptHeader) {
+    headers.Accept = acceptHeader;
+  }
+  return new Request("http://localhost/", { headers });
+}
 
 describe("OpenAPI YAML Converter Edge Cases", () => {
-  describe("convertToYaml with null/undefined values", () => {
-    it("should handle object with null values in YAML conversion", () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
+  // Reset cache before each test to ensure mocks work correctly
+  beforeEach(() => {
+    resetOpenAPICache();
+  });
 
-      const originalGenerateSpec = getApiDocGenerator().generateSpec;
+  describe("convertToYaml with null/undefined values", () => {
+    it("should handle object with null values in YAML conversion", async () => {
       const mockGenerator = getApiDocGenerator();
+      const originalGenerateSpec = mockGenerator.generateSpec;
 
       spyOn(mockGenerator, "generateSpec").mockReturnValue({
         openapi: "3.0.0",
@@ -21,20 +34,15 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         paths: {},
       });
 
-      const response = handleOpenAPISpec("application/yaml");
-      const yamlPromise = response.text();
+      const response = await handleOpenAPISpec(createRequest("application/yaml"));
+      const yaml = await response.text();
 
-      yamlPromise.then((yaml: string) => {
-        expect(yaml).toContain("description: null");
-      });
+      expect(yaml).toContain("description: null");
 
       mockGenerator.generateSpec = originalGenerateSpec;
     });
 
     it("should handle object with undefined values by converting to null", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -48,7 +56,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         paths: {},
       });
 
-      const response = handleOpenAPISpec("application/yaml");
+      const response = await handleOpenAPISpec(createRequest("application/yaml"));
       const yaml = await response.text();
 
       expect(yaml).toContain("contact: null");
@@ -59,9 +67,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
 
   describe("Error handling in handleOpenAPISpec", () => {
     it("should return 500 error when spec generation throws Error", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -69,7 +74,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw new Error("Spec generation failed");
       });
 
-      const response = handleOpenAPISpec();
+      const response = await handleOpenAPISpec(createRequest());
 
       expect(response.status).toBe(500);
       expect(response.headers.get("Content-Type")).toBe("application/json");
@@ -84,9 +89,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
     });
 
     it("should include CORS headers in error response", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -94,7 +96,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw new Error("Test error");
       });
 
-      const response = handleOpenAPISpec();
+      const response = await handleOpenAPISpec(createRequest());
 
       expect(response.headers.get("Access-Control-Allow-Origin")).not.toBeNull();
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
@@ -106,9 +108,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
     });
 
     it("should handle unknown error type with fallback message", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -116,7 +115,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw "String error instead of Error object";
       });
 
-      const response = handleOpenAPISpec();
+      const response = await handleOpenAPISpec(createRequest());
 
       expect(response.status).toBe(500);
 
@@ -128,9 +127,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
     });
 
     it("should return error with valid JSON structure", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -138,7 +134,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw new Error("Critical failure");
       });
 
-      const response = handleOpenAPISpec();
+      const response = await handleOpenAPISpec(createRequest());
       const body = await response.json();
 
       expect(typeof body).toBe("object");
@@ -153,9 +149,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
     });
 
     it("should include valid ISO timestamp in error response", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -163,7 +156,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw new Error("Test");
       });
 
-      const response = handleOpenAPISpec();
+      const response = await handleOpenAPISpec(createRequest());
       const body = await response.json();
 
       const timestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -174,9 +167,6 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
     });
 
     it("should handle error during YAML conversion", async () => {
-      const { handleOpenAPISpec } = require("../../../src/handlers/openapi");
-      const { getApiDocGenerator } = require("../../../src/openapi-generator");
-
       const mockGenerator = getApiDocGenerator();
       const originalGenerateSpec = mockGenerator.generateSpec;
 
@@ -184,7 +174,7 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
         throw new TypeError("Cannot convert to YAML");
       });
 
-      const response = handleOpenAPISpec("application/yaml");
+      const response = await handleOpenAPISpec(createRequest("application/yaml"));
 
       expect(response.status).toBe(500);
       const body = await response.json();
