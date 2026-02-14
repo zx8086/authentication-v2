@@ -26,18 +26,22 @@ import {
 import { handleTokenRequest, handleTokenValidation } from "../handlers/tokens";
 import { handleOptionsRequest } from "../middleware/cors";
 import { handleNotFound } from "../middleware/error-handler";
-import { validateRequest } from "../middleware/validation";
+import {
+  getAllowedMethods,
+  isMethodAllowed,
+  validateBodySize,
+  validateContentType,
+} from "../middleware/validation";
 import type { IKongService } from "../services/kong.service";
 import { telemetryTracer } from "../telemetry/tracer";
+import { createMethodNotAllowedResponse, generateRequestId } from "../utils/response";
 
 // Bun Routes API implementation
 export function createRoutes(kongService: IKongService) {
   const routes = {
     "/": {
       GET: async (req: Request) =>
-        await telemetryTracer.createHttpSpan(req.method, "/", 200, () =>
-          handleOpenAPISpec(req.headers.get("Accept") || undefined)
-        ),
+        await telemetryTracer.createHttpSpan(req.method, "/", 200, () => handleOpenAPISpec(req)),
     },
 
     "/health": {
@@ -146,17 +150,32 @@ export function createRoutes(kongService: IKongService) {
   };
 
   const fallbackFetch = async (req: Request): Promise<Response> => {
-    // Validate request (method, content-type, body size)
-    const validationError = await validateRequest(req);
-    if (validationError) {
-      return validationError;
+    const url = new URL(req.url);
+
+    // Bun routes undefined methods to fetch(), so check for 405 case first
+    // When route exists but method doesn't match, return 405 Method Not Allowed
+    const allowedMethods = getAllowedMethods(url.pathname);
+    if (allowedMethods.length > 0 && !isMethodAllowed(req.method, url.pathname)) {
+      const requestId = generateRequestId();
+      return createMethodNotAllowedResponse(requestId, allowedMethods, url.pathname);
     }
 
+    // Handle OPTIONS requests
     if (req.method === "OPTIONS") {
       return handleOptionsRequest();
     }
 
-    const url = new URL(req.url);
+    // Validate content-type and body size for POST/PUT/PATCH requests
+    const contentTypeError = validateContentType(req);
+    if (contentTypeError) {
+      return contentTypeError;
+    }
+
+    const bodySizeError = await validateBodySize(req);
+    if (bodySizeError) {
+      return bodySizeError;
+    }
+
     return handleNotFound(url);
   };
 

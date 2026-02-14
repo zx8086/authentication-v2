@@ -303,7 +303,7 @@ bun test test/bun/utils/response.mutation.test.ts
 **Test Coverage:**
 - 11 validation middleware tests
 - 73 response utility tests
-- All tests passing ✅
+- All tests passing
 
 ## Benefits
 

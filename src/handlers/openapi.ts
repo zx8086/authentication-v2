@@ -3,12 +3,7 @@
 import { loadConfig } from "../config/index";
 import { getApiDocGenerator } from "../openapi-generator";
 import { log } from "../utils/logger";
-import {
-  createNotModifiedResponse,
-  generateETag,
-  generateRequestId,
-  hasMatchingETag,
-} from "../utils/response";
+import { createNotModifiedResponse, generateETag, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
 
@@ -49,8 +44,9 @@ function convertToYaml(obj: Record<string, unknown> | object, indent = 0): strin
   return yaml;
 }
 
-export async function handleOpenAPISpec(acceptHeader?: string): Promise<Response> {
+export async function handleOpenAPISpec(req: Request): Promise<Response> {
   const requestId = generateRequestId();
+  const acceptHeader = req.headers.get("Accept") || undefined;
 
   log("Processing OpenAPI spec request", {
     component: "openapi",
@@ -93,13 +89,9 @@ export async function handleOpenAPISpec(acceptHeader?: string): Promise<Response
     const content = preferYaml ? cachedYamlContent : cachedJsonContent;
     const etag = preferYaml ? cachedYamlETag : cachedJsonETag;
 
-    // Build minimal request for ETag checking
-    const request = new Request("http://localhost/", {
-      headers: acceptHeader ? { Accept: acceptHeader, "If-None-Match": "" } : {},
-    });
-
-    // Check for conditional request (If-None-Match)
-    if (etag && hasMatchingETag(request, etag)) {
+    // Check for conditional request using actual request headers (Bun native pattern)
+    const ifNoneMatch = req.headers.get("If-None-Match");
+    if (etag && ifNoneMatch === etag) {
       log("OpenAPI spec not modified (304)", {
         component: "openapi",
         etag,
