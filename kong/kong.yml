@@ -85,7 +85,7 @@ plugins:
       - http
       - https
     config:
-      http_endpoint: "https://kong_http_logs:TT5mBqa4ULBr@kibana.siobytes.com/logs-kong.dev-siobytes/_doc?pipeline=add-timestamp-kong-http-log"
+      http_endpoint: "https://kong_http_logs:TT5mBqa4ULBr@elasticsearch.siobytes.com/logs-kong.prd-siobytes/_doc?pipeline=add-timestamp-kong-http-log"
       method: POST
       timeout: 10000
       keepalive: 60000
@@ -174,6 +174,42 @@ consumers:
 # ============================================================
 
 services:
+  # ============================================================
+  # Local Development Auth Service
+  # ============================================================
+  # Routes to Bun service running on host machine (localhost:3000)
+  # Access via: http://localhost:8000/auth/...
+  # This enables Kong http-log plugin to capture local dev requests
+  # ============================================================
+  - name: auth-service-local
+    host: host.docker.internal
+    port: 3000
+    protocol: http
+    connect_timeout: 60000
+    read_timeout: 60000
+    write_timeout: 60000
+    routes:
+      # Path-based route: http://localhost:8000/auth/...
+      - name: auth-service-local-route
+        paths:
+          - /auth
+        strip_path: true
+        preserve_host: false
+        protocols:
+          - http
+          - https
+      # Host-based route for Playwright tests: http://localhost:8000/... with Host: auth.local
+      - name: auth-service-local-host-route
+        hosts:
+          - auth.local
+        paths:
+          - /
+        strip_path: false
+        preserve_host: false
+        protocols:
+          - http
+          - https
+
   # Simple API Service
   - name: simple-api-service
     host: simple-api-service.applications.svc.cluster.local

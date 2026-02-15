@@ -148,8 +148,11 @@ Located in `test/playwright/` directory.
 ### Running E2E Tests
 
 ```bash
-# Run all E2E tests
-bun run playwright:test
+# Run all E2E tests (direct mode - no Kong required)
+bun run test:e2e
+
+# Run via Kong (requires devcontainer)
+bun run test:e2e:kong
 
 # Run CI-safe tests only (no Kong dependency)
 npx playwright test --project=ci-chromium
@@ -163,6 +166,21 @@ bun run playwright:ui
 # Debug mode
 npx playwright test --debug
 ```
+
+### Dual-Mode E2E Testing
+
+Tests support two execution modes for flexibility:
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| Direct | `bun run test:e2e` | Tests directly against localhost:3000 using X-Consumer-* headers |
+| Via Kong | `bun run test:e2e:kong` | Tests via Kong (localhost:8000) using API keys, captures http-log |
+
+**See [Kong Integration Guide](kong-test-setup.md#dual-mode-e2e-testing)** for comprehensive documentation including:
+- Mode detection implementation
+- Authentication header selection
+- Authentication flow diagrams
+- Test behavior differences by mode
 
 ### Test Projects
 

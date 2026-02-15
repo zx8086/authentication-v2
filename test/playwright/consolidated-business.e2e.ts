@@ -2,10 +2,14 @@
 
 import { expect, test } from "@playwright/test";
 
+// Detect if running via Kong (E2E_HOST_HEADER is set)
+const VIA_KONG = !!process.env.E2E_HOST_HEADER;
+
 const TEST_CONSUMER = {
   id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
   username: "test-consumer-001",
   custom_id: "test-consumer-001",
+  apiKey: "test-api-key-consumer-001",
   description: "Primary test consumer for basic authentication tests",
 };
 
@@ -21,21 +25,39 @@ const BASIC_TEST_CONSUMERS = [
     id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
     username: "test-consumer-001",
     custom_id: "test-consumer-001",
+    apiKey: "test-api-key-consumer-001",
     description: "Primary test consumer for basic authentication tests",
   },
   {
     id: "1ff7d425-917a-4858-9e99-c2a911ba1b05",
     username: "test-consumer-002",
     custom_id: "test-consumer-002",
+    apiKey: "test-api-key-consumer-002",
     description: "Secondary test consumer for multi-user scenarios",
   },
   {
     id: "73881280-13b4-40b3-aecf-84d981d6ac35",
     username: "test-consumer-003",
     custom_id: "test-consumer-003",
+    apiKey: "test-api-key-consumer-003",
     description: "Third test consumer for multi-user scenarios",
   },
 ];
+
+/**
+ * Get headers for consumer authentication.
+ * - Via Kong: Use API key (Kong sets X-Consumer-* headers)
+ * - Direct: Use X-Consumer-* headers directly
+ */
+function getConsumerHeaders(consumer: { id: string; username: string; apiKey?: string }) {
+  if (VIA_KONG && consumer.apiKey) {
+    return { "X-API-Key": consumer.apiKey };
+  }
+  return {
+    "X-Consumer-Id": consumer.id,
+    "X-Consumer-Username": consumer.username,
+  };
+}
 
 test.describe("Authentication Service - Complete Business Requirements", () => {
   test.describe("Service Health & Dependencies", () => {
@@ -80,10 +102,7 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
     test("Generates valid JWT token for authenticated consumer", async ({ request }) => {
       const consumer = TEST_CONSUMER;
       const response = await request.get("/tokens", {
-        headers: {
-          "X-Consumer-Id": consumer.id,
-          "X-Consumer-Username": consumer.username,
-        },
+        headers: getConsumerHeaders(consumer),
       });
       expect(response.status()).toBe(200);
 
@@ -105,10 +124,7 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
 
     test("Same consumer gets consistent tokens (same secret)", async ({ request }) => {
       const consumer = TEST_CONSUMER;
-      const headers = {
-        "X-Consumer-Id": consumer.id,
-        "X-Consumer-Username": consumer.username,
-      };
+      const headers = getConsumerHeaders(consumer);
 
       const response1 = await request.get("/tokens", { headers });
       const response2 = await request.get("/tokens", { headers });
@@ -134,10 +150,7 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
 
       for (const consumer of consumers) {
         const response = await request.get("/tokens", {
-          headers: {
-            "X-Consumer-Id": consumer.id,
-            "X-Consumer-Username": consumer.username,
-          },
+          headers: getConsumerHeaders(consumer),
         });
         expect(response.status()).toBe(200);
 
@@ -157,59 +170,82 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
   });
 
   test.describe("Security Enforcement", () => {
+    // Skip anonymous consumer test via Kong - Kong auth handles this differently
     test("Rejects anonymous consumers", async ({ request }) => {
-      const response = await request.get("/tokens", {
-        headers: {
-          "X-Consumer-Id": ANONYMOUS_CONSUMER.id,
-          "X-Consumer-Username": ANONYMOUS_CONSUMER.username,
-          "X-Anonymous-Consumer": "true",
-        },
-      });
-      expect(response.status()).toBe(401);
-
-      const data = await response.json();
-      // RFC 7807 Problem Details format
-      expect(data.code).toBe("AUTH_009");
-      expect(data.detail).toContain("Anonymous consumers");
+      // Via Kong: unauthenticated requests become anonymous consumer
+      // Direct: we can set X-Anonymous-Consumer header explicitly
+      if (VIA_KONG) {
+        // Test unauthenticated request (no API key)
+        const response = await request.get("/tokens");
+        expect(response.status()).toBe(401);
+        const data = await response.json();
+        expect(data.code).toBe("AUTH_009");
+      } else {
+        const response = await request.get("/tokens", {
+          headers: {
+            "X-Consumer-Id": ANONYMOUS_CONSUMER.id,
+            "X-Consumer-Username": ANONYMOUS_CONSUMER.username,
+            "X-Anonymous-Consumer": "true",
+          },
+        });
+        expect(response.status()).toBe(401);
+        const data = await response.json();
+        expect(data.code).toBe("AUTH_009");
+        expect(data.detail).toContain("Anonymous consumers");
+      }
     });
 
+    // Skip header validation test via Kong - Kong handles auth differently
     test("Requires both consumer headers", async ({ request }) => {
-      let response = await request.get("/tokens");
-      expect(response.status()).toBe(401);
+      if (VIA_KONG) {
+        // Via Kong: missing auth = anonymous consumer = AUTH_009
+        const response = await request.get("/tokens");
+        expect(response.status()).toBe(401);
+      } else {
+        let response = await request.get("/tokens");
+        expect(response.status()).toBe(401);
 
-      response = await request.get("/tokens", {
-        headers: { "X-Consumer-Id": "test-id" },
-      });
-      expect(response.status()).toBe(401);
+        response = await request.get("/tokens", {
+          headers: { "X-Consumer-Id": "test-id" },
+        });
+        expect(response.status()).toBe(401);
 
-      response = await request.get("/tokens", {
-        headers: { "X-Consumer-Username": "test-user" },
-      });
-      expect(response.status()).toBe(401);
+        response = await request.get("/tokens", {
+          headers: { "X-Consumer-Username": "test-user" },
+        });
+        expect(response.status()).toBe(401);
+      }
     });
 
     test("Handles non-existent consumers", async ({ request }) => {
-      const response = await request.get("/tokens", {
-        headers: {
-          "X-Consumer-Id": `non-existent-${Date.now()}`,
-          "X-Consumer-Username": `ghost-user-${Date.now()}`,
-        },
-      });
+      // Via Kong: non-existent API key = 401 from Kong itself
+      // Direct: non-existent consumer headers = AUTH_002 from service
+      if (VIA_KONG) {
+        const response = await request.get("/tokens", {
+          headers: { "X-API-Key": `invalid-key-${Date.now()}` },
+        });
+        expect(response.status()).toBe(401);
+      } else {
+        const response = await request.get("/tokens", {
+          headers: {
+            "X-Consumer-Id": `non-existent-${Date.now()}`,
+            "X-Consumer-Username": `ghost-user-${Date.now()}`,
+          },
+        });
 
-      // In CI/CD environments, Kong behavior may vary due to circuit breaker patterns
-      // Accept both 401 (consumer not found) and 503 (service temporarily unavailable)
-      expect([401, 503]).toContain(response.status());
+        // In CI/CD environments, Kong behavior may vary due to circuit breaker patterns
+        // Accept both 401 (consumer not found) and 503 (service temporarily unavailable)
+        expect([401, 503]).toContain(response.status());
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (response.status() === 401) {
-        // RFC 7807 - Standard unauthorized response - AUTH_002 for consumer not found
-        expect(data.code).toBe("AUTH_002");
-        expect(data).toHaveProperty("requestId");
-      } else if (response.status() === 503) {
-        // RFC 7807 - Circuit breaker or Kong connectivity response - AUTH_004
-        expect(data.code).toBe("AUTH_004");
-        expect(data).toHaveProperty("timestamp");
+        if (response.status() === 401) {
+          expect(data.code).toBe("AUTH_002");
+          expect(data).toHaveProperty("requestId");
+        } else if (response.status() === 503) {
+          expect(data.code).toBe("AUTH_004");
+          expect(data).toHaveProperty("timestamp");
+        }
       }
     });
   });
@@ -217,10 +253,7 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
   test.describe("Service Performance & Reliability", () => {
     test("Handles multiple requests efficiently", async ({ request }) => {
       const consumer = TEST_CONSUMER;
-      const headers = {
-        "X-Consumer-Id": consumer.id,
-        "X-Consumer-Username": consumer.username,
-      };
+      const headers = getConsumerHeaders(consumer);
 
       const startTime = Date.now();
       for (let i = 0; i < 5; i++) {
@@ -241,10 +274,7 @@ test.describe("Authentication Service - Complete Business Requirements", () => {
 
       const requests = consumers.map((consumer) =>
         request.get("/tokens", {
-          headers: {
-            "X-Consumer-Id": consumer.id,
-            "X-Consumer-Username": consumer.username,
-          },
+          headers: getConsumerHeaders(consumer),
         })
       );
 

@@ -46,6 +46,7 @@
     "test:bun:seed": "bun test --seed",
     "test:bun:watch": "bun test --watch",
     "test:e2e": "playwright test",
+    "test:e2e:kong": "API_BASE_URL=http://localhost:8000 E2E_HOST_HEADER=auth.local playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:k6:info": "bun run test/k6/run-all-tests.ts",
     "test:k6:smoke:basic": "bun run --parallel test:k6:smoke:health test:k6:smoke:metrics test:k6:smoke:openapi",

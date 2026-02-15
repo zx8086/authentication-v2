@@ -26,6 +26,7 @@ export default defineConfig({
       "Content-Type": "application/json",
       Accept: "application/json",
       "User-Agent": "Playwright-AuthService-E2E/1.0",
+      ...(process.env.E2E_HOST_HEADER && { Host: process.env.E2E_HOST_HEADER }),
     },
     trace: process.env.E2E_TRACE || "on-first-retry",
     video: process.env.E2E_VIDEO || "retain-on-failure",

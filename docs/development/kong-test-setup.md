@@ -1,12 +1,294 @@
-# Kong Test Consumer Setup
+# Kong Integration and Testing Guide
 
-This guide documents the test consumers used for testing the authentication service and how to configure them in Kong API Gateway.
+This guide documents the Kong integration for local development and testing, including dual-mode E2E testing that supports both direct service access and Kong-routed requests.
 
-## Test Consumers Overview
+## Table of Contents
+
+- [Local Development Kong Routing](#local-development-kong-routing)
+- [Dual-Mode E2E Testing](#dual-mode-e2e-testing)
+- [Kong HTTP Log Integration](#kong-http-log-integration)
+- [Test Consumers](#test-consumers)
+- [Setting Up Consumers in Kong](#setting-up-consumers-in-kong)
+- [CI/CD Integration](#cicd-integration)
+- [Verification](#verification)
+- [Troubleshooting](#troubleshooting)
+- [Best Practices: Consumer Rotation Strategy](#best-practices-consumer-rotation-strategy)
+
+---
+
+## Local Development Kong Routing
+
+The devcontainer runs Kong in Docker while the Bun application runs natively on your host machine. To enable Kong to route requests to your local service (and capture them in http-log), Kong is configured with a local development route.
+
+### Architecture
+
+```
+Host Machine                         Docker (devcontainer)
++------------------+                 +----------------------+
+| Bun App          |<----------------|  Kong Gateway        |
+| localhost:3000   |  routes via     |  localhost:8000      |
++------------------+  host.docker.   +----------------------+
+                      internal              |
+                                           |
+                                    +------v------+
+                                    | http-log    |
+                                    | plugin      |
+                                    +------+------+
+                                           |
+                                    +------v------+
+                                    | Elasticsearch|
+                                    +--------------+
+```
+
+### Kong Route Configuration
+
+Two routes are configured in `kong/kong.yml` for local development:
+
+#### 1. Path-Based Route
+
+Access the auth service via: `http://localhost:8000/auth/...`
+
+```yaml
+services:
+  - name: auth-service-local
+    host: host.docker.internal
+    port: 3000
+    protocol: http
+    routes:
+      - name: auth-service-local-route
+        paths:
+          - /auth
+        strip_path: true  # /auth/tokens -> /tokens
+```
+
+#### 2. Host-Based Route (Recommended for E2E Tests)
+
+Access the auth service via: `http://localhost:8000/...` with `Host: auth.local` header
+
+```yaml
+routes:
+  - name: auth-service-local-host-route
+    hosts:
+      - auth.local
+    paths:
+      - /
+    strip_path: false  # /tokens -> /tokens
+```
+
+**Why Host-Based Routing for Tests?**
+- Path-based routing (`/auth/tokens`) requires URL manipulation in tests
+- Host-based routing preserves original paths (`/tokens`)
+- Playwright's URL resolution replaces paths rather than appending them
+- Host header approach is transparent to test code
+
+### Syncing Configuration
+
+After modifying `kong/kong.yml`:
+
+```bash
+# From host machine
+deck gateway sync kong/kong.yml
+
+# Verify the route
+curl -H "Host: auth.local" http://localhost:8000/health
+```
+
+---
+
+## Dual-Mode E2E Testing
+
+Playwright E2E tests support two execution modes:
+
+| Mode | Command | Base URL | Auth Method | Use Case |
+|------|---------|----------|-------------|----------|
+| **Direct** | `bun run test:e2e` | `localhost:3000` | X-Consumer-* headers | CI/CD, quick testing |
+| **Via Kong** | `bun run test:e2e:kong` | `localhost:8000` | X-API-Key header | Full integration, http-log capture |
+
+### How It Works
+
+#### Mode Detection
+
+Tests detect whether they're running via Kong using the `E2E_HOST_HEADER` environment variable:
+
+```typescript
+// test/playwright/consolidated-business.e2e.ts
+const VIA_KONG = !!process.env.E2E_HOST_HEADER;
+```
+
+#### Authentication Header Selection
+
+```typescript
+function getConsumerHeaders(consumer: { id: string; username: string; apiKey?: string }) {
+  if (VIA_KONG && consumer.apiKey) {
+    // Via Kong: Use API key, Kong validates and sets X-Consumer-* headers
+    return { "X-API-Key": consumer.apiKey };
+  }
+  // Direct: Set X-Consumer-* headers directly
+  return {
+    "X-Consumer-Id": consumer.id,
+    "X-Consumer-Username": consumer.username,
+  };
+}
+```
+
+#### Authentication Flow Comparison
+
+**Direct Mode (Default):**
+```
+Test -> localhost:3000/tokens
+        Headers: X-Consumer-Id, X-Consumer-Username
+        |
+        v
+     Bun Service (validates headers directly)
+```
+
+**Kong Mode:**
+```
+Test -> localhost:8000/tokens
+        Headers: X-API-Key, Host: auth.local
+        |
+        v
+     Kong (validates API key, sets X-Consumer-* headers)
+        |
+        v
+     Bun Service (receives validated consumer headers)
+        |
+        v
+     http-log plugin (logs request to Elasticsearch)
+```
+
+### Playwright Configuration
+
+The `playwright.config.ts` is configured to support both modes:
+
+```typescript
+use: {
+  baseURL: process.env.API_BASE_URL || "http://localhost:3000",
+  extraHTTPHeaders: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "User-Agent": "Playwright-AuthService-E2E/1.0",
+    // Host header only added when E2E_HOST_HEADER is set
+    ...(process.env.E2E_HOST_HEADER && { Host: process.env.E2E_HOST_HEADER }),
+  },
+},
+```
+
+### NPM Scripts
+
+```json
+{
+  "test:e2e": "playwright test",
+  "test:e2e:kong": "API_BASE_URL=http://localhost:8000 E2E_HOST_HEADER=auth.local playwright test"
+}
+```
+
+### Running Tests
+
+```bash
+# Direct mode (default, no Kong required)
+bun run test:e2e
+
+# Via Kong (requires devcontainer running)
+bun run devcontainer:up
+bun run test:e2e:kong
+```
+
+### Test Behavior Differences
+
+Some tests behave differently based on mode:
+
+```typescript
+test("Rejects anonymous consumers", async ({ request }) => {
+  if (VIA_KONG) {
+    // Via Kong: unauthenticated request -> anonymous consumer -> AUTH_009
+    const response = await request.get("/tokens");
+    expect(response.status()).toBe(401);
+    const data = await response.json();
+    expect(data.code).toBe("AUTH_009");
+  } else {
+    // Direct: explicit anonymous headers -> AUTH_009
+    const response = await request.get("/tokens", {
+      headers: {
+        "X-Consumer-Id": ANONYMOUS_CONSUMER.id,
+        "X-Consumer-Username": ANONYMOUS_CONSUMER.username,
+        "X-Anonymous-Consumer": "true",
+      },
+    });
+    expect(response.status()).toBe(401);
+    expect(data.code).toBe("AUTH_009");
+  }
+});
+```
+
+---
+
+## Kong HTTP Log Integration
+
+The Kong http-log plugin captures all proxied requests to Elasticsearch for monitoring and debugging.
+
+### Configuration
+
+```yaml
+plugins:
+  - name: http-log
+    enabled: true
+    config:
+      http_endpoint: "https://kong_http_logs:<password>@elasticsearch.siobytes.com/logs-kong.prd-siobytes/_doc?pipeline=add-timestamp-kong-http-log"
+      method: POST
+      timeout: 10000
+      keepalive: 60000
+      retry_count: 10
+      content_type: "application/json"
+```
+
+### Key Settings
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `http_endpoint` | Elasticsearch data stream | Log destination |
+| `pipeline` | `add-timestamp-kong-http-log` | Ingest pipeline for @timestamp |
+| `retry_count` | 10 | Reliability for transient failures |
+| `timeout` | 10000ms | Maximum wait for ES response |
+
+### Elasticsearch Requirements
+
+The `kong_http_logs` user requires write permissions:
+
+```json
+PUT /_security/role/kong_logs_writer
+{
+  "indices": [{
+    "names": ["logs-kong.*"],
+    "privileges": ["create_doc", "create", "index", "write"]
+  }]
+}
+
+POST /_security/user/kong_http_logs/_roles
+{
+  "roles": ["kong_logs_writer"]
+}
+```
+
+### Verifying Logs
+
+```bash
+# Check recent Kong logs in Elasticsearch
+curl -s "https://elasticsearch.siobytes.com/logs-kong.prd-siobytes/_search?size=1" \
+  -u "user:password" | jq '.hits.hits[0]._source'
+```
+
+---
+
+## Test Consumers
+
+This section documents the test consumers used for testing the authentication service.
+
+### Consumer Overview
 
 The authentication service uses 6 predefined test consumers for consistent testing across unit tests, E2E tests, and integration tests.
 
-### Consumer Definitions
+#### Consumer Definitions
 
 All consumers are defined in `test/shared/test-consumers.ts`:
 
@@ -19,7 +301,7 @@ All consumers are defined in `test/shared/test-consumers.ts`:
 | `test-consumer-005` | `2df241f5-11db-49a3-b9fb-c797135db9c3` | Load testing consumer for performance tests |
 | `anonymous` | `56456a01-65ec-4415-aec8-49fec6403c9c` | Anonymous consumer for testing rejection scenarios |
 
-### API Key Mappings
+#### API Key Mappings
 
 Each consumer has a corresponding API key for authentication:
 
@@ -32,7 +314,7 @@ Each consumer has a corresponding API key for authentication:
 | `test-api-key-consumer-005` | test-consumer-005 |
 | `anonymous-key` | anonymous |
 
-### JWT Credentials
+#### JWT Credentials
 
 Each consumer has JWT credentials for token validation:
 
@@ -50,6 +332,8 @@ JWT secrets follow the pattern: `test-jwt-secret-{number}-minimum-32-characters-
 ---
 
 ## Setting Up Consumers in Kong
+
+This section covers how to configure test consumers in Kong.
 
 ### Option 1: Automated Seeding Script (Recommended)
 

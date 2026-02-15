@@ -67,7 +67,8 @@ test.describe("Authentication Service - CI-Safe Tests", () => {
       // RFC 7807 Problem Details format
       expect(data).toHaveProperty("type");
       expect(data).toHaveProperty("detail");
-      expect(data.code).toBe("AUTH_001");
+      // Via Kong: AUTH_009 (anonymous consumer), Direct: AUTH_001 (missing headers)
+      expect(["AUTH_001", "AUTH_009"]).toContain(data.code);
     });
 
     test("Consistent error response structure", async ({ request }) => {
