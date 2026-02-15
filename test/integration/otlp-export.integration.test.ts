@@ -11,7 +11,9 @@ describe("OTLP Export Integration", () => {
         delete Bun.env[key];
       }
     });
-    Bun.env.NODE_ENV = "test";
+    // Use "local" for integration tests to match .env configuration
+    // Bun automatically sets NODE_ENV=test, but we want to test with local config
+    Bun.env.NODE_ENV = "local";
     Bun.env.KONG_JWT_AUTHORITY = "https://auth.test.com";
     Bun.env.KONG_JWT_AUDIENCE = "https://api.test.com";
     Bun.env.KONG_ADMIN_URL = originalEnv.KONG_ADMIN_URL || "http://192.168.178.3:30001";

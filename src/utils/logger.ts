@@ -3,7 +3,6 @@
 // Stryker disable all: Logger implementation is tested via integration tests and telemetry output verification.
 // String literal mutations in log messages and field names are low-value mutations that don't catch real bugs.
 
-let winstonLogger: any = null;
 let configInstance: any = null;
 
 function getConfig() {
@@ -24,57 +23,56 @@ function getConfig() {
 }
 
 function getWinstonLogger() {
-  if (!winstonLogger) {
-    try {
-      const { winstonTelemetryLogger } = require("../telemetry/winston-logger");
-      winstonLogger = winstonTelemetryLogger;
-    } catch (_error) {
-      console.error("ERROR: Could not load winston logger, falling back to console:", _error);
-      const config = getConfig();
-      winstonLogger = {
-        info: (msg: string, ctx: any) =>
-          console.log(
-            JSON.stringify({
-              "@timestamp": new Date().toISOString(),
-              "log.level": "INFO",
-              message: msg,
-              service: {
-                name: config.telemetry.serviceName,
-                environment: config.telemetry.environment,
-              },
-              ...ctx,
-            })
-          ),
-        warn: (msg: string, ctx: any) =>
-          console.warn(
-            JSON.stringify({
-              "@timestamp": new Date().toISOString(),
-              "log.level": "WARN",
-              message: msg,
-              service: {
-                name: config.telemetry.serviceName,
-                environment: config.telemetry.environment,
-              },
-              ...ctx,
-            })
-          ),
-        error: (msg: string, ctx: any) =>
-          console.error(
-            JSON.stringify({
-              "@timestamp": new Date().toISOString(),
-              "log.level": "ERROR",
-              message: msg,
-              service: {
-                name: config.telemetry.serviceName,
-                environment: config.telemetry.environment,
-              },
-              ...ctx,
-            })
-          ),
-      };
-    }
+  // Always get fresh reference to winstonTelemetryLogger
+  // It may be reinitialized after telemetry setup (reinitialize() is called)
+  try {
+    const { winstonTelemetryLogger } = require("../telemetry/winston-logger");
+    return winstonTelemetryLogger;
+  } catch (_error) {
+    console.error("ERROR: Could not load winston logger, falling back to console:", _error);
+    const config = getConfig();
+    return {
+      info: (msg: string, ctx: any) =>
+        console.log(
+          JSON.stringify({
+            "@timestamp": new Date().toISOString(),
+            "log.level": "INFO",
+            message: msg,
+            service: {
+              name: config.telemetry.serviceName,
+              environment: config.telemetry.environment,
+            },
+            ...ctx,
+          })
+        ),
+      warn: (msg: string, ctx: any) =>
+        console.warn(
+          JSON.stringify({
+            "@timestamp": new Date().toISOString(),
+            "log.level": "WARN",
+            message: msg,
+            service: {
+              name: config.telemetry.serviceName,
+              environment: config.telemetry.environment,
+            },
+            ...ctx,
+          })
+        ),
+      error: (msg: string, ctx: any) =>
+        console.error(
+          JSON.stringify({
+            "@timestamp": new Date().toISOString(),
+            "log.level": "ERROR",
+            message: msg,
+            service: {
+              name: config.telemetry.serviceName,
+              environment: config.telemetry.environment,
+            },
+            ...ctx,
+          })
+        ),
+    };
   }
-  return winstonLogger;
 }
 
 export function log(message: string, context: Record<string, any> = {}) {
