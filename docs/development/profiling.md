@@ -330,6 +330,25 @@ const data = await response.json();
 1. Try native `fetch()` first (preferred for performance)
 2. If fetch fails, automatically retry via `curl` subprocess
 3. Return standard Response object in both cases
+4. Check AbortSignal before and after curl execution (proper abort handling)
+
+### AbortSignal Support
+
+The curl fallback now properly supports `AbortSignal` for request cancellation:
+
+```typescript
+// Abortable request with timeout
+const response = await fetchWithFallback(url, {
+  signal: AbortSignal.timeout(5000)
+});
+```
+
+**Features:**
+- Pre-check: Throws `AbortError` immediately if already aborted before curl starts
+- Post-check: Throws `AbortError` if aborted during curl execution
+- Prevents unnecessary curl subprocess when request is already cancelled
+
+**Reference:** Commit e42d824 (2026-02-14) - Fix fetch polyfill recursive call and add AbortSignal support
 
 ### Performance Impact
 
@@ -342,7 +361,7 @@ const data = await response.json();
 **Key Points:**
 - Zero overhead when native fetch succeeds (happy path)
 - Curl fallback only activates on fetch failure
-- Test improvements: 1981 to 1989 tests passing (+8 tests)
+- 81x faster health handler tests in `TELEMETRY_MODE=both` (81s to 1s) after recursive call fix
 
 ### When to Use
 

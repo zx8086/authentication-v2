@@ -48,7 +48,9 @@ The authentication service implements a robust configuration pattern with compre
 |----------|-------------|---------|----------|
 | `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | No (default: `both`) |
 | `OTEL_SERVICE_NAME` | Service name | `authentication-service` | No |
-| `OTEL_SERVICE_VERSION` | Service version | `1.0.0` | No |
+| `OTEL_SERVICE_VERSION` | Service version override | `1.0.0` | No |
+
+**Version Sourcing:** The service version is automatically read from `package.json` at runtime. The `OTEL_SERVICE_VERSION` environment variable can override this for special deployments. This ensures version consistency between `telemetry.serviceVersion` and `apiInfo.version`.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint | `http://otel-collector:4318` | No |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces endpoint | `https://otel.example.com/v1/traces` | No |
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics endpoint | `https://otel.example.com/v1/metrics` | No |

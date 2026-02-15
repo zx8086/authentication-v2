@@ -134,7 +134,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (3100+ live tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2686 tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Operational runbook and diagnostics |
@@ -159,7 +159,7 @@ bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 
 ### Testing
 ```bash
-bun run test:bun              # Unit + integration tests (3100+ live tests)
+bun run test:bun              # Unit + integration tests (2686 tests)
 bun run test:e2e              # E2E tests (3 suites)
 bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
 bun run test:suite            # Full test suite with parallel execution

@@ -155,6 +155,27 @@ The service automatically maps custom application fields to ECS (Elastic Common 
 }
 ```
 
+#### Consumer Field Mapping
+
+Kong consumer fields are mapped to `labels.consumer_*` for better OTLP transport compatibility:
+
+| Source Field | OTLP Field | Description |
+|--------------|------------|-------------|
+| `consumerId` | `labels.consumer_id` | Consumer identifier from Kong |
+| `username` | `labels.consumer_name` | Consumer username |
+
+**Example Log Output:**
+```json
+{
+  "@timestamp": "2026-02-13T12:00:00.000Z",
+  "message": "Token generated",
+  "labels.consumer_id": "98765432-9876-5432-1098-765432109876",
+  "labels.consumer_name": "user@example.com"
+}
+```
+
+**Reference:** Commit c08c233 (2026-02-13) - Map Kong consumer fields to labels.consumer_* in logs
+
 #### Non-ECS Fields
 
 Fields not mapped to ECS standards automatically appear under `labels.*`:
@@ -203,6 +224,21 @@ Configure via `TELEMETRY_MODE` environment variable:
 | `console` | Logs only to console | Development |
 | `otlp` | Exports only to OTLP endpoints | Production |
 | `both` | Console logs + OTLP export | Debugging |
+
+### OpenTelemetry SDK 0.212.0 Compatibility
+
+The service is compatible with OpenTelemetry SDK 0.212.0+, which introduced a breaking change requiring explicit LoggerProvider registration.
+
+**Required Initialization Sequence:**
+1. Initialize OpenTelemetry SDK
+2. Register LoggerProvider via `logs.setGlobalLoggerProvider()`
+3. Reinitialize Winston logger to pick up the new provider
+
+**Implementation:** `src/telemetry/telemetry.ts`
+
+**Troubleshooting:** If console logs are not appearing after telemetry initialization in `TELEMETRY_MODE=both`, ensure the Winston logger is reinitialized after the LoggerProvider is set. The logger caches its reference to the OTLP transport, which must be updated after the SDK is fully initialized.
+
+**Reference:** Commits a5045d3, 8d070bb (2026-02-14/15) - Fix OTEL log export for SDK 0.212.0 breaking change
 
 ## Key Metrics
 

@@ -42,7 +42,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Architecture | [overview.md](docs/architecture/overview.md) | System design and authentication flow |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
-| Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3100+ tests, mutation testing) |
+| Testing | [testing.md](docs/development/testing.md) | Complete testing guide (2686 tests, mutation testing) |
 | Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
 | Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability and memory monitoring |
@@ -165,7 +165,7 @@ The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum
 
 ### Key Features
 - Circuit breaker with stale cache fallback
-- Comprehensive testing (3100+ tests, 100% pass rate)
+- Comprehensive testing (2686 tests, 100% pass rate)
 - Chaos engineering tests (57 tests for Kong, Redis, resource, network failures)
 - Structured error codes (AUTH_001-012)
 - Security headers + audit logging (v2 only)
@@ -206,7 +206,7 @@ bun run pre-commit           # Run before committing
 bun run pre-commit:fast      # Quick check (parallel biome + typecheck)
 
 # Testing (see test/README.md for complete documentation)
-bun run test:bun             # Unit + integration tests (3140 tests)
+bun run test:bun             # Unit + integration tests (2686 tests)
 bun run test:e2e             # E2E tests (3 suites)
 bun run test:k6:quick        # Performance smoke tests
 bun run test:k6:smoke:basic  # Parallel health, metrics, openapi (40% faster)
@@ -377,7 +377,7 @@ For troubleshooting each error, see [troubleshooting.md](docs/operations/trouble
 | Category | Status |
 |----------|--------|
 | Security | OWASP headers, audit logging, no hardcoded secrets, 0 CVEs, CodeQL |
-| Testing | 3100+ tests (live backend + 57 chaos tests), 100% pass rate |
+| Testing | 2686 tests (live backend + 57 chaos tests), 100% pass rate |
 | Observability | OpenTelemetry traces, metrics, logs |
 | Error Handling | RFC 7807 Problem Details, structured error codes, circuit breaker |
 | Documentation | OpenAPI spec, RFC 8594 Sunset headers, RTO/RPO targets |
