@@ -86,8 +86,8 @@ bun run test:bun           # All Bun tests (unit + integration)
 bun run test:bun:watch     # Watch mode
 
 # End-to-end tests
-bun run test:e2e           # All Playwright E2E tests
-bun run test:e2e:headed    # Run in headed mode (visible browser)
+bun run test:e2e           # All Playwright E2E tests (direct mode)
+bun run test:e2e:kong      # E2E tests via Kong (captures http-log)
 bun run test:e2e:ui        # Playwright UI mode
 
 # Performance tests (K6)

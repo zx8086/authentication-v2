@@ -5,19 +5,22 @@ Containerized infrastructure for local Bun development. Your app runs natively; 
 ## Architecture
 
 ```
-Host Machine
-  |-- Bun app (native, localhost:3000)
-  |     |-- connects to --> localhost:8001 (Kong Admin)
-  |     |-- connects to --> localhost:6379 (Redis)
-  |
-  +-- Docker (via .devcontainer/)
-        |-- Kong 3.9 (:8000, :8001, :8002)
-        |-- PostgreSQL 16 (:5432)
-        |-- Redis 7 (:6379)
-        +-- Toolbox (admin shell for Zed)
+Host Machine                              Docker (via .devcontainer/)
++---------------------------+             +---------------------------+
+| Bun app (localhost:3000)  |<----------->| Kong 3.9 (:8000, :8001)   |
+|   |                       |  proxies    |   |-- http-log plugin     |
+|   +-- Kong Admin API -----|------------>|   +-- routes to app       |
+|   +-- Redis --------------|------------>| Redis 7 (:6379)           |
++---------------------------+             | PostgreSQL 16 (:5432)     |
+                                          +---------------------------+
 ```
 
-Your Bun app calls Kong and Redis as clients - Kong does **not** proxy back to your app.
+**Bidirectional Setup:**
+- Bun app connects to Kong Admin API and Redis as clients
+- Kong proxies requests back to your app via `host.docker.internal:3000`
+- This enables http-log capture for local development requests
+
+See [Kong Integration Guide](kong-test-setup.md) for routing configuration.
 
 ## Quick Start
 
@@ -72,6 +75,10 @@ Or use the Zed tasks via `Cmd+Shift+P` -> "task: spawn".
 
 ## Zed Tasks
 
+Access via `Cmd+Shift+P` -> "task: spawn". **43 tasks** organized by category:
+
+### Kong Tasks
+
 | Task | What it does |
 |------|-------------|
 | `kong: status` | Check Kong health |
@@ -83,18 +90,77 @@ Or use the Zed tasks via `Cmd+Shift+P` -> "task: spawn".
 | `kong: diff config (decK)` | Show config drift |
 | `kong: view logs` | Tail Kong container logs |
 | `kong: restart` | Restart the Kong container |
+
+### Redis Tasks
+
+| Task | What it does |
+|------|-------------|
 | `redis: ping` | Check Redis connectivity |
-| `redis: monitor` | Live stream all Redis commands |
+| `redis: monitor (live commands)` | Live stream all Redis commands |
 | `redis: info stats` | Redis server statistics |
 | `redis: keys (all)` | List all Redis keys |
 | `redis: flush all` | Clear all Redis data |
 | `redis: interactive CLI` | Open redis-cli session |
+| `redis: start (standalone)` | Start standalone Redis container |
+| `redis: stop` | Stop Redis container |
+| `redis: remove` | Remove Redis container |
+| `redis: restart (standalone)` | Full restart cycle |
+| `redis: logs` | View Redis logs |
+| `redis: status` | Container status |
+| `redis: bigkeys` | Find largest keys |
+| `redis: memkeys` | Memory analysis per key |
+| `redis: scan auth keys` | Scan for auth_service keys |
+
+### Postgres Tasks
+
+| Task | What it does |
+|------|-------------|
 | `postgres: interactive psql` | Open psql session |
 | `postgres: list tables` | List Kong tables |
 | `postgres: kong services (SQL)` | Query Kong services table |
 | `postgres: kong routes (SQL)` | Query Kong routes table |
 | `postgres: db size` | Show database size |
+
+### DevContainer Tasks
+
+| Task | What it does |
+|------|-------------|
+| `devcontainer: up` | Start infrastructure containers |
+| `devcontainer: down` | Stop infrastructure containers |
+| `devcontainer: down (clean volumes)` | Stop and remove volumes |
+| `devcontainer: logs` | Follow all container logs |
+| `devcontainer: status` | Show container status |
 | `infra: status check` | Verify Kong + Redis + Postgres health |
+
+### Development Tasks
+
+| Task | What it does |
+|------|-------------|
+| `dev: start (watch mode)` | Start dev server with hot reload |
+| `dev: start (devcontainer env)` | Start with devcontainer environment |
+| `dev: clean restart` | Kill port 3000 and restart |
+| `dev: quickstart` | Kill, generate docs, start dev |
+| `server: kill (port 3000)` | Kill process on port 3000 |
+| `server: health check` | Check if server is healthy |
+| `docs: generate OpenAPI` | Generate OpenAPI spec |
+
+### Testing Tasks
+
+| Task | What it does |
+|------|-------------|
+| `test: e2e (direct)` | Run E2E tests directly |
+| `test: e2e (via Kong)` | Run E2E tests via Kong |
+| `test: e2e UI` | Interactive Playwright UI |
+| `test: bun (all)` | Run all Bun tests |
+| `test: bun (watch)` | Run tests in watch mode |
+| `test: k6 smoke (quick)` | Quick K6 smoke tests |
+
+### Quality Tasks
+
+| Task | What it does |
+|------|-------------|
+| `quality: check (all)` | TypeScript + Biome + YAML |
+| `quality: fix` | Auto-fix linting issues |
 
 ## Environment Workflow
 
