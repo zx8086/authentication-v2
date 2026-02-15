@@ -1,5 +1,5 @@
 // test/shared/kong-test-helpers.ts
-// DEPRECATED: Import from './kong/index' or './consumers/index' instead
+// DEPRECATED: Import from './kong/index.ts' or './consumers/index.ts' instead
 // This file re-exports from the new modular structure for backward compatibility
 
 // Consumer utilities (for files that imported from kong-test-helpers)
@@ -8,9 +8,10 @@ export {
   getAllTestConsumers,
   getTestConsumer,
   TEST_CONSUMERS,
-} from "./consumers/index";
+} from "./consumers/index.ts";
 // Kong utilities
-// Note: Using explicit '/index' path for robust module resolution in CI environments
+// Note: Using explicit '.ts' extension for robust module resolution in CI environments
+// This fixes intermittent "Cannot find module" errors in Bun's parallel test runner
 export {
   checkKongAvailability,
   createKongAdapterWithConfig,
@@ -21,4 +22,4 @@ export {
   resetKongAvailabilityCache,
   setupKongTestContext,
   shouldSkipTest,
-} from "./kong/index";
+} from "./kong/index.ts";
