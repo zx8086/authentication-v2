@@ -6,8 +6,8 @@ This document consolidates all testing documentation for the authentication serv
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Count** | 2686 tests (100% pass rate) |
-| **Bun Unit/Integration Tests** | 2686 tests across 102 files |
+| **Total Test Count** | 3140 tests (100% pass rate) |
+| **Bun Unit/Integration Tests** | 3140 tests across 115 files |
 | **Chaos Engineering Tests** | 57 tests across 4 suites |
 | **Playwright E2E Tests** | 32 tests across 3 files |
 | **Mutation Score** | 100% (all mutants killed) |
@@ -15,7 +15,7 @@ This document consolidates all testing documentation for the authentication serv
 
 ### Test Organization
 
-102 test files organized into logical subdirectories by domain:
+115 test files organized into logical subdirectories by domain:
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|
@@ -236,6 +236,42 @@ k6 run --verbose test/k6/specific.ts
 
 # Debug logging
 K6_LOG_LEVEL=debug k6 run test/k6/specific.ts
+```
+
+### K6 v0.57.0 Features
+
+The project uses K6 v0.57.0 with native TypeScript support:
+
+| Feature | Description |
+|---------|-------------|
+| **Native TypeScript** | Direct `.ts` execution without bundling (esbuild built-in) |
+| **Improved Performance** | Faster test startup and execution |
+| **Better Error Messages** | Enhanced stack traces for TypeScript files |
+| **Type Checking** | Full TypeScript type support in test files |
+
+**Key Configuration:**
+```typescript
+// test/k6/shared/config.ts - Centralized threshold configuration
+export const smokeOptions = {
+  thresholds: {
+    http_req_duration: ['p(95)<100', 'p(99)<200'],
+    http_req_failed: ['rate<0.01'],
+  },
+};
+```
+
+**Environment Variables:**
+```bash
+# Non-blocking thresholds (CI-friendly)
+K6_THRESHOLDS_NON_BLOCKING=true
+
+# Smoke test configuration
+K6_SMOKE_VUS=1
+K6_SMOKE_DURATION=3s
+
+# Load test configuration
+K6_LOAD_TARGET_VUS=10
+K6_LOAD_STEADY_DURATION=30s
 ```
 
 ---

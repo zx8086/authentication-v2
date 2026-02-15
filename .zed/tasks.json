@@ -1,128 +1,128 @@
 [
   {
     "label": "kong: status",
-    "command": "curl -s http://kong:8001/status | python3 -m json.tool",
+    "command": "curl -sf http://localhost:8001/status | jq .",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: list services",
-    "command": "curl -s http://kong:8001/services | python3 -m json.tool",
+    "command": "curl -sf http://localhost:8001/services | jq .",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: list routes",
-    "command": "curl -s http://kong:8001/routes | python3 -m json.tool",
+    "command": "curl -sf http://localhost:8001/routes | jq .",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: list plugins",
-    "command": "curl -s http://kong:8001/plugins | python3 -m json.tool",
+    "command": "curl -sf http://localhost:8001/plugins | jq .",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: sync config (decK)",
-    "command": "deck gateway sync kong/kong.yml --kong-addr http://kong:8001",
+    "command": "deck gateway sync kong/kong.yml --kong-addr http://localhost:8001",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: dump config (decK)",
-    "command": "deck gateway dump --kong-addr http://kong:8001",
+    "command": "deck gateway dump --kong-addr http://localhost:8001 | jq .",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: diff config (decK)",
-    "command": "deck gateway diff kong/kong.yml --kong-addr http://kong:8001",
+    "command": "deck gateway diff kong/kong.yml --kong-addr http://localhost:8001",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "kong: view logs",
     "command": "docker logs -f $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1)",
     "use_new_terminal": true,
-    "allow_concurrent_runs": false
+    "allow_concurrent_runs": false,
   },
   {
     "label": "kong: restart",
     "command": "docker restart $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1) && echo '[OK] Kong restarted'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "redis: ping",
-    "command": "redis-cli -h redis ping",
+    "command": "docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli ping",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "redis: monitor (live commands)",
-    "command": "redis-cli -h redis monitor",
+    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli monitor",
     "use_new_terminal": true,
-    "allow_concurrent_runs": false
+    "allow_concurrent_runs": false,
   },
   {
     "label": "redis: info stats",
-    "command": "redis-cli -h redis info stats",
+    "command": "docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli info stats",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "redis: keys (all)",
-    "command": "redis-cli -h redis keys '*'",
+    "command": "docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli keys '*'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "redis: flush all",
-    "command": "redis-cli -h redis flushall && echo '[OK] Redis flushed'",
+    "command": "docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli flushall && echo '[OK] Redis flushed'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "redis: interactive CLI",
-    "command": "redis-cli -h redis",
+    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli",
     "use_new_terminal": true,
-    "allow_concurrent_runs": false
+    "allow_concurrent_runs": false,
   },
   {
     "label": "postgres: interactive psql",
-    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong",
+    "command": "docker exec -it $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong",
     "use_new_terminal": true,
-    "allow_concurrent_runs": false
+    "allow_concurrent_runs": false,
   },
   {
     "label": "postgres: list tables",
-    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c '\\dt'",
+    "command": "docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c '\\dt'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "postgres: kong services (SQL)",
-    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c 'SELECT id, name, host, port, protocol FROM services;'",
+    "command": "docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, host, port, protocol FROM services;'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "postgres: kong routes (SQL)",
-    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c 'SELECT id, name, paths, service_id FROM routes;'",
+    "command": "docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, paths, service_id FROM routes;'",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "postgres: db size",
-    "command": "PGPASSWORD=kong psql -h kong-db -U kong -d kong -c \"SELECT pg_size_pretty(pg_database_size('kong'));\"",
+    "command": "docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c \"SELECT pg_size_pretty(pg_database_size('kong'));\"",
     "use_new_terminal": false,
-    "reveal": "always"
+    "reveal": "always",
   },
   {
     "label": "infra: status check",
-    "command": "echo '--- Kong ---' && curl -sf http://kong:8001/status > /dev/null && echo '[OK] Kong OK' || echo '[FAIL] Kong DOWN' && echo '--- Redis ---' && redis-cli -h redis ping && echo '--- Postgres ---' && pg_isready -h kong-db -U kong > /dev/null && echo '[OK] Postgres OK' || echo '[FAIL] Postgres DOWN'",
+    "command": "echo '--- Kong ---' && curl -sf http://localhost:8001/status > /dev/null && echo '[OK] Kong OK' || echo '[FAIL] Kong DOWN'; echo '--- Redis ---' && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli ping || echo '[FAIL] Redis DOWN'; echo '--- Postgres ---' && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) pg_isready -U kong > /dev/null && echo '[OK] Postgres OK' || echo '[FAIL] Postgres DOWN'",
     "use_new_terminal": false,
-    "reveal": "always"
-  }
+    "reveal": "always",
+  },
 ]

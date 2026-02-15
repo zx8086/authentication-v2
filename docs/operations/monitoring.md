@@ -642,6 +642,41 @@ OTEL_BSP_MAX_EXPORT_BATCH_SIZE=2048
 OTEL_BSP_MAX_QUEUE_SIZE=10000
 ```
 
+### OTEL Collector Configuration (Required)
+
+The service sends logs via OTLP to an OpenTelemetry Collector. To prevent duplicate fields in Elasticsearch (where ECS fields appear both at root level and in `labels.*` namespace), configure the collector's Transform Processor.
+
+**Problem**: `@elastic/ecs-winston-format` outputs dot-notation fields which the OTLP transport converts to `labels.*` namespace, causing duplicates like `service.name` AND `labels.service_name`.
+
+**Solution**: Add to your `otel-collector.yaml`:
+
+```yaml
+processors:
+  transform/remove-duplicate-labels:
+    log_statements:
+      - context: log
+        statements:
+          # Remove ECS metadata duplicates (already in resource attributes)
+          - delete(attributes["service.name"])
+          - delete(attributes["service.version"])
+          - delete(attributes["service.environment"])
+          - delete(attributes["log.level"])
+          - delete(attributes["ecs.version"])
+          - delete(attributes["event.dataset"])
+          - delete(attributes["timestamp"])
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [transform/remove-duplicate-labels, batch]
+      exporters: [elasticsearch]
+```
+
+**Why application-level fix is not possible**: The `OpenTelemetryTransportV3` requires dot-notation fields to construct OTLP LogRecords. Deleting them in the Winston format pipeline breaks OTLP export entirely (see commit 60fa3c2 and revert 0256c43).
+
+**Reference**: [SIO-319](https://linear.app/siobytes/issue/SIO-319)
+
 ### Health Check Integration
 ```yaml
 # Kubernetes health checks

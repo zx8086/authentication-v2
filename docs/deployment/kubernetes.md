@@ -348,6 +348,37 @@ spec:
         periodSeconds: 60
 ```
 
+## Pod Disruption Budget
+
+Ensures service availability during Kubernetes node maintenance, upgrades, and voluntary disruptions.
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: authentication-service-pdb
+  namespace: authentication
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authentication-service
+```
+
+With 3 replicas, at least 2 pods will always be available during voluntary disruptions (node drains, upgrades).
+
+**Testing PDB:**
+```bash
+# Check PDB status
+kubectl get pdb -n authentication
+
+# View PDB details
+kubectl describe pdb authentication-service-pdb -n authentication
+
+# Simulate node drain (test node)
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+```
+
 ## Network Policies
 
 ### Ingress Network Policy
@@ -510,6 +541,77 @@ spec:
       view: ["infrastructure"]
 ```
 
+## Secret Management Options
+
+The service supports multiple secret management approaches. Choose based on your compliance requirements.
+
+### Option 1: Kubernetes Secrets (Default)
+
+Use native Kubernetes secrets for simple deployments with good RBAC:
+
+```bash
+kubectl apply -f k8s/secret.yaml
+```
+
+**Recommended when:**
+- Simple deployment with limited secret scope
+- etcd encryption at rest is enabled
+- Strong RBAC policies in place
+
+### Option 2: External Secrets Operator
+
+Use `external-secret.yaml` for centralized secret management with AWS Secrets Manager or HashiCorp Vault:
+
+```bash
+# Install External Secrets Operator
+helm repo add external-secrets https://charts.external-secrets.io
+helm install external-secrets external-secrets/external-secrets \
+  -n external-secrets --create-namespace
+
+# Apply ExternalSecret (AWS or Vault variant)
+kubectl apply -f k8s/external-secret.yaml
+```
+
+**Recommended when:**
+- SOC2/PCI compliance required
+- Automatic secret rotation needed
+- Multi-team secret access
+- Centralized audit logging required
+
+### Option 3: Sealed Secrets
+
+Use `sealed-secret.yaml` for GitOps-compatible encrypted secrets:
+
+```bash
+# Install Sealed Secrets
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
+
+# Seal your secrets
+kubeseal --format yaml < k8s/secret.yaml > k8s/sealed-secret-generated.yaml
+
+# Apply sealed secret
+kubectl apply -f k8s/sealed-secret-generated.yaml
+```
+
+**Recommended when:**
+- GitOps workflow required
+- Simpler than ESO but more secure than plain secrets
+- No external secret store available
+
+### Decision Matrix
+
+| Requirement | K8s Secrets | Sealed Secrets | External Secrets |
+|-------------|-------------|----------------|------------------|
+| Simple setup | Yes | Medium | Complex |
+| GitOps compatible | No | Yes | Yes |
+| Secret rotation | Manual | Manual | Automatic |
+| Audit logging | K8s audit | K8s audit | Backend audit |
+| SOC2/PCI | Maybe | Maybe | Yes |
+| Multi-cluster | Manual sync | Per-cluster | Centralized |
+
+See `k8s/README.md` for complete implementation details and manifests.
+
 ## Security
 
 ### Pod Security Policy
@@ -600,6 +702,29 @@ roleRef:
 - **Rolling updates**: Zero-downtime deployments
 - **HPA scaling**: Handle traffic spikes
 - **Circuit breakers**: Resilience patterns
+- **Pod Disruption Budget**: Minimum 2 pods during maintenance
+
+## Prometheus AlertManager Rules
+
+The project includes 22 AlertManager rules based on SLA thresholds (see `k8s/prometheus-rules.yaml`):
+
+| Alert Group | Description |
+|-------------|-------------|
+| `auth-service-resources` | Memory usage >70%/80% of limit |
+| `auth-service-event-loop` | Event loop delay >50ms/100ms |
+| `auth-service-http-errors` | HTTP 5xx rate >2%/5% |
+| `auth-service-kong-latency` | P95 latency >200ms/500ms |
+| `auth-service-circuit-breaker` | Circuit breaker opens >1/3 per hour |
+| `auth-service-token-errors` | Token error rate >1%/5% |
+| `auth-service-response-time` | Endpoint SLA violations |
+| `auth-service-availability` | Service down, pods not ready |
+| `auth-service-cache` | Cache hit rate, Redis status |
+
+**Prerequisites:** Requires kube-prometheus-stack:
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install kube-prometheus prometheus-community/kube-prometheus-stack -n monitoring
+```
 
 ## Troubleshooting
 
