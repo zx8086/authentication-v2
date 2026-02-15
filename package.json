@@ -41,7 +41,7 @@
     "test:bun": "bun test",
     "test:bun:concurrent": "bun test --max-concurrency=4",
     "test:bun:coverage": "bun test --coverage ./test/bun",
-    "test:bun:coverage:ci": "mkdir -p coverage && bun test --coverage --coverage-reporter=lcov --coverage-reporter=text --coverage-dir=coverage ./test/bun",
+    "test:bun:coverage:ci": "mkdir -p coverage && bun test --concurrency 1 --coverage --coverage-reporter=lcov --coverage-reporter=text --coverage-dir=coverage ./test/bun",
     "test:bun:coverage:lcov": "mkdir -p coverage && bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage ./test/bun",
     "test:bun:seed": "bun test --seed",
     "test:bun:watch": "bun test --watch",
