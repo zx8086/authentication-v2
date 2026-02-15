@@ -6,10 +6,7 @@ import {
   generateJobSpecificAnonymousConsumer,
   generateJobSpecificConsumers,
   getAllTestConsumers,
-  getBasicTestConsumers,
   getJobSpecificConsumers,
-  getLoadTestConsumers,
-  getRandomTestConsumer,
   getTestConsumer,
   JOB_PREFIXES,
   TEST_CONSUMERS,
@@ -111,31 +108,6 @@ describe("Test Consumers", () => {
     });
   });
 
-  describe("getRandomTestConsumer", () => {
-    it("should return a consumer from TEST_CONSUMERS", () => {
-      const consumer = getRandomTestConsumer();
-      expect(TEST_CONSUMERS).toContainEqual(consumer);
-    });
-
-    it("should return consumers with valid properties", () => {
-      for (let i = 0; i < 10; i++) {
-        const consumer = getRandomTestConsumer();
-        expect(consumer).toHaveProperty("id");
-        expect(consumer).toHaveProperty("username");
-        expect(consumer).toHaveProperty("description");
-      }
-    });
-
-    it("should potentially return different consumers on multiple calls", () => {
-      const results = new Set();
-      for (let i = 0; i < 50; i++) {
-        const consumer = getRandomTestConsumer();
-        results.add(consumer.id);
-      }
-      expect(results.size).toBeGreaterThan(1);
-    });
-  });
-
   describe("getAllTestConsumers", () => {
     it("should return all 5 test consumers", () => {
       const consumers = getAllTestConsumers();
@@ -160,43 +132,6 @@ describe("Test Consumers", () => {
         description: "new description",
       });
       expect(TEST_CONSUMERS).toHaveLength(5);
-    });
-  });
-
-  describe("getLoadTestConsumers", () => {
-    it("should return last 2 consumers", () => {
-      const consumers = getLoadTestConsumers();
-      expect(consumers).toHaveLength(2);
-    });
-
-    it("should return test-consumer-004 and test-consumer-005", () => {
-      const consumers = getLoadTestConsumers();
-      expect(consumers[0].username).toBe("test-consumer-004");
-      expect(consumers[1].username).toBe("test-consumer-005");
-    });
-
-    it("should match sliced array from index 3", () => {
-      const consumers = getLoadTestConsumers();
-      expect(consumers).toEqual(TEST_CONSUMERS.slice(3));
-    });
-  });
-
-  describe("getBasicTestConsumers", () => {
-    it("should return first 3 consumers", () => {
-      const consumers = getBasicTestConsumers();
-      expect(consumers).toHaveLength(3);
-    });
-
-    it("should return test-consumer-001, 002, and 003", () => {
-      const consumers = getBasicTestConsumers();
-      expect(consumers[0].username).toBe("test-consumer-001");
-      expect(consumers[1].username).toBe("test-consumer-002");
-      expect(consumers[2].username).toBe("test-consumer-003");
-    });
-
-    it("should match sliced array from index 0 to 3", () => {
-      const consumers = getBasicTestConsumers();
-      expect(consumers).toEqual(TEST_CONSUMERS.slice(0, 3));
     });
   });
 

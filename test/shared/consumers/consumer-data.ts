@@ -1,9 +1,13 @@
-/* test/k6/utils/test-consumers.js */
+// test/shared/consumers/consumer-data.ts
 
-// K6-compatible JavaScript version of test consumers
-// NOTE: id must be the UUID that Kong uses, not the username
+export interface TestConsumer {
+  id: string;
+  username: string;
+  custom_id?: string;
+  description: string;
+}
 
-export const TEST_CONSUMERS = [
+export const TEST_CONSUMERS: TestConsumer[] = [
   {
     id: "f48534e1-4caf-4106-9103-edf38eae7ebc",
     username: "test-consumer-001",
@@ -36,19 +40,9 @@ export const TEST_CONSUMERS = [
   },
 ];
 
-export const ANONYMOUS_CONSUMER = {
+export const ANONYMOUS_CONSUMER: TestConsumer = {
   id: "56456a01-65ec-4415-aec8-49fec6403c9c",
   username: "anonymous",
   custom_id: "anonymous",
   description: "Anonymous consumer for testing rejection scenarios",
 };
-
-export function getTestConsumer(index = 0) {
-  if (index < 0 || index >= TEST_CONSUMERS.length) {
-    throw new Error(
-      `Invalid test consumer index: ${index}. Available: 0-${TEST_CONSUMERS.length - 1}`
-    );
-  }
-  return TEST_CONSUMERS[index];
-}
-
