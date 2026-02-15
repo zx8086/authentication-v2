@@ -66,4 +66,5 @@ profiles/current/
 profiles/archive/
 !profiles/baselines/.gitkeep
 
-kong
+# Kong decK configuration (contains credentials)
+/kong/
