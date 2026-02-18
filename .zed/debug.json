@@ -1,0 +1,53 @@
+[
+  {
+    "adapter": "JavaScript",
+    "label": "Debug Bun Server",
+    "request": "launch",
+    "program": "src/index.ts",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "runtimeExecutable": "/Users/Simon.Owusu@Tommy.com/.bun/bin/bun",
+    "runtimeArgs": ["--inspect-brk=127.0.0.1:9229"],
+    "port": 9229,
+    "sourceMaps": true,
+    "sourceMapPathOverrides": {
+      "*": "${workspaceFolder}/*"
+    },
+    "skipFiles": [],
+    "resolveSourceMapLocations": ["**", "!**/node_modules/**"]
+  },
+  {
+    "adapter": "JavaScript",
+    "label": "Debug Bun Server (Alt)",
+    "request": "launch",
+    "type": "pwa-node",
+    "program": "src/index.ts",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "runtimeExecutable": "bun",
+    "runtimeArgs": ["--inspect-brk=127.0.0.1:9229"],
+    "port": 9229
+  },
+  {
+    "adapter": "JavaScript",
+    "label": "Debug Bun Server (no sourcemaps)",
+    "request": "launch",
+    "program": "src/index.ts",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "runtimeExecutable": "/Users/Simon.Owusu@Tommy.com/.bun/bin/bun",
+    "runtimeArgs": ["--inspect-brk=127.0.0.1:9229"],
+    "port": 9229,
+    "sourceMaps": false
+  },
+  {
+    "adapter": "JavaScript",
+    "label": "Attach to Bun",
+    "request": "attach",
+    "port": 9229,
+    "host": "127.0.0.1",
+    "sourceMaps": true,
+    "localRoot": "${workspaceFolder}",
+    "remoteRoot": "${workspaceFolder}",
+    "sourceMapPathOverrides": {
+      "*": "${workspaceFolder}/*"
+    }
+  }
+]

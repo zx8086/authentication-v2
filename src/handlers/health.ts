@@ -17,7 +17,6 @@ import { calculateDuration, getHighResTime } from "../utils/performance";
 import { createHealthResponse, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
-
 async function checkOtlpEndpointHealth(url: string): Promise<{
   healthy: boolean;
   responseTime: number;
@@ -259,7 +258,9 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
             totalExports: exportStats.totalExports,
             recentFailures: exportStats.failureCount,
             circuitBreakerState: circuitBreakerState,
-            ...(exportStats.lastExportTime && { lastExportTime: exportStats.lastExportTime }),
+            ...(exportStats.lastExportTime && {
+              lastExportTime: exportStats.lastExportTime,
+            }),
           },
         },
       },
