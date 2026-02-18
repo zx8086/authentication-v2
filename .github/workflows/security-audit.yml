@@ -164,7 +164,7 @@ jobs:
 
       # Advanced Trivy Scans
       - name: Run comprehensive Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         timeout-minutes: 15
         with:
           scan-type: 'fs'
@@ -176,7 +176,7 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Trivy container scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         timeout-minutes: 15
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
