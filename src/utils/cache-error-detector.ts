@@ -1,9 +1,5 @@
 // src/utils/cache-error-detector.ts
 
-/**
- * Categories of cache connection errors.
- * Used for metrics, logging, and determining recovery strategies.
- */
 export type CacheErrorCategory =
   | "connection_closed"
   | "connection_refused"
@@ -14,41 +10,21 @@ export type CacheErrorCategory =
   | "server_busy"
   | "unknown";
 
-/**
- * Detailed information about a detected cache error.
- */
 export interface CacheErrorInfo {
-  /** The category of the error */
   category: CacheErrorCategory;
-  /** Whether the error is recoverable with retry */
   isRecoverable: boolean;
-  /** Whether a reconnection attempt should be triggered */
   shouldReconnect: boolean;
-  /** The original error message */
   message: string;
 }
 
-/**
- * Error pattern definition for matching cache errors.
- */
 interface ErrorPattern {
-  /** String or regex pattern to match against error message */
   pattern: RegExp | string;
-  /** Category to assign when matched */
   category: CacheErrorCategory;
-  /** Whether error is recoverable */
   isRecoverable: boolean;
-  /** Whether reconnection should be attempted */
   shouldReconnect: boolean;
 }
 
-/**
- * Extended error patterns for Redis/Valkey connection issues.
- * Patterns are ordered by specificity (most specific first).
- * Covers 15+ error patterns vs the original 4.
- */
 const ERROR_PATTERNS: ErrorPattern[] = [
-  // Connection closed errors (most common)
   {
     pattern: "ERR_REDIS_CONNECTION_CLOSED",
     category: "connection_closed",
@@ -85,8 +61,6 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     isRecoverable: true,
     shouldReconnect: true,
   },
-
-  // Connection reset errors
   {
     pattern: "ECONNRESET",
     category: "connection_reset",
@@ -105,16 +79,12 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     isRecoverable: true,
     shouldReconnect: true,
   },
-
-  // Connection refused errors
   {
     pattern: "ECONNREFUSED",
     category: "connection_refused",
     isRecoverable: true,
     shouldReconnect: true,
   },
-
-  // Timeout errors
   {
     pattern: "ETIMEDOUT",
     category: "connection_timeout",
@@ -133,8 +103,6 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     isRecoverable: true,
     shouldReconnect: true,
   },
-
-  // Network errors
   {
     pattern: "EHOSTUNREACH",
     category: "network_error",
@@ -165,8 +133,6 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     isRecoverable: true,
     shouldReconnect: true,
   },
-
-  // Redis/Valkey server-specific errors (non-recoverable via reconnection)
   {
     pattern: /READONLY/i,
     category: "readonly_mode",
@@ -193,26 +159,10 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   },
 ];
 
-/**
- * Detects and categorizes a cache/Redis/Valkey error.
- *
- * @param error - The error to analyze (Error object or string message)
- * @returns Detailed information about the error category and recovery options
- *
- * @example
- * ```typescript
- * const info = detectCacheError(new Error("Connection closed"));
- * if (info.shouldReconnect) {
- *   await reconnectManager.executeReconnect(reconnectFn);
- * }
- * ```
- */
 export function detectCacheError(error: Error | string): CacheErrorInfo {
-  // Defensive handling: ensure message is always a string
   const rawMessage = error instanceof Error ? error.message : error;
   const message = typeof rawMessage === "string" ? rawMessage : String(rawMessage ?? "");
 
-  // If message is empty, return unknown category
   if (!message) {
     return {
       category: "unknown",
@@ -238,45 +188,16 @@ export function detectCacheError(error: Error | string): CacheErrorInfo {
   };
 }
 
-/**
- * Quick check if an error is a connection error that should trigger reconnection.
- *
- * @param error - The error to check
- * @returns true if the error indicates a connection problem requiring reconnection
- *
- * @example
- * ```typescript
- * try {
- *   await redisClient.get(key);
- * } catch (error) {
- *   if (isConnectionError(error)) {
- *     circuitBreaker.recordFailure(error);
- *     markConnectionBroken();
- *   }
- * }
- * ```
- */
 export function isConnectionError(error: Error | string): boolean {
   const info = detectCacheError(error);
   return info.shouldReconnect;
 }
 
-/**
- * Quick check if an error is recoverable (can be retried).
- *
- * @param error - The error to check
- * @returns true if the error is potentially recoverable with retry
- */
 export function isRecoverableError(error: Error | string): boolean {
   const info = detectCacheError(error);
   return info.isRecoverable;
 }
 
-/**
- * Get all supported error patterns for documentation/testing.
- *
- * @returns Array of pattern descriptions
- */
 export function getSupportedErrorPatterns(): Array<{
   category: CacheErrorCategory;
   patterns: string[];

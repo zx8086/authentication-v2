@@ -4,53 +4,28 @@ import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 import { isConnectionError } from "../../utils/cache-error-detector";
 import { CacheOperationTimeoutError, withOperationTimeout } from "./cache-operation-timeout";
 
-/**
- * Configuration for the resilient scan iterator.
- */
 export interface CacheScanIteratorConfig {
-  /** Number of keys to fetch per SCAN iteration (default: 100) */
   count: number;
-  /** Timeout for each SCAN operation in milliseconds (default: 5000) */
   timeoutMs: number;
-  /** Maximum number of iterations to prevent infinite loops (default: 10000) */
   maxIterations: number;
-  /** Number of retries per failed SCAN (default: 2) */
   retriesPerScan: number;
-  /** Delay between retries in milliseconds (default: 100) */
   retryDelayMs: number;
 }
 
-/**
- * Result of a scan operation.
- */
 export interface ScanResult {
-  /** Next cursor position (0 = complete) */
   cursor: number;
-  /** Keys found in this iteration */
   keys: string[];
 }
 
-/**
- * Stats from a completed scan.
- */
 export interface ScanStats {
-  /** Total keys found */
   totalKeys: number;
-  /** Number of SCAN iterations performed */
   iterations: number;
-  /** Total time spent scanning (ms) */
   durationMs: number;
-  /** Number of retries needed */
   retries: number;
-  /** Whether the scan completed successfully */
   completed: boolean;
-  /** Error if scan failed */
   error?: string;
 }
 
-/**
- * Default configuration (conservative settings).
- */
 export const DEFAULT_SCAN_CONFIG: CacheScanIteratorConfig = {
   count: 100,
   timeoutMs: 5000,
@@ -59,53 +34,17 @@ export const DEFAULT_SCAN_CONFIG: CacheScanIteratorConfig = {
   retryDelayMs: 100,
 };
 
-/**
- * Type definition for the SCAN function provided by the cache client.
- */
 export type ScanFunction = (
   cursor: number,
   options: { MATCH: string; COUNT: number }
 ) => Promise<ScanResult>;
 
-/**
- * Resilient SCAN iterator for cache operations.
- *
- * Provides safe iteration over cache keys with:
- * - Per-iteration timeouts
- * - Automatic retries with backoff
- * - Connection error detection
- * - Progress tracking
- * - Maximum iteration limits (prevent infinite loops)
- *
- * @example
- * ```typescript
- * const iterator = new CacheScanIterator(
- *   (cursor, options) => client.scan(cursor, options),
- *   { count: 100, timeoutMs: 5000 }
- * );
- *
- * // Collect all keys matching pattern
- * const allKeys = await iterator.collectAll('auth_service:*');
- *
- * // Or iterate in batches
- * for await (const batch of iterator.iterate('auth_service_stale:*')) {
- *   console.log(`Found ${batch.length} keys`);
- * }
- * ```
- */
 export class CacheScanIterator {
   constructor(
     private readonly scanFn: ScanFunction,
     private readonly config: CacheScanIteratorConfig = DEFAULT_SCAN_CONFIG
   ) {}
 
-  /**
-   * Async generator for iterating over keys in batches.
-   *
-   * @param pattern - Key pattern to match (e.g., "auth_service:*")
-   * @yields Arrays of keys found in each SCAN iteration
-   * @throws Error if max iterations exceeded or unrecoverable error occurs
-   */
   async *iterate(pattern: string): AsyncGenerator<string[], void, unknown> {
     let cursor = 0;
     let iterations = 0;
@@ -124,7 +63,6 @@ export class CacheScanIterator {
     do {
       iterations++;
 
-      // Safety check for infinite loops
       if (iterations > this.config.maxIterations) {
         const error = new Error(
           `SCAN exceeded maximum iterations (${this.config.maxIterations}). ` +
@@ -142,7 +80,6 @@ export class CacheScanIterator {
         throw error;
       }
 
-      // Execute SCAN with retries
       const result = await this.scanWithRetry(cursor, pattern, iterations);
 
       cursor = result.cursor;
@@ -160,12 +97,6 @@ export class CacheScanIterator {
     });
   }
 
-  /**
-   * Collect all keys matching a pattern.
-   *
-   * @param pattern - Key pattern to match
-   * @returns All matching keys and scan statistics
-   */
   async collectAll(pattern: string): Promise<{ keys: string[]; stats: ScanStats }> {
     const startTime = Date.now();
     const allKeys: string[] = [];
@@ -218,9 +149,6 @@ export class CacheScanIterator {
     }
   }
 
-  /**
-   * Execute a single SCAN with retries and timeout.
-   */
   private async scanWithRetry(
     cursor: number,
     pattern: string,
@@ -230,7 +158,6 @@ export class CacheScanIterator {
 
     for (let attempt = 0; attempt <= this.config.retriesPerScan; attempt++) {
       try {
-        // Apply timeout to SCAN operation
         const result = await withOperationTimeout(
           "SCAN",
           this.config.timeoutMs,
@@ -244,7 +171,6 @@ export class CacheScanIterator {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        // Check if this is a connection error (should trigger reconnection upstream)
         if (isConnectionError(lastError)) {
           winstonTelemetryLogger.warn("SCAN connection error, will retry", {
             component: "cache_scan_iterator",
@@ -268,7 +194,6 @@ export class CacheScanIterator {
             timeoutMs: this.config.timeoutMs,
           });
         } else {
-          // Unknown error, log and retry
           winstonTelemetryLogger.warn("SCAN error, will retry", {
             component: "cache_scan_iterator",
             operation: "scan_error",
@@ -281,14 +206,12 @@ export class CacheScanIterator {
           });
         }
 
-        // Don't delay on last attempt (will throw anyway)
         if (attempt < this.config.retriesPerScan) {
           await this.delay(this.config.retryDelayMs * (attempt + 1));
         }
       }
     }
 
-    // All retries exhausted
     winstonTelemetryLogger.error("SCAN failed after all retries", {
       component: "cache_scan_iterator",
       operation: "scan_all_retries_failed",
@@ -302,20 +225,10 @@ export class CacheScanIterator {
     throw lastError || new Error("SCAN failed with unknown error");
   }
 
-  /**
-   * Delay helper that can be mocked in tests.
-   */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /**
-   * Count keys matching a pattern without collecting them.
-   * More memory-efficient for large datasets.
-   *
-   * @param pattern - Key pattern to match
-   * @returns Count and scan statistics
-   */
   async count(pattern: string): Promise<{ count: number; stats: ScanStats }> {
     const startTime = Date.now();
     let count = 0;
@@ -353,12 +266,6 @@ export class CacheScanIterator {
     }
   }
 
-  /**
-   * Check if any keys match a pattern (early exit on first match).
-   *
-   * @param pattern - Key pattern to match
-   * @returns true if at least one key matches
-   */
   async exists(pattern: string): Promise<boolean> {
     for await (const batch of this.iterate(pattern)) {
       if (batch.length > 0) {
@@ -369,13 +276,6 @@ export class CacheScanIterator {
   }
 }
 
-/**
- * Create a scan iterator with custom configuration.
- *
- * @param scanFn - The SCAN function from the cache client
- * @param overrides - Configuration overrides
- * @returns Configured CacheScanIterator
- */
 export function createScanIterator(
   scanFn: ScanFunction,
   overrides?: Partial<CacheScanIteratorConfig>

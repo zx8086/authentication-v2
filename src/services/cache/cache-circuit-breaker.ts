@@ -5,47 +5,25 @@ import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 import { CircuitBreakerStateEnum } from "../../types/circuit-breaker.types";
 import { isConnectionError } from "../../utils/cache-error-detector";
 
-/**
- * Configuration for the cache circuit breaker.
- */
 export interface CacheCircuitBreakerConfig {
-  /** Enable/disable the circuit breaker (default: true) */
   enabled: boolean;
-  /** Number of failures before circuit opens (default: 5) */
   failureThreshold: number;
-  /** Time in ms before attempting recovery (default: 30000) */
   resetTimeout: number;
-  /** Number of successes in half-open to close circuit (default: 2) */
   successThreshold: number;
 }
 
-/**
- * Statistics about the cache circuit breaker state.
- */
 export interface CacheCircuitBreakerStats {
-  /** Current circuit state */
   state: CircuitBreakerStateEnum;
-  /** Number of consecutive failures */
   failureCount: number;
-  /** Number of consecutive successes */
   successCount: number;
-  /** Timestamp of last failure */
   lastFailureTime: number;
-  /** Timestamp of last success */
   lastSuccessTime: number;
-  /** Total requests since creation */
   totalRequests: number;
-  /** Total rejected requests (when circuit open) */
   rejectedRequests: number;
-  /** Timestamp of last state change */
   lastStateChange: number;
-  /** Number of successes while in half-open state */
   halfOpenSuccesses: number;
 }
 
-/**
- * Default configuration (conservative settings).
- */
 export const DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG: CacheCircuitBreakerConfig = {
   enabled: true,
   failureThreshold: 5,
@@ -53,41 +31,6 @@ export const DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG: CacheCircuitBreakerConfig = {
   successThreshold: 2,
 };
 
-/**
- * Circuit breaker for cache operations (Redis/Valkey).
- *
- * This is separate from the Kong circuit breaker and operates at the cache layer.
- * When the cache circuit opens:
- * - Returns fast failure (null) instead of waiting for timeout
- * - Kong circuit breaker handles actual fallback to in-memory stale cache
- *
- * State machine:
- * - CLOSED: Normal operation, requests pass through
- * - OPEN: Circuit tripped, requests rejected immediately
- * - HALF_OPEN: Testing recovery, limited requests allowed
- *
- * @example
- * ```typescript
- * const cb = new CacheCircuitBreaker({
- *   failureThreshold: 5,
- *   resetTimeout: 30000,
- *   successThreshold: 2,
- * });
- *
- * if (!cb.canExecute()) {
- *   return null; // Fast failure
- * }
- *
- * try {
- *   const result = await redisClient.get(key);
- *   cb.recordSuccess();
- *   return result;
- * } catch (error) {
- *   cb.recordFailure(error);
- *   return null;
- * }
- * ```
- */
 export class CacheCircuitBreaker {
   private state: CircuitBreakerStateEnum = CircuitBreakerStateEnum.CLOSED;
   private failureCount = 0;
@@ -116,13 +59,7 @@ export class CacheCircuitBreaker {
     });
   }
 
-  /**
-   * Check if a request can be executed.
-   *
-   * @returns true if the request should proceed, false if circuit is open
-   */
   canExecute(): boolean {
-    // If disabled, always allow
     if (!this.config.enabled) {
       return true;
     }
@@ -134,14 +71,12 @@ export class CacheCircuitBreaker {
         return true;
 
       case CircuitBreakerStateEnum.OPEN: {
-        // Check if reset timeout has elapsed
         const now = Date.now();
         if (now - this.lastFailureTime >= this.config.resetTimeout) {
           this.transitionTo(CircuitBreakerStateEnum.HALF_OPEN);
           return true;
         }
 
-        // Circuit is open, reject request
         this.rejectedRequests++;
         recordCircuitBreakerOperation(CacheCircuitBreaker.OPERATION_NAME, this.state, "rejected");
 
@@ -156,7 +91,6 @@ export class CacheCircuitBreaker {
       }
 
       case CircuitBreakerStateEnum.HALF_OPEN:
-        // Allow request to test if service recovered
         return true;
 
       default:
@@ -164,10 +98,6 @@ export class CacheCircuitBreaker {
     }
   }
 
-  /**
-   * Record a successful operation.
-   * Call this after a cache operation completes successfully.
-   */
   recordSuccess(): void {
     if (!this.config.enabled) return;
 
@@ -179,7 +109,6 @@ export class CacheCircuitBreaker {
       this.halfOpenSuccesses++;
 
       if (this.halfOpenSuccesses >= this.config.successThreshold) {
-        // Enough successes in half-open, close the circuit
         this.transitionTo(CircuitBreakerStateEnum.CLOSED);
         this.halfOpenSuccesses = 0;
       }
@@ -188,16 +117,9 @@ export class CacheCircuitBreaker {
     recordCircuitBreakerOperation(CacheCircuitBreaker.OPERATION_NAME, this.state, "request");
   }
 
-  /**
-   * Record a failed operation.
-   * Only connection errors should trigger circuit breaker state changes.
-   *
-   * @param error - The error that occurred
-   */
   recordFailure(error: Error | string): void {
     if (!this.config.enabled) return;
 
-    // Only count connection errors toward threshold
     const errorMessage = error instanceof Error ? error.message : error;
     if (!isConnectionError(error)) {
       winstonTelemetryLogger.debug("Non-connection error, not counting toward circuit breaker", {
@@ -212,14 +134,12 @@ export class CacheCircuitBreaker {
     this.lastFailureTime = Date.now();
     this.halfOpenSuccesses = 0;
 
-    // Check if we should open the circuit
     if (
       this.state === CircuitBreakerStateEnum.CLOSED &&
       this.failureCount >= this.config.failureThreshold
     ) {
       this.transitionTo(CircuitBreakerStateEnum.OPEN);
     } else if (this.state === CircuitBreakerStateEnum.HALF_OPEN) {
-      // Any failure in half-open immediately opens the circuit
       this.transitionTo(CircuitBreakerStateEnum.OPEN);
     }
 
@@ -235,9 +155,6 @@ export class CacheCircuitBreaker {
     });
   }
 
-  /**
-   * Transition to a new state with logging and metrics.
-   */
   private transitionTo(newState: CircuitBreakerStateEnum): void {
     const previousState = this.state;
     this.state = newState;
@@ -281,9 +198,6 @@ export class CacheCircuitBreaker {
     }
   }
 
-  /**
-   * Get current circuit breaker statistics.
-   */
   getStats(): CacheCircuitBreakerStats {
     return {
       state: this.state,
@@ -298,38 +212,22 @@ export class CacheCircuitBreaker {
     };
   }
 
-  /**
-   * Get current state.
-   */
   getState(): CircuitBreakerStateEnum {
     return this.state;
   }
 
-  /**
-   * Check if circuit is currently open.
-   */
   isOpen(): boolean {
     return this.state === CircuitBreakerStateEnum.OPEN;
   }
 
-  /**
-   * Check if circuit is in half-open (testing) state.
-   */
   isHalfOpen(): boolean {
     return this.state === CircuitBreakerStateEnum.HALF_OPEN;
   }
 
-  /**
-   * Check if circuit is closed (healthy).
-   */
   isClosed(): boolean {
     return this.state === CircuitBreakerStateEnum.CLOSED;
   }
 
-  /**
-   * Manually reset the circuit breaker to closed state.
-   * Use with caution - typically for testing or manual intervention.
-   */
   reset(): void {
     const previousState = this.state;
 
@@ -348,10 +246,6 @@ export class CacheCircuitBreaker {
     });
   }
 
-  /**
-   * Get time remaining until circuit attempts recovery (in ms).
-   * Returns 0 if circuit is not open.
-   */
   getTimeUntilRecoveryMs(): number {
     if (this.state !== CircuitBreakerStateEnum.OPEN) {
       return 0;
