@@ -101,6 +101,24 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
     return this.backend?.name || null;
   }
 
+  getClientForHealthCheck(): import("bun").RedisClient | null {
+    if (this.backend && "getClientForHealthCheck" in this.backend) {
+      return (
+        this.backend as import("./backends/shared-redis-backend").SharedRedisBackend
+      ).getClientForHealthCheck();
+    }
+    return null;
+  }
+
+  async getServerType(): Promise<"redis" | "valkey"> {
+    if (this.backend && "getServerType" in this.backend) {
+      return await (
+        this.backend as import("./backends/shared-redis-backend").SharedRedisBackend
+      ).getServerType();
+    }
+    return "redis";
+  }
+
   async reconfigure(newConfig: CacheManagerConfig): Promise<void> {
     const oldStrategy = this.backend?.strategy;
     const newStrategy = this.selectStrategy(newConfig);

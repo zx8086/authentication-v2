@@ -1,26 +1,27 @@
 {
   // ==========================================================================
-  // Kong + Redis + Postgres Infrastructure (Zed IDE Compatible)
+  // Kong + Redis + Valkey + Postgres Infrastructure (Zed IDE Compatible)
   // ==========================================================================
   // Spins up infrastructure services for local development.
   //  Bun app runs natively and connects to these on localhost.
   // decK config lives in the project at ./kong/ — run deck from your host.
   // ==========================================================================
 
-  "name": "Kong + Redis Infrastructure",
+  "name": "Kong + Redis + Valkey Infrastructure",
   "dockerComposeFile": "docker-compose.yml",
   "service": "toolbox",
-  "runServices": ["toolbox", "kong", "kong-db", "kong-migrations", "redis"],
+  "runServices": ["toolbox", "kong", "kong-db", "kong-migrations", "redis", "valkey"],
   "workspaceFolder": "/workspace",
 
   "appPort": [],
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postStartCommand": "echo '[OK] Kong Admin: http://localhost:8001 | Kong Proxy: http://localhost:8000 | Redis: redis://localhost:6379'",
+  "postStartCommand": "echo '[OK] Kong Admin: http://localhost:8001 | Kong Proxy: http://localhost:8000 | Redis: redis://localhost:6379 | Valkey: redis://localhost:6380'",
 
   "remoteEnv": {
     "KONG_ADMIN_URL": "http://kong:8001",
     "REDIS_URL": "redis://redis:6379",
+    "VALKEY_URL": "redis://valkey:6379",
   },
 
   "features": {

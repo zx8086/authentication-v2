@@ -72,4 +72,12 @@ export class SharedRedisBackend implements ICacheBackend {
   async disconnect(): Promise<void> {
     await this.cache.disconnect();
   }
+
+  getClientForHealthCheck(): import("bun").RedisClient | null {
+    return this.cache.getClientForHealthCheck();
+  }
+
+  async getServerType(): Promise<"redis" | "valkey"> {
+    return await this.cache.getServerType();
+  }
 }

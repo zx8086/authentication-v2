@@ -137,6 +137,7 @@ export const KongCacheStatsSchema = z.strictObject({
   memoryUsageMB: z.number().optional(),
   redisConnected: z.boolean().optional(),
   averageLatencyMs: z.number(),
+  serverType: z.enum(["redis", "valkey"]).optional(),
 });
 
 export const CacheEntrySchema = z.strictObject({

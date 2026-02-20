@@ -92,6 +92,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     let cacheHealth: {
       status: "healthy" | "unhealthy" | "degraded";
       type: "redis" | "memory";
+      serverType?: "redis" | "valkey";
       responseTime: number;
       staleCache?: {
         available: boolean;
@@ -247,7 +248,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         },
         cache: {
           status: cacheHealth.status,
-          type: cacheHealth.type,
+          type: cacheHealth.serverType || cacheHealth.type,
           responseTime: cacheHealth.responseTime,
           ...(cacheStats && {
             stats: {

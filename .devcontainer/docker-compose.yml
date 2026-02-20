@@ -141,11 +141,32 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Valkey — Redis-compatible cache for testing server type detection
+  # ---------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    volumes:
+      - valkey-data:/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   kong-db-data:
     name: auth-service-kong-db-data
   redis-data:
     name: auth-service-redis-data
+  valkey-data:
+    name: auth-service-valkey-data
 
 networks:
   kong-net:

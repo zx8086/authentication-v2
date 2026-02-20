@@ -286,6 +286,7 @@ export class SharedRedisCache implements IKongCacheService {
 
       const activeRatio = totalEntries > 0 ? activeCount / sampleSize : 0;
       const estimatedActive = Math.round(totalEntries * activeRatio);
+      const serverType = await this.getServerType();
 
       return {
         strategy: "shared-redis",
@@ -295,6 +296,7 @@ export class SharedRedisCache implements IKongCacheService {
         hitRate: this.calculateHitRate(),
         redisConnected: true,
         averageLatencyMs: this.calculateAverageLatency(),
+        serverType,
       };
     } catch (error) {
       winstonTelemetryLogger.warn("Failed to get Redis stats", {
@@ -356,6 +358,20 @@ export class SharedRedisCache implements IKongCacheService {
 
   getClientForHealthCheck(): RedisClient | null {
     return this.client || null;
+  }
+
+  async getServerType(): Promise<"redis" | "valkey"> {
+    try {
+      const client = this.ensureConnected();
+      const info = (await client.send("INFO", ["server"])) as string;
+
+      if (typeof info === "string" && info.toLowerCase().includes("valkey")) {
+        return "valkey";
+      }
+      return "redis";
+    } catch {
+      return "redis";
+    }
   }
 
   async getStale(key: string): Promise<ConsumerSecret | null> {

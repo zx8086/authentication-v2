@@ -7,6 +7,7 @@ import { log } from "../utils/logger";
 export interface CacheHealthResult {
   status: "healthy" | "unhealthy" | "degraded";
   type: "redis" | "memory";
+  serverType?: "redis" | "valkey";
   responseTime: number;
 }
 
@@ -66,10 +67,12 @@ export class CacheHealthService {
         }
 
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
+        const serverType = await sharedRedisCache.getServerType?.();
 
         return {
           status: "healthy",
           type: "redis",
+          serverType: serverType || "redis",
           responseTime: Math.round(responseTime),
         };
       } else {
@@ -78,6 +81,7 @@ export class CacheHealthService {
         return {
           status: "healthy",
           type: "redis",
+          serverType: "redis",
           responseTime: Math.round(responseTime),
         };
       }
@@ -94,6 +98,7 @@ export class CacheHealthService {
       return {
         status: "unhealthy",
         type: "redis",
+        serverType: "redis",
         responseTime: Math.round(responseTime),
       };
     }
