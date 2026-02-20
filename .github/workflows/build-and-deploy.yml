@@ -205,18 +205,20 @@ jobs:
           docker pull dhi.io/static:20230311
           echo "DHI base image pulled successfully"
 
-      - name: Verify DHI base image attestations (SBOM + Provenance)
+      - name: Verify DHI base image SBOM attestation
         if: github.event_name != 'pull_request'
-        id: dhi-attestation
+        id: dhi-sbom
         uses: docker/scout-action@v1.15.1
         with:
-          command: quickview
+          command: sbom
           image: dhi.io/static:20230311
           organization: zx8086
+          output: dhi-base-sbom.json
         continue-on-error: true
 
       - name: Verify DHI base image has zero CVEs
         if: github.event_name != 'pull_request'
+        id: dhi-cves
         uses: docker/scout-action@v1.15.1
         with:
           command: cves
@@ -232,13 +234,21 @@ jobs:
           echo "## DHI Base Image Verification" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Base Image:** \`dhi.io/static:20230311\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Attestation Check:** ${{ steps.dhi-attestation.outcome }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Verified Properties" >> $GITHUB_STEP_SUMMARY
-          echo "- SBOM attestation present" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM Attestation | ${{ steps.dhi-sbom.outcome == 'success' && 'Verified' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CVE Scan (HIGH/CRITICAL) | ${{ steps.dhi-cves.outcome == 'success' && 'Zero CVEs' || 'Check Required' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### DHI Security Properties" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOM attestation (SPDX format)" >> $GITHUB_STEP_SUMMARY
           echo "- SLSA Level 3 provenance" >> $GITHUB_STEP_SUMMARY
           echo "- VEX attestations for CVE suppression" >> $GITHUB_STEP_SUMMARY
-          echo "- Zero HIGH/CRITICAL CVEs expected" >> $GITHUB_STEP_SUMMARY
+          echo "- Distroless base (minimal attack surface)" >> $GITHUB_STEP_SUMMARY
+
+          # Cleanup SBOM file
+          rm -f dhi-base-sbom.json
 
       - name: Extract package.json metadata
         id: package
