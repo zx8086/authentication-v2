@@ -208,10 +208,10 @@ TELEMETRY_MODE=console             # console|otlp|both
 
 ### Optional High Availability
 ```bash
-# Redis Cache (optional)
-REDIS_ENABLED=true
-REDIS_URL=redis://localhost:6379
-HIGH_AVAILABILITY=true            # Enable extended resilience
+# Redis/Valkey Cache (optional)
+REDIS_URL=redis://localhost:6379   # Redis on 6379 or Valkey on 6380
+HIGH_AVAILABILITY=true             # Enable extended resilience
+# Server type (redis/valkey) auto-detected at runtime
 ```
 
 ## Security & Compliance
@@ -232,7 +232,7 @@ HIGH_AVAILABILITY=true            # Enable extended resilience
 - **Language**: TypeScript with strict validation
 - **HTTP**: Native Bun.serve() Routes API
 - **JWT**: Web Crypto API (crypto.subtle)
-- **Caching**: Redis with in-memory fallback
+- **Caching**: Redis/Valkey with in-memory fallback (auto-detection)
 - **Monitoring**: OpenTelemetry with OTLP (field deduplication optimized)
 - **Testing**: Bun Test + Playwright + K6 (live backend testing)
 - **Container**: Docker Hardened Images (DHI) `dhi.io/static:20230311` - 0 CVEs, SLSA Level 3

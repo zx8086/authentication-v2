@@ -93,6 +93,7 @@
 | **Security** | Zero client-side secrets, centralized token management |
 | **Error Handling** | RFC 7807 Problem Details with structured error codes |
 | **Resilience** | Circuit breaker with stale cache fallback |
+| **Caching** | Redis/Valkey support with auto-detection |
 | **Observability** | Comprehensive OpenTelemetry instrumentation |
 | **Container** | DHI distroless builds (0 CVEs, 12/12 security score, attestation verification) |
 

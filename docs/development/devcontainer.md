@@ -1,6 +1,6 @@
 # Zed IDE DevContainer Setup
 
-Containerized infrastructure for local Bun development. Your app runs natively; Kong, Redis, and Postgres run in Docker.
+Containerized infrastructure for local Bun development. Your app runs natively; Kong, Redis, Valkey, and Postgres run in Docker.
 
 ## Architecture
 
@@ -10,8 +10,9 @@ Host Machine                              Docker (via .devcontainer/)
 | Bun app (localhost:3000)  |<----------->| Kong 3.9 (:8000, :8001)   |
 |   |                       |  proxies    |   |-- http-log plugin     |
 |   +-- Kong Admin API -----|------------>|   +-- routes to app       |
-|   +-- Redis --------------|------------>| Redis 7 (:6379)           |
-+---------------------------+             | PostgreSQL 16 (:5432)     |
+|   +-- Redis/Valkey -------|------------>| Redis 7 (:6379)           |
++---------------------------+             | Valkey 8 (:6380)          |
+                                          | PostgreSQL 16 (:5432)     |
                                           +---------------------------+
 ```
 
@@ -52,9 +53,12 @@ bun run devcontainer:down
 | Kong Proxy | 8000 | `http://localhost:8000` |
 | Kong Manager | 8002 | `http://localhost:8002` |
 | Redis | 6379 | `redis://localhost:6379` |
+| Valkey | 6380 | `redis://localhost:6380` |
 | PostgreSQL | 5432 | `localhost:5432` |
 
-Data persists via Docker named volumes (`kong-db-data`, `redis-data`).
+Data persists via Docker named volumes (`kong-db-data`, `redis-data`, `valkey-data`).
+
+**Redis vs Valkey:** Both are compatible cache backends. The service auto-detects the server type at runtime and displays it in the `/health` endpoint. Use Valkey for a fully open-source Redis alternative.
 
 ## Kong Configuration with decK
 
@@ -75,7 +79,7 @@ Or use the Zed tasks via `Cmd+Shift+P` -> "task: spawn".
 
 ## Zed Tasks
 
-Access via `Cmd+Shift+P` -> "task: spawn". **43 tasks** organized by category:
+Access via `Cmd+Shift+P` -> "task: spawn". **60+ tasks** organized by category:
 
 ### Kong Tasks
 
@@ -110,6 +114,23 @@ Access via `Cmd+Shift+P` -> "task: spawn". **43 tasks** organized by category:
 | `redis: bigkeys` | Find largest keys |
 | `redis: memkeys` | Memory analysis per key |
 | `redis: scan auth keys` | Scan for auth_service keys |
+
+### Valkey Tasks
+
+| Task | What it does |
+|------|-------------|
+| `valkey: ping` | Check Valkey connectivity |
+| `valkey: info` | Valkey server information |
+| `valkey: keys (all)` | List all Valkey keys |
+| `valkey: flush all` | Clear all Valkey data |
+| `valkey: interactive CLI` | Open valkey-cli session |
+| `valkey: start` | Start Valkey container |
+| `valkey: stop` | Stop Valkey container |
+| `valkey: restart` | Restart Valkey container |
+| `valkey: logs` | View Valkey logs |
+| `valkey: status` | Container status |
+| `dev: start with Valkey` | Start dev server with Valkey |
+| `server: health check (Valkey)` | Health check using Valkey |
 
 ### Postgres Tasks
 
@@ -214,6 +235,17 @@ project-root/
 +-- ...
 ```
 
+### Infrastructure Tasks
+
+| Task | What it does |
+|------|-------------|
+| `deps: up (Kong + Redis)` | Start Kong and Redis only |
+| `deps: up (Kong + Valkey)` | Start Kong and Valkey only |
+| `deps: up (all)` | Start all infrastructure services |
+| `deps: down` | Stop all infrastructure services |
+| `docker: ps` | Show running containers |
+| `docker: ps (all)` | Show all containers (including stopped) |
+
 ## Port Conflicts
 
 DevContainer uses standard ports that may conflict with other services:
@@ -221,7 +253,8 @@ DevContainer uses standard ports that may conflict with other services:
 | DevContainer | Test Compose | Notes |
 |--------------|--------------|-------|
 | 8000, 8001 | 8100, 8101 | No conflict |
-| 6379 | 6380 | No conflict |
+| 6379 (Redis) | - | DevContainer Redis |
+| 6380 (Valkey) | - | DevContainer Valkey |
 | 5432 | 5433 | No conflict |
 
 DevContainer and test infrastructure (`docker-compose.test.yml`) can run simultaneously.

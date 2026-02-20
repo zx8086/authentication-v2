@@ -107,17 +107,25 @@ operations: {
 }
 ```
 
-### Redis Cache (High-Availability Mode)
+### Redis/Valkey Cache (High-Availability Mode)
+
+The service supports both Redis and Valkey as cache backends. Server type is automatically detected at runtime using the `INFO server` command.
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `REDIS_ENABLED` | Enable Redis backend | `false` | No |
+| `HIGH_AVAILABILITY` | Enable Redis/Valkey stale cache | `false` | No |
 | `REDIS_URL` | Connection URL | `redis://localhost:6379` | No |
 | `REDIS_PASSWORD` | Authentication password | - | No |
 | `REDIS_DB` | Database number | `0` | No |
 | `REDIS_MAX_RETRIES` | Retry attempts | `3` | No |
 | `REDIS_CONNECTION_TIMEOUT` | Connection timeout (ms) | `5000` | No |
 | `CACHE_HEALTH_TTL_MS` | Health check cache TTL (ms) | `2000` | No |
+
+**Redis vs Valkey:**
+- Both use the `redis://` protocol scheme
+- Valkey is a Redis-compatible alternative (fork)
+- The service auto-detects the server type and displays it in health endpoints
+- DevContainer provides both: Redis on port 6379, Valkey on port 6380
 
 ### API Documentation
 
@@ -169,9 +177,8 @@ KONG_ADMIN_TOKEN=kpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 KONG_JWT_AUTHORITY=https://sts.example.com/
 KONG_JWT_AUDIENCE=https://api.example.com/
 
-# High Availability
+# High Availability (Redis or Valkey)
 HIGH_AVAILABILITY=true
-REDIS_ENABLED=true
 REDIS_URL=rediss://redis.example.com:6380
 STALE_DATA_TOLERANCE_MINUTES=120
 

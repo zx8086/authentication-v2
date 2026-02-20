@@ -793,7 +793,30 @@ curl http://localhost:3000/metrics | jq '.cache'
 
 # Analyze cache tier usage
 curl http://localhost:3000/metrics?view=infrastructure | jq '.cache'
+
+# Check cache server type (redis or valkey)
+curl http://localhost:3000/health | jq '.dependencies.cache.type'
 ```
+
+#### Redis vs Valkey Detection
+
+The service automatically detects whether Redis or Valkey is being used as the cache backend:
+
+```bash
+# Health response includes server type
+curl http://localhost:3000/health | jq '.dependencies.cache'
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "type": "valkey",
+  "responseTime": 2
+}
+```
+
+Detection is performed using the `INFO server` command which returns different identifiers for Redis vs Valkey. The detection falls back to "redis" if the server type cannot be determined.
 
 ### Debug Mode
 Enable detailed debug logging:
