@@ -133,8 +133,6 @@ export function recordCacheReconnectAttempt(
 ): void {
   if (!isMetricsInitialized()) return;
 
-  const operation = success ? "reconnect_success" : "reconnect_failed";
-
   try {
     // Record as cache tier operation with redis tier
     cacheTierUsageCounter.add(1, {

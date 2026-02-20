@@ -2,11 +2,7 @@
 
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
 import type { CacheCircuitBreaker, CacheCircuitBreakerStats } from "./cache-circuit-breaker";
-import {
-  CacheOperationTimeouts,
-  getOperationTimeout,
-  withOperationTimeout,
-} from "./cache-operation-timeout";
+import { withOperationTimeout } from "./cache-operation-timeout";
 
 /**
  * Health status of the cache connection.

@@ -1,6 +1,6 @@
 // test/bun/services/cache/cache-circuit-breaker.test.ts
 
-import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   CacheCircuitBreaker,
   DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG,
