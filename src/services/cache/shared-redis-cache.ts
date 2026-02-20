@@ -19,6 +19,9 @@ export class SharedRedisCache implements IKongCacheService {
   private client: RedisClient | null = null;
   private keyPrefix = "auth_service:";
   private staleKeyPrefix = "auth_service_stale:";
+  private isConnected = false;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 3;
   private stats = {
     hits: 0,
     misses: 0,
@@ -38,13 +41,61 @@ export class SharedRedisCache implements IKongCacheService {
 
   /**
    * Ensures the Redis client is connected before operations.
-   * @throws Error if the client is not connected
+   * Attempts reconnection if the connection was lost.
+   * @throws Error if the client is not connected and reconnection fails
    */
-  private ensureConnected(): RedisClient {
+  private async ensureConnected(): Promise<RedisClient> {
     if (!this.client) {
       throw new Error("Redis client not connected. Call connect() first.");
     }
+
+    if (!this.isConnected && this.reconnectAttempts < this.maxReconnectAttempts) {
+      winstonTelemetryLogger.info("Attempting Redis reconnection", {
+        component: "cache",
+        operation: "reconnect_attempt",
+        attempt: this.reconnectAttempts + 1,
+        maxAttempts: this.maxReconnectAttempts,
+        client: "bun-native",
+      });
+
+      try {
+        this.reconnectAttempts++;
+        await this.client.connect();
+        if (this.config.db > 0) {
+          await this.client.send("SELECT", [this.config.db.toString()]);
+        }
+        await this.client.send("PING", []);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        recordRedisConnection(true);
+
+        winstonTelemetryLogger.info("Redis reconnection successful", {
+          component: "cache",
+          operation: "reconnect_success",
+          client: "bun-native",
+        });
+      } catch (error) {
+        winstonTelemetryLogger.warn("Redis reconnection failed", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "cache",
+          operation: "reconnect_failed",
+          attempt: this.reconnectAttempts,
+          maxAttempts: this.maxReconnectAttempts,
+          client: "bun-native",
+        });
+        throw new Error("Redis connection lost and reconnection failed");
+      }
+    }
+
     return this.client;
+  }
+
+  /**
+   * Marks the connection as potentially broken for reconnection handling.
+   */
+  private markConnectionBroken(): void {
+    this.isConnected = false;
+    recordRedisConnection(false);
   }
 
   async connect(): Promise<void> {
@@ -73,6 +124,8 @@ export class SharedRedisCache implements IKongCacheService {
       }
 
       await this.client.send("PING", []);
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
       recordRedisConnection(true);
       winstonTelemetryLogger.info("Connected to Redis using Bun native client", {
         redisUrl: this.config.url,
@@ -83,6 +136,7 @@ export class SharedRedisCache implements IKongCacheService {
         client: "bun-native",
       });
     }).catch((error) => {
+      this.isConnected = false;
       winstonTelemetryLogger.warn("Failed to connect to Redis, will use graceful fallback", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -106,7 +160,7 @@ export class SharedRedisCache implements IKongCacheService {
     const start = performance.now();
 
     return instrumentRedisOperation(context, async () => {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       const cached = await client.get(redisKey);
       if (cached) {
         this.recordHit(performance.now() - start);
@@ -122,8 +176,20 @@ export class SharedRedisCache implements IKongCacheService {
       this.recordMiss(performance.now() - start);
       return null;
     }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      // Mark connection as broken if it's a connection-related error
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis get operation failed, falling back to null", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "get_failed",
         key,
@@ -171,7 +237,7 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       const ttl = ttlSeconds || this.config.ttlSeconds;
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
@@ -182,8 +248,19 @@ export class SharedRedisCache implements IKongCacheService {
       await client.set(staleRedisKey, JSON.stringify(value));
       await client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis set operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "set_failed",
         key,
@@ -202,11 +279,22 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       await client.del(redisKey);
     }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis delete operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "delete_failed",
         key,
@@ -217,7 +305,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clear(): Promise<void> {
     try {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       let cursor = "0";
       do {
         const result = (await client.send("SCAN", [
@@ -228,15 +316,26 @@ export class SharedRedisCache implements IKongCacheService {
           "100",
         ])) as [string, string[]];
         cursor = result[0];
-        const keys = result[1];
+        const keys = Array.isArray(result[1]) ? result[1] : [];
 
         if (keys.length > 0) {
           await client.del(...keys);
         }
       } while (cursor !== "0");
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis clear operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "clear_failed",
         client: "bun-native",
@@ -246,7 +345,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     try {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
 
       const primaryKeys: string[] = [];
       let primaryCursor = "0";
@@ -259,7 +358,8 @@ export class SharedRedisCache implements IKongCacheService {
           "100",
         ])) as [string, string[]];
         primaryCursor = result[0];
-        const nonStaleKeys = result[1].filter((key) => !key.startsWith(this.staleKeyPrefix));
+        const keys = Array.isArray(result[1]) ? result[1] : [];
+        const nonStaleKeys = keys.filter((key) => !key.startsWith(this.staleKeyPrefix));
         primaryKeys.push(...nonStaleKeys);
       } while (primaryCursor !== "0");
 
@@ -274,7 +374,8 @@ export class SharedRedisCache implements IKongCacheService {
           "100",
         ])) as [string, string[]];
         staleCursor = result[0];
-        staleKeys.push(...result[1]);
+        const staleKeysInScan = Array.isArray(result[1]) ? result[1] : [];
+        staleKeys.push(...staleKeysInScan);
       } while (staleCursor !== "0");
 
       const totalPrimaryEntries = primaryKeys.length;
@@ -353,8 +454,19 @@ export class SharedRedisCache implements IKongCacheService {
   async disconnect(): Promise<void> {
     const client = this.client;
     if (client) {
-      await client.close();
+      try {
+        await client.close();
+      } catch (error) {
+        winstonTelemetryLogger.warn("Error during Redis disconnect", {
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "cache",
+          operation: "disconnect_error",
+          client: "bun-native",
+        });
+      }
       this.client = null;
+      this.isConnected = false;
+      this.reconnectAttempts = 0;
       recordRedisConnection(false);
       winstonTelemetryLogger.info("Disconnected from Redis", {
         component: "cache",
@@ -395,7 +507,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getServerType(): Promise<"redis" | "valkey"> {
     try {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       const info = (await client.send("INFO", ["server"])) as string;
 
       if (typeof info === "string" && info.toLowerCase().includes("valkey")) {
@@ -419,7 +531,7 @@ export class SharedRedisCache implements IKongCacheService {
     const start = performance.now();
 
     return instrumentRedisOperation(context, async () => {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       const cached = await client.get(staleRedisKey);
       if (cached) {
         this.recordHit(performance.now() - start);
@@ -441,8 +553,19 @@ export class SharedRedisCache implements IKongCacheService {
       this.recordMiss(performance.now() - start);
       return null;
     }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis get stale operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "get_stale_failed",
         key,
@@ -463,15 +586,26 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
 
       await client.set(staleRedisKey, JSON.stringify(value));
       await client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis set stale operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "set_stale_failed",
         key,
@@ -482,7 +616,7 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clearStale(): Promise<void> {
     try {
-      const client = this.ensureConnected();
+      const client = await this.ensureConnected();
       let cursor = "0";
       do {
         const result = (await client.send("SCAN", [
@@ -493,7 +627,7 @@ export class SharedRedisCache implements IKongCacheService {
           "100",
         ])) as [string, string[]];
         cursor = result[0];
-        const keys = result[1];
+        const keys = Array.isArray(result[1]) ? result[1] : [];
 
         if (keys.length > 0) {
           await client.del(...keys);
@@ -506,8 +640,19 @@ export class SharedRedisCache implements IKongCacheService {
         client: "bun-native",
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      if (
+        errorMessage.includes("Connection closed") ||
+        errorMessage.includes("connection lost") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
+      ) {
+        this.markConnectionBroken();
+      }
+
       winstonTelemetryLogger.warn("Redis clear stale operation failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
         component: "cache",
         operation: "clear_stale_failed",
         client: "bun-native",

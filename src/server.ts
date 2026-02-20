@@ -7,6 +7,7 @@ import { loadConfig } from "./config/index";
 import { handleServerError } from "./middleware/error-handler";
 import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutes } from "./routes/router";
+import { CacheFactory } from "./services/cache/cache-factory";
 import { profilingService } from "./services/profiling.service";
 import { shutdownCardinalityGuard } from "./telemetry/cardinality-guard";
 import { shutdownConsumerVolume } from "./telemetry/consumer-volume";
@@ -321,6 +322,9 @@ const gracefulShutdown = async (signal: string) => {
     if (server) {
       server.stop();
     }
+
+    // Close cache connections (Redis/Valkey) to prevent connection leaks
+    CacheFactory.reset();
 
     // Clear all intervals to prevent memory leaks
     shutdownGCMetrics();
