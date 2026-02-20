@@ -73,6 +73,7 @@ const envSchema = z
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).max(15).optional(),
     CACHE_HEALTH_TTL_MS: z.coerce.number().int().min(100).max(60000).optional(),
+    CACHE_MAX_MEMORY_ENTRIES: z.coerce.number().int().min(100).max(100000).optional(),
     REDIS_MAX_RETRIES: z.coerce.number().int().min(1).max(10).optional(),
     REDIS_CONNECTION_TIMEOUT: z.coerce.number().int().min(1000).max(30000).optional(),
 
@@ -319,6 +320,7 @@ export function initializeConfig(): AppConfig {
         redisPassword: envConfig.REDIS_PASSWORD,
         redisDb: envConfig.REDIS_DB,
         staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
+        maxMemoryEntries: envConfig.CACHE_MAX_MEMORY_ENTRIES,
         healthCheckTtlMs: envConfig.CACHE_HEALTH_TTL_MS,
         redisMaxRetries: envConfig.REDIS_MAX_RETRIES,
         redisConnectionTimeout: envConfig.REDIS_CONNECTION_TIMEOUT,

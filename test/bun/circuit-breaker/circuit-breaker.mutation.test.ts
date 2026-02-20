@@ -124,7 +124,7 @@ describe("Circuit Breaker Mutation Tests", () => {
   });
 
   describe("highAvailability stale cache initialization", () => {
-    it("should NOT create staleCache when highAvailability is true", () => {
+    it("should create staleCache in HA mode for last-resort fallback", () => {
       const config: CircuitBreakerConfig = {
         enabled: true,
         timeout: 1000,
@@ -138,8 +138,8 @@ describe("Circuit Breaker Mutation Tests", () => {
 
       const service = new KongCircuitBreakerService(config, defaultCachingConfig, mockCache);
 
-      // In HA mode, staleCache should be undefined
-      expect((service as any).staleCache).toBeUndefined();
+      expect((service as any).staleCache).toBeDefined();
+      expect((service as any).staleCache instanceof Map).toBe(true);
 
       service.shutdown();
     });
@@ -541,7 +541,7 @@ describe("Circuit Breaker Mutation Tests", () => {
       service.shutdown();
     });
 
-    it("should not throw in HA mode when staleCache is undefined", () => {
+    it("should clear in-memory cache in HA mode", () => {
       const config: CircuitBreakerConfig = {
         enabled: true,
         timeout: 1000,
@@ -555,10 +555,16 @@ describe("Circuit Breaker Mutation Tests", () => {
 
       const service = new KongCircuitBreakerService(config, defaultCachingConfig, mockCache);
 
-      expect((service as any).staleCache).toBeUndefined();
+      expect((service as any).staleCache).toBeDefined();
 
-      // Should not throw
-      expect(() => service.clearStaleCache()).not.toThrow();
+      // Add data to cache
+      (service as any).staleCache.set("key1", { data: {}, timestamp: Date.now() });
+
+      expect((service as any).staleCache.size).toBe(1);
+
+      service.clearStaleCache();
+
+      expect((service as any).staleCache.size).toBe(0);
 
       service.shutdown();
     });

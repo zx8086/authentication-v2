@@ -166,6 +166,84 @@ export const GenericCacheEntrySchema = <T>(dataSchema: z.ZodSchema<T>) =>
     createdAt: z.number(),
   });
 
+// Cache circuit breaker configuration (separate from Kong circuit breaker)
+export const CacheCircuitBreakerConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable cache circuit breaker"),
+  failureThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .describe("Number of failures before circuit opens"),
+  resetTimeout: z
+    .number()
+    .int()
+    .min(5000)
+    .max(300000)
+    .describe("Time in ms before attempting recovery"),
+  successThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .describe("Successes in half-open to close circuit"),
+});
+
+// Cache reconnection configuration
+export const CacheReconnectConfigSchema = z.strictObject({
+  maxAttempts: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .describe("Maximum reconnection attempts before giving up"),
+  baseDelayMs: z.number().int().min(50).max(5000).describe("Base delay for exponential backoff"),
+  maxDelayMs: z.number().int().min(1000).max(60000).describe("Maximum delay cap for backoff"),
+  cooldownMs: z
+    .number()
+    .int()
+    .min(10000)
+    .max(600000)
+    .describe("Time after which attempt counter resets"),
+});
+
+// Cache health monitor configuration
+export const CacheHealthMonitorConfigSchema = z.strictObject({
+  enabled: z.boolean().describe("Enable background health monitoring"),
+  intervalMs: z.number().int().min(1000).max(60000).describe("Interval between health checks"),
+  unhealthyThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .describe("Consecutive failures before marking unhealthy"),
+  healthyThreshold: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .describe("Consecutive successes before marking healthy"),
+  pingTimeoutMs: z.number().int().min(100).max(5000).describe("Timeout for PING command"),
+});
+
+// Cache operation timeout configuration
+export const CacheOperationTimeoutsSchema = z.strictObject({
+  get: z.number().int().min(100).max(10000).describe("Timeout for GET operations"),
+  set: z.number().int().min(100).max(10000).describe("Timeout for SET operations"),
+  delete: z.number().int().min(100).max(10000).describe("Timeout for DELETE operations"),
+  scan: z.number().int().min(1000).max(30000).describe("Timeout for SCAN iterations"),
+  ping: z.number().int().min(100).max(5000).describe("Timeout for PING health check"),
+  connect: z.number().int().min(1000).max(30000).describe("Timeout for connection attempts"),
+});
+
+// Cache resilience configuration (combines all resilience settings)
+export const CacheResilienceConfigSchema = z.strictObject({
+  circuitBreaker: CacheCircuitBreakerConfigSchema,
+  reconnect: CacheReconnectConfigSchema,
+  healthMonitor: CacheHealthMonitorConfigSchema,
+  operationTimeouts: CacheOperationTimeoutsSchema,
+});
+
 export const CachingConfigSchema = z.strictObject({
   highAvailability: z.boolean(),
   redisUrl: z.string().optional(),
@@ -178,9 +256,16 @@ export const CachingConfigSchema = z.strictObject({
     .min(5)
     .max(240)
     .describe("Tolerance for serving stale cache data in minutes"),
+  maxMemoryEntries: z
+    .number()
+    .int()
+    .min(100)
+    .max(100000)
+    .describe("Maximum entries in in-memory stale cache before LRU eviction"),
   healthCheckTtlMs: z.number().int().min(100).max(60000),
   redisMaxRetries: z.number().int().min(1).max(10),
   redisConnectionTimeout: z.number().int().min(1000).max(30000),
+  resilience: CacheResilienceConfigSchema.optional().describe("Cache resilience configuration"),
 });
 
 export const OperationCircuitBreakerConfigSchema = z.strictObject({
@@ -530,6 +615,11 @@ export const SchemaRegistry = {
   Jwt: JwtConfigSchema,
   Kong: KongConfigSchema,
   Caching: CachingConfigSchema,
+  CacheCircuitBreaker: CacheCircuitBreakerConfigSchema,
+  CacheReconnect: CacheReconnectConfigSchema,
+  CacheHealthMonitor: CacheHealthMonitorConfigSchema,
+  CacheOperationTimeouts: CacheOperationTimeoutsSchema,
+  CacheResilience: CacheResilienceConfigSchema,
   CircuitBreaker: CircuitBreakerConfigSchema,
   OperationCircuitBreaker: OperationCircuitBreakerConfigSchema,
   Telemetry: TelemetryConfigSchema,
@@ -579,6 +669,11 @@ export interface GenericCacheEntry<T> {
   createdAt: number;
 }
 export type CachingConfig = z.infer<typeof CachingConfigSchema>;
+export type CacheCircuitBreakerConfig = z.infer<typeof CacheCircuitBreakerConfigSchema>;
+export type CacheReconnectConfig = z.infer<typeof CacheReconnectConfigSchema>;
+export type CacheHealthMonitorConfig = z.infer<typeof CacheHealthMonitorConfigSchema>;
+export type CacheOperationTimeoutsConfig = z.infer<typeof CacheOperationTimeoutsSchema>;
+export type CacheResilienceConfig = z.infer<typeof CacheResilienceConfigSchema>;
 export type CircuitBreakerConfig = z.infer<typeof CircuitBreakerConfigSchema>;
 export type OperationCircuitBreakerConfig = z.infer<typeof OperationCircuitBreakerConfigSchema>;
 export type ProfilingConfig = z.infer<typeof ProfilingConfigSchema>;

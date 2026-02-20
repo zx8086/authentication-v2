@@ -120,12 +120,73 @@ The service supports both Redis and Valkey as cache backends. Server type is aut
 | `REDIS_MAX_RETRIES` | Retry attempts | `3` | No |
 | `REDIS_CONNECTION_TIMEOUT` | Connection timeout (ms) | `5000` | No |
 | `CACHE_HEALTH_TTL_MS` | Health check cache TTL (ms) | `2000` | No |
+| `CACHE_MAX_MEMORY_ENTRIES` | Max in-memory stale cache entries | `1000` | No |
 
 **Redis vs Valkey:**
 - Both use the `redis://` protocol scheme
 - Valkey is a Redis-compatible alternative (fork)
 - The service auto-detects the server type and displays it in health endpoints
 - DevContainer provides both: Redis on port 6379, Valkey on port 6380
+
+### Cache Resilience Configuration
+
+The cache layer includes comprehensive resilience features to handle connection issues gracefully.
+
+#### Cache Circuit Breaker
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `CACHE_CB_ENABLED` | Enable cache circuit breaker | `true` | boolean |
+| `CACHE_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-100 |
+| `CACHE_CB_RESET_TIMEOUT` | Time before half-open (ms) | `30000` | 1000-300000 |
+| `CACHE_CB_SUCCESS_THRESHOLD` | Successes to close | `2` | 1-20 |
+
+#### Reconnection Manager
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `CACHE_RECONNECT_MAX_ATTEMPTS` | Max reconnection attempts | `5` | 1-20 |
+| `CACHE_RECONNECT_BASE_DELAY_MS` | Base backoff delay (ms) | `100` | 10-1000 |
+| `CACHE_RECONNECT_MAX_DELAY_MS` | Max backoff delay cap (ms) | `5000` | 100-60000 |
+| `CACHE_RECONNECT_COOLDOWN_MS` | Cooldown before retry (ms) | `60000` | 1000-300000 |
+
+#### Health Monitor
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `CACHE_HEALTH_MONITOR_ENABLED` | Enable background monitoring | `true` | boolean |
+| `CACHE_HEALTH_MONITOR_INTERVAL_MS` | Check interval (ms) | `10000` | 1000-60000 |
+| `CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD` | Failures to mark unhealthy | `3` | 1-20 |
+| `CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD` | Successes to mark healthy | `2` | 1-20 |
+| `CACHE_HEALTH_MONITOR_PING_TIMEOUT_MS` | PING timeout (ms) | `500` | 100-5000 |
+
+#### Operation Timeouts
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `CACHE_TIMEOUT_GET_MS` | GET operation timeout (ms) | `1000` | 100-10000 |
+| `CACHE_TIMEOUT_SET_MS` | SET operation timeout (ms) | `2000` | 100-10000 |
+| `CACHE_TIMEOUT_DELETE_MS` | DELETE operation timeout (ms) | `1000` | 100-10000 |
+| `CACHE_TIMEOUT_SCAN_MS` | SCAN operation timeout (ms) | `5000` | 1000-30000 |
+| `CACHE_TIMEOUT_PING_MS` | PING operation timeout (ms) | `500` | 100-5000 |
+| `CACHE_TIMEOUT_CONNECT_MS` | Connection timeout (ms) | `5000` | 1000-30000 |
+
+**Resilience Features:**
+- **3-Layer Protection**: Error detection, circuit breaker, health monitoring
+- **Exponential Backoff**: Delays increase: 100ms, 200ms, 400ms, 800ms, 1600ms...
+- **Mutex Reconnection**: Prevents concurrent reconnection storms
+- **Per-Operation Timeouts**: Different timeouts for different operation types
+- **15+ Error Patterns**: Extended detection for connection_closed, reset, timeout, etc.
+- **Graceful Degradation**: Falls back to Kong circuit breaker when cache fails
+
+**Fallback Chain:**
+
+| Mode | Fallback Chain |
+|------|----------------|
+| **Non-HA** | Local Memory Cache -> In-Memory Stale Cache -> Return null |
+| **HA** | Redis Primary -> Redis Stale -> In-Memory Stale (last resort) -> Return null |
+
+In HA mode, each service instance lazily populates an in-memory cache on successful Redis reads. When Redis is completely unavailable, this in-memory cache serves as a last-resort fallback. Each instance only has data for consumers it has previously served.
 
 ### API Documentation
 

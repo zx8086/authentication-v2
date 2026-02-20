@@ -22,11 +22,14 @@ import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types"
 
 export type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
+const DEFAULT_MAX_STALE_ENTRIES = 1000;
+
 export class KongCircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();
   private staleCache?: Map<string, { data: ConsumerSecret; timestamp: number }>;
   private config: CircuitBreakerConfig & { highAvailability?: boolean };
   private readonly staleDataToleranceMinutes: number;
+  private readonly maxStaleEntries: number;
   private operationConfigs: Map<string, OperationCircuitBreakerConfig> = new Map();
 
   constructor(
@@ -36,12 +39,11 @@ export class KongCircuitBreakerService {
   ) {
     this.config = config;
     this.staleDataToleranceMinutes = cachingConfig.staleDataToleranceMinutes;
+    this.maxStaleEntries = cachingConfig.maxMemoryEntries ?? DEFAULT_MAX_STALE_ENTRIES;
 
     this.initializeOperationConfigs();
 
-    if (!config.highAvailability) {
-      this.staleCache = new Map();
-    }
+    this.staleCache = new Map();
   }
 
   private initializeOperationConfigs(): void {
@@ -339,6 +341,7 @@ export class KongCircuitBreakerService {
       return null;
     }
 
+    // HA Mode: Try Redis stale cache first
     if (this.config.highAvailability && this.cacheService) {
       const start = performance.now();
       try {
@@ -396,30 +399,38 @@ export class KongCircuitBreakerService {
           tier: "redis-stale",
         });
       }
-    } else {
-      const start = performance.now();
-      const inMemoryStale = this.getStaleData(cacheKey);
-      if (inMemoryStale) {
-        if (inMemoryStale.data.consumer && inMemoryStale.data.consumer.id !== consumerId) {
-          winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
-            operation,
-            requestedConsumerId: consumerId,
-            cachedConsumerId: inMemoryStale.data.consumer.id,
-            cacheKey,
-            component: "circuit_breaker",
-            action: "cache_pollution_detected",
-            tier: "in-memory",
-          });
-          recordCacheTierError("in-memory", operation, "cache_pollution");
-          this.staleCache?.delete(cacheKey);
-          return null;
-        }
+    }
 
-        const latency = performance.now() - start;
-        recordCacheTierUsage("in-memory", operation);
-        recordCacheTierLatency("in-memory", operation, latency);
+    const start = performance.now();
+    const inMemoryStale = this.getStaleData(cacheKey);
+    if (inMemoryStale) {
+      if (inMemoryStale.data.consumer && inMemoryStale.data.consumer.id !== consumerId) {
+        winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
+          operation,
+          requestedConsumerId: consumerId,
+          cachedConsumerId: inMemoryStale.data.consumer.id,
+          cacheKey,
+          component: "circuit_breaker",
+          action: "cache_pollution_detected",
+          tier: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
+        });
+        recordCacheTierError(
+          this.config.highAvailability ? "in-memory-fallback" : "in-memory",
+          operation,
+          "cache_pollution"
+        );
+        this.staleCache?.delete(cacheKey);
+        return null;
+      }
 
-        winstonTelemetryLogger.info(`Using in-memory stale cache data for ${operation}`, {
+      const latency = performance.now() - start;
+      const tierName = this.config.highAvailability ? "in-memory-fallback" : "in-memory";
+      recordCacheTierUsage(tierName, operation);
+      recordCacheTierLatency(tierName, operation, latency);
+
+      winstonTelemetryLogger.info(
+        `Using in-memory stale cache data for ${operation}${this.config.highAvailability ? " (HA fallback)" : ""}`,
+        {
           operation,
           cacheKey,
           consumerId,
@@ -427,14 +438,20 @@ export class KongCircuitBreakerService {
           staleAgeMinutes: Math.floor((Date.now() - inMemoryStale.timestamp) / 60000),
           latencyMs: latency,
           component: "circuit_breaker",
-          action: "in_memory_stale_fallback",
-          tier: "in-memory",
-        });
+          action: this.config.highAvailability
+            ? "in_memory_ha_fallback"
+            : "in_memory_stale_fallback",
+          tier: tierName,
+          haMode: this.config.highAvailability,
+        }
+      );
 
-        recordCircuitBreakerFallback(operation, "in_memory_stale_cache");
-        recordCircuitBreakerRequest(operation, "half_open");
-        return inMemoryStale.data;
-      }
+      recordCircuitBreakerFallback(
+        operation,
+        this.config.highAvailability ? "in_memory_ha_fallback" : "in_memory_stale_cache"
+      );
+      recordCircuitBreakerRequest(operation, "half_open");
+      return inMemoryStale.data;
     }
 
     winstonTelemetryLogger.warn(`Circuit breaker open, no cache fallback available`, {
@@ -458,6 +475,36 @@ export class KongCircuitBreakerService {
       this.staleCache.set(key, {
         data,
         timestamp: Date.now(),
+      });
+
+      this.enforceMaxStaleEntries();
+    }
+  }
+
+  private enforceMaxStaleEntries(): void {
+    if (!this.staleCache || this.staleCache.size <= this.maxStaleEntries) {
+      return;
+    }
+
+    // Sort entries by timestamp (oldest first) for LRU eviction
+    const entries = Array.from(this.staleCache.entries()).sort(
+      ([, a], [, b]) => a.timestamp - b.timestamp
+    );
+
+    // Remove oldest entries to get back to maxStaleEntries
+    const toRemove = entries.slice(0, this.staleCache.size - this.maxStaleEntries);
+    for (const [key] of toRemove) {
+      this.staleCache.delete(key);
+    }
+
+    if (toRemove.length > 0) {
+      winstonTelemetryLogger.debug("Evicted stale cache entries (LRU)", {
+        component: "circuit_breaker",
+        action: "stale_cache_eviction",
+        evictedCount: toRemove.length,
+        currentSize: this.staleCache.size,
+        maxEntries: this.maxStaleEntries,
+        haMode: this.config.highAvailability,
       });
     }
   }
@@ -508,13 +555,8 @@ export class KongCircuitBreakerService {
       winstonTelemetryLogger.info("Cleared circuit breaker stale cache", {
         component: "circuit_breaker",
         action: "cache_cleared",
-        cacheMode: "in-memory",
-      });
-    } else {
-      winstonTelemetryLogger.info("No in-memory stale cache to clear (HA mode active)", {
-        component: "circuit_breaker",
-        action: "cache_clear_skipped",
-        cacheMode: "redis-ha",
+        cacheMode: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
+        haMode: this.config.highAvailability,
       });
     }
   }

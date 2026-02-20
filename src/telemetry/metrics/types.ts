@@ -47,7 +47,14 @@ export interface SecurityAttributes extends Attributes {
 }
 
 export interface CacheTierAttributes extends Attributes {
-  tier: "memory" | "redis" | "kong" | "fallback";
+  tier:
+    | "memory"
+    | "redis"
+    | "redis-stale"
+    | "in-memory"
+    | "in-memory-fallback"
+    | "kong"
+    | "fallback";
   operation: "get" | "set" | "delete" | "invalidate";
 }
 

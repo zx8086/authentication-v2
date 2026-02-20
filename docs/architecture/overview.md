@@ -169,9 +169,18 @@ The service implements circuit breaker protection with stale cache fallback for 
 
 ```bash
 HIGH_AVAILABILITY=true
-REDIS_ENABLED=true
+REDIS_URL=redis://localhost:6379
 STALE_DATA_TOLERANCE_MINUTES=120  # 2-hour fallback window
 ```
+
+### Fallback Chain
+
+| Mode | Fallback Chain |
+|------|----------------|
+| **Non-HA** | Local Memory Cache -> In-Memory Stale -> Return null |
+| **HA** | Redis Primary -> Redis Stale -> In-Memory Stale (last resort) -> Return null |
+
+In HA mode, each instance lazily populates an in-memory cache on successful Redis reads. When Redis is completely unavailable, this serves as a last-resort fallback.
 
 ---
 

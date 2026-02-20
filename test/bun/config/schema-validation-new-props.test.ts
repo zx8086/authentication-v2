@@ -149,6 +149,7 @@ describe("Schema Validation - New Configuration Properties", () => {
       redisDb: 0,
       ttlSeconds: 300,
       staleDataToleranceMinutes: 60,
+      maxMemoryEntries: 1000,
       redisMaxRetries: 3,
       redisConnectionTimeout: 5000,
     };
@@ -178,6 +179,7 @@ describe("Schema Validation - New Configuration Properties", () => {
       redisDb: 0,
       ttlSeconds: 300,
       staleDataToleranceMinutes: 60,
+      maxMemoryEntries: 1000,
       healthCheckTtlMs: 2000,
       redisConnectionTimeout: 5000,
     };
@@ -207,6 +209,7 @@ describe("Schema Validation - New Configuration Properties", () => {
       redisDb: 0,
       ttlSeconds: 300,
       staleDataToleranceMinutes: 60,
+      maxMemoryEntries: 1000,
       healthCheckTtlMs: 2000,
       redisMaxRetries: 3,
     };

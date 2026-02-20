@@ -2,6 +2,7 @@
 
 import { RedisClient } from "bun";
 import {
+  type CacheResilienceConfig,
   type ConsumerSecret,
   ConsumerSecretLenientSchema,
   type IKongCacheService,
@@ -13,21 +14,38 @@ import {
   type RedisOperationContext,
 } from "../../telemetry/redis-instrumentation";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { detectCacheError, isConnectionError } from "../../utils/cache-error-detector";
+import {
+  CacheReconnectManager,
+  DEFAULT_RECONNECT_CONFIG,
+  type ReconnectResult,
+} from "../../utils/cache-reconnect-manager";
 import { validateExternalData } from "../../utils/validation";
+import { CacheCircuitBreaker, DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG } from "./cache-circuit-breaker";
+import { CacheHealthMonitor, DEFAULT_HEALTH_MONITOR_CONFIG } from "./cache-health-monitor";
+import {
+  type CacheOperationTimeouts,
+  DEFAULT_OPERATION_TIMEOUTS,
+  withOperationTimeout,
+} from "./cache-operation-timeout";
+import { CacheScanIterator, DEFAULT_SCAN_CONFIG } from "./cache-scan-iterator";
 
 export class SharedRedisCache implements IKongCacheService {
   private client: RedisClient | null = null;
   private keyPrefix = "auth_service:";
   private staleKeyPrefix = "auth_service_stale:";
   private isConnected = false;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 3;
   private stats = {
     hits: 0,
     misses: 0,
     totalLatency: 0,
     operations: 0,
   };
+  private readonly circuitBreaker: CacheCircuitBreaker;
+  private readonly reconnectManager: CacheReconnectManager;
+  private healthMonitor: CacheHealthMonitor | null = null;
+  private readonly operationTimeouts: CacheOperationTimeouts;
+  private scanIterator: CacheScanIterator | null = null;
 
   constructor(
     private config: {
@@ -36,12 +54,33 @@ export class SharedRedisCache implements IKongCacheService {
       db: number;
       ttlSeconds: number;
       staleDataToleranceMinutes?: number;
+      resilience?: CacheResilienceConfig;
     }
-  ) {}
+  ) {
+    // Initialize resilience components with config or defaults
+    const resilienceConfig = config.resilience;
+
+    this.circuitBreaker = new CacheCircuitBreaker(
+      resilienceConfig?.circuitBreaker ?? DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG
+    );
+
+    this.reconnectManager = new CacheReconnectManager(
+      resilienceConfig?.reconnect ?? DEFAULT_RECONNECT_CONFIG
+    );
+
+    this.operationTimeouts = resilienceConfig?.operationTimeouts ?? DEFAULT_OPERATION_TIMEOUTS;
+
+    winstonTelemetryLogger.debug("SharedRedisCache initialized with resilience components", {
+      component: "shared_redis_cache",
+      operation: "init",
+      circuitBreakerEnabled: this.circuitBreaker !== null,
+      reconnectManagerEnabled: this.reconnectManager !== null,
+    });
+  }
 
   /**
    * Ensures the Redis client is connected before operations.
-   * Attempts reconnection if the connection was lost.
+   * Uses circuit breaker and reconnection manager for resilience.
    * @throws Error if the client is not connected and reconnection fails
    */
   private async ensureConnected(): Promise<RedisClient> {
@@ -49,41 +88,57 @@ export class SharedRedisCache implements IKongCacheService {
       throw new Error("Redis client not connected. Call connect() first.");
     }
 
-    if (!this.isConnected && this.reconnectAttempts < this.maxReconnectAttempts) {
-      winstonTelemetryLogger.info("Attempting Redis reconnection", {
-        component: "cache",
-        operation: "reconnect_attempt",
-        attempt: this.reconnectAttempts + 1,
-        maxAttempts: this.maxReconnectAttempts,
-        client: "bun-native",
-      });
+    if (!this.circuitBreaker.canExecute()) {
+      throw new Error("Cache circuit breaker is open - operations temporarily blocked");
+    }
 
-      try {
-        this.reconnectAttempts++;
-        await this.client.connect();
+    // If connection is broken, attempt reconnection with exponential backoff
+    if (!this.isConnected) {
+      const result = await this.reconnectManager.executeReconnect(async () => {
+        if (!this.client) {
+          throw new Error("Redis client not available for reconnection");
+        }
+
+        await withOperationTimeout(
+          "CONNECT",
+          this.operationTimeouts.connect,
+          this.client.connect()
+        );
+
         if (this.config.db > 0) {
           await this.client.send("SELECT", [this.config.db.toString()]);
         }
-        await this.client.send("PING", []);
+
+        await withOperationTimeout(
+          "PING",
+          this.operationTimeouts.ping,
+          this.client.send("PING", [])
+        );
+      });
+
+      if (result.success) {
         this.isConnected = true;
-        this.reconnectAttempts = 0;
+        this.circuitBreaker.recordSuccess();
         recordRedisConnection(true);
+
+        // Reset health monitor on successful reconnection
+        if (this.healthMonitor) {
+          this.healthMonitor.markHealthy();
+        }
 
         winstonTelemetryLogger.info("Redis reconnection successful", {
           component: "cache",
           operation: "reconnect_success",
+          attempts: result.attempts,
+          durationMs: result.durationMs,
           client: "bun-native",
         });
-      } catch (error) {
-        winstonTelemetryLogger.warn("Redis reconnection failed", {
-          error: error instanceof Error ? error.message : "Unknown error",
-          component: "cache",
-          operation: "reconnect_failed",
-          attempt: this.reconnectAttempts,
-          maxAttempts: this.maxReconnectAttempts,
-          client: "bun-native",
-        });
-        throw new Error("Redis connection lost and reconnection failed");
+      } else {
+        // Record failure in circuit breaker
+        this.circuitBreaker.recordFailure(result.error || new Error("Reconnection failed"));
+        throw new Error(
+          `Redis connection lost and reconnection failed: ${result.error?.message || "Unknown error"}`
+        );
       }
     }
 
@@ -92,10 +147,28 @@ export class SharedRedisCache implements IKongCacheService {
 
   /**
    * Marks the connection as potentially broken for reconnection handling.
+   * Records failure in circuit breaker if it's a connection error.
+   *
+   * @param error - Optional error that caused the connection to break
    */
-  private markConnectionBroken(): void {
+  private markConnectionBroken(error?: Error | string): void {
     this.isConnected = false;
     recordRedisConnection(false);
+
+    if (error) {
+      const errorInfo = detectCacheError(error);
+      if (errorInfo.shouldReconnect) {
+        this.circuitBreaker.recordFailure(error instanceof Error ? error : new Error(error));
+      }
+
+      winstonTelemetryLogger.debug("Connection marked as broken", {
+        component: "shared_redis_cache",
+        operation: "mark_connection_broken",
+        errorCategory: errorInfo.category,
+        isRecoverable: errorInfo.isRecoverable,
+        shouldReconnect: errorInfo.shouldReconnect,
+      });
+    }
   }
 
   async connect(): Promise<void> {
@@ -111,22 +184,62 @@ export class SharedRedisCache implements IKongCacheService {
         : this.config.url;
 
       this.client = new RedisClient(redisUrl, {
-        connectionTimeout: 5000,
-        autoReconnect: true,
-        maxRetries: 3,
-        enableOfflineQueue: true,
+        connectionTimeout: this.operationTimeouts.connect,
+        autoReconnect: false,
+        maxRetries: 1, // Let our reconnect manager handle retries
+        enableOfflineQueue: false, // Fail fast, we have circuit breaker
       });
 
-      await this.client.connect();
+      await withOperationTimeout("CONNECT", this.operationTimeouts.connect, this.client.connect());
 
       if (this.config.db > 0) {
         await this.client.send("SELECT", [this.config.db.toString()]);
       }
 
-      await this.client.send("PING", []);
+      await withOperationTimeout("PING", this.operationTimeouts.ping, this.client.send("PING", []));
+
       this.isConnected = true;
-      this.reconnectAttempts = 0;
+      this.circuitBreaker.recordSuccess();
+      this.reconnectManager.reset();
       recordRedisConnection(true);
+
+      const resilienceConfig = this.config.resilience;
+      if (resilienceConfig?.healthMonitor?.enabled !== false) {
+        this.healthMonitor = new CacheHealthMonitor(
+          async () => {
+            if (this.client) {
+              await this.client.send("PING", []);
+            }
+          },
+          this.circuitBreaker,
+          resilienceConfig?.healthMonitor ?? DEFAULT_HEALTH_MONITOR_CONFIG
+        );
+        this.healthMonitor.start();
+      }
+
+      this.scanIterator = new CacheScanIterator(
+        async (cursor, options) => {
+          if (!this.client) {
+            throw new Error("Client not connected");
+          }
+          const result = (await this.client.send("SCAN", [
+            cursor.toString(),
+            "MATCH",
+            options.MATCH,
+            "COUNT",
+            options.COUNT.toString(),
+          ])) as [string, string[]];
+          return {
+            cursor: Number.parseInt(result[0], 10),
+            keys: Array.isArray(result[1]) ? result[1] : [],
+          };
+        },
+        {
+          ...DEFAULT_SCAN_CONFIG,
+          timeoutMs: this.operationTimeouts.scan,
+        }
+      );
+
       winstonTelemetryLogger.info("Connected to Redis using Bun native client", {
         redisUrl: this.config.url,
         redisDb: this.config.db,
@@ -134,9 +247,12 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "connection",
         strategy: "shared-redis",
         client: "bun-native",
+        healthMonitorEnabled: this.healthMonitor !== null,
+        circuitBreakerEnabled: true,
       });
     }).catch((error) => {
       this.isConnected = false;
+      this.circuitBreaker.recordFailure(error instanceof Error ? error : new Error(String(error)));
       winstonTelemetryLogger.warn("Failed to connect to Redis, will use graceful fallback", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
@@ -149,6 +265,16 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async get<T = ConsumerSecret>(key: string): Promise<T | null> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("GET operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "get_blocked",
+        key,
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return null;
+    }
+
     const redisKey = this.keyPrefix + key;
     const context: RedisOperationContext = {
       operation: "GET",
@@ -161,9 +287,16 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const client = await this.ensureConnected();
-      const cached = await client.get(redisKey);
+
+      const cached = await withOperationTimeout(
+        "GET",
+        this.operationTimeouts.get,
+        client.get(redisKey)
+      );
+
       if (cached) {
         this.recordHit(performance.now() - start);
+        this.circuitBreaker.recordSuccess();
         const parsed = JSON.parse(cached);
         const validationResult = validateExternalData(ConsumerSecretLenientSchema, parsed, {
           source: "redis_cache",
@@ -174,18 +307,13 @@ export class SharedRedisCache implements IKongCacheService {
       }
 
       this.recordMiss(performance.now() - start);
+      this.circuitBreaker.recordSuccess();
       return null;
     }).catch((error) => {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      // Mark connection as broken if it's a connection-related error
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+      if (isConnectionError(error)) {
+        this.markConnectionBroken(error);
       }
 
       winstonTelemetryLogger.warn("Redis get operation failed, falling back to null", {
@@ -194,6 +322,7 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "get_failed",
         key,
         client: "bun-native",
+        errorCategory: detectCacheError(error).category,
       });
       this.recordMiss(performance.now() - start);
       return null;
@@ -201,6 +330,16 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async set<T = ConsumerSecret>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("SET operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "set_blocked",
+        key,
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return;
+    }
+
     const typedValue = value as Record<string, unknown>;
     if (
       key.startsWith("consumer_secret:") &&
@@ -242,21 +381,25 @@ export class SharedRedisCache implements IKongCacheService {
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
 
-      await client.set(redisKey, JSON.stringify(value));
-      await client.expire(redisKey, ttl);
+      await withOperationTimeout(
+        "SET",
+        this.operationTimeouts.set,
+        (async () => {
+          await client.set(redisKey, JSON.stringify(value));
+          await client.expire(redisKey, ttl);
 
-      await client.set(staleRedisKey, JSON.stringify(value));
-      await client.expire(staleRedisKey, staleTtl);
-    }).catch((error) => {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          await client.set(staleRedisKey, JSON.stringify(value));
+          await client.expire(staleRedisKey, staleTtl);
+        })()
+      );
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+      this.circuitBreaker.recordSuccess();
+    }).catch((error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorMessage = err.message;
+
+      if (isConnectionError(err)) {
+        this.markConnectionBroken(err);
       }
 
       winstonTelemetryLogger.warn("Redis set operation failed", {
@@ -265,11 +408,22 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "set_failed",
         key,
         client: "bun-native",
+        errorCategory: detectCacheError(err).category,
       });
     });
   }
 
   async delete(key: string): Promise<void> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("DELETE operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "delete_blocked",
+        key,
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return;
+    }
+
     const redisKey = this.keyPrefix + key;
     const context: RedisOperationContext = {
       operation: "DELETE",
@@ -280,17 +434,15 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const client = await this.ensureConnected();
-      await client.del(redisKey);
+
+      await withOperationTimeout("DELETE", this.operationTimeouts.delete, client.del(redisKey));
+
+      this.circuitBreaker.recordSuccess();
     }).catch((error) => {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+      if (isConnectionError(error)) {
+        this.markConnectionBroken(error);
       }
 
       winstonTelemetryLogger.warn("Redis delete operation failed", {
@@ -299,39 +451,76 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "delete_failed",
         key,
         client: "bun-native",
+        errorCategory: detectCacheError(error).category,
       });
     });
   }
 
   async clear(): Promise<void> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("CLEAR operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "clear_blocked",
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return;
+    }
+
     try {
       const client = await this.ensureConnected();
-      let cursor = "0";
-      do {
-        const result = (await client.send("SCAN", [
-          cursor,
-          "MATCH",
-          `${this.keyPrefix}*`,
-          "COUNT",
-          "100",
-        ])) as [string, string[]];
-        cursor = result[0];
-        const keys = Array.isArray(result[1]) ? result[1] : [];
+
+      if (this.scanIterator) {
+        const { keys, stats } = await this.scanIterator.collectAll(`${this.keyPrefix}*`);
 
         if (keys.length > 0) {
-          await client.del(...keys);
+          // Delete in batches to avoid overwhelming Redis
+          const batchSize = 100;
+          for (let i = 0; i < keys.length; i += batchSize) {
+            const batch = keys.slice(i, i + batchSize);
+            await withOperationTimeout(
+              "DELETE",
+              this.operationTimeouts.delete,
+              client.del(...batch)
+            );
+          }
         }
-      } while (cursor !== "0");
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+        this.circuitBreaker.recordSuccess();
+
+        winstonTelemetryLogger.debug("Clear operation completed", {
+          component: "shared_redis_cache",
+          operation: "clear_complete",
+          keysDeleted: keys.length,
+          scanIterations: stats.iterations,
+          durationMs: stats.durationMs,
+        });
+      } else {
+        // Fallback to direct SCAN if iterator not available
+        let cursor = "0";
+        do {
+          const result = (await client.send("SCAN", [
+            cursor,
+            "MATCH",
+            `${this.keyPrefix}*`,
+            "COUNT",
+            "100",
+          ])) as [string, string[]];
+          cursor = result[0];
+          const keys = Array.isArray(result[1]) ? result[1] : [];
+
+          if (keys.length > 0) {
+            await client.del(...keys);
+          }
+        } while (cursor !== "0");
+
+        this.circuitBreaker.recordSuccess();
+      }
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorMessage = err.message;
+
+      if (isConnectionError(err)) {
+        this.markConnectionBroken(err);
       }
 
       winstonTelemetryLogger.warn("Redis clear operation failed", {
@@ -339,6 +528,7 @@ export class SharedRedisCache implements IKongCacheService {
         component: "cache",
         operation: "clear_failed",
         client: "bun-native",
+        errorCategory: detectCacheError(err).category,
       });
     }
   }
@@ -452,6 +642,11 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async disconnect(): Promise<void> {
+    if (this.healthMonitor) {
+      this.healthMonitor.stop();
+      this.healthMonitor = null;
+    }
+
     const client = this.client;
     if (client) {
       try {
@@ -466,13 +661,17 @@ export class SharedRedisCache implements IKongCacheService {
       }
       this.client = null;
       this.isConnected = false;
-      this.reconnectAttempts = 0;
+      this.scanIterator = null;
       recordRedisConnection(false);
+
+      this.reconnectManager.reset();
+
       winstonTelemetryLogger.info("Disconnected from Redis", {
         component: "cache",
         operation: "disconnection",
         strategy: "shared-redis",
         client: "bun-native",
+        circuitBreakerStats: this.circuitBreaker.getStats(),
       });
     }
   }
@@ -520,6 +719,16 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async getStale(key: string): Promise<ConsumerSecret | null> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("GET_STALE operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "get_stale_blocked",
+        key,
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return null;
+    }
+
     const staleRedisKey = this.staleKeyPrefix + key;
     const context: RedisOperationContext = {
       operation: "GET_STALE",
@@ -532,9 +741,16 @@ export class SharedRedisCache implements IKongCacheService {
 
     return instrumentRedisOperation(context, async () => {
       const client = await this.ensureConnected();
-      const cached = await client.get(staleRedisKey);
+
+      const cached = await withOperationTimeout(
+        "GET",
+        this.operationTimeouts.get,
+        client.get(staleRedisKey)
+      );
+
       if (cached) {
         this.recordHit(performance.now() - start);
+        this.circuitBreaker.recordSuccess();
         winstonTelemetryLogger.info("Retrieved stale cache data", {
           key,
           component: "cache",
@@ -551,17 +767,13 @@ export class SharedRedisCache implements IKongCacheService {
       }
 
       this.recordMiss(performance.now() - start);
+      this.circuitBreaker.recordSuccess();
       return null;
     }).catch((error) => {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+      if (isConnectionError(error)) {
+        this.markConnectionBroken(error);
       }
 
       winstonTelemetryLogger.warn("Redis get stale operation failed", {
@@ -570,6 +782,7 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "get_stale_failed",
         key,
         client: "bun-native",
+        errorCategory: detectCacheError(error).category,
       });
       this.recordMiss(performance.now() - start);
       return null;
@@ -577,6 +790,16 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async setStale(key: string, value: ConsumerSecret, _ttlSeconds?: number): Promise<void> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("SET_STALE operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "set_stale_blocked",
+        key,
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return;
+    }
+
     const staleRedisKey = this.staleKeyPrefix + key;
     const context: RedisOperationContext = {
       operation: "SET_STALE",
@@ -590,18 +813,22 @@ export class SharedRedisCache implements IKongCacheService {
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
 
-      await client.set(staleRedisKey, JSON.stringify(value));
-      await client.expire(staleRedisKey, staleTtl);
-    }).catch((error) => {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      await withOperationTimeout(
+        "SET",
+        this.operationTimeouts.set,
+        (async () => {
+          await client.set(staleRedisKey, JSON.stringify(value));
+          await client.expire(staleRedisKey, staleTtl);
+        })()
+      );
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+      this.circuitBreaker.recordSuccess();
+    }).catch((error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorMessage = err.message;
+
+      if (isConnectionError(err)) {
+        this.markConnectionBroken(err);
       }
 
       winstonTelemetryLogger.warn("Redis set stale operation failed", {
@@ -610,45 +837,82 @@ export class SharedRedisCache implements IKongCacheService {
         operation: "set_stale_failed",
         key,
         client: "bun-native",
+        errorCategory: detectCacheError(err).category,
       });
     });
   }
 
   async clearStale(): Promise<void> {
+    if (!this.circuitBreaker.canExecute()) {
+      winstonTelemetryLogger.debug("CLEAR_STALE operation blocked by circuit breaker", {
+        component: "shared_redis_cache",
+        operation: "clear_stale_blocked",
+        circuitBreakerState: this.circuitBreaker.getState(),
+      });
+      return;
+    }
+
     try {
       const client = await this.ensureConnected();
-      let cursor = "0";
-      do {
-        const result = (await client.send("SCAN", [
-          cursor,
-          "MATCH",
-          `${this.staleKeyPrefix}*`,
-          "COUNT",
-          "100",
-        ])) as [string, string[]];
-        cursor = result[0];
-        const keys = Array.isArray(result[1]) ? result[1] : [];
+
+      if (this.scanIterator) {
+        const { keys, stats } = await this.scanIterator.collectAll(`${this.staleKeyPrefix}*`);
 
         if (keys.length > 0) {
-          await client.del(...keys);
+          const batchSize = 100;
+          for (let i = 0; i < keys.length; i += batchSize) {
+            const batch = keys.slice(i, i + batchSize);
+            await withOperationTimeout(
+              "DELETE",
+              this.operationTimeouts.delete,
+              client.del(...batch)
+            );
+          }
         }
-      } while (cursor !== "0");
 
-      winstonTelemetryLogger.info("Cleared stale cache", {
-        component: "cache",
-        operation: "clear_stale_success",
-        client: "bun-native",
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        this.circuitBreaker.recordSuccess();
 
-      if (
-        errorMessage.includes("Connection closed") ||
-        errorMessage.includes("connection lost") ||
-        errorMessage.includes("ECONNREFUSED") ||
-        errorMessage.includes("ERR_REDIS_CONNECTION_CLOSED")
-      ) {
-        this.markConnectionBroken();
+        winstonTelemetryLogger.info("Cleared stale cache", {
+          component: "cache",
+          operation: "clear_stale_success",
+          client: "bun-native",
+          keysDeleted: keys.length,
+          scanIterations: stats.iterations,
+          durationMs: stats.durationMs,
+        });
+      } else {
+        // Fallback to direct SCAN
+        let cursor = "0";
+        do {
+          const result = (await client.send("SCAN", [
+            cursor,
+            "MATCH",
+            `${this.staleKeyPrefix}*`,
+            "COUNT",
+            "100",
+          ])) as [string, string[]];
+          cursor = result[0];
+          const keys = Array.isArray(result[1]) ? result[1] : [];
+
+          if (keys.length > 0) {
+            await client.del(...keys);
+          }
+        } while (cursor !== "0");
+
+        this.circuitBreaker.recordSuccess();
+
+        winstonTelemetryLogger.info("Cleared stale cache", {
+          component: "cache",
+          operation: "clear_stale_success",
+          client: "bun-native",
+        });
+      }
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorMessage = err.message;
+
+      if (isConnectionError(err)) {
+        this.markConnectionBroken(err);
       }
 
       winstonTelemetryLogger.warn("Redis clear stale operation failed", {
@@ -656,7 +920,26 @@ export class SharedRedisCache implements IKongCacheService {
         component: "cache",
         operation: "clear_stale_failed",
         client: "bun-native",
+        errorCategory: detectCacheError(err).category,
       });
     }
+  }
+  getResilienceStats(): {
+    circuitBreaker: ReturnType<CacheCircuitBreaker["getStats"]>;
+    reconnect: ReturnType<CacheReconnectManager["getStats"]>;
+    health: ReturnType<CacheHealthMonitor["getState"]> | null;
+  } {
+    return {
+      circuitBreaker: this.circuitBreaker.getStats(),
+      reconnect: this.reconnectManager.getStats(),
+      health: this.healthMonitor?.getState() ?? null,
+    };
+  }
+  resetCircuitBreaker(): void {
+    this.circuitBreaker.reset();
+    winstonTelemetryLogger.info("Circuit breaker manually reset", {
+      component: "shared_redis_cache",
+      operation: "circuit_breaker_reset",
+    });
   }
 }
