@@ -100,9 +100,21 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       };
     };
 
+    let cacheStats: Awaited<ReturnType<typeof cacheService.getStats>> | null = null;
     try {
       const basicCacheHealth = await cacheHealthService.checkCacheHealth(cacheService);
       cacheHealth = { ...basicCacheHealth };
+
+      // Get cache statistics (entries, hit rate, etc.)
+      try {
+        cacheStats = await cacheService.getStats();
+      } catch (statsError) {
+        log("Failed to get cache stats during health check", {
+          component: "health",
+          operation: "cache_stats",
+          error: statsError instanceof Error ? statsError.message : "Unknown error",
+        });
+      }
 
       // Check stale cache availability in HA mode
       if (config.caching.highAvailability && cacheService.getStale) {
@@ -237,6 +249,17 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           status: cacheHealth.status,
           type: cacheHealth.type,
           responseTime: cacheHealth.responseTime,
+          ...(cacheStats && {
+            stats: {
+              entries: cacheStats.size,
+              activeEntries: cacheStats.activeEntries,
+              hitRate: cacheStats.hitRate,
+              averageLatencyMs: Math.round(cacheStats.averageLatencyMs * 100) / 100,
+              ...(cacheStats.redisConnected !== undefined && {
+                redisConnected: cacheStats.redisConnected,
+              }),
+            },
+          }),
           ...(cacheHealth.staleCache && {
             staleCache: cacheHealth.staleCache,
           }),
@@ -543,6 +566,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
 
     for (const breakerName in circuitBreakerStats) {
       const breakerStat = circuitBreakerStats[breakerName];
+      if (!breakerStat) continue;
       switch (breakerStat.state) {
         case "closed":
           circuitBreakerSummary.states.closed++;

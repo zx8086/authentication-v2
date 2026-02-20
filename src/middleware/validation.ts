@@ -84,7 +84,8 @@ export function validateContentType(request: Request): Response | null {
   }
 
   // Extract base content type (remove parameters like charset)
-  const baseContentType = contentType.split(";")[0].trim().toLowerCase();
+  const parts = contentType.split(";");
+  const baseContentType = (parts[0] ?? "").trim().toLowerCase();
 
   if (!ACCEPTED_CONTENT_TYPES.includes(baseContentType)) {
     const requestId = generateRequestId();

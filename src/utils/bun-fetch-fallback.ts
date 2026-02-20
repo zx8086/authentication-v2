@@ -1,3 +1,5 @@
+import { safeArrayAccess, safeRegexGroup } from "./null-safety";
+
 export interface FetchOptions {
   method?: string;
   headers?: Record<string, string>;
@@ -109,13 +111,16 @@ function parseCurlResponse(curlOutput: string): Response {
   }
 
   const headerLines = headerText.split(/\r?\n/);
-  const statusLine = headerLines[0];
+  const statusLine = safeArrayAccess(headerLines, 0) ?? "";
   const statusMatch = statusLine.match(/HTTP\/[\d.]+\s+(\d+)/);
-  const status = statusMatch ? Number.parseInt(statusMatch[1], 10) : 200;
+  const capturedStatus = safeRegexGroup(statusMatch, 1);
+  const status = capturedStatus !== undefined ? Number.parseInt(capturedStatus, 10) : 200;
 
   const headers = new Headers();
   for (let i = 1; i < headerLines.length; i++) {
-    const line = headerLines[i].trim();
+    const rawLine = safeArrayAccess(headerLines, i);
+    if (!rawLine) continue;
+    const line = rawLine.trim();
     if (!line) continue;
 
     const colonIndex = line.indexOf(":");

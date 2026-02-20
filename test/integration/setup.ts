@@ -211,7 +211,7 @@ export async function fetchWithFallback(
       stderr: "ignore",
     });
 
-    await proc.exited;
+    const exitCode = await proc.exited;
 
     // Check if signal was aborted while curl was running
     if (signal?.aborted) {
@@ -219,6 +219,11 @@ export async function fetchWithFallback(
     }
 
     const output = await new Response(proc.stdout).text();
+
+    // If curl failed (non-zero exit code) or empty output, throw error
+    if (exitCode !== 0 || !output.trim()) {
+      throw new Error(`curl failed with exit code ${exitCode}: ${output || "Connection refused"}`);
+    }
 
     // Parse curl output (format: HTTP/1.1 200 OK\nheaders...\n\nbody)
     // Handle both \r\n\r\n and \n\n separators
@@ -230,7 +235,7 @@ export async function fetchWithFallback(
     const lines = headerSection.split(lineSeparator);
     const statusLine = lines[0];
     const statusMatch = statusLine.match(/HTTP\/[\d.]+ (\d+)/);
-    const status = statusMatch ? Number.parseInt(statusMatch[1], 10) : 200;
+    const status = statusMatch ? Number.parseInt(statusMatch[1], 10) : 500;
 
     const responseHeaders = new Headers();
     for (let i = 1; i < lines.length; i++) {

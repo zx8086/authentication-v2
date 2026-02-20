@@ -1,16 +1,22 @@
 // src/services/cache/shared-redis-cache.ts
 
 import { RedisClient } from "bun";
-import type { ConsumerSecret, IKongCacheService, KongCacheStats } from "../../config/schemas";
-import { recordRedisConnection } from "../../telemetry/metrics";
+import {
+  type ConsumerSecret,
+  ConsumerSecretLenientSchema,
+  type IKongCacheService,
+  type KongCacheStats,
+} from "../../config/schemas";
+import { recordCacheOperation, recordRedisConnection } from "../../telemetry/metrics";
 import {
   instrumentRedisOperation,
   type RedisOperationContext,
 } from "../../telemetry/redis-instrumentation";
 import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { validateExternalData } from "../../utils/validation";
 
 export class SharedRedisCache implements IKongCacheService {
-  private client!: RedisClient;
+  private client: RedisClient | null = null;
   private keyPrefix = "auth_service:";
   private staleKeyPrefix = "auth_service_stale:";
   private stats = {
@@ -29,6 +35,17 @@ export class SharedRedisCache implements IKongCacheService {
       staleDataToleranceMinutes?: number;
     }
   ) {}
+
+  /**
+   * Ensures the Redis client is connected before operations.
+   * @throws Error if the client is not connected
+   */
+  private ensureConnected(): RedisClient {
+    if (!this.client) {
+      throw new Error("Redis client not connected. Call connect() first.");
+    }
+    return this.client;
+  }
 
   async connect(): Promise<void> {
     const context: RedisOperationContext = {
@@ -89,10 +106,17 @@ export class SharedRedisCache implements IKongCacheService {
     const start = performance.now();
 
     return instrumentRedisOperation(context, async () => {
-      const cached = await this.client.get(redisKey);
+      const client = this.ensureConnected();
+      const cached = await client.get(redisKey);
       if (cached) {
         this.recordHit(performance.now() - start);
-        return JSON.parse(cached) as T;
+        const parsed = JSON.parse(cached);
+        const validationResult = validateExternalData(ConsumerSecretLenientSchema, parsed, {
+          source: "redis_cache",
+          operation: "get",
+          consumerId: key.replace("consumer_secret:", ""),
+        });
+        return (validationResult.data ?? parsed) as T;
       }
 
       this.recordMiss(performance.now() - start);
@@ -147,15 +171,16 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
+      const client = this.ensureConnected();
       const ttl = ttlSeconds || this.config.ttlSeconds;
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
 
-      await this.client.set(redisKey, JSON.stringify(value));
-      await this.client.expire(redisKey, ttl);
+      await client.set(redisKey, JSON.stringify(value));
+      await client.expire(redisKey, ttl);
 
-      await this.client.set(staleRedisKey, JSON.stringify(value));
-      await this.client.expire(staleRedisKey, staleTtl);
+      await client.set(staleRedisKey, JSON.stringify(value));
+      await client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis set operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -177,7 +202,8 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
-      await this.client.del(redisKey);
+      const client = this.ensureConnected();
+      await client.del(redisKey);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis delete operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -191,9 +217,10 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clear(): Promise<void> {
     try {
+      const client = this.ensureConnected();
       let cursor = "0";
       do {
-        const result = (await this.client.send("SCAN", [
+        const result = (await client.send("SCAN", [
           cursor,
           "MATCH",
           `${this.keyPrefix}*`,
@@ -204,7 +231,7 @@ export class SharedRedisCache implements IKongCacheService {
         const keys = result[1];
 
         if (keys.length > 0) {
-          await this.client.del(...keys);
+          await client.del(...keys);
         }
       } while (cursor !== "0");
     } catch (error) {
@@ -219,10 +246,11 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     try {
+      const client = this.ensureConnected();
       const keys: string[] = [];
       let cursor = "0";
       do {
-        const result = (await this.client.send("SCAN", [
+        const result = (await client.send("SCAN", [
           cursor,
           "MATCH",
           `${this.keyPrefix}*`,
@@ -241,7 +269,7 @@ export class SharedRedisCache implements IKongCacheService {
       let ttlCheckErrors = 0;
       for (const key of sampleKeys) {
         try {
-          const ttl = (await this.client.send("TTL", [key])) as number;
+          const ttl = (await client.send("TTL", [key])) as number;
           if (ttl > 0) activeCount++;
         } catch {
           ttlCheckErrors++;
@@ -288,8 +316,10 @@ export class SharedRedisCache implements IKongCacheService {
   }
 
   async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.close();
+    const client = this.client;
+    if (client) {
+      await client.close();
+      this.client = null;
       recordRedisConnection(false);
       winstonTelemetryLogger.info("Disconnected from Redis", {
         component: "cache",
@@ -304,12 +334,14 @@ export class SharedRedisCache implements IKongCacheService {
     this.stats.hits++;
     this.stats.totalLatency += latency;
     this.stats.operations++;
+    recordCacheOperation("hit", "redis");
   }
 
   private recordMiss(latency: number): void {
     this.stats.misses++;
     this.stats.totalLatency += latency;
     this.stats.operations++;
+    recordCacheOperation("miss", "redis");
   }
 
   private calculateHitRate(): string {
@@ -338,7 +370,8 @@ export class SharedRedisCache implements IKongCacheService {
     const start = performance.now();
 
     return instrumentRedisOperation(context, async () => {
-      const cached = await this.client.get(staleRedisKey);
+      const client = this.ensureConnected();
+      const cached = await client.get(staleRedisKey);
       if (cached) {
         this.recordHit(performance.now() - start);
         winstonTelemetryLogger.info("Retrieved stale cache data", {
@@ -347,7 +380,13 @@ export class SharedRedisCache implements IKongCacheService {
           operation: "get_stale_success",
           client: "bun-native",
         });
-        return JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        const validationResult = validateExternalData(ConsumerSecretLenientSchema, parsed, {
+          source: "redis_cache",
+          operation: "getStale",
+          consumerId: key.replace("consumer_secret:", ""),
+        });
+        return (validationResult.data ?? parsed) as ConsumerSecret;
       }
 
       this.recordMiss(performance.now() - start);
@@ -375,11 +414,12 @@ export class SharedRedisCache implements IKongCacheService {
     };
 
     return instrumentRedisOperation(context, async () => {
+      const client = this.ensureConnected();
       const staleTtlMinutes = this.config.staleDataToleranceMinutes || 30;
       const staleTtl = staleTtlMinutes * 60;
 
-      await this.client.set(staleRedisKey, JSON.stringify(value));
-      await this.client.expire(staleRedisKey, staleTtl);
+      await client.set(staleRedisKey, JSON.stringify(value));
+      await client.expire(staleRedisKey, staleTtl);
     }).catch((error) => {
       winstonTelemetryLogger.warn("Redis set stale operation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -393,9 +433,10 @@ export class SharedRedisCache implements IKongCacheService {
 
   async clearStale(): Promise<void> {
     try {
+      const client = this.ensureConnected();
       let cursor = "0";
       do {
-        const result = (await this.client.send("SCAN", [
+        const result = (await client.send("SCAN", [
           cursor,
           "MATCH",
           `${this.staleKeyPrefix}*`,
@@ -406,7 +447,7 @@ export class SharedRedisCache implements IKongCacheService {
         const keys = result[1];
 
         if (keys.length > 0) {
-          await this.client.del(...keys);
+          await client.del(...keys);
         }
       } while (cursor !== "0");
 

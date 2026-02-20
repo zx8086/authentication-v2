@@ -1,6 +1,7 @@
 // src/adapters/kong-mode-strategies.ts
 
 import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { safeRegexGroup } from "../utils/null-safety";
 import type { IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createStandardHeaders } from "./kong-utils";
 
@@ -51,13 +52,14 @@ export class KongKonnectStrategy implements IKongModeStrategy {
 
     if (url.hostname.endsWith(".konghq.com") || url.hostname === "konghq.com") {
       const pathMatch = url.pathname.match(/\/v2\/control-planes\/([a-f0-9-]+)/);
-      if (!pathMatch) {
+      const controlPlaneId = safeRegexGroup(pathMatch, 1);
+      if (!controlPlaneId) {
         throw new Error(
           "Invalid Kong Konnect URL format. Expected: https://region.api.konghq.com/v2/control-planes/{id}"
         );
       }
 
-      this.controlPlaneId = pathMatch[1];
+      this.controlPlaneId = controlPlaneId;
       this.gatewayAdminUrl = adminUrl.replace(/\/$/, "");
       this.consumerAdminUrl = `${url.protocol}//${url.hostname}/v1`;
       this.realmId = `auth-realm-${this.controlPlaneId.substring(0, 8)}`;

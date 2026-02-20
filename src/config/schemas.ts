@@ -25,6 +25,53 @@ export const ConsumerSchema = z.strictObject({
   created_at: z.number(),
 });
 
+// Kong Konnect specific schemas for consumer resolution
+export const KongKonnectConsumerSchema = z
+  .object({
+    id: z.string(),
+    username: z.string(),
+    custom_id: z.string().optional().nullable(),
+    created_at: z.number().optional(),
+    updated_at: z.number().optional(),
+    tags: z.array(z.string()).optional().nullable(),
+  })
+  .passthrough(); // Allow extra fields from Kong Konnect API
+
+export const KongKonnectConsumerSearchResultSchema = z
+  .object({
+    data: z.array(KongKonnectConsumerSchema).optional(),
+    total: z.number().optional(),
+    next: z.string().optional().nullable(),
+    offset: z.string().optional().nullable(),
+  })
+  .passthrough(); // Allow extra pagination fields
+
+// Partial/lenient consumer secret schema for validation with passthrough
+export const ConsumerSecretLenientSchema = z
+  .object({
+    id: z.string(),
+    key: z.string(),
+    secret: z.string(),
+    consumer: z
+      .object({
+        id: z.string(),
+      })
+      .passthrough(),
+    created_at: z.number().optional(),
+    tags: z.array(z.string()).optional().nullable(),
+  })
+  .passthrough();
+
+// Lenient consumer response for external API validation
+export const ConsumerResponseLenientSchema = z
+  .object({
+    data: z.array(ConsumerSecretLenientSchema).optional(),
+    total: z.number().optional(),
+    next: z.string().optional().nullable(),
+    offset: z.string().optional().nullable(),
+  })
+  .passthrough();
+
 export const KongHealthCheckResultSchema = z.strictObject({
   healthy: z.boolean(),
   responseTime: z.number(),
@@ -48,6 +95,22 @@ export const JWTPayloadSchema = z.strictObject({
   name: z.string(),
   unique_name: z.string(),
 });
+
+// Lenient JWT payload schema for validation with passthrough (allows extra claims)
+export const JWTPayloadLenientSchema = z
+  .object({
+    sub: z.string(),
+    key: z.string().optional(),
+    jti: z.string().optional(),
+    iat: z.number().optional(),
+    nbf: z.number().optional(),
+    exp: z.number().optional(),
+    iss: z.string().optional(),
+    aud: z.union([z.string(), z.array(z.string())]).optional(),
+    name: z.string().optional(),
+    unique_name: z.string().optional(),
+  })
+  .passthrough();
 
 export const RouteDefinitionSchema = z.strictObject({
   path: z.string(),
@@ -457,22 +520,32 @@ export const SchemaRegistry = {
   VersionDeprecation: VersionDeprecationConfigSchema,
   AppConfig: AppConfigSchema,
   ConsumerSecret: ConsumerSecretSchema,
+  ConsumerSecretLenient: ConsumerSecretLenientSchema,
   ConsumerResponse: ConsumerResponseSchema,
+  ConsumerResponseLenient: ConsumerResponseLenientSchema,
   Consumer: ConsumerSchema,
+  KongKonnectConsumer: KongKonnectConsumerSchema,
+  KongKonnectConsumerSearchResult: KongKonnectConsumerSearchResultSchema,
   KongHealthCheckResult: KongHealthCheckResultSchema,
   KongCacheStats: KongCacheStatsSchema,
   CacheEntry: CacheEntrySchema,
   TokenResponse: TokenResponseSchema,
   JWTPayload: JWTPayloadSchema,
+  JWTPayloadLenient: JWTPayloadLenientSchema,
   RouteDefinition: RouteDefinitionSchema,
 } as const;
 
 export type ConsumerSecret = z.infer<typeof ConsumerSecretSchema>;
+export type ConsumerSecretLenient = z.infer<typeof ConsumerSecretLenientSchema>;
 export type ConsumerResponse = z.infer<typeof ConsumerResponseSchema>;
+export type ConsumerResponseLenient = z.infer<typeof ConsumerResponseLenientSchema>;
 export type Consumer = z.infer<typeof ConsumerSchema>;
+export type KongKonnectConsumer = z.infer<typeof KongKonnectConsumerSchema>;
+export type KongKonnectConsumerSearchResult = z.infer<typeof KongKonnectConsumerSearchResultSchema>;
 export type KongHealthCheckResult = z.infer<typeof KongHealthCheckResultSchema>;
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+export type JWTPayloadLenient = z.infer<typeof JWTPayloadLenientSchema>;
 export type RouteDefinition = z.infer<typeof RouteDefinitionSchema>;
 export type KongModeType = "API_GATEWAY" | "KONNECT";
 export type KongCacheStats = z.infer<typeof KongCacheStatsSchema>;

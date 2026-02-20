@@ -67,7 +67,7 @@
         "useShorthandFunctionType": "error",
         "useSingleVarDeclarator": "off",
         "useTemplate": "warn",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "warn"
       },
       "security": {
         "noGlobalEval": "error",
@@ -87,7 +87,7 @@
         "noDuplicateObjectKeys": "error",
         "noDuplicateParameters": "error",
         "noEmptyBlockStatements": "warn",
-        "noExplicitAny": "off",
+        "noExplicitAny": "warn",
         "noExtraNonNullAssertion": "error",
         "noFallthroughSwitchClause": "error",
         "noFunctionAssign": "error",
@@ -101,7 +101,7 @@
         "noUnsafeDeclarationMerging": "error",
         "noUnsafeNegation": "error",
         "useGetterReturn": "error",
-        "noImplicitAnyLet": "warn",
+        "noImplicitAnyLet": "error",
         "useIterableCallbackReturn": "warn",
         "noArrayIndexKey": "warn",
         "noThenProperty": "error",

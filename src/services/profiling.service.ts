@@ -88,12 +88,13 @@ class ProfilingService {
       (session) => session.status === "running"
     );
 
-    if (runningSessions.length > 0) {
+    const existingSession = runningSessions[0];
+    if (existingSession) {
       warn("Profiling start rejected - session already running", {
         component: "profiling",
         event: "start_rejected_concurrent",
         type,
-        existingSessionId: runningSessions[0].id,
+        existingSessionId: existingSession.id,
         existingSessions: runningSessions.length,
       });
       return null;

@@ -1,6 +1,6 @@
 {
   "name": "authentication-service",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "type": "module",
   "description": "High-performance JWT authentication service built with Bun",
   "main": "build/dist/server.js",
@@ -31,6 +31,9 @@
     "quality:check": "bun run --parallel typecheck biome:check yaml:check",
     "quality:check:all": "bun run --parallel --no-exit-on-error typecheck biome:check yaml:check license:check",
     "quality:fix": "bun run --sequential biome:check:write typecheck",
+    "null-safety:check": "bun run --parallel typecheck biome:check",
+    "null-safety:test": "bun test test/bun/utils/null-safety.test.ts test/bun/utils/error-handling.test.ts test/bun/utils/validation.test.ts",
+    "null-safety:full": "bun run --sequential null-safety:check null-safety:test",
     "pre-commit": "bun run --sequential quality:check test:bun",
     "pre-commit:fast": "bun run --parallel biome:check typecheck",
     "pre-commit:full": "bun run --sequential quality:check:all test:suite",

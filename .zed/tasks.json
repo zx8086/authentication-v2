@@ -241,7 +241,7 @@
   },
   {
     "label": "server: health check",
-    "command": "curl -sf http://localhost:3000/health | jq . && echo '[OK] Server healthy' || echo '[FAIL] Server not responding'",
+    "command": "curl -sf http://localhost:3000/health > /tmp/health.json && jq . /tmp/health.json && echo '[OK] Server healthy' || echo '[FAIL] Server not responding'",
     "use_new_terminal": false,
     "reveal": "always",
   },
@@ -300,14 +300,26 @@
     "reveal": "always",
   },
   {
-    "label": "github: security alerts (code scanning)",
-    "command": "gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | {rule: .rule.id, severity: .rule.security_severity_level, state: .state, tool: .tool.name, file: .most_recent_instance.location.path}' | head -50",
+    "label": "github: security alerts (open only)",
+    "command": "gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | select(.state == \"open\") | {rule: .rule.id, severity: .rule.security_severity_level, tool: .tool.name, file: .most_recent_instance.location.path}' | head -50 || echo '[OK] No open alerts'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: security alerts (all)",
+    "command": "gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | {rule: .rule.id, severity: .rule.security_severity_level, state: .state, tool: .tool.name}' | head -50",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: security alerts (Dependabot)",
-    "command": "gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | {package: .dependency.package.name, severity: .security_advisory.severity, state: .state, cve: .security_advisory.cve_id}' | head -50",
+    "command": "gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | select(.state == \"open\") | {package: .dependency.package.name, severity: .security_advisory.severity, cve: .security_advisory.cve_id}' | head -50 || echo '[OK] No open Dependabot alerts'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: trigger security audit",
+    "command": "gh workflow run 'Comprehensive Security Audit' --ref master && echo '[OK] Security audit triggered - run: gh run list --workflow=\"Comprehensive Security Audit\" --limit=1'",
     "use_new_terminal": false,
     "reveal": "always",
   },

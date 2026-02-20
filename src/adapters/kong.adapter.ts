@@ -8,7 +8,12 @@ import type {
   KongHealthCheckResult,
   KongModeType,
 } from "../config";
-import { getCachingConfig, getKongConfig } from "../config";
+import {
+  ConsumerResponseLenientSchema,
+  ConsumerSecretLenientSchema,
+  getCachingConfig,
+  getKongConfig,
+} from "../config";
 import { CacheFactory } from "../services/cache/cache-factory";
 import { KongCircuitBreakerService } from "../services/circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
@@ -16,6 +21,7 @@ import { winstonTelemetryLogger } from "../telemetry/winston-logger";
 import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { withRetry } from "../utils/retry";
+import { validateExternalData } from "../utils/validation";
 import type { IAPIGatewayAdapter, IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createKongModeStrategy } from "./kong-mode-strategies";
 import {
@@ -131,8 +137,14 @@ export class KongAdapter implements IAPIGatewayAdapter {
           throw await createKongApiError(response);
         }
 
-        const data = (await response.json()) as ConsumerResponse;
-        const secret = extractConsumerSecret(data);
+        const rawData = await response.json();
+        const validationResult = validateExternalData(ConsumerResponseLenientSchema, rawData, {
+          source: "kong_api",
+          operation: "getConsumerSecret",
+          consumerId,
+        });
+        const data = validationResult.data as ConsumerResponse | undefined;
+        const secret = data ? extractConsumerSecret(data) : null;
 
         if (!secret) {
           return null;
@@ -195,7 +207,27 @@ export class KongAdapter implements IAPIGatewayAdapter {
           });
 
           if (isSuccessResponse(response)) {
-            const createdSecret = (await response.json()) as ConsumerSecret;
+            const rawCreatedSecret = await response.json();
+            const createValidationResult = validateExternalData(
+              ConsumerSecretLenientSchema,
+              rawCreatedSecret,
+              {
+                source: "kong_api",
+                operation: "createConsumerSecret",
+                consumerId,
+              }
+            );
+            const createdSecret = createValidationResult.data as ConsumerSecret | undefined;
+
+            if (!createdSecret) {
+              winstonTelemetryLogger.error("Failed to validate created secret from Kong", {
+                operation: "createConsumerSecret",
+                consumerId,
+                component: "kong_adapter",
+                mode: this.mode,
+              });
+              return null;
+            }
 
             // Prevent cache pollution - validate consumer ID matches before caching
             if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {

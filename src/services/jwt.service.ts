@@ -2,8 +2,10 @@
 
 import { trace } from "@opentelemetry/api";
 import type { JWTPayload, TokenResponse } from "../config";
+import { JWTPayloadLenientSchema } from "../config/schemas";
 import { calculateDuration, getHighResTime } from "../utils/performance";
 import { generateRequestId } from "../utils/response";
+import { validateExternalData } from "../utils/validation";
 
 export class NativeBunJWT {
   private static readonly encoder = new TextEncoder();
@@ -40,8 +42,18 @@ export class NativeBunJWT {
       const now = Math.floor(Date.now() / 1000);
       const expirationTime = now + expirationSeconds;
 
-      const audiences = audience.split(",").map((a) => a.trim());
-      const issuers = (issuer || authority).split(",").map((i) => i.trim());
+      const audiences = audience
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+      const issuers = (issuer || authority)
+        .split(",")
+        .map((i) => i.trim())
+        .filter((i) => i.length > 0);
+
+      // Ensure we have at least one issuer and audience
+      const primaryIssuer = issuers[0] ?? authority;
+      const primaryAudience = audiences[0] ?? audience;
 
       const payload: JWTPayload = {
         sub: username,
@@ -50,8 +62,8 @@ export class NativeBunJWT {
         iat: now,
         nbf: now,
         exp: expirationTime,
-        iss: issuers[0],
-        aud: audiences.length === 1 ? audiences[0] : audiences,
+        iss: primaryIssuer,
+        aud: audiences.length === 1 ? primaryAudience : audiences.length > 0 ? audiences : audience,
         name: username,
         unique_name: `pvhcorp.com#${username}`,
       };
@@ -144,7 +156,10 @@ export class NativeBunJWT {
         return { valid: false, error: "Invalid token format: expected 3 parts" };
       }
 
-      const [headerB64, payloadB64, signatureB64] = parts;
+      // Safe to use non-null assertion here since we verified parts.length === 3 above
+      const headerB64 = parts[0] as string;
+      const payloadB64 = parts[1] as string;
+      const signatureB64 = parts[2] as string;
 
       const message = NativeBunJWT.encoder.encode(`${headerB64}.${payloadB64}`);
       const key = await crypto.subtle.importKey(
@@ -182,7 +197,12 @@ export class NativeBunJWT {
 
       let payload: JWTPayload;
       try {
-        payload = JSON.parse(payloadJson);
+        const parsedPayload = JSON.parse(payloadJson);
+        const validationResult = validateExternalData(JWTPayloadLenientSchema, parsedPayload, {
+          source: "jwt_token",
+          operation: "validateToken",
+        });
+        payload = (validationResult.data ?? parsedPayload) as JWTPayload;
       } catch {
         span.setAttributes({
           "jwt.validation_error": "invalid_payload_json",
