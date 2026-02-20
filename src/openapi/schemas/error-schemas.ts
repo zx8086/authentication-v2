@@ -2,7 +2,9 @@
 
 // RFC 7807 Problem Details error schemas for OpenAPI specification.
 
-export function createDebugResponseSchema(): any {
+import type { OpenAPISchemaObject } from "./openapi-types";
+
+export function createDebugResponseSchema(): OpenAPISchemaObject {
   return Object.freeze({
     type: "object",
     required: Object.freeze(["timestamp", "message", "success"]),
@@ -33,7 +35,7 @@ export function createDebugResponseSchema(): any {
   });
 }
 
-export function createErrorResponseSchema(): any {
+export function createErrorResponseSchema(): OpenAPISchemaObject {
   return Object.freeze({
     type: "object",
     description:
@@ -121,7 +123,7 @@ export function createErrorResponseSchema(): any {
   });
 }
 
-export function createErrorCodeReferenceSchema(): any {
+export function createErrorCodeReferenceSchema(): OpenAPISchemaObject {
   return Object.freeze({
     type: "object",
     description: "Reference table of all structured error codes",
@@ -181,7 +183,7 @@ export function createErrorCodeReferenceSchema(): any {
   });
 }
 
-export function createErrorSchemas(): any {
+export function createErrorSchemas(): Record<string, OpenAPISchemaObject> {
   return Object.freeze({
     DebugResponse: createDebugResponseSchema(),
     ErrorResponse: createErrorResponseSchema(),

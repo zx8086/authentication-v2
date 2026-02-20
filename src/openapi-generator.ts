@@ -9,9 +9,27 @@ import {
   createTags,
 } from "./openapi/schemas";
 
+// Generic JSON-like value type for OpenAPI objects
+// More permissive than strict OpenAPI types, but eliminates `any`
+// Using Record<string, unknown> for flexibility with frozen objects
+type OpenAPIObject = Record<string, unknown>;
+
+// Type for values that can be converted to YAML
+type YamlValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly YamlValue[]
+  | YamlValue[]
+  | { readonly [key: string]: YamlValue }
+  | { [key: string]: YamlValue };
+
 class OpenAPIGenerator {
   private routes: RouteDefinition[] = [];
   private config: AppConfig;
+  // biome-ignore lint/suspicious/noExplicitAny: Internal cache stores heterogeneous types (arrays, objects, strings) with different keys
   private readonly _immutableCache = new Map<string, any>();
   private _specGenerated = false;
 
@@ -47,7 +65,7 @@ class OpenAPIGenerator {
     }
   }
 
-  generateSpec(): any {
+  generateSpec(): OpenAPIObject {
     if (this._specGenerated && this._immutableCache.has("fullSpec")) {
       return this._immutableCache.get("fullSpec");
     }
@@ -226,7 +244,9 @@ class OpenAPIGenerator {
     return descriptions[handlerName as keyof typeof descriptions] || `Handler: ${handlerName}`;
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic OpenAPI responses built at runtime with conditional properties
   private generateResponsesForHandler(handlerName: string): any {
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic responses object built conditionally based on handler
     const responses: any = {
       "200": {
         description: "Successful operation",
@@ -305,7 +325,7 @@ class OpenAPIGenerator {
     return responses;
   }
 
-  private getResponseSchemaForHandler(handlerName: string): any {
+  private getResponseSchemaForHandler(handlerName: string): OpenAPIObject {
     const schemaMap = {
       getOpenAPISpec: { type: "object", description: "OpenAPI 3.0.3 specification object" },
       issueToken: { $ref: "#/components/schemas/TokenResponse" },
@@ -327,7 +347,7 @@ class OpenAPIGenerator {
     return schemaMap[handlerName as keyof typeof schemaMap] || { type: "object" };
   }
 
-  convertToYaml(obj: any): string {
+  convertToYaml(obj: YamlValue): string {
     const cacheKey = `yaml_${JSON.stringify(obj).slice(0, 100)}`;
 
     if (this._immutableCache.has(cacheKey)) {
@@ -345,7 +365,7 @@ class OpenAPIGenerator {
     return result;
   }
 
-  private _generateServersImmutable(): readonly any[] {
+  private _generateServersImmutable(): readonly OpenAPIObject[] {
     const cacheKey = `servers_${this.config.server.port}_${this.config.telemetry.environment}`;
 
     if (this._immutableCache.has(cacheKey)) {
@@ -399,21 +419,21 @@ class OpenAPIGenerator {
     return frozenServers;
   }
 
-  private _generatePathsImmutable(): any {
+  private _generatePathsImmutable(): Record<string, OpenAPIObject> {
     const cacheKey = `paths_${this.routes.length}_${JSON.stringify(this.routes.map((r) => `${r.path}:${r.method}`))}`;
 
     if (this._immutableCache.has(cacheKey)) {
       return this._immutableCache.get(cacheKey);
     }
 
-    const paths: any = {};
+    const paths: Record<string, OpenAPIObject> = {};
 
     for (const route of this.routes) {
       if (!paths[route.path]) {
         paths[route.path] = {};
       }
 
-      const operation: any = Object.freeze({
+      const operation = Object.freeze({
         summary: route.summary,
         description: route.description,
         tags: Object.freeze([...route.tags]),
@@ -432,7 +452,8 @@ class OpenAPIGenerator {
         }),
       });
 
-      paths[route.path][route.method.toLowerCase()] = operation;
+      // biome-ignore lint/style/noNonNullAssertion: Safe - paths[route.path] is initialized above
+      paths[route.path]![route.method.toLowerCase()] = operation;
     }
 
     const frozenPaths = Object.freeze(paths);
@@ -440,7 +461,7 @@ class OpenAPIGenerator {
     return frozenPaths;
   }
 
-  private _generateComponentsImmutable(): any {
+  private _generateComponentsImmutable(): OpenAPIObject {
     const cacheKey = "components";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -495,7 +516,7 @@ class OpenAPIGenerator {
     return operationId;
   }
 
-  private _getTokensParametersImmutable(): readonly any[] {
+  private _getTokensParametersImmutable(): readonly OpenAPIObject[] {
     const cacheKey = "tokensParameters";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -541,7 +562,7 @@ class OpenAPIGenerator {
     return params;
   }
 
-  private _getTokensValidateParametersImmutable(): readonly any[] {
+  private _getTokensValidateParametersImmutable(): readonly OpenAPIObject[] {
     const cacheKey = "tokensValidateParameters";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -597,14 +618,14 @@ class OpenAPIGenerator {
     return params;
   }
 
-  private _generateDefaultResponsesImmutable(route: RouteDefinition): any {
+  private _generateDefaultResponsesImmutable(route: RouteDefinition): OpenAPIObject {
     const cacheKey = `responses_${route.path}_${route.method}`;
 
     if (this._immutableCache.has(cacheKey)) {
       return this._immutableCache.get(cacheKey);
     }
 
-    const responses: any = {
+    const responses: OpenAPIObject = {
       "200": Object.freeze({
         description: "Successful operation",
         content: Object.freeze({
@@ -674,14 +695,14 @@ class OpenAPIGenerator {
     return frozenResponses;
   }
 
-  private _getResponseSchemaImmutable(path: string, method: string): any {
+  private _getResponseSchemaImmutable(path: string, method: string): OpenAPIObject {
     const cacheKey = `schema_${path}_${method}`;
 
     if (this._immutableCache.has(cacheKey)) {
       return this._immutableCache.get(cacheKey);
     }
 
-    let schema: any;
+    let schema: OpenAPIObject;
     if (path === "/tokens" && method === "GET") {
       schema = Object.freeze({ $ref: "#/components/schemas/TokenResponse" });
     } else if (path === "/tokens/validate" && method === "GET") {
@@ -718,14 +739,14 @@ class OpenAPIGenerator {
     return schema;
   }
 
-  private _createOpenAPI311Info(): any {
+  private _createOpenAPI311Info(): { openapi: string; jsonSchemaDialect: string } {
     return Object.freeze({
       openapi: "3.1.1",
       jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
     });
   }
 
-  private _generateAuthSchemasImmutable(): any {
+  private _generateAuthSchemasImmutable(): Record<string, OpenAPIObject> {
     const cacheKey = "authSchemas";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -823,7 +844,7 @@ class OpenAPIGenerator {
     return schemas;
   }
 
-  private _generateHealthSchemasImmutable(): any {
+  private _generateHealthSchemasImmutable(): Record<string, OpenAPIObject> {
     const cacheKey = "healthSchemas";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -1073,7 +1094,7 @@ class OpenAPIGenerator {
     return schemas;
   }
 
-  private _generateMetricsSchemasImmutable(): any {
+  private _generateMetricsSchemasImmutable(): Record<string, OpenAPIObject> {
     const cacheKey = "metricsSchemas";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -1211,7 +1232,7 @@ class OpenAPIGenerator {
     return schemas;
   }
 
-  private _generateExportStatisticsSchemaImmutable(): any {
+  private _generateExportStatisticsSchemaImmutable(): OpenAPIObject {
     const cacheKey = "exportStatsSchema";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -1283,7 +1304,7 @@ class OpenAPIGenerator {
     return example;
   }
 
-  private _objectToYamlEnhanced(obj: any, indent = 0): string {
+  private _objectToYamlEnhanced(obj: YamlValue, indent = 0): string {
     const spaces = "  ".repeat(indent);
 
     // Handle null and undefined
@@ -1302,15 +1323,20 @@ class OpenAPIGenerator {
 
     // Enhanced array handling
     if (Array.isArray(obj)) {
-      return this._formatYamlArray(obj, spaces, indent);
+      return this._formatYamlArray(obj as YamlValue[], spaces, indent);
     }
 
-    // Enhanced object handling
-    if (typeof obj === "object") {
-      return this._formatYamlObject(obj, spaces, indent);
+    // Enhanced object handling - at this point obj is guaranteed to be a non-array object
+    if (typeof obj === "object" && obj !== null) {
+      return this._formatYamlObject(
+        obj as { readonly [key: string]: YamlValue } | { [key: string]: YamlValue },
+        spaces,
+        indent
+      );
     }
 
-    return obj.toString();
+    // Fallback for any remaining primitive types
+    return String(obj);
   }
 
   private _formatYamlString(str: string, spaces: string, _indent: number): string {
@@ -1331,7 +1357,7 @@ class OpenAPIGenerator {
     return str;
   }
 
-  private _formatYamlArray(arr: any[], spaces: string, indent: number): string {
+  private _formatYamlArray(arr: YamlValue[], spaces: string, indent: number): string {
     if (arr.length === 0) return "[]";
 
     // Use flow style for simple arrays
@@ -1351,7 +1377,11 @@ class OpenAPIGenerator {
       .join("");
   }
 
-  private _formatYamlObject(obj: any, spaces: string, indent: number): string {
+  private _formatYamlObject(
+    obj: { readonly [key: string]: YamlValue } | { [key: string]: YamlValue },
+    spaces: string,
+    indent: number
+  ): string {
     const entries = Object.entries(obj);
     if (entries.length === 0) return "{}";
 
@@ -1408,7 +1438,7 @@ class OpenAPIGenerator {
       .replace(/\t/g, "\\t");
   }
 
-  private _isSimpleArray(arr: any[]): boolean {
+  private _isSimpleArray(arr: YamlValue[]): boolean {
     return (
       arr.length <= 5 &&
       arr.every(
@@ -1418,7 +1448,7 @@ class OpenAPIGenerator {
     );
   }
 
-  private _generateCircuitBreakerSummarySchemaImmutable(): any {
+  private _generateCircuitBreakerSummarySchemaImmutable(): OpenAPIObject {
     const cacheKey = "circuitBreakerSummarySchema";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -1473,7 +1503,7 @@ class OpenAPIGenerator {
     return schema;
   }
 
-  private _generateCircuitBreakerDetailsSchemaImmutable(): any {
+  private _generateCircuitBreakerDetailsSchemaImmutable(): OpenAPIObject {
     const cacheKey = "circuitBreakerDetailsSchema";
 
     if (this._immutableCache.has(cacheKey)) {
@@ -1545,7 +1575,7 @@ class OpenAPIGenerator {
     return schema;
   }
 
-  private _generateProfilingSchemasImmutable(): any {
+  private _generateProfilingSchemasImmutable(): Record<string, OpenAPIObject> {
     const cacheKey = "profilingSchemas";
 
     if (this._immutableCache.has(cacheKey)) {

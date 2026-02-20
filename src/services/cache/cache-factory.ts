@@ -54,7 +54,10 @@ export class CacheFactory {
     return CacheFactory.instance;
   }
 
-  private static async initializeCache(config: any, configKey: string): Promise<void> {
+  private static async initializeCache(
+    config: CacheManagerConfig,
+    configKey: string
+  ): Promise<void> {
     winstonTelemetryLogger.info("Initializing Unified Cache Manager", {
       strategy: config.highAvailability ? "shared-redis" : "local-memory",
       redisUrl: config.redisUrl || "redis://localhost:6379",
@@ -89,7 +92,7 @@ export class CacheFactory {
     }
   }
 
-  private static createManagerConfig(config: any): CacheManagerConfig {
+  private static createManagerConfig(config: CacheManagerConfig): CacheManagerConfig {
     return {
       highAvailability: config.highAvailability,
       redisUrl: config.redisUrl,

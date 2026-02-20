@@ -181,7 +181,7 @@ test.describe("Profiling Endpoints E2E", () => {
 
     const statusData = await statusResponse.json();
     if (sessionId && statusData.enabled) {
-      const activeSession = statusData.sessions.find((s: any) => s.id === sessionId);
+      const activeSession = statusData.sessions.find((s: { id: string }) => s.id === sessionId);
       if (activeSession) {
         expect(activeSession.status).toBe("running");
         expect(activeSession.type).toBe("cpu");
@@ -202,7 +202,9 @@ test.describe("Profiling Endpoints E2E", () => {
     const finalStatusData = await finalStatusResponse.json();
 
     if (sessionId && finalStatusData.enabled) {
-      const stoppedSession = finalStatusData.sessions.find((s: any) => s.id === sessionId);
+      const stoppedSession = finalStatusData.sessions.find(
+        (s: { id: string }) => s.id === sessionId
+      );
       if (stoppedSession) {
         expect(["stopped", "completed", "running"]).toContain(stoppedSession.status);
       }
@@ -247,22 +249,30 @@ test.describe("Profiling Endpoints E2E", () => {
       expect(statusData).toHaveProperty("sessions");
 
       // Session schema validation if sessions exist
-      statusData.sessions.forEach((session: any) => {
-        expect(session).toHaveProperty("id");
-        expect(session).toHaveProperty("type");
-        expect(session).toHaveProperty("startTime");
-        expect(session).toHaveProperty("status");
+      statusData.sessions.forEach(
+        (session: {
+          id: string;
+          type: string;
+          startTime: string;
+          status: string;
+          endTime?: string;
+        }) => {
+          expect(session).toHaveProperty("id");
+          expect(session).toHaveProperty("type");
+          expect(session).toHaveProperty("startTime");
+          expect(session).toHaveProperty("status");
 
-        // Enum validations
-        expect(["cpu", "heap"]).toContain(session.type);
-        expect(["running", "stopped", "completed", "failed"]).toContain(session.status);
+          // Enum validations
+          expect(["cpu", "heap"]).toContain(session.type);
+          expect(["running", "stopped", "completed", "failed"]).toContain(session.status);
 
-        // Date format validation
-        expect(new Date(session.startTime).getTime()).not.toBeNaN();
-        if (session.endTime) {
-          expect(new Date(session.endTime).getTime()).not.toBeNaN();
+          // Date format validation
+          expect(new Date(session.startTime).getTime()).not.toBeNaN();
+          if (session.endTime) {
+            expect(new Date(session.endTime).getTime()).not.toBeNaN();
+          }
         }
-      });
+      );
     }
 
     // Reports endpoint validation

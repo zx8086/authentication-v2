@@ -3,9 +3,11 @@
 // Stryker disable all: Logger implementation is tested via integration tests and telemetry output verification.
 // String literal mutations in log messages and field names are low-value mutations that don't catch real bugs.
 
-let configInstance: any = null;
+type LoggerConfig = { telemetry: { serviceName: string; environment: string } };
 
-function getConfig() {
+let configInstance: LoggerConfig | null = null;
+
+function getConfig(): LoggerConfig {
   if (!configInstance) {
     try {
       const { loadConfig } = require("../config/index");
@@ -19,7 +21,10 @@ function getConfig() {
       };
     }
   }
-  return configInstance;
+  // TypeScript can't infer that configInstance is always non-null after the if block
+  // because loadConfig() comes from a dynamic require
+  // biome-ignore lint/style/noNonNullAssertion: Safe here - configInstance is guaranteed non-null after the if block
+  return configInstance!;
 }
 
 function getWinstonLogger() {
@@ -32,7 +37,7 @@ function getWinstonLogger() {
     console.error("ERROR: Could not load winston logger, falling back to console:", _error);
     const config = getConfig();
     return {
-      info: (msg: string, ctx: any) =>
+      info: (msg: string, ctx: Record<string, unknown>) =>
         console.log(
           JSON.stringify({
             "@timestamp": new Date().toISOString(),
@@ -45,7 +50,7 @@ function getWinstonLogger() {
             ...ctx,
           })
         ),
-      warn: (msg: string, ctx: any) =>
+      warn: (msg: string, ctx: Record<string, unknown>) =>
         console.warn(
           JSON.stringify({
             "@timestamp": new Date().toISOString(),
@@ -58,7 +63,7 @@ function getWinstonLogger() {
             ...ctx,
           })
         ),
-      error: (msg: string, ctx: any) =>
+      error: (msg: string, ctx: Record<string, unknown>) =>
         console.error(
           JSON.stringify({
             "@timestamp": new Date().toISOString(),
@@ -75,7 +80,7 @@ function getWinstonLogger() {
   }
 }
 
-export function log(message: string, context: Record<string, any> = {}) {
+export function log(message: string, context: Record<string, unknown> = {}) {
   const config = getConfig();
   getWinstonLogger().info(message, {
     service: {
@@ -86,7 +91,7 @@ export function log(message: string, context: Record<string, any> = {}) {
   });
 }
 
-export function warn(message: string, context: Record<string, any> = {}) {
+export function warn(message: string, context: Record<string, unknown> = {}) {
   const config = getConfig();
   getWinstonLogger().warn(message, {
     service: {
@@ -97,7 +102,7 @@ export function warn(message: string, context: Record<string, any> = {}) {
   });
 }
 
-export function error(message: string, context: Record<string, any> = {}) {
+export function error(message: string, context: Record<string, unknown> = {}) {
   const config = getConfig();
   getWinstonLogger().error(message, {
     service: {
@@ -108,7 +113,7 @@ export function error(message: string, context: Record<string, any> = {}) {
   });
 }
 
-export function audit(eventType: string, context: Record<string, any> = {}) {
+export function audit(eventType: string, context: Record<string, unknown> = {}) {
   const config = getConfig();
   getWinstonLogger().info(eventType, {
     audit: true,
@@ -121,7 +126,7 @@ export function audit(eventType: string, context: Record<string, any> = {}) {
   });
 }
 
-export function logError(message: string, err: Error, context: Record<string, any> = {}) {
+export function logError(message: string, err: Error, context: Record<string, unknown> = {}) {
   const config = getConfig();
   getWinstonLogger().error(message, {
     service: {

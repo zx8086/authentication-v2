@@ -115,7 +115,7 @@ export class CacheHealthMonitor {
   private static readonly MAX_RESPONSE_TIME_SAMPLES = 10;
 
   constructor(
-    private readonly pingFn: () => Promise<string | void>,
+    private readonly pingFn: () => Promise<void>,
     private readonly circuitBreaker: CacheCircuitBreaker | null = null,
     private readonly config: CacheHealthMonitorConfig = DEFAULT_HEALTH_MONITOR_CONFIG
   ) {

@@ -41,7 +41,7 @@ interface ProblemDetailsResponse {
 }
 
 interface SuccessResponseData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export function getSecurityHeaders(): Record<string, string> {
@@ -212,7 +212,11 @@ export function createStructuredErrorWithMessage(
   });
 }
 
-export function createHealthResponse(data: any, statusCode: number, requestId: string): Response {
+export function createHealthResponse(
+  data: Record<string, unknown>,
+  statusCode: number,
+  requestId: string
+): Response {
   const headers = {
     ...getDefaultHeaders(requestId),
     ...getNoCacheHeaders(),

@@ -22,6 +22,22 @@ import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types"
 
 export type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
+// Graceful degradation response types for circuit breaker fallback
+type HealthCheckDegradedResponse = {
+  healthy: false;
+  responseTime: 0;
+  error: string;
+};
+
+type GenericDegradedResponse = {
+  status: "degraded";
+  message: string;
+  operation: string;
+  timestamp: string;
+};
+
+type GracefulDegradationResponse = HealthCheckDegradedResponse | GenericDegradedResponse;
+
 const DEFAULT_MAX_STALE_ENTRIES = 1000;
 
 export class KongCircuitBreakerService {
@@ -279,7 +295,7 @@ export class KongCircuitBreakerService {
     }
   }
 
-  private handleGracefulDegradation(operation: string): any {
+  private handleGracefulDegradation(operation: string): GracefulDegradationResponse {
     winstonTelemetryLogger.info(`Using graceful degradation for ${operation}`, {
       operation,
       component: "circuit_breaker",

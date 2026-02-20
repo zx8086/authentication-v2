@@ -1,5 +1,5 @@
 # OpenAPI 3.1.1 specification for Authentication Service
-# Generated on: 2026-02-20T12:04:00.407Z
+# Generated on: 2026-02-20T22:34:09.918Z
 # This file is auto-generated. Do not edit manually.
 # Compliant with JSON Schema Draft 2020-12
 
@@ -51,7 +51,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2026-02-20T12:04:00.400Z"
+          example: "2026-02-20T22:34:09.912Z"
           format: date-time
       description: Debug operation response
     ErrorCodeReference:
@@ -157,7 +157,7 @@ components:
         timestamp:
           type: string
           description: ISO 8601 timestamp of when the error occurred
-          example: "2026-02-20T12:04:00.400Z"
+          example: "2026-02-20T22:34:09.912Z"
           format: date-time
         title:
           type: string
@@ -212,30 +212,43 @@ components:
                 stats:
                   type: object
                   properties:
-                    activeEntries:
-                      type: integer
-                      description: Active (non-expired) cache entries
-                      example: 45
-                      minimum: 0
                     averageLatencyMs:
                       type: number
                       description: Average cache operation latency in ms
                       example: 1.5
                       minimum: 0
-                    entries:
-                      type: integer
-                      description: Total cache entries
-                      example: 150
-                      minimum: 0
                     hitRate:
                       type: string
-                      description: Cache hit rate as percentage string
+                      description: Cache hit rate as percentage string (combines all tiers)
                       example: "81.82"
+                    primary:
+                      type: object
+                      properties:
+                        activeEntries:
+                          type: integer
+                          description: Primary entries with TTL > 0 (estimated from sample when large)
+                          example: 5
+                          minimum: 0
+                        entries:
+                          type: integer
+                          description: Total primary cache entries currently stored
+                          example: 5
+                          minimum: 0
+                      description: Primary cache tier - active entries with 5-minute TTL (default)
                     redisConnected:
                       type: boolean
                       description: Redis/Valkey connection status (only for distributed cache)
                       example: true
-                  description: Cache statistics (present in /metrics)
+                    stale:
+                      type: object
+                      properties:
+                        entries:
+                          type: integer
+                          description: Total stale cache entries available for circuit breaker fallback
+                          example: 3
+                          minimum: 0
+                      description: Stale cache tier - fallback entries with 30-minute TTL for circuit breaker recovery
+                  description: "Cache statistics with separate primary and stale tier metrics (TTL: primary=5min, stale=30min)"
                 status:
                   type: string
                   description: Cache system health status
@@ -273,7 +286,7 @@ components:
         timestamp:
           type: string
           description: Health check timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
         uptime:
           type: integer
@@ -283,7 +296,7 @@ components:
         version:
           type: string
           description: Service version
-          example: 2.6.1
+          example: 2.6.4
       description: System health status with dependency information
     MetricsHealth:
       type: object
@@ -334,7 +347,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2026-02-20T12:03:45.401Z"
+              example: "2026-02-20T22:33:54.913Z"
               format: date-time
             successCount:
               type: integer
@@ -365,7 +378,7 @@ components:
         timestamp:
           type: string
           description: Metrics health check timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
       description: Comprehensive metrics system health information
     MetricsStats:
@@ -383,7 +396,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2026-02-20T12:03:45.401Z"
+              example: "2026-02-20T22:33:54.913Z"
               format: date-time
             successCount:
               type: integer
@@ -416,7 +429,7 @@ components:
         timestamp:
           type: string
           description: Statistics retrieval timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
       description: Detailed metrics export statistics and status
     PerformanceMetrics:
@@ -449,7 +462,7 @@ components:
               nextAttempt:
                 type: string
                 description: Next attempt time when circuit is open
-                example: "2026-02-20T12:04:30.401Z"
+                example: "2026-02-20T22:34:39.913Z"
                 format: date-time
               resetTimeout:
                 type: integer
@@ -504,7 +517,7 @@ components:
         timestamp:
           type: string
           description: Metrics collection timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
         uptime:
           type: integer
@@ -533,7 +546,7 @@ components:
         timestamp:
           type: string
           description: Report retrieval timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
       description: List of available profiling reports and analysis files
     ProfilingResponse:
@@ -559,7 +572,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2026-02-20T12:04:00.401Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
       description: Profiling operation response
     ProfilingStatus:
@@ -593,7 +606,7 @@ components:
               endTime:
                 type: string
                 description: Session end timestamp (if completed)
-                example: "2026-02-20T12:04:00.401Z"
+                example: "2026-02-20T22:34:09.913Z"
                 format: date-time
               htmlFile:
                 type: string
@@ -615,7 +628,7 @@ components:
               startTime:
                 type: string
                 description: Session start timestamp
-                example: "2026-02-20T12:04:00.401Z"
+                example: "2026-02-20T22:34:09.913Z"
                 format: date-time
               status:
                 type: string
@@ -657,7 +670,7 @@ components:
             serviceVersion:
               type: string
               description: Service version for telemetry
-              example: 2.6.1
+              example: 2.6.4
             tracesEndpoint:
               type: string
               description: OTLP traces endpoint
@@ -675,7 +688,7 @@ components:
         access_token:
           type: string
           description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NzE1ODk5NDAsImlhdCI6MTc3MTU4OTA0MCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NzE2Mjc3NDksImlhdCI6MTc3MTYyNjg0OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
         expires_in:
           type: integer
           description: Token expiration time in seconds
@@ -707,7 +720,7 @@ components:
         expiresAt:
           type: string
           description: Token expiration timestamp (exp claim)
-          example: "2026-02-20T12:19:00.400Z"
+          example: "2026-02-20T22:49:09.913Z"
           format: date-time
         expiresIn:
           type: integer
@@ -717,7 +730,7 @@ components:
         issuedAt:
           type: string
           description: Token issue timestamp (iat claim)
-          example: "2026-02-20T12:04:00.400Z"
+          example: "2026-02-20T22:34:09.913Z"
           format: date-time
         issuer:
           type: string
@@ -752,7 +765,7 @@ info:
     identifier: UNLICENSED
     name: Proprietary
   title: Authentication Service API
-  version: 2.6.1
+  version: 2.6.4
 jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema"
 openapi: 3.1.1
 paths:

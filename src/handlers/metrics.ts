@@ -331,7 +331,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
   try {
     const timestamp = new Date().toISOString();
 
-    let responseData: any = { timestamp };
+    let responseData: Record<string, unknown> = { timestamp };
 
     switch (view) {
       case "operational": {

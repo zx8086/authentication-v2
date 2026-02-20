@@ -15,7 +15,7 @@ export function recordKongOperation(
   operation: string,
   durationMs: number,
   cacheHit?: boolean,
-  extraParam?: any
+  _extraParam?: unknown
 ): void {
   if (!isMetricsInitialized()) return;
 

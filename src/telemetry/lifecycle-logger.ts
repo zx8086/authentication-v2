@@ -6,7 +6,7 @@ import { getTelemetryStatus } from "./instrumentation";
 export interface ShutdownMessage {
   message: string;
   step: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class LifecycleObservabilityLogger {
@@ -14,7 +14,7 @@ export class LifecycleObservabilityLogger {
     message: string;
     timestamp: number;
     step: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }> = [];
   private shutdownInProgress = false;
 

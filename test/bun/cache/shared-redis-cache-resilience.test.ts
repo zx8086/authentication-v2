@@ -1,11 +1,11 @@
 /* test/bun/cache/shared-redis-cache-resilience.test.ts */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConsumerSecret } from "../../../src/config/schemas";
 import { SharedRedisCache } from "../../../src/services/cache/shared-redis-cache";
 
-let redisAvailable = false;
-
+// Check Redis availability at module load time (top-level await)
+// This ensures skipIf conditions are evaluated correctly
 async function checkRedisAvailable(): Promise<boolean> {
   try {
     const testCache = new SharedRedisCache({
@@ -23,18 +23,18 @@ async function checkRedisAvailable(): Promise<boolean> {
   }
 }
 
+// Top-level await to check Redis BEFORE test registration
+const redisAvailable = await checkRedisAvailable();
+if (!redisAvailable) {
+  console.log("SharedRedisCache resilience tests: Redis not available, tests will be skipped");
+}
+
 /**
  * Tests Redis connection resilience using REAL Redis connections.
  * No mocks - all tests connect to live Redis at localhost:6379.
  * These tests are SKIPPED in CI/CD when Redis is not available.
  */
 describe("SharedRedisCache Connection Resilience", () => {
-  beforeAll(async () => {
-    redisAvailable = await checkRedisAvailable();
-    if (!redisAvailable) {
-      console.log("Skipping SharedRedisCache resilience tests: Redis not available");
-    }
-  });
   let cache: SharedRedisCache;
 
   const testValue: ConsumerSecret = {

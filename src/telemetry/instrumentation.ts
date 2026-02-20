@@ -190,12 +190,14 @@ export async function initializeTelemetry(): Promise<void> {
   const baseInstrumentations = getNodeAutoInstrumentations({
     "@opentelemetry/instrumentation-http": {
       enabled: true,
+      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry hook types are complex and not fully exposed
       requestHook: (span: any, request: any) => {
         span.setAttributes({
           "http.request.body.size": request.headers["content-length"] || 0,
           "http.user_agent": request.headers["user-agent"] || "",
         });
       },
+      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry hook types are complex and not fully exposed
       responseHook: (span: any, response: any) => {
         span.setAttributes({
           "http.response.body.size": response.headers["content-length"] || 0,

@@ -18,8 +18,8 @@ export function recordRedisOperation(
   operation: string,
   durationMs: number,
   success: boolean = true,
-  extraParam1?: any,
-  extraParam2?: any
+  _extraParam1?: unknown,
+  _extraParam2?: unknown
 ): void {
   if (!isMetricsInitialized()) return;
 

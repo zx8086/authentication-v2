@@ -1,6 +1,8 @@
 // src/openapi/schemas/tags.ts
 
-export function createTags(): readonly any[] {
+import type { OpenAPITag } from "./openapi-types";
+
+export function createTags(): readonly OpenAPITag[] {
   return Object.freeze([
     Object.freeze({
       name: "Documentation",

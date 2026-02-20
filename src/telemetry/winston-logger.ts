@@ -17,22 +17,22 @@ export class WinstonTelemetryLogger {
       return this.logger;
     }
 
-    let config: any;
+    let localConfig: typeof telemetryConfig;
     try {
-      config = telemetryConfig;
+      localConfig = telemetryConfig;
     } catch (error) {
       console.warn("Could not load telemetry config, using fallback values:", error);
-      config = {
+      localConfig = {
         serviceName: "authentication-service",
         serviceVersion: pkg.version || "1.0.0",
         environment: "development",
         mode: "console",
-      };
+      } as typeof telemetryConfig;
     }
 
     this.logger = winston.createLogger({
-      level: config.logLevel || "info",
-      silent: config.logLevel === "silent",
+      level: localConfig.logLevel || "info",
+      silent: localConfig.logLevel === "silent",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
@@ -59,9 +59,9 @@ export class WinstonTelemetryLogger {
           convertErr: true,
           convertReqRes: true,
           apmIntegration: true,
-          serviceName: config.serviceName,
-          serviceVersion: config.serviceVersion,
-          serviceEnvironment: config.environment,
+          serviceName: localConfig.serviceName,
+          serviceVersion: localConfig.serviceVersion,
+          serviceEnvironment: localConfig.environment,
         })
       ),
       transports: this.configureTransports(),
@@ -99,19 +99,19 @@ export class WinstonTelemetryLogger {
     return transports;
   }
 
-  public info(message: string, context?: Record<string, any>): void {
+  public info(message: string, context?: Record<string, unknown>): void {
     this.initializeLogger().info(message, context || {});
   }
 
-  public warn(message: string, context?: Record<string, any>): void {
+  public warn(message: string, context?: Record<string, unknown>): void {
     this.initializeLogger().warn(message, context || {});
   }
 
-  public error(message: string, context?: Record<string, any>): void {
+  public error(message: string, context?: Record<string, unknown>): void {
     this.initializeLogger().error(message, context || {});
   }
 
-  public debug(message: string, context?: Record<string, any>): void {
+  public debug(message: string, context?: Record<string, unknown>): void {
     this.initializeLogger().debug(message, context || {});
   }
 
@@ -120,7 +120,7 @@ export class WinstonTelemetryLogger {
     path: string,
     statusCode: number,
     _duration: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     this.info(`HTTP ${method} ${path} - ${statusCode}`, context);
   }
@@ -128,7 +128,7 @@ export class WinstonTelemetryLogger {
   public logAuthenticationEvent(
     event: string,
     success: boolean,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     this.info(`Authentication: ${event} ${success ? "success" : "failed"}`, context);
   }
@@ -137,7 +137,7 @@ export class WinstonTelemetryLogger {
     operation: string,
     responseTime: number,
     success: boolean,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     this.info(`Kong: ${operation} (${responseTime}ms) ${success ? "success" : "failed"}`, context);
   }

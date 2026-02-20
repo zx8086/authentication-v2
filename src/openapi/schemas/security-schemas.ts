@@ -3,7 +3,9 @@
 // Security scheme definitions for OpenAPI specification.
 // Includes RFC 8594 Sunset header documentation for API deprecation.
 
-export function createSecuritySchemes(): any {
+import type { OpenAPIHeader, OpenAPIParameter, OpenAPISecurityScheme } from "./openapi-types";
+
+export function createSecuritySchemes(): Record<string, OpenAPISecurityScheme> {
   return Object.freeze({
     KongAdminToken: Object.freeze({
       type: "apiKey",
@@ -14,7 +16,7 @@ export function createSecuritySchemes(): any {
   });
 }
 
-export function createCommonParameters(): any {
+export function createCommonParameters(): Record<string, OpenAPIParameter> {
   return Object.freeze({
     ConsumerIdHeader: Object.freeze({
       name: "x-consumer-id",
@@ -52,7 +54,7 @@ export function createCommonParameters(): any {
 
 // Create RFC 8594 deprecation response headers documentation.
 // @see https://www.rfc-editor.org/rfc/rfc8594
-export function createDeprecationHeaders(): any {
+export function createDeprecationHeaders(): Record<string, OpenAPIHeader> {
   return Object.freeze({
     Sunset: Object.freeze({
       description:

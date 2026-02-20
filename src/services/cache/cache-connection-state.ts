@@ -146,7 +146,6 @@ export class CacheConnectionStateManager {
   private healthMonitor: CacheHealthMonitor | null = null;
 
   private connectFn: (() => Promise<void>) | null = null;
-  private pingFn: (() => Promise<string | void>) | null = null;
 
   constructor(private readonly config: CacheConnectionStateConfig) {
     this.circuitBreaker = new CacheCircuitBreaker(config.circuitBreaker);
@@ -174,9 +173,7 @@ export class CacheConnectionStateManager {
    * Set the ping function for health checks.
    * Also initializes the health monitor if not already done.
    */
-  setPingFunction(fn: () => Promise<string | void>): void {
-    this.pingFn = fn;
-
+  setPingFunction(fn: () => Promise<void>): void {
     // Initialize health monitor with ping function
     if (!this.healthMonitor && this.config.healthMonitor.enabled) {
       this.healthMonitor = new CacheHealthMonitor(

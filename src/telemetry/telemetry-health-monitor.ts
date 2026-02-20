@@ -1,6 +1,7 @@
 // src/telemetry/telemetry-health-monitor.ts
 
 import { loadConfig } from "../config/index";
+import type { AppConfig } from "../config/schemas";
 import type { TelemetryCircuitBreakerStats } from "../types/circuit-breaker.types";
 import { log } from "../utils/logger";
 import { getMetricsExportStats, getTelemetryStatus } from "./instrumentation";
@@ -9,6 +10,11 @@ import {
   getTelemetryCircuitBreakerStats,
   telemetryCircuitBreakers,
 } from "./telemetry-circuit-breaker";
+
+// Type aliases for telemetry status objects
+type TelemetryStatus = ReturnType<typeof getTelemetryStatus>;
+type MetricsExportStats = ReturnType<typeof getMetricsExportStats>;
+type MetricsStatus = ReturnType<typeof getMetricsStatus>;
 
 export interface TelemetryHealthStatus {
   overall: "healthy" | "degraded" | "critical";
@@ -97,7 +103,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private assessInitialization(telemetryStatus: any) {
+  private assessInitialization(telemetryStatus: TelemetryStatus) {
     return {
       status: telemetryStatus.initialized ? ("healthy" as const) : ("failed" as const),
       initialized: telemetryStatus.initialized,
@@ -105,7 +111,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private assessExports(exportStats: any) {
+  private assessExports(exportStats: MetricsExportStats) {
     const successRate = exportStats.successRate || 0;
     let status: "healthy" | "degraded" | "critical";
 
@@ -170,7 +176,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private assessMetrics(metricsStatus: any) {
+  private assessMetrics(metricsStatus: MetricsStatus) {
     return {
       status: metricsStatus.initialized ? ("healthy" as const) : ("degraded" as const),
       instrumentCount: metricsStatus.instrumentCount || 0,
@@ -178,7 +184,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private assessConfiguration(config: any) {
+  private assessConfiguration(config: AppConfig["telemetry"]) {
     const hasEndpoints = config.tracesEndpoint && config.metricsEndpoint && config.logsEndpoint;
 
     return {
@@ -195,7 +201,7 @@ export class TelemetryHealthMonitor {
     };
   }
 
-  private calculateOverallHealth(components: any): {
+  private calculateOverallHealth(components: TelemetryHealthStatus["components"]): {
     overall: "healthy" | "degraded" | "critical";
     recommendations: string[];
     alerts: Array<{

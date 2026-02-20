@@ -1,6 +1,6 @@
 // src/telemetry/tracer.ts
 
-import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { context, type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
   ATTR_HTTP_REQUEST_METHOD,
   ATTR_HTTP_RESPONSE_STATUS_CODE,
@@ -15,13 +15,13 @@ export interface SpanContext {
   operationName: string;
   kind?: SpanKind;
   attributes?: Record<string, string | number | boolean>;
-  parentSpan?: any;
+  parentSpan?: Span;
 }
 
 class BunTelemetryTracer {
   private tracer = trace.getTracer(telemetryConfig.serviceName, telemetryConfig.serviceVersion);
 
-  public initialize(_config?: any): void {
+  public initialize(_config?: Record<string, unknown>): void {
     /* no-op */
   }
 

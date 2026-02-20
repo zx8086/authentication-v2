@@ -15,7 +15,7 @@ export class JWTValidator {
     };
   }
 
-  static validateClaims(payload: any, expectedClaims: Partial<any>) {
+  static validateClaims(payload: Record<string, unknown>, expectedClaims: Record<string, unknown>) {
     for (const [key, value] of Object.entries(expectedClaims)) {
       expect(payload).toHaveProperty(key);
       if (value !== undefined) {
@@ -24,7 +24,7 @@ export class JWTValidator {
     }
   }
 
-  static validateExpiration(payload: any, expectedMinutes: number = 15) {
+  static validateExpiration(payload: { exp: number; iat: number }, expectedMinutes: number = 15) {
     const exp = payload.exp;
     const iat = payload.iat;
     expect(exp - iat).toBe(expectedMinutes * 60);
@@ -34,7 +34,7 @@ export class JWTValidator {
     expect(payload.exp).toBeGreaterThan(now);
   }
 
-  static validateRequiredClaims(payload: any) {
+  static validateRequiredClaims(payload: Record<string, unknown>) {
     const requiredClaims = ["exp", "iat", "iss", "aud", "sub", "key"];
     for (const claim of requiredClaims) {
       expect(payload).toHaveProperty(claim);
@@ -44,7 +44,7 @@ export class JWTValidator {
 }
 
 export class PerformanceHelper {
-  static async measureResponseTime(fn: () => Promise<any>): Promise<number> {
+  static async measureResponseTime(fn: () => Promise<unknown>): Promise<number> {
     const start = performance.now();
     await fn();
     const end = performance.now();
@@ -100,8 +100,8 @@ export class KongMockHelper {
     const malformedVariants = [
       { "X-Consumer-Id": "", "X-Consumer-Username": "test" },
       { "X-Consumer-Id": "test", "X-Consumer-Username": "" },
-      { "X-Consumer-Id": null as any, "X-Consumer-Username": "test" },
-      { "X-Consumer-Id": "test", "X-Consumer-Username": undefined as any },
+      { "X-Consumer-Id": null as unknown as string, "X-Consumer-Username": "test" },
+      { "X-Consumer-Id": "test", "X-Consumer-Username": undefined as unknown as string },
       { "X-Consumer-Id": '<script>alert("xss")</script>', "X-Consumer-Username": "test" },
       { "X-Consumer-Id": "../../../etc/passwd", "X-Consumer-Username": "test" },
       { "X-Consumer-Id": "test; DROP TABLE consumers;--", "X-Consumer-Username": "test" },
@@ -133,7 +133,11 @@ export class TestDataGenerator {
 }
 
 export class ResponseValidator {
-  static validateErrorResponse(response: any, expectedStatus: number, expectedError: string) {
+  static validateErrorResponse(
+    response: { status(): number } & Record<string, unknown>,
+    expectedStatus: number,
+    expectedError: string
+  ) {
     expect(response.status()).toBe(expectedStatus);
     expect(response).toHaveProperty("error", expectedError);
     expect(response).toHaveProperty("message");
@@ -141,7 +145,7 @@ export class ResponseValidator {
     expect(response).toHaveProperty("path");
   }
 
-  static validateHealthResponse(data: any) {
+  static validateHealthResponse(data: Record<string, unknown>) {
     expect(data).toHaveProperty("status");
     expect(data).toHaveProperty("version");
     expect(data).toHaveProperty("timestamp");
@@ -150,7 +154,7 @@ export class ResponseValidator {
     expect(data.dependencies).toHaveProperty("kong");
   }
 
-  static validateMetricsResponse(data: any) {
+  static validateMetricsResponse(data: Record<string, unknown>) {
     expect(data).toHaveProperty("timestamp");
     expect(data).toHaveProperty("uptime");
     expect(data).toHaveProperty("memory");
@@ -161,7 +165,7 @@ export class ResponseValidator {
     expect(data).toHaveProperty("telemetry");
   }
 
-  static validateTokenResponse(data: any) {
+  static validateTokenResponse(data: { access_token: string; expires_in: number }) {
     expect(data).toHaveProperty("access_token");
     expect(data).toHaveProperty("expires_in");
     expect(data.expires_in).toBe(900); // 15 minutes

@@ -68,7 +68,7 @@ export class BunRedisInstrumentation {
     return span;
   }
 
-  recordSuccess(span: Span, result?: any): void {
+  recordSuccess(span: Span, result?: unknown): void {
     if (!this.isEnabled()) return;
 
     span.setStatus({ code: SpanStatusCode.OK });
@@ -139,7 +139,7 @@ export class BunRedisInstrumentation {
     }
   }
 
-  private getResultLength(result: any): number {
+  private getResultLength(result: unknown): number {
     if (typeof result === "string") return result.length;
     if (Array.isArray(result)) return result.length;
     if (result && typeof result === "object") return Object.keys(result).length;
@@ -212,7 +212,7 @@ export function createRedisSpan(context: RedisOperationContext): Span {
   return redisInstrumentation.createSpan(context);
 }
 
-export function recordRedisSuccess(span: Span, result?: any): void {
+export function recordRedisSuccess(span: Span, result?: unknown): void {
   redisInstrumentation.recordSuccess(span, result);
 }
 
