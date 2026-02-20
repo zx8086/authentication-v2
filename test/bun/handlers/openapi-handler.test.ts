@@ -80,7 +80,9 @@ describe("OpenAPI Handler", () => {
 
         expect(allowOrigin).not.toBeNull();
         expect(typeof allowOrigin).toBe("string");
-        expect(allowHeaders).toBe("Content-Type, Authorization");
+        // Headers now come from config (default superset)
+        expect(allowHeaders).toContain("Content-Type");
+        expect(allowHeaders).toContain("Authorization");
         expect(allowMethods).toBe("GET, POST, OPTIONS");
       });
 
@@ -154,9 +156,9 @@ describe("OpenAPI Handler", () => {
         const response = await handleOpenAPISpec(createRequest("application/yaml"));
 
         expect(response.headers.get("Access-Control-Allow-Origin")).not.toBeNull();
-        expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-          "Content-Type, Authorization"
-        );
+        // Headers now come from config (default superset)
+        expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+        expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
         expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
       });
     });
@@ -293,9 +295,9 @@ describe("OpenAPI Handler", () => {
 
         // Verify all CORS headers are present (kills mutations that remove headers)
         expect(response.headers.get("Access-Control-Allow-Origin")).not.toBeNull();
-        expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-          "Content-Type, Authorization"
-        );
+        // Headers now come from config (default superset)
+        expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+        expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
         expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
       });
     });

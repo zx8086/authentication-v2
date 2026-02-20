@@ -77,6 +77,13 @@ export const envVarMapping = {
     contactEmail: "API_CONTACT_EMAIL",
     licenseName: "API_LICENSE_NAME",
     licenseIdentifier: "API_LICENSE_IDENTIFIER",
-    cors: "API_CORS",
+    cors: {
+      origin: "API_CORS_ORIGIN",
+      allowHeaders: "API_CORS_ALLOW_HEADERS",
+      allowMethods: "API_CORS_ALLOW_METHODS",
+      maxAge: "API_CORS_MAX_AGE",
+    },
+    // Legacy backward compatibility
+    corsLegacy: "API_CORS",
   },
 } as const;

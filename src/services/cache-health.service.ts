@@ -3,12 +3,13 @@
 import { getCachingConfig } from "../config";
 import type { IKongCacheService } from "../config/schemas";
 import { log } from "../utils/logger";
+import { formatResponseTime } from "../utils/performance";
 
 export interface CacheHealthResult {
   status: "healthy" | "unhealthy" | "degraded";
   type: "redis" | "memory";
   serverType?: "redis" | "valkey";
-  responseTime: number;
+  responseTime: string;
 }
 
 export class CacheHealthService {
@@ -73,7 +74,7 @@ export class CacheHealthService {
           status: "healthy",
           type: "redis",
           serverType: serverType || "redis",
-          responseTime: Math.round(responseTime),
+          responseTime: formatResponseTime(responseTime),
         };
       } else {
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -82,7 +83,7 @@ export class CacheHealthService {
           status: "healthy",
           type: "redis",
           serverType: "redis",
-          responseTime: Math.round(responseTime),
+          responseTime: formatResponseTime(responseTime),
         };
       }
     } catch (error) {
@@ -92,14 +93,14 @@ export class CacheHealthService {
         component: "cache-health",
         operation: "redis_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
-        responseTime: Math.round(responseTime),
+        responseTime: formatResponseTime(responseTime),
       });
 
       return {
         status: "unhealthy",
         type: "redis",
         serverType: "redis",
-        responseTime: Math.round(responseTime),
+        responseTime: formatResponseTime(responseTime),
       };
     }
   }
@@ -113,7 +114,7 @@ export class CacheHealthService {
       return {
         status: "healthy",
         type: "memory",
-        responseTime: Math.round(responseTime),
+        responseTime: formatResponseTime(responseTime),
       };
     } catch (error) {
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
@@ -122,13 +123,13 @@ export class CacheHealthService {
         component: "cache-health",
         operation: "memory_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
-        responseTime: Math.round(responseTime),
+        responseTime: formatResponseTime(responseTime),
       });
 
       return {
         status: "unhealthy",
         type: "memory",
-        responseTime: Math.round(responseTime),
+        responseTime: formatResponseTime(responseTime),
       };
     }
   }

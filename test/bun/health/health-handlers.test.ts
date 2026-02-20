@@ -65,8 +65,9 @@ describe("Health Handlers", () => {
       expect(body.version.length).toBeGreaterThan(0);
       expect(typeof body.environment).toBe("string");
       expect(body.environment.length).toBeGreaterThan(0);
-      expect(typeof body.uptime).toBe("number");
-      expect(body.uptime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.uptime).toBe("string");
+      // Matches formats like "45s", "2m 5s", "1h 2m 5s", "1d 1h 2m"
+      expect(body.uptime).toMatch(/^\d+(s|m|h|d)(\s\d+(s|m|h))?(\s\d+(s|m))?$/);
       expect(typeof body.dependencies).toBe("object");
       expect(body.dependencies).not.toBeNull();
       expect(typeof body.requestId).toBe("string");
@@ -96,9 +97,9 @@ describe("Health Handlers", () => {
 
       expect(body.dependencies.kong).toBeDefined();
       expect(body.dependencies.kong.status).toBe("healthy");
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
-      expect(body.dependencies.kong.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.dependencies.kong.responseTime).toBeLessThan(60000);
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s", "1m 5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
       expect(typeof body.dependencies.kong.details).toBe("object");
       expect(typeof body.dependencies.kong.details.adminUrl).toBe("string");
       expect(body.dependencies.kong.details.adminUrl.length).toBeGreaterThan(0);
@@ -119,9 +120,9 @@ describe("Health Handlers", () => {
       expect(["healthy", "unhealthy", "degraded"]).toContain(body.dependencies.cache.status);
       expect(typeof body.dependencies.cache.type).toBe("string");
       expect(body.dependencies.cache.type.length).toBeGreaterThan(0);
-      expect(typeof body.dependencies.cache.responseTime).toBe("number");
-      expect(body.dependencies.cache.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.dependencies.cache.responseTime).toBeLessThan(60000);
+      expect(typeof body.dependencies.cache.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "0.5ms", "1.5s")
+      expect(body.dependencies.cache.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should include telemetry dependency details", async () => {
@@ -182,7 +183,7 @@ describe("Health Handlers", () => {
       expect(parsedDate.getTime()).toBeGreaterThan(now - 60000);
     });
 
-    it("should include uptime as non-negative number", async () => {
+    it("should include uptime as human-readable string", async () => {
       if (!kongAvailable || !kongService) {
         console.log(getSkipMessage());
         return;
@@ -191,8 +192,9 @@ describe("Health Handlers", () => {
       const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
-      expect(typeof body.uptime).toBe("number");
-      expect(body.uptime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.uptime).toBe("string");
+      // Matches formats like "45s", "2m 5s", "1h 2m 5s", "1d 1h 2m"
+      expect(body.uptime).toMatch(/^\d+(s|m|h|d)(\s\d+(s|m|h))?(\s\d+(s|m))?$/);
     });
 
     it("should include requestId in response", async () => {
@@ -415,8 +417,9 @@ describe("Health Handlers", () => {
       expect(body.checks).not.toBeNull();
       expect(typeof body.checks.kong).toBe("object");
       expect(body.checks.kong.status).toBe("healthy");
-      expect(typeof body.checks.kong.responseTime).toBe("number");
-      expect(body.checks.kong.responseTime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.checks.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.checks.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
       expect(typeof body.checks.kong.details).toBe("object");
       expect(body.checks.kong.details).not.toBeNull();
     });
@@ -445,9 +448,9 @@ describe("Health Handlers", () => {
       const response = await handleReadinessCheck(kongService);
       const body = await response.json();
 
-      expect(typeof body.responseTime).toBe("number");
-      expect(body.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.responseTime).toBeLessThan(60000);
+      expect(typeof body.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should include requestId in response", async () => {

@@ -92,6 +92,12 @@ const envSchema = z
     API_CONTACT_EMAIL: EmailAddress.optional(),
     API_LICENSE_NAME: NonEmptyString.optional(),
     API_LICENSE_IDENTIFIER: NonEmptyString.optional(),
+    // CORS configuration
+    API_CORS_ORIGIN: NonEmptyString.optional(),
+    API_CORS_ALLOW_HEADERS: z.string().optional(),
+    API_CORS_ALLOW_METHODS: z.string().optional(),
+    API_CORS_MAX_AGE: z.coerce.number().int().min(0).max(86400).optional(),
+    // Legacy backward compatibility
     API_CORS: NonEmptyString.optional(),
   })
   .superRefine((data, ctx) => {
@@ -137,6 +143,14 @@ function detectInfrastructure() {
     podName: isKubernetes ? envSource.HOSTNAME : undefined,
     namespace: isKubernetes ? envSource.NAMESPACE : undefined,
   };
+}
+
+function parseCommaSeparated(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function loadConfigFromEnv() {
@@ -237,16 +251,21 @@ export function initializeConfig(): AppConfig {
       maxConcurrentProfiles: number;
       rollingBufferSize: number;
     }>;
-    apiInfo: Partial<{
-      title: string;
-      description: string;
-      version: string;
-      contactName: string;
-      contactEmail: string;
-      licenseName: string;
-      licenseIdentifier: string;
-      cors: string;
-    }>;
+    apiInfo: {
+      title?: string;
+      description?: string;
+      version?: string;
+      contactName?: string;
+      contactEmail?: string;
+      licenseName?: string;
+      licenseIdentifier?: string;
+      cors: Partial<{
+        origin: string;
+        allowHeaders: string[];
+        allowMethods: string[];
+        maxAge: number;
+      }>;
+    };
   }
 
   const structuredEnvConfig: StructuredEnvConfig = {
@@ -350,18 +369,28 @@ export function initializeConfig(): AppConfig {
           : undefined,
       }).filter(([, value]) => value !== undefined)
     ),
-    apiInfo: Object.fromEntries(
-      Object.entries({
-        title: envConfig.API_TITLE,
-        description: envConfig.API_DESCRIPTION,
-        version: envConfig.API_VERSION,
-        contactName: envConfig.API_CONTACT_NAME,
-        contactEmail: envConfig.API_CONTACT_EMAIL,
-        licenseName: envConfig.API_LICENSE_NAME,
-        licenseIdentifier: envConfig.API_LICENSE_IDENTIFIER,
-        cors: envConfig.API_CORS,
-      }).filter(([, value]) => value !== undefined)
-    ),
+    apiInfo: {
+      ...Object.fromEntries(
+        Object.entries({
+          title: envConfig.API_TITLE,
+          description: envConfig.API_DESCRIPTION,
+          version: envConfig.API_VERSION,
+          contactName: envConfig.API_CONTACT_NAME,
+          contactEmail: envConfig.API_CONTACT_EMAIL,
+          licenseName: envConfig.API_LICENSE_NAME,
+          licenseIdentifier: envConfig.API_LICENSE_IDENTIFIER,
+        }).filter(([, value]) => value !== undefined)
+      ),
+      cors: Object.fromEntries(
+        Object.entries({
+          // Support legacy API_CORS as fallback for origin
+          origin: envConfig.API_CORS_ORIGIN || envConfig.API_CORS,
+          allowHeaders: parseCommaSeparated(envConfig.API_CORS_ALLOW_HEADERS),
+          allowMethods: parseCommaSeparated(envConfig.API_CORS_ALLOW_METHODS),
+          maxAge: envConfig.API_CORS_MAX_AGE,
+        }).filter(([, value]) => value !== undefined)
+      ),
+    },
   };
 
   const mergedConfig: AppConfig = {
@@ -417,7 +446,14 @@ export function initializeConfig(): AppConfig {
       ...defaultConfig.continuousProfiling,
       ...structuredEnvConfig.continuousProfiling,
     },
-    apiInfo: { ...defaultConfig.apiInfo, ...structuredEnvConfig.apiInfo },
+    apiInfo: {
+      ...defaultConfig.apiInfo,
+      ...structuredEnvConfig.apiInfo,
+      cors: {
+        ...defaultConfig.apiInfo.cors,
+        ...structuredEnvConfig.apiInfo.cors,
+      },
+    },
   };
 
   const result = AppConfigSchema.safeParse(mergedConfig);

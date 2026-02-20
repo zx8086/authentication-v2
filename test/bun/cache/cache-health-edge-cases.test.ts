@@ -54,7 +54,8 @@ describe("CacheHealthService Edge Cases", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("unhealthy");
       expect(result.type).toBe("redis");
-      expect(typeof result.responseTime).toBe("number");
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should handle PING timeout", async () => {
@@ -87,7 +88,8 @@ describe("CacheHealthService Edge Cases", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("unhealthy");
       expect(result.type).toBe("redis");
-      expect(typeof result.responseTime).toBe("number");
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should handle missing getClientForHealthCheck method", async () => {
@@ -111,7 +113,8 @@ describe("CacheHealthService Edge Cases", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("healthy");
       expect(result.type).toBe("redis");
-      expect(typeof result.responseTime).toBe("number");
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should handle Redis client errors", async () => {
@@ -142,8 +145,8 @@ describe("CacheHealthService Edge Cases", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("unhealthy");
       expect(result.type).toBe("redis");
-      expect(typeof result.responseTime).toBe("number");
-      expect(result.responseTime).toBeGreaterThanOrEqual(0);
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 
@@ -179,7 +182,8 @@ describe("CacheHealthService Edge Cases", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("healthy");
       expect(result.type).toBe("memory");
-      expect(typeof result.responseTime).toBe("number");
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 
@@ -210,8 +214,9 @@ describe("CacheHealthService Edge Cases", () => {
 
       const result = await cacheHealthService.checkCacheHealth(mockRedisCache);
 
-      expect(result.responseTime).toBeGreaterThan(0);
-      expect(Number.isInteger(result.responseTime)).toBe(true);
+      // Response time is now a human-readable string
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should measure response time for memory health check", async () => {
@@ -230,8 +235,9 @@ describe("CacheHealthService Edge Cases", () => {
 
       const result = await cacheHealthService.checkCacheHealth(mockMemoryCache);
 
-      expect(result.responseTime).toBeGreaterThanOrEqual(0);
-      expect(Number.isInteger(result.responseTime)).toBe(true);
+      // Response time is now a human-readable string
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should measure response time even for failed checks", async () => {
@@ -259,8 +265,9 @@ describe("CacheHealthService Edge Cases", () => {
       const result = await cacheHealthService.checkCacheHealth(mockRedisCache);
 
       expect(result.status).toBe("unhealthy");
-      expect(result.responseTime).toBeGreaterThanOrEqual(0);
-      expect(Number.isInteger(result.responseTime)).toBe(true);
+      // Response time is now a human-readable string
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 

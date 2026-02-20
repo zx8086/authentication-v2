@@ -452,6 +452,13 @@ export const ApiVersioningConfigSchema = z.strictObject({
     .describe("Version-specific deprecation configurations"),
 });
 
+export const CorsConfigSchema = z.strictObject({
+  origin: NonEmptyString.describe("CORS origin (* or specific URL)"),
+  allowHeaders: z.array(NonEmptyString).describe("Allowed request headers"),
+  allowMethods: z.array(NonEmptyString).describe("Allowed HTTP methods"),
+  maxAge: z.number().int().min(0).max(86400).describe("Preflight cache duration in seconds"),
+});
+
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -460,7 +467,7 @@ export const ApiInfoConfigSchema = z.strictObject({
   contactEmail: EmailAddress.describe("Contact email"),
   licenseName: NonEmptyString.describe("License name"),
   licenseIdentifier: NonEmptyString.describe("License identifier"),
-  cors: NonEmptyString.describe("CORS origin configuration"),
+  cors: CorsConfigSchema.describe("CORS configuration"),
   versioning: ApiVersioningConfigSchema.optional().describe("API versioning configuration"),
 });
 
@@ -529,6 +536,7 @@ export const SchemaRegistry = {
   Profiling: ProfilingConfigSchema,
   ContinuousProfiling: ContinuousProfilingConfigSchema,
   SlaThreshold: SlaThresholdSchema,
+  Cors: CorsConfigSchema,
   ApiInfo: ApiInfoConfigSchema,
   ApiVersioning: ApiVersioningConfigSchema,
   VersionDeprecation: VersionDeprecationConfigSchema,
@@ -589,6 +597,7 @@ export type SlaThreshold = z.infer<typeof SlaThresholdSchema>;
 export type ContinuousProfilingConfig = z.infer<typeof ContinuousProfilingConfigSchema>;
 export type VersionDeprecationConfig = z.infer<typeof VersionDeprecationConfigSchema>;
 export type ApiVersioningConfig = z.infer<typeof ApiVersioningConfigSchema>;
+export type CorsConfig = z.infer<typeof CorsConfigSchema>;
 
 export interface IKongService {
   getConsumerSecret(consumerId: string): Promise<ConsumerSecret | null>;

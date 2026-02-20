@@ -284,12 +284,12 @@ Host: auth-service.example.com
   "timestamp": "2025-01-15T12:00:00.000Z",
   "version": "1.0.0",
   "environment": "production",
-  "uptime": 3600,
+  "uptime": "1h",
   "highAvailability": false,
   "dependencies": {
     "kong": {
       "status": "healthy",
-      "responseTime": 45,
+      "responseTime": "45ms",
       "details": {
         "adminUrl": "http://kong:8001",
         "mode": "API_GATEWAY"
@@ -298,7 +298,7 @@ Host: auth-service.example.com
     "cache": {
       "status": "healthy",
       "type": "memory",
-      "responseTime": 1,
+      "responseTime": "1ms",
       "staleCache": {
         "available": true
       }
@@ -307,17 +307,17 @@ Host: auth-service.example.com
       "traces": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/traces",
-        "responseTime": 10
+        "responseTime": "10ms"
       },
       "metrics": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/metrics",
-        "responseTime": 8
+        "responseTime": "8ms"
       },
       "logs": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/logs",
-        "responseTime": 12
+        "responseTime": "12ms"
       }
     }
   },
@@ -332,12 +332,12 @@ Host: auth-service.example.com
   "timestamp": "2025-01-15T12:00:00.000Z",
   "version": "1.0.0",
   "environment": "production",
-  "uptime": 3600,
+  "uptime": "1h",
   "highAvailability": true,
   "dependencies": {
     "kong": {
       "status": "unhealthy",
-      "responseTime": 5000,
+      "responseTime": "5s",
       "details": {
         "adminUrl": "http://kong:8001",
         "mode": "API_GATEWAY",
@@ -348,7 +348,7 @@ Host: auth-service.example.com
       "status": "healthy",
       "type": "redis",
       "serverType": "redis",
-      "responseTime": 2,
+      "responseTime": "2ms",
       "stats": {
         "primary": {
           "entries": 5,
@@ -363,24 +363,24 @@ Host: auth-service.example.com
       },
       "staleCache": {
         "available": true,
-        "responseTime": 1
+        "responseTime": "1ms"
       }
     },
     "telemetry": {
       "traces": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/traces",
-        "responseTime": 10
+        "responseTime": "10ms"
       },
       "metrics": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/metrics",
-        "responseTime": 8
+        "responseTime": "8ms"
       },
       "logs": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/logs",
-        "responseTime": 12
+        "responseTime": "12ms"
       }
     }
   },
@@ -395,7 +395,7 @@ Host: auth-service.example.com
 | `timestamp` | String | ISO-8601 timestamp |
 | `version` | String | Service version from package.json |
 | `environment` | String | Current NODE_ENV |
-| `uptime` | Integer | Process uptime in seconds |
+| `uptime` | String | Process uptime in human-readable format (e.g., "45s", "2m 5s", "1h 2m", "1d 1h 2m") |
 | `highAvailability` | Boolean | Whether HA mode is enabled (Redis/Valkey) |
 | `dependencies.kong` | Object | Kong gateway health status |
 | `dependencies.cache` | Object | Cache system health (memory, redis, or valkey) |
@@ -455,14 +455,14 @@ Host: auth-service.example.com
   "checks": {
     "kong": {
       "status": "healthy",
-      "responseTime": 45,
+      "responseTime": "45ms",
       "details": {
         "adminUrl": "http://kong:8001",
         "mode": "API_GATEWAY"
       }
     }
   },
-  "responseTime": 50,
+  "responseTime": "50ms",
   "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -475,7 +475,7 @@ Host: auth-service.example.com
   "checks": {
     "kong": {
       "status": "unhealthy",
-      "responseTime": 5000,
+      "responseTime": "5s",
       "details": {
         "adminUrl": "http://kong:8001",
         "mode": "API_GATEWAY",
@@ -483,7 +483,7 @@ Host: auth-service.example.com
       }
     }
   },
-  "responseTime": 5010,
+  "responseTime": "5.01s",
   "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -494,7 +494,7 @@ Host: auth-service.example.com
 | `ready` | Boolean | Whether service is ready to accept traffic |
 | `timestamp` | String | ISO-8601 timestamp |
 | `checks.kong` | Object | Kong connectivity check result |
-| `responseTime` | Integer | Total check duration in milliseconds |
+| `responseTime` | String | Total check duration in human-readable format (e.g., "50ms", "1.5s") |
 | `requestId` | String | UUID for request tracing |
 
 **Usage**
@@ -638,7 +638,7 @@ Host: auth-service.example.com
 ```json
 {
   "timestamp": "2025-01-15T12:00:00.000Z",
-  "uptime": 3600,
+  "uptime": "1h",
   "memory": {
     "used": 64,
     "total": 128,

@@ -103,7 +103,19 @@ export const defaultConfig: AppConfig = {
     contactEmail: "simonowusu@pvh.com",
     licenseName: "Proprietary",
     licenseIdentifier: "UNLICENSED",
-    cors: "*",
+    cors: {
+      origin: "*",
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Accept-Version",
+        "X-Consumer-Id",
+        "X-Consumer-Username",
+        "X-Anonymous-Consumer",
+      ],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      maxAge: 86400,
+    },
     versioning: {
       defaultVersion: "v1",
       supportedVersions: ["v1", "v2"],

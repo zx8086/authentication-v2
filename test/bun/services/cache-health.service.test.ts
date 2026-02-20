@@ -65,10 +65,9 @@ describe("CacheHealthService", () => {
       expect(result.type).not.toBe("redis");
       expect(result.type).not.toBe("");
 
-      // Verify responseTime is a non-negative number
-      expect(typeof result.responseTime).toBe("number");
-      expect(result.responseTime).toBeGreaterThanOrEqual(0);
-      expect(Number.isFinite(result.responseTime)).toBe(true);
+      // Verify responseTime is a human-readable string format
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should cache health check results for 2 seconds", async () => {
@@ -155,7 +154,8 @@ describe("CacheHealthService", () => {
       // Result should have valid structure regardless of health status
       expect(["healthy", "unhealthy", "degraded"]).toContain(result.status);
       expect(["redis", "memory"]).toContain(result.type);
-      expect(typeof result.responseTime).toBe("number");
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 
@@ -212,12 +212,13 @@ describe("CacheHealthService", () => {
       expect(validTypes.includes(result.type)).toBe(true);
     });
 
-    it("should return responseTime as a rounded integer", async () => {
+    it("should return responseTime as a human-readable string", async () => {
       const cacheService = await CacheFactory.createKongCache();
       const result = await cacheHealthService.checkCacheHealth(cacheService);
 
-      // Math.round is used in the implementation
-      expect(Number.isInteger(result.responseTime)).toBe(true);
+      // formatResponseTime is used in the implementation
+      expect(typeof result.responseTime).toBe("string");
+      expect(result.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 });

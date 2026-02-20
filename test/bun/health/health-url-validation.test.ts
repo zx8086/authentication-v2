@@ -120,9 +120,10 @@ describe("Health Handler URL Validation", () => {
       const response = await handleHealthCheck(mockKong);
       const body = await response.json();
 
-      // Kong should have a responseTime
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
-      expect(body.dependencies.kong.responseTime).toBeGreaterThanOrEqual(0);
+      // Kong should have a responseTime (human-readable string format)
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should include error message when endpoint check fails", async () => {
@@ -156,7 +157,9 @@ describe("Health Handler URL Validation", () => {
       const body = await response.json();
 
       expect(body.dependencies.kong.status).toBe("unhealthy");
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should use exact status value from Kong health check", async () => {
@@ -186,7 +189,9 @@ describe("Health Handler URL Validation", () => {
       const body = await response.json();
 
       // Verify Kong status is correctly reported
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
       expect(body.dependencies.kong.status).toBe("healthy");
     });
   });

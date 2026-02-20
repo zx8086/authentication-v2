@@ -303,12 +303,13 @@ describe("Health Handler Mutation Tests", () => {
   });
 
   describe("handleHealthCheck response structure", () => {
-    it("should include Kong responseTime rounded", async () => {
+    it("should include Kong responseTime (human-readable string format)", async () => {
       const response = await handleHealthCheck(mockKongService);
       const body = await response.json();
 
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
-      expect(Number.isInteger(body.dependencies.kong.responseTime)).toBe(true);
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response times are now human-readable strings (e.g., "25.5ms", "1.5s", "1m 5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should include Kong adminUrl in details", async () => {
@@ -360,13 +361,13 @@ describe("Health Handler Mutation Tests", () => {
       expect(body.dependencies.telemetry.exportHealth.successRate).toBeGreaterThanOrEqual(0);
     });
 
-    it("should include uptime as floored integer", async () => {
+    it("should include uptime as human-readable string", async () => {
       const response = await handleHealthCheck(mockKongService);
       const body = await response.json();
 
-      expect(typeof body.uptime).toBe("number");
-      expect(body.uptime).toBeGreaterThanOrEqual(0);
-      expect(Number.isInteger(body.uptime)).toBe(true);
+      expect(typeof body.uptime).toBe("string");
+      // Matches formats like "45s", "2m 5s", "1h 2m 5s", "1d 1h 2m"
+      expect(body.uptime).toMatch(/^\d+(s|m|h|d)(\s\d+(s|m|h))?(\s\d+(s|m))?$/);
     });
   });
 
@@ -516,20 +517,22 @@ describe("Health Handler Mutation Tests", () => {
       expect(body.checks.kong.details.error).toBe("Connection failed");
     });
 
-    it("should include rounded responseTime at top level", async () => {
+    it("should include responseTime at top level (human-readable string format)", async () => {
       const response = await handleReadinessCheck(mockKongService);
       const body = await response.json();
 
-      expect(typeof body.responseTime).toBe("number");
-      expect(Number.isInteger(body.responseTime)).toBe(true);
+      expect(typeof body.responseTime).toBe("string");
+      // Response times are now human-readable strings (e.g., "25.5ms", "1.5s", "1m 5s")
+      expect(body.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
-    it("should include rounded Kong responseTime in checks", async () => {
+    it("should include Kong responseTime in checks (human-readable string format)", async () => {
       const response = await handleReadinessCheck(mockKongService);
       const body = await response.json();
 
-      expect(typeof body.checks.kong.responseTime).toBe("number");
-      expect(Number.isInteger(body.checks.kong.responseTime)).toBe(true);
+      expect(typeof body.checks.kong.responseTime).toBe("string");
+      // Response times are now human-readable strings (e.g., "25.5ms", "1.5s", "1m 5s")
+      expect(body.checks.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should include Kong adminUrl in details", async () => {

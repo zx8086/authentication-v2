@@ -133,7 +133,9 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       // Verify Kong dependency status is correctly reported
       expect(body.dependencies.kong.status).toBe("healthy");
       expect(body.dependencies.kong.status).not.toBe("unhealthy");
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should report Kong as unhealthy when health check fails", async () => {
@@ -345,7 +347,7 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       expect(body.requestId.length).toBeGreaterThan(0);
     });
 
-    it("should include uptime as number", async () => {
+    it("should include uptime as human-readable string", async () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
 
       const mockKong = createMockKongService({
@@ -355,8 +357,9 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       const response = await handleHealthCheck(mockKong);
       const body = await response.json();
 
-      expect(typeof body.uptime).toBe("number");
-      expect(body.uptime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.uptime).toBe("string");
+      // Matches formats like "45s", "2m 5s", "1h 2m 5s", "1d 1h 2m"
+      expect(body.uptime).toMatch(/^\d+(s|m|h|d)(\s\d+(s|m|h))?(\s\d+(s|m))?$/);
     });
   });
 });

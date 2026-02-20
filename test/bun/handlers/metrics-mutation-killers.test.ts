@@ -68,9 +68,10 @@ describe("metrics mutation killers", () => {
 
     it("includes all expected Access-Control headers", async () => {
       const response = handleDebugMetricsTest();
-      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization, Accept-Version"
-      );
+      // Headers now come from config (default superset)
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Accept-Version");
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
     });
   });
@@ -127,9 +128,10 @@ describe("metrics mutation killers", () => {
 
     it("includes all CORS headers", async () => {
       const response = await handleDebugMetricsExport();
-      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization, Accept-Version"
-      );
+      // Headers now come from config (default superset)
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Accept-Version");
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
     });
   });

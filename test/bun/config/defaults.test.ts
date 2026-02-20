@@ -290,9 +290,21 @@ describe("Default Configuration", () => {
       expect(typeof defaultConfig.apiInfo.licenseIdentifier).toBe("string");
     });
 
-    it("should have correct default cors", () => {
-      expect(defaultConfig.apiInfo.cors).toBe("*");
-      expect(typeof defaultConfig.apiInfo.cors).toBe("string");
+    it("should have correct default cors configuration", () => {
+      expect(defaultConfig.apiInfo.cors).toEqual({
+        origin: "*",
+        allowHeaders: [
+          "Content-Type",
+          "Authorization",
+          "Accept-Version",
+          "X-Consumer-Id",
+          "X-Consumer-Username",
+          "X-Anonymous-Consumer",
+        ],
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        maxAge: 86400,
+      });
+      expect(typeof defaultConfig.apiInfo.cors).toBe("object");
     });
   });
 

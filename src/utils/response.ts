@@ -1,9 +1,7 @@
 // src/utils/response.ts
 
-import { loadConfig } from "../config/index";
 import { type ErrorCode, getErrorDefinition, getProblemTypeUri } from "../errors/error-codes";
-
-const config = loadConfig();
+import { getCorsHeaders } from "./cors";
 
 export type ApiVersion = "v1" | "v2";
 
@@ -65,9 +63,7 @@ export function getDefaultHeaders(
   const baseHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Request-Id": requestId,
-    "Access-Control-Allow-Origin": config.apiInfo.cors,
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept-Version",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    ...getCorsHeaders(),
     Vary: "Accept-Version",
   };
 

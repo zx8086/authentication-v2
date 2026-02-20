@@ -1,11 +1,9 @@
 /* src/handlers/openapi.ts */
 
-import { loadConfig } from "../config/index";
 import { getApiDocGenerator } from "../openapi-generator";
+import { getCorsHeaders } from "../utils/cors";
 import { log } from "../utils/logger";
 import { createNotModifiedResponse, generateETag, generateRequestId } from "../utils/response";
-
-const config = loadConfig();
 
 // Cache for generated spec and ETag
 let cachedSpec: Record<string, unknown> | null = null;
@@ -110,7 +108,7 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
       return createNotModifiedResponse(requestId, etag, {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=300",
-        "Access-Control-Allow-Origin": config.apiInfo.cors,
+        ...getCorsHeaders(),
       });
     }
 
@@ -118,9 +116,7 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
       "Content-Type": contentType,
       "X-Request-Id": requestId,
       "Cache-Control": "public, max-age=300",
-      "Access-Control-Allow-Origin": config.apiInfo.cors,
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      ...getCorsHeaders(),
     };
 
     // Add ETag if available
@@ -156,9 +152,7 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
         headers: {
           "Content-Type": "application/json",
           "X-Request-Id": requestId,
-          "Access-Control-Allow-Origin": config.apiInfo.cors,
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          ...getCorsHeaders(),
         },
       }
     );

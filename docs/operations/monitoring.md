@@ -271,7 +271,7 @@ Returns service health with dependency status:
 {
   "status": "healthy",
   "timestamp": "2025-01-15T12:00:00.000Z",
-  "uptime": 3600,
+  "uptime": "1h",
   "version": "1.0.0",
   "environment": "production",
   "dependencies": {
@@ -279,7 +279,7 @@ Returns service health with dependency status:
       "status": "healthy",
       "mode": "KONNECT",
       "url": "https://us.api.konghq.com/v2/control-planes/abc123",
-      "responseTime": 45
+      "responseTime": "45ms"
     },
     "telemetry": {
       "status": "healthy",
@@ -325,7 +325,7 @@ The `/health` endpoint performs active connectivity checks to all configured OTL
 1. **Parallel Connectivity Tests**: All OTLP endpoints are tested concurrently for responsiveness
 2. **5-Second Timeout**: Each endpoint check has a 5-second timeout to prevent health check delays
 3. **Status Aggregation**: Overall telemetry status reflects the health of all endpoints
-4. **Response Time Tracking**: Each endpoint reports its response time in milliseconds
+4. **Response Time Tracking**: Each endpoint reports its response time in human-readable format (e.g., "45ms", "1.5s")
 
 #### Health Response with OTLP Status
 
@@ -340,17 +340,17 @@ The `/health` endpoint performs active connectivity checks to all configured OTL
         "traces": {
           "url": "https://otel.example.com/v1/traces",
           "status": "reachable",
-          "responseTime": 45
+          "responseTime": "45ms"
         },
         "metrics": {
           "url": "https://otel.example.com/v1/metrics",
           "status": "reachable",
-          "responseTime": 52
+          "responseTime": "52ms"
         },
         "logs": {
           "url": "https://otel.example.com/v1/logs",
           "status": "reachable",
-          "responseTime": 38
+          "responseTime": "38ms"
         }
       }
     }
@@ -489,7 +489,7 @@ curl http://localhost:3000/metrics?view=full
 ```json
 {
   "timestamp": "2025-01-15T12:00:00.000Z",
-  "uptime": 3600,
+  "uptime": "1h",
   "memory": {
     "used": 64,
     "total": 128,
@@ -880,7 +880,7 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
   "status": "healthy",
   "type": "redis",
   "serverType": "redis",
-  "responseTime": 2,
+  "responseTime": "2ms",
   "stats": {
     "primary": { "entries": 5, "activeEntries": 5 },
     "stale": { "entries": 3 },
@@ -897,7 +897,7 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
   "status": "healthy",
   "type": "redis",
   "serverType": "valkey",
-  "responseTime": 2,
+  "responseTime": "2ms",
   "stats": {
     "primary": { "entries": 5, "activeEntries": 5 },
     "stale": { "entries": 3 },
@@ -913,7 +913,7 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
 {
   "status": "healthy",
   "type": "memory",
-  "responseTime": 1,
+  "responseTime": "1ms",
   "stats": {
     "primary": { "entries": 10, "activeEntries": 10 },
     "stale": { "entries": 10 },

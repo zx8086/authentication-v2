@@ -158,7 +158,12 @@ describe("Configuration System", () => {
         contactEmail: "support@example.com",
         licenseName: "Proprietary",
         licenseIdentifier: "UNLICENSED",
-        cors: "*",
+        cors: {
+          origin: "*",
+          allowHeaders: ["Content-Type", "Authorization"],
+          allowMethods: ["GET", "POST", "OPTIONS"],
+          maxAge: 86400,
+        },
       };
 
       const result = SchemaRegistry.ApiInfo.safeParse(validApiInfoConfig);
@@ -173,7 +178,10 @@ describe("Configuration System", () => {
         expect(result.data.contactEmail).toBe("support@example.com");
         expect(result.data.licenseName).toBe("Proprietary");
         expect(result.data.licenseIdentifier).toBe("UNLICENSED");
-        expect(result.data.cors).toBe("*");
+        expect(result.data.cors.origin).toBe("*");
+        expect(result.data.cors.allowHeaders).toEqual(["Content-Type", "Authorization"]);
+        expect(result.data.cors.allowMethods).toEqual(["GET", "POST", "OPTIONS"]);
+        expect(result.data.cors.maxAge).toBe(86400);
       }
     });
 
@@ -186,7 +194,12 @@ describe("Configuration System", () => {
         contactEmail: "invalid-email",
         licenseName: "Proprietary",
         licenseIdentifier: "UNLICENSED",
-        cors: "*",
+        cors: {
+          origin: "*",
+          allowHeaders: ["Content-Type"],
+          allowMethods: ["GET"],
+          maxAge: 86400,
+        },
       };
 
       const result = SchemaRegistry.ApiInfo.safeParse(invalidApiInfoConfig);

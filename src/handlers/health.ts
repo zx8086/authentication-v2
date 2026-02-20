@@ -14,7 +14,12 @@ import { getMetricsStatus } from "../telemetry/metrics";
 import { getSlaMonitor } from "../telemetry/sla-monitor";
 import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { log } from "../utils/logger";
-import { calculateDuration, getHighResTime } from "../utils/performance";
+import {
+  calculateDuration,
+  formatResponseTime,
+  formatUptime,
+  getHighResTime,
+} from "../utils/performance";
 import { createHealthResponse, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
@@ -25,11 +30,11 @@ const config = loadConfig();
  */
 async function checkOtlpEndpointHealth(url: string): Promise<{
   healthy: boolean;
-  responseTime: number;
+  responseTime: string;
   error?: string;
 }> {
   if (!url) {
-    return { healthy: false, responseTime: 0, error: "URL not configured" };
+    return { healthy: false, responseTime: "0ms", error: "URL not configured" };
   }
 
   const startTime = getHighResTime();
@@ -43,14 +48,14 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
 
     return {
       healthy: response.status < 500,
-      responseTime: Math.round(responseTime),
+      responseTime: formatResponseTime(responseTime),
       error: response.status >= 500 ? `HTTP ${response.status}` : undefined,
     };
   } catch (error) {
     const responseTime = calculateDuration(startTime);
     return {
       healthy: false,
-      responseTime: Math.round(responseTime),
+      responseTime: formatResponseTime(responseTime),
       error: error instanceof Error ? error.message : "Connection failed",
     };
   }
@@ -93,10 +98,10 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       status: "healthy" | "unhealthy" | "degraded";
       type: "redis" | "memory";
       serverType?: "redis" | "valkey";
-      responseTime: number;
+      responseTime: string;
       staleCache?: {
         available: boolean;
-        responseTime?: number;
+        responseTime?: string;
         error?: string;
       };
     };
@@ -126,13 +131,13 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           const staleCacheResponseTime = calculateDuration(staleCacheStartTime);
           cacheHealth.staleCache = {
             available: true,
-            responseTime: Math.round(staleCacheResponseTime),
+            responseTime: formatResponseTime(staleCacheResponseTime),
           };
         } catch (staleCacheError) {
           const staleCacheResponseTime = calculateDuration(staleCacheStartTime);
           cacheHealth.staleCache = {
             available: false,
-            responseTime: Math.round(staleCacheResponseTime),
+            responseTime: formatResponseTime(staleCacheResponseTime),
             error: staleCacheError instanceof Error ? staleCacheError.message : "Unknown error",
           };
         }
@@ -151,7 +156,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       cacheHealth = {
         status: "unhealthy" as const,
         type: config.caching.highAvailability ? ("redis" as const) : ("memory" as const),
-        responseTime: 0,
+        responseTime: "0ms",
         staleCache: {
           available: false,
           error: "Cache service unavailable",
@@ -164,13 +169,13 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     const otlpChecks = await Promise.all([
       telemetryConfig.tracesEndpoint
         ? checkOtlpEndpointHealth(telemetryConfig.tracesEndpoint)
-        : { healthy: true, responseTime: 0 },
+        : { healthy: true, responseTime: "0ms" },
       telemetryConfig.metricsEndpoint
         ? checkOtlpEndpointHealth(telemetryConfig.metricsEndpoint)
-        : { healthy: true, responseTime: 0 },
+        : { healthy: true, responseTime: "0ms" },
       telemetryConfig.logsEndpoint
         ? checkOtlpEndpointHealth(telemetryConfig.logsEndpoint)
-        : { healthy: true, responseTime: 0 },
+        : { healthy: true, responseTime: "0ms" },
     ]);
 
     const [tracesHealth, metricsHealth, logsHealth] = otlpChecks;
@@ -234,12 +239,12 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       timestamp: new Date().toISOString(),
       version: pkg.version || "1.0.0",
       environment: config.server.nodeEnv,
-      uptime: Math.floor(process.uptime()),
+      uptime: formatUptime(Math.floor(process.uptime())),
       highAvailability: config.caching.highAvailability,
       dependencies: {
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",
-          responseTime: Math.round(kongHealthDuration),
+          responseTime: formatResponseTime(kongHealthDuration),
           details: {
             adminUrl: config.kong.adminUrl,
             mode: config.kong.mode,
@@ -474,7 +479,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
       checks: {
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",
-          responseTime: Math.round(kongHealthDuration),
+          responseTime: formatResponseTime(kongHealthDuration),
           details: {
             adminUrl: config.kong.adminUrl,
             mode: config.kong.mode,
@@ -482,7 +487,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
           },
         },
       },
-      responseTime: Math.round(totalDuration),
+      responseTime: formatResponseTime(totalDuration),
       requestId,
     };
 

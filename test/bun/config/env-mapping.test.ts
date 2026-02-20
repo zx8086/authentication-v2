@@ -163,7 +163,16 @@ describe("Environment Variable Mapping", () => {
     });
 
     it("should map API_CORS correctly", () => {
-      expect(envVarMapping.apiInfo.cors).toBe("API_CORS");
+      expect(envVarMapping.apiInfo.cors).toEqual({
+        origin: "API_CORS_ORIGIN",
+        allowHeaders: "API_CORS_ALLOW_HEADERS",
+        allowMethods: "API_CORS_ALLOW_METHODS",
+        maxAge: "API_CORS_MAX_AGE",
+      });
+    });
+
+    it("should map legacy API_CORS correctly", () => {
+      expect(envVarMapping.apiInfo.corsLegacy).toBe("API_CORS");
     });
 
     it("should map API_VERSION correctly", () => {

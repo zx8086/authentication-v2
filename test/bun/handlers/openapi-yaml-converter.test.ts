@@ -99,9 +99,9 @@ describe("OpenAPI YAML Converter Edge Cases", () => {
       const response = await handleOpenAPISpec(createRequest());
 
       expect(response.headers.get("Access-Control-Allow-Origin")).not.toBeNull();
-      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization"
-      );
+      // Headers now come from config (default superset)
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, OPTIONS");
 
       mockGenerator.generateSpec = originalGenerateSpec;

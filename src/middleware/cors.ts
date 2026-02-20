@@ -3,26 +3,15 @@
 // Stryker disable all: CORS middleware with header configuration.
 // Tested via E2E tests with actual browser requests.
 
-import { loadConfig } from "../config/index";
-
-const config = loadConfig();
+import { addCorsHeadersToResponse, getCorsHeaders } from "../utils/cors";
 
 export function handleOptionsRequest(): Response {
   return new Response(null, {
     status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": config.apiInfo.cors,
-      "Access-Control-Allow-Headers":
-        "Content-Type, Authorization, X-Consumer-Id, X-Consumer-Username, X-Anonymous-Consumer",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-    },
+    headers: getCorsHeaders(true), // Include max-age for preflight
   });
 }
 
 export function addCorsHeaders(response: Response): Response {
-  response.headers.set("Access-Control-Allow-Origin", config.apiInfo.cors);
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  return response;
+  return addCorsHeadersToResponse(response);
 }

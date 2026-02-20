@@ -499,8 +499,9 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       expect(typeof body.environment).toBe("string");
 
       expect(body).toHaveProperty("uptime");
-      expect(typeof body.uptime).toBe("number");
-      expect(body.uptime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.uptime).toBe("string");
+      // Matches formats like "45s", "2m 5s", "1h 2m 5s", "1d 1h 2m"
+      expect(body.uptime).toMatch(/^\d+(s|m|h|d)(\s\d+(s|m|h))?(\s\d+(s|m))?$/);
 
       // Dependencies structure
       expect(body).toHaveProperty("dependencies");
@@ -508,8 +509,9 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       expect(body.dependencies.kong).toHaveProperty("status");
       expect(body.dependencies.kong.status).toBe("healthy");
       expect(body.dependencies.kong).toHaveProperty("responseTime");
-      expect(typeof body.dependencies.kong.responseTime).toBe("number");
-      expect(body.dependencies.kong.responseTime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
 
       // Verify health check was called
       expect(healthCheckCalls).toBe(1);
@@ -604,8 +606,9 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       expect(body.checks.kong.status).toBe("healthy");
 
       expect(body).toHaveProperty("responseTime");
-      expect(typeof body.responseTime).toBe("number");
-      expect(body.responseTime).toBeGreaterThanOrEqual(0);
+      expect(typeof body.responseTime).toBe("string");
+      // Response time should be in human-readable format (e.g., "25.5ms", "1.5s")
+      expect(body.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should return EXACT ready=false when Kong unhealthy", async () => {
@@ -866,29 +869,24 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
     });
 
     it("should report reasonable response times in health check", async () => {
-      const startTime = Date.now();
       const response = await handleHealthCheck(mockKongService);
-      const endTime = Date.now();
       const body = await response.json();
 
-      const actualDuration = endTime - startTime;
-
-      // Response time should be reasonable (not negative, not astronomical)
-      expect(body.dependencies.kong.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.dependencies.kong.responseTime).toBeLessThan(actualDuration + 1000);
-
-      // If arithmetic mutation changes / to *, the number would be huge
-      expect(body.dependencies.kong.responseTime).toBeLessThan(1000000);
+      // Response time is now a human-readable string format
+      expect(typeof body.dependencies.kong.responseTime).toBe("string");
+      // Should match the human-readable format (e.g., "25.5ms", "1.5s", "1m 5s")
+      expect(body.dependencies.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
 
     it("should report reasonable response times in readiness check", async () => {
       const response = await handleReadinessCheck(mockKongService);
       const body = await response.json();
 
-      expect(body.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.responseTime).toBeLessThan(10000); // 10 seconds max
-      expect(body.checks.kong.responseTime).toBeGreaterThanOrEqual(0);
-      expect(body.checks.kong.responseTime).toBeLessThan(10000);
+      // Response times are now human-readable string format
+      expect(typeof body.responseTime).toBe("string");
+      expect(body.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
+      expect(typeof body.checks.kong.responseTime).toBe("string");
+      expect(body.checks.kong.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
     });
   });
 });
