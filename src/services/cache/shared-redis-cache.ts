@@ -18,7 +18,6 @@ import { detectCacheError, isConnectionError } from "../../utils/cache-error-det
 import {
   CacheReconnectManager,
   DEFAULT_RECONNECT_CONFIG,
-  type ReconnectResult,
 } from "../../utils/cache-reconnect-manager";
 import { validateExternalData } from "../../utils/validation";
 import { CacheCircuitBreaker, DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG } from "./cache-circuit-breaker";
