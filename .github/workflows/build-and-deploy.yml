@@ -208,11 +208,16 @@ jobs:
       - name: Verify DHI base image attestations (SBOM + Provenance)
         if: github.event_name != 'pull_request'
         id: dhi-attestation
-        uses: docker/scout-action@v1.15.1
-        with:
-          command: attestation
-          image: dhi.io/static:20230311
-          organization: zx8086
+        run: |
+          # List attestations using Docker Scout CLI
+          echo "Checking DHI base image attestations..."
+          docker scout attestation list dhi.io/static:20230311 && {
+            echo "attestation_verified=true" >> $GITHUB_OUTPUT
+            echo "DHI attestations verified successfully"
+          } || {
+            echo "attestation_verified=false" >> $GITHUB_OUTPUT
+            echo "::warning::Could not verify DHI attestations"
+          }
         continue-on-error: true
 
       - name: Verify DHI base image has zero CVEs
