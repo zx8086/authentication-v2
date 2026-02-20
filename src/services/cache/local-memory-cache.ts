@@ -69,21 +69,41 @@ export class LocalMemoryCache implements IKongCacheService {
 
   async getStats(): Promise<KongCacheStats> {
     const now = Date.now();
-    let activeEntries = 0;
+    let activePrimaryEntries = 0;
 
     for (const [key, entry] of this.cache.entries()) {
       if (now < entry.expires) {
-        activeEntries++;
+        activePrimaryEntries++;
       } else {
         this.cache.delete(key);
       }
     }
 
+    let activeStaleEntries = 0;
+    for (const [key, entry] of this.staleCache.entries()) {
+      if (now < entry.expires) {
+        activeStaleEntries++;
+      } else {
+        this.staleCache.delete(key);
+      }
+    }
+
+    const primaryKeys = Array.from(this.cache.keys());
+
     return {
       strategy: "local-memory",
+      primary: {
+        entries: this.cache.size,
+        activeEntries: activePrimaryEntries,
+        keys: primaryKeys,
+      },
+      stale: {
+        entries: activeStaleEntries,
+        keys: Array.from(this.staleCache.keys()),
+      },
+      // Backward compatibility fields (aliases for primary cache values)
       size: this.cache.size,
-      entries: Array.from(this.cache.keys()),
-      activeEntries,
+      activeEntries: activePrimaryEntries,
       hitRate: this.calculateHitRate(),
       memoryUsageMB: this.estimateMemoryUsage(),
       averageLatencyMs: this.calculateAverageLatency(),

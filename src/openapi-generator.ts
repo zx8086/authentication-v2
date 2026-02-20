@@ -930,23 +930,46 @@ class OpenAPIGenerator {
                   }),
                   stats: Object.freeze({
                     type: "object",
-                    description: "Cache statistics (present in /metrics)",
+                    description:
+                      "Cache statistics with separate primary and stale tier metrics (TTL: primary=5min, stale=30min)",
                     properties: Object.freeze({
-                      entries: Object.freeze({
-                        type: "integer",
-                        description: "Total cache entries",
-                        example: 150,
-                        minimum: 0,
+                      primary: Object.freeze({
+                        type: "object",
+                        description:
+                          "Primary cache tier - active entries with 5-minute TTL (default)",
+                        properties: Object.freeze({
+                          entries: Object.freeze({
+                            type: "integer",
+                            description: "Total primary cache entries currently stored",
+                            example: 5,
+                            minimum: 0,
+                          }),
+                          activeEntries: Object.freeze({
+                            type: "integer",
+                            description:
+                              "Primary entries with TTL > 0 (estimated from sample when large)",
+                            example: 5,
+                            minimum: 0,
+                          }),
+                        }),
                       }),
-                      activeEntries: Object.freeze({
-                        type: "integer",
-                        description: "Active (non-expired) cache entries",
-                        example: 45,
-                        minimum: 0,
+                      stale: Object.freeze({
+                        type: "object",
+                        description:
+                          "Stale cache tier - fallback entries with 30-minute TTL for circuit breaker recovery",
+                        properties: Object.freeze({
+                          entries: Object.freeze({
+                            type: "integer",
+                            description:
+                              "Total stale cache entries available for circuit breaker fallback",
+                            example: 3,
+                            minimum: 0,
+                          }),
+                        }),
                       }),
                       hitRate: Object.freeze({
                         type: "string",
-                        description: "Cache hit rate as percentage string",
+                        description: "Cache hit rate as percentage string (combines all tiers)",
                         example: "81.82",
                       }),
                       averageLatencyMs: Object.freeze({

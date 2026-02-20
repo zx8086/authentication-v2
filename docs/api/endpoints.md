@@ -349,6 +349,18 @@ Host: auth-service.example.com
       "type": "redis",
       "serverType": "redis",
       "responseTime": 2,
+      "stats": {
+        "primary": {
+          "entries": 5,
+          "activeEntries": 5
+        },
+        "stale": {
+          "entries": 3
+        },
+        "hitRate": "98.16",
+        "averageLatencyMs": 4.18,
+        "redisConnected": true
+      },
       "staleCache": {
         "available": true,
         "responseTime": 1
@@ -389,6 +401,11 @@ Host: auth-service.example.com
 | `dependencies.cache` | Object | Cache system health (memory, redis, or valkey) |
 | `dependencies.cache.type` | String | Cache backend: "memory", "redis", or "valkey" |
 | `dependencies.cache.serverType` | String | Auto-detected server type via INFO command (redis/valkey only) |
+| `dependencies.cache.stats.primary` | Object | Primary cache tier metrics (TTL: 5min default) |
+| `dependencies.cache.stats.primary.entries` | Integer | Total primary cache entries |
+| `dependencies.cache.stats.primary.activeEntries` | Integer | Primary entries with TTL > 0 |
+| `dependencies.cache.stats.stale` | Object | Stale cache tier metrics (TTL: 30min default) |
+| `dependencies.cache.stats.stale.entries` | Integer | Stale entries for circuit breaker fallback |
 | `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
 | `requestId` | String | UUID for request tracing |
 
@@ -630,9 +647,13 @@ Host: auth-service.example.com
   },
   "cache": {
     "strategy": "local-memory",
-    "size": 150,
-    "entries": [],
-    "activeEntries": 45,
+    "primary": {
+      "entries": 5,
+      "activeEntries": 5
+    },
+    "stale": {
+      "entries": 3
+    },
     "hitRate": "0.90",
     "averageLatencyMs": 1
   },

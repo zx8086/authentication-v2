@@ -207,7 +207,12 @@ describe("KongAdapter", () => {
 
       expect(typeof stats).toBe("object");
       expect(stats).not.toBeNull();
-      expect(typeof stats.size).toBe("number");
+      // Verify new nested structure for primary and stale cache stats
+      expect(stats.primary).toBeDefined();
+      expect(typeof stats.primary.entries).toBe("number");
+      expect(typeof stats.primary.activeEntries).toBe("number");
+      expect(stats.stale).toBeDefined();
+      expect(typeof stats.stale.entries).toBe("number");
     });
   });
 

@@ -128,11 +128,24 @@ export const EnvironmentType = z.enum(["local", "development", "staging", "produ
 export const TelemetryMode = z.enum(["console", "otlp", "both"]);
 export const KongMode = z.enum(["API_GATEWAY", "KONNECT"]);
 
+export const PrimaryCacheStatsSchema = z.strictObject({
+  entries: z.number(),
+  activeEntries: z.number(),
+  keys: z.array(z.string()).optional(),
+});
+
+export const StaleCacheStatsSchema = z.strictObject({
+  entries: z.number(),
+  keys: z.array(z.string()).optional(),
+});
+
 export const KongCacheStatsSchema = z.strictObject({
   strategy: z.enum(["local-memory", "shared-redis"]),
-  size: z.number(),
-  entries: z.array(z.any()),
-  activeEntries: z.number(),
+  primary: PrimaryCacheStatsSchema,
+  stale: StaleCacheStatsSchema,
+  // Backward compatibility fields (duplicated from primary for existing code/tests)
+  size: z.number(), // primary.entries count for backward compatibility
+  activeEntries: z.number(), // primary.activeEntries alias
   hitRate: z.string(),
   memoryUsageMB: z.number().optional(),
   redisConnected: z.boolean().optional(),

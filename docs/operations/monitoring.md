@@ -798,6 +798,73 @@ curl http://localhost:3000/metrics?view=infrastructure | jq '.cache'
 curl http://localhost:3000/health | jq '.dependencies.cache.type'
 ```
 
+#### Cache Tier Architecture
+
+The service implements a two-tier caching strategy for resilience and circuit breaker support:
+
+**Cache Tiers:**
+
+| Tier | Key Prefix | Default TTL | Purpose |
+|------|------------|-------------|---------|
+| **Primary** | `auth_service:` | 5 minutes | Active cache entries for fast lookups |
+| **Stale** | `auth_service_stale:` | 30 minutes | Fallback entries for circuit breaker recovery |
+
+**TTL Configuration:**
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `CACHING_TTL_SECONDS` | 300 | Primary cache TTL in seconds |
+| `STALE_DATA_TOLERANCE_MINUTES` | 30 | Stale cache TTL in minutes |
+
+**Lifecycle Example:**
+
+```
+Time    Primary Key                          Stale Key
+T+0     auth_service:consumer:abc (TTL 300s)  auth_service_stale:consumer:abc (TTL 1800s)
+T+5min  EXPIRED                               auth_service_stale:consumer:abc (TTL 1500s)
+T+30min EXPIRED                               EXPIRED
+```
+
+**Health Endpoint Stats:**
+
+```bash
+curl http://localhost:3000/health | jq '.dependencies.cache.stats'
+```
+
+```json
+{
+  "primary": {
+    "entries": 5,
+    "activeEntries": 5
+  },
+  "stale": {
+    "entries": 3
+  },
+  "hitRate": "98.16",
+  "averageLatencyMs": 4.18,
+  "redisConnected": true
+}
+```
+
+**Stats Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `primary.entries` | Total primary cache entries in Redis/Valkey |
+| `primary.activeEntries` | Entries with TTL > 0 (estimated for large sets) |
+| `stale.entries` | Stale entries available for circuit breaker fallback |
+| `hitRate` | Cache hit percentage (all tiers combined) |
+| `averageLatencyMs` | Average cache operation latency |
+| `redisConnected` | Connection status (distributed cache only) |
+
+**Circuit Breaker Fallback:**
+
+When Kong becomes unavailable and the circuit breaker opens:
+1. Primary cache lookup fails (Kong unreachable)
+2. Service falls back to stale tier (`auth_service_stale:*`)
+3. Stale data served while circuit breaker recovers
+4. After recovery, primary cache repopulates from Kong
+
 #### Redis vs Valkey Detection
 
 The service automatically detects whether Redis or Valkey is being used as the distributed cache backend. This enables accurate monitoring and server-specific optimizations.
@@ -813,7 +880,14 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
   "status": "healthy",
   "type": "redis",
   "serverType": "redis",
-  "responseTime": 2
+  "responseTime": 2,
+  "stats": {
+    "primary": { "entries": 5, "activeEntries": 5 },
+    "stale": { "entries": 3 },
+    "hitRate": "98.16",
+    "averageLatencyMs": 4.18,
+    "redisConnected": true
+  }
 }
 ```
 
@@ -823,7 +897,14 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
   "status": "healthy",
   "type": "redis",
   "serverType": "valkey",
-  "responseTime": 2
+  "responseTime": 2,
+  "stats": {
+    "primary": { "entries": 5, "activeEntries": 5 },
+    "stale": { "entries": 3 },
+    "hitRate": "98.16",
+    "averageLatencyMs": 4.18,
+    "redisConnected": true
+  }
 }
 ```
 
@@ -832,7 +913,14 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
 {
   "status": "healthy",
   "type": "memory",
-  "responseTime": 1
+  "responseTime": 1,
+  "stats": {
+    "primary": { "entries": 10, "activeEntries": 10 },
+    "stale": { "entries": 10 },
+    "hitRate": "95.00",
+    "averageLatencyMs": 0.1,
+    "memoryUsageMB": 1
+  }
 }
 ```
 

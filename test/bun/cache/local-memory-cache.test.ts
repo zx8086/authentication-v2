@@ -222,7 +222,7 @@ describe("LocalMemoryCache", () => {
       const finalStats = await cache.getStats();
       expect(finalStats.size).toBe(numEntries);
       expect(finalStats.activeEntries).toBe(numEntries);
-      expect(finalStats.entries).toHaveLength(numEntries);
+      expect(finalStats.primary.entries).toBe(numEntries);
     });
 
     it("should track latency accurately", async () => {

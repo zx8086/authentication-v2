@@ -206,8 +206,15 @@ async function collectOperationalData(kongService: IKongService) {
     });
     cacheStats = {
       strategy: "local-memory" as const,
+      primary: {
+        entries: 0,
+        activeEntries: 0,
+      },
+      stale: {
+        entries: 0,
+      },
+      // Backward compatibility fields
       size: 0,
-      entries: [],
       activeEntries: 0,
       hitRate: "0.00",
       averageLatencyMs: 0,

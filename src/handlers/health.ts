@@ -252,8 +252,13 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           responseTime: cacheHealth.responseTime,
           ...(cacheStats && {
             stats: {
-              entries: cacheStats.size,
-              activeEntries: cacheStats.activeEntries,
+              primary: {
+                entries: cacheStats.primary.entries,
+                activeEntries: cacheStats.primary.activeEntries,
+              },
+              stale: {
+                entries: cacheStats.stale.entries,
+              },
               hitRate: cacheStats.hitRate,
               averageLatencyMs: Math.round(cacheStats.averageLatencyMs * 100) / 100,
               ...(cacheStats.redisConnected !== undefined && {

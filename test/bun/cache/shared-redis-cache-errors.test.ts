@@ -377,7 +377,7 @@ describe("SharedRedisCache Error Handling", () => {
 
       expect(stats.strategy).toBe("shared-redis");
       expect(stats.size).toBe(0);
-      expect(stats.entries).toEqual([]);
+      expect(stats.primary.entries).toBe(0);
       expect(stats.activeEntries).toBe(0);
       expect(stats.hitRate).toBe("0.00");
       expect(stats.redisConnected).toBe(false);
@@ -399,7 +399,7 @@ describe("SharedRedisCache Error Handling", () => {
 
       expect(stats.strategy).toBe("shared-redis");
       expect(stats.size).toBe(3);
-      expect(stats.entries.length).toBe(3);
+      expect(stats.primary.entries).toBe(3);
     });
   });
 

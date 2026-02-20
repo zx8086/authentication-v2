@@ -247,23 +247,39 @@ export class SharedRedisCache implements IKongCacheService {
   async getStats(): Promise<KongCacheStats> {
     try {
       const client = this.ensureConnected();
-      const keys: string[] = [];
-      let cursor = "0";
+
+      const primaryKeys: string[] = [];
+      let primaryCursor = "0";
       do {
         const result = (await client.send("SCAN", [
-          cursor,
+          primaryCursor,
           "MATCH",
           `${this.keyPrefix}*`,
           "COUNT",
           "100",
         ])) as [string, string[]];
-        cursor = result[0];
-        keys.push(...result[1]);
-      } while (cursor !== "0");
+        primaryCursor = result[0];
+        const nonStaleKeys = result[1].filter((key) => !key.startsWith(this.staleKeyPrefix));
+        primaryKeys.push(...nonStaleKeys);
+      } while (primaryCursor !== "0");
 
-      const totalEntries = keys.length;
-      const sampleSize = Math.min(10, totalEntries);
-      const sampleKeys = keys.slice(0, sampleSize);
+      const staleKeys: string[] = [];
+      let staleCursor = "0";
+      do {
+        const result = (await client.send("SCAN", [
+          staleCursor,
+          "MATCH",
+          `${this.staleKeyPrefix}*`,
+          "COUNT",
+          "100",
+        ])) as [string, string[]];
+        staleCursor = result[0];
+        staleKeys.push(...result[1]);
+      } while (staleCursor !== "0");
+
+      const totalPrimaryEntries = primaryKeys.length;
+      const sampleSize = Math.min(10, totalPrimaryEntries);
+      const sampleKeys = primaryKeys.slice(0, sampleSize);
       let activeCount = 0;
 
       let ttlCheckErrors = 0;
@@ -284,14 +300,24 @@ export class SharedRedisCache implements IKongCacheService {
         });
       }
 
-      const activeRatio = totalEntries > 0 ? activeCount / sampleSize : 0;
-      const estimatedActive = Math.round(totalEntries * activeRatio);
+      const activeRatio = totalPrimaryEntries > 0 ? activeCount / sampleSize : 0;
+      const estimatedActive = Math.round(totalPrimaryEntries * activeRatio);
       const serverType = await this.getServerType();
+      const primaryKeyNames = primaryKeys.map((key) => key.replace(this.keyPrefix, ""));
 
       return {
         strategy: "shared-redis",
-        size: totalEntries,
-        entries: keys.map((key) => key.replace(this.keyPrefix, "")),
+        primary: {
+          entries: totalPrimaryEntries,
+          activeEntries: estimatedActive,
+          keys: primaryKeyNames,
+        },
+        stale: {
+          entries: staleKeys.length,
+          keys: staleKeys.map((key) => key.replace(this.staleKeyPrefix, "")),
+        },
+        // Backward compatibility fields (aliases for primary cache values)
+        size: totalPrimaryEntries,
         activeEntries: estimatedActive,
         hitRate: this.calculateHitRate(),
         redisConnected: true,
@@ -307,8 +333,15 @@ export class SharedRedisCache implements IKongCacheService {
       });
       return {
         strategy: "shared-redis",
+        primary: {
+          entries: 0,
+          activeEntries: 0,
+        },
+        stale: {
+          entries: 0,
+        },
+        // Backward compatibility fields
         size: 0,
-        entries: [],
         activeEntries: 0,
         hitRate: "0.00",
         redisConnected: false,
