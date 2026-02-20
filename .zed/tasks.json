@@ -299,4 +299,34 @@
     "use_new_terminal": false,
     "reveal": "always",
   },
+  {
+    "label": "github: security alerts (code scanning)",
+    "command": "gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | {rule: .rule.id, severity: .rule.security_severity_level, state: .state, tool: .tool.name, file: .most_recent_instance.location.path}' | head -50",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: security alerts (Dependabot)",
+    "command": "gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | {package: .dependency.package.name, severity: .security_advisory.severity, state: .state, cve: .security_advisory.cve_id}' | head -50",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: docker security (Trivy)",
+    "command": "gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId,conclusion -q '.[0].databaseId' | xargs -I{} gh run view {} --log | grep -E '(CRITICAL|HIGH|MEDIUM|CVE-)' | head -100",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: latest workflow run",
+    "command": "gh run list --workflow=build-and-deploy.yml --limit=5 --json databaseId,displayTitle,conclusion,createdAt -q '.[] | \"\\(.createdAt) [\\(.conclusion)] \\(.displayTitle)\"'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: workflow artifacts",
+    "command": "gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts --jq '.artifacts[] | {name: .name, size: .size_in_bytes, expires: .expires_at}'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
 ]

@@ -225,7 +225,8 @@
   "overrides": {
     "js-yaml": "^4.1.1",
     "@isaacs/brace-expansion": "^5.0.1",
-    "systeminformation": ">=5.31.0"
+    "systeminformation": ">=5.31.0",
+    "minimatch": ">=10.0.0"
   },
   "dependencies": {
     "@elastic/ecs-winston-format": "^1.5.3",
