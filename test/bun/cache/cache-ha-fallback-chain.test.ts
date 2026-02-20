@@ -1,6 +1,6 @@
 /* test/bun/cache/cache-ha-fallback-chain.test.ts */
 
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import type {
   CachingConfig,
   CircuitBreakerConfig,
