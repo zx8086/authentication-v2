@@ -51,9 +51,9 @@ export class CacheHealthService {
     const startTime = Bun.nanoseconds();
 
     try {
-      const sharedRedisCache =
-        cacheService as import("../services/cache/shared-redis-cache").SharedRedisCache;
-      const redisClient = sharedRedisCache.getClientForHealthCheck?.();
+      // cacheService is UnifiedCacheManager which wraps SharedRedisBackend which wraps SharedRedisCache
+      const cacheManager = cacheService as import("../cache/cache-manager").UnifiedCacheManager;
+      const redisClient = cacheManager.getClientForHealthCheck?.();
       if (redisClient) {
         const pingResult = await Promise.race([
           redisClient.send("PING", []),
@@ -67,7 +67,7 @@ export class CacheHealthService {
         }
 
         const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
-        const serverType = await sharedRedisCache.getServerType?.();
+        const serverType = await cacheManager.getServerType?.();
 
         return {
           status: "healthy",

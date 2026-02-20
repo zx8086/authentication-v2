@@ -897,6 +897,91 @@ class OpenAPIGenerator {
                   }),
                 }),
               }),
+              cache: Object.freeze({
+                type: "object",
+                required: Object.freeze(["status", "type", "responseTime"]),
+                description: "Cache system health with server type auto-detection",
+                properties: Object.freeze({
+                  status: Object.freeze({
+                    type: "string",
+                    enum: Object.freeze(["healthy", "unhealthy", "degraded"]),
+                    description: "Cache system health status",
+                    example: "healthy",
+                  }),
+                  type: Object.freeze({
+                    type: "string",
+                    enum: Object.freeze(["redis", "valkey", "memory"]),
+                    description:
+                      "Cache backend type (memory for local, redis/valkey auto-detected for distributed)",
+                    example: "redis",
+                  }),
+                  serverType: Object.freeze({
+                    type: "string",
+                    enum: Object.freeze(["redis", "valkey"]),
+                    description:
+                      "Server type auto-detected via INFO command (only present for distributed cache)",
+                    example: "redis",
+                  }),
+                  responseTime: Object.freeze({
+                    type: "integer",
+                    description: "Cache response time in milliseconds",
+                    example: 2,
+                    minimum: 0,
+                  }),
+                  stats: Object.freeze({
+                    type: "object",
+                    description: "Cache statistics (present in /metrics)",
+                    properties: Object.freeze({
+                      entries: Object.freeze({
+                        type: "integer",
+                        description: "Total cache entries",
+                        example: 150,
+                        minimum: 0,
+                      }),
+                      activeEntries: Object.freeze({
+                        type: "integer",
+                        description: "Active (non-expired) cache entries",
+                        example: 45,
+                        minimum: 0,
+                      }),
+                      hitRate: Object.freeze({
+                        type: "string",
+                        description: "Cache hit rate as percentage string",
+                        example: "81.82",
+                      }),
+                      averageLatencyMs: Object.freeze({
+                        type: "number",
+                        description: "Average cache operation latency in ms",
+                        example: 1.5,
+                        minimum: 0,
+                      }),
+                      redisConnected: Object.freeze({
+                        type: "boolean",
+                        description: "Redis/Valkey connection status (only for distributed cache)",
+                        example: true,
+                      }),
+                    }),
+                  }),
+                  staleCache: Object.freeze({
+                    type: "object",
+                    description: "Stale cache fallback availability",
+                    properties: Object.freeze({
+                      available: Object.freeze({
+                        type: "boolean",
+                        description:
+                          "Whether stale cache data is available for circuit breaker fallback",
+                        example: true,
+                      }),
+                      responseTime: Object.freeze({
+                        type: "integer",
+                        description: "Stale cache check response time in milliseconds",
+                        example: 1,
+                        minimum: 0,
+                      }),
+                    }),
+                  }),
+                }),
+              }),
             }),
           }),
         }),

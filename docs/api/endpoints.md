@@ -347,6 +347,7 @@ Host: auth-service.example.com
     "cache": {
       "status": "healthy",
       "type": "redis",
+      "serverType": "redis",
       "responseTime": 2,
       "staleCache": {
         "available": true,
@@ -383,9 +384,11 @@ Host: auth-service.example.com
 | `version` | String | Service version from package.json |
 | `environment` | String | Current NODE_ENV |
 | `uptime` | Integer | Process uptime in seconds |
-| `highAvailability` | Boolean | Whether HA mode is enabled (Redis) |
+| `highAvailability` | Boolean | Whether HA mode is enabled (Redis/Valkey) |
 | `dependencies.kong` | Object | Kong gateway health status |
-| `dependencies.cache` | Object | Cache system health (memory or redis) |
+| `dependencies.cache` | Object | Cache system health (memory, redis, or valkey) |
+| `dependencies.cache.type` | String | Cache backend: "memory", "redis", or "valkey" |
+| `dependencies.cache.serverType` | String | Auto-detected server type via INFO command (redis/valkey only) |
 | `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
 | `requestId` | String | UUID for request tracing |
 

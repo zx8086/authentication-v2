@@ -800,23 +800,61 @@ curl http://localhost:3000/health | jq '.dependencies.cache.type'
 
 #### Redis vs Valkey Detection
 
-The service automatically detects whether Redis or Valkey is being used as the cache backend:
+The service automatically detects whether Redis or Valkey is being used as the distributed cache backend. This enables accurate monitoring and server-specific optimizations.
 
 ```bash
 # Health response includes server type
 curl http://localhost:3000/health | jq '.dependencies.cache'
 ```
 
-**Response:**
+**Response (Redis):**
 ```json
 {
   "status": "healthy",
-  "type": "valkey",
+  "type": "redis",
+  "serverType": "redis",
   "responseTime": 2
 }
 ```
 
-Detection is performed using the `INFO server` command which returns different identifiers for Redis vs Valkey. The detection falls back to "redis" if the server type cannot be determined.
+**Response (Valkey):**
+```json
+{
+  "status": "healthy",
+  "type": "redis",
+  "serverType": "valkey",
+  "responseTime": 2
+}
+```
+
+**Response (Memory Cache):**
+```json
+{
+  "status": "healthy",
+  "type": "memory",
+  "responseTime": 1
+}
+```
+
+**Detection Mechanism:**
+- Uses `INFO server` Redis command which returns server identification
+- Valkey servers return `server:valkey` in the INFO response
+- Redis servers return `server:redis` in the INFO response
+- Falls back to `redis` if server type cannot be determined
+- Memory cache does not include `serverType` field (not applicable)
+
+**Configuration:**
+```bash
+# Redis (port 6379)
+REDIS_URL=redis://localhost:6379
+CACHING_HIGH_AVAILABILITY=true
+
+# Valkey (port 6380)
+REDIS_URL=redis://localhost:6380
+CACHING_HIGH_AVAILABILITY=true
+```
+
+**Implementation:** `src/services/cache-health.service.ts` uses `UnifiedCacheManager.getServerType()` which delegates to `SharedRedisCache.getServerType()`.
 
 ### Debug Mode
 Enable detailed debug logging:

@@ -1,5 +1,5 @@
 # OpenAPI 3.1.1 specification for Authentication Service
-# Generated on: 2026-01-16T11:30:21.915Z
+# Generated on: 2026-02-20T12:04:00.407Z
 # This file is auto-generated. Do not edit manually.
 # Compliant with JSON Schema Draft 2020-12
 
@@ -51,7 +51,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2026-01-16T11:30:21.912Z"
+          example: "2026-02-20T12:04:00.400Z"
           format: date-time
       description: Debug operation response
     ErrorCodeReference:
@@ -96,62 +96,74 @@ components:
       description: Reference table of all structured error codes
     ErrorResponse:
       type: object
-      required: [error, statusCode, timestamp, requestId]
+      required: 
+        - type
+        - title
+        - status
+        - detail
+        - instance
+        - code
+        - requestId
+        - timestamp
       properties:
-        error:
+        type:
+          type: string
+          description: URI reference that identifies the problem type (RFC 7807)
+          example: "urn:problem-type:auth-service:auth-001"
+          format: uri
+        code:
+          type: string
+          description: Internal error code for programmatic handling
+          enum: 
+            - AUTH_001
+            - AUTH_002
+            - AUTH_003
+            - AUTH_004
+            - AUTH_005
+            - AUTH_006
+            - AUTH_007
+            - AUTH_008
+            - AUTH_009
+            - AUTH_010
+            - AUTH_011
+            - AUTH_012
+          example: AUTH_001
+          pattern: ^AUTH_\d{3}$
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence (RFC 7807)
+          example: Required Kong consumer headers are missing from the request
+        extensions:
           type: object
-          required: [code, title, message]
-          properties:
-            code:
-              type: string
-              description: Structured error code for client handling
-              enum: 
-                - AUTH_001
-                - AUTH_002
-                - AUTH_003
-                - AUTH_004
-                - AUTH_005
-                - AUTH_006
-                - AUTH_007
-                - AUTH_008
-                - AUTH_009
-                - AUTH_010
-                - AUTH_011
-                - AUTH_012
-              example: AUTH_001
-              pattern: ^AUTH_\d{3}$
-            details:
-              type: object
-              description: Additional error context and details
-              additionalProperties: true
-              example:
-                reason: Missing Kong consumer headers
-            message:
-              type: string
-              description: Detailed human-readable error message
-              example: Required Kong consumer headers are missing from the request
-            title:
-              type: string
-              description: Short human-readable error title
-              example: Missing Consumer Headers
-          description: Structured error information
+          description: Additional context-specific details (RFC 7807 extension members)
+          additionalProperties: true
+          example:
+            reason: X-Consumer-ID header missing
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence (RFC 7807)
+          example: /tokens
         requestId:
           type: string
-          description: Unique request identifier for tracing
+          description: Correlation ID for distributed tracing
           example: 550e8400-e29b-41d4-a716-446655440000
           format: uuid
-        statusCode:
+        status:
           type: integer
-          description: HTTP status code
+          description: HTTP status code (RFC 7807)
           example: 401
           maximum: 599
           minimum: 400
         timestamp:
           type: string
-          description: Error occurrence timestamp
-          example: "2026-01-16T11:30:21.912Z"
+          description: ISO 8601 timestamp of when the error occurred
+          example: "2026-02-20T12:04:00.400Z"
           format: date-time
-      description: Structured error response with typed error codes for client consumption
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type (RFC 7807)
+          example: Missing Consumer Headers
+      description: "RFC 7807 Problem Details error response. See https://www.rfc-editor.org/rfc/rfc7807"
     HealthResponse:
       type: object
       required: 
@@ -165,6 +177,71 @@ components:
         dependencies:
           type: object
           properties:
+            cache:
+              type: object
+              required: [status, type, responseTime]
+              properties:
+                type:
+                  type: string
+                  description: Cache backend type (memory for local, redis/valkey auto-detected for distributed)
+                  enum: [redis, valkey, memory]
+                  example: redis
+                responseTime:
+                  type: integer
+                  description: Cache response time in milliseconds
+                  example: 2
+                  minimum: 0
+                serverType:
+                  type: string
+                  description: Server type auto-detected via INFO command (only present for distributed cache)
+                  enum: [redis, valkey]
+                  example: redis
+                staleCache:
+                  type: object
+                  properties:
+                    available:
+                      type: boolean
+                      description: Whether stale cache data is available for circuit breaker fallback
+                      example: true
+                    responseTime:
+                      type: integer
+                      description: Stale cache check response time in milliseconds
+                      example: 1
+                      minimum: 0
+                  description: Stale cache fallback availability
+                stats:
+                  type: object
+                  properties:
+                    activeEntries:
+                      type: integer
+                      description: Active (non-expired) cache entries
+                      example: 45
+                      minimum: 0
+                    averageLatencyMs:
+                      type: number
+                      description: Average cache operation latency in ms
+                      example: 1.5
+                      minimum: 0
+                    entries:
+                      type: integer
+                      description: Total cache entries
+                      example: 150
+                      minimum: 0
+                    hitRate:
+                      type: string
+                      description: Cache hit rate as percentage string
+                      example: "81.82"
+                    redisConnected:
+                      type: boolean
+                      description: Redis/Valkey connection status (only for distributed cache)
+                      example: true
+                  description: Cache statistics (present in /metrics)
+                status:
+                  type: string
+                  description: Cache system health status
+                  enum: [healthy, unhealthy, degraded]
+                  example: healthy
+              description: Cache system health with server type auto-detection
             kong:
               type: object
               required: [status, response_time, url]
@@ -196,7 +273,7 @@ components:
         timestamp:
           type: string
           description: Health check timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
         uptime:
           type: integer
@@ -206,7 +283,7 @@ components:
         version:
           type: string
           description: Service version
-          example: 1.0.0
+          example: 2.6.1
       description: System health status with dependency information
     MetricsHealth:
       type: object
@@ -257,7 +334,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2026-01-16T11:30:06.913Z"
+              example: "2026-02-20T12:03:45.401Z"
               format: date-time
             successCount:
               type: integer
@@ -288,7 +365,7 @@ components:
         timestamp:
           type: string
           description: Metrics health check timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
       description: Comprehensive metrics system health information
     MetricsStats:
@@ -306,7 +383,7 @@ components:
             lastExportTime:
               type: string
               description: Last successful export timestamp
-              example: "2026-01-16T11:30:06.913Z"
+              example: "2026-02-20T12:03:45.401Z"
               format: date-time
             successCount:
               type: integer
@@ -339,7 +416,7 @@ components:
         timestamp:
           type: string
           description: Statistics retrieval timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
       description: Detailed metrics export statistics and status
     PerformanceMetrics:
@@ -372,7 +449,7 @@ components:
               nextAttempt:
                 type: string
                 description: Next attempt time when circuit is open
-                example: "2026-01-16T11:30:51.913Z"
+                example: "2026-02-20T12:04:30.401Z"
                 format: date-time
               resetTimeout:
                 type: integer
@@ -427,7 +504,7 @@ components:
         timestamp:
           type: string
           description: Metrics collection timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
         uptime:
           type: integer
@@ -456,7 +533,7 @@ components:
         timestamp:
           type: string
           description: Report retrieval timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
       description: List of available profiling reports and analysis files
     ProfilingResponse:
@@ -482,7 +559,7 @@ components:
         timestamp:
           type: string
           description: Operation timestamp
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.401Z"
           format: date-time
       description: Profiling operation response
     ProfilingStatus:
@@ -516,7 +593,7 @@ components:
               endTime:
                 type: string
                 description: Session end timestamp (if completed)
-                example: "2026-01-16T11:30:21.913Z"
+                example: "2026-02-20T12:04:00.401Z"
                 format: date-time
               htmlFile:
                 type: string
@@ -538,7 +615,7 @@ components:
               startTime:
                 type: string
                 description: Session start timestamp
-                example: "2026-01-16T11:30:21.913Z"
+                example: "2026-02-20T12:04:00.401Z"
                 format: date-time
               status:
                 type: string
@@ -580,7 +657,7 @@ components:
             serviceVersion:
               type: string
               description: Service version for telemetry
-              example: 1.0.0
+              example: 2.6.1
             tracesEndpoint:
               type: string
               description: OTLP traces endpoint
@@ -598,7 +675,7 @@ components:
         access_token:
           type: string
           description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3Njg1NjM5MjEsImlhdCI6MTc2ODU2MzAyMSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NzE1ODk5NDAsImlhdCI6MTc3MTU4OTA0MCwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature
         expires_in:
           type: integer
           description: Token expiration time in seconds
@@ -625,12 +702,12 @@ components:
                type: string
             -
                type: array
-              items:
-                type: string
+               items:
+                 type: string
         expiresAt:
           type: string
           description: Token expiration timestamp (exp claim)
-          example: "2026-01-16T11:45:21.913Z"
+          example: "2026-02-20T12:19:00.400Z"
           format: date-time
         expiresIn:
           type: integer
@@ -640,7 +717,7 @@ components:
         issuedAt:
           type: string
           description: Token issue timestamp (iat claim)
-          example: "2026-01-16T11:30:21.913Z"
+          example: "2026-02-20T12:04:00.400Z"
           format: date-time
         issuer:
           type: string
@@ -675,7 +752,7 @@ info:
     identifier: UNLICENSED
     name: Proprietary
   title: Authentication Service API
-  version: 1.0.0
+  version: 2.6.1
 jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema"
 openapi: 3.1.1
 paths:
@@ -698,13 +775,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Open A P I Spec
@@ -723,13 +800,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Force Metrics Export
@@ -748,13 +825,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Record Test Metrics
@@ -773,13 +850,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Cleanup Profiling
@@ -798,13 +875,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Profiling Report
@@ -823,13 +900,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Profiling Reports
@@ -848,13 +925,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Start Profiling
@@ -873,13 +950,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Profiling Status
@@ -898,13 +975,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Stop Profiling
@@ -923,13 +1000,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Health Check
@@ -948,13 +1025,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Metrics Health
@@ -973,13 +1050,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Telemetry Health
@@ -998,13 +1075,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Execute Memory Actions
@@ -1023,13 +1100,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Memory Baseline
@@ -1048,13 +1125,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Memory Health
@@ -1073,13 +1150,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Memory Metrics
@@ -1098,13 +1175,13 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Get Metrics
@@ -1116,29 +1193,29 @@ paths:
       parameters: 
         -
            required: true
-          description: Kong consumer ID
-          in: header
-          name: x-consumer-id
-          schema:
-            type: string
-            example: demo_user
+           description: Kong consumer ID
+           in: header
+           name: x-consumer-id
+           schema:
+             type: string
+             example: demo_user
         -
            required: true
-          description: Kong consumer username
-          in: header
-          name: x-consumer-username
-          schema:
-            type: string
-            example: demo_user
+           description: Kong consumer username
+           in: header
+           name: x-consumer-username
+           schema:
+             type: string
+             example: demo_user
         -
            required: false
-          description: Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)
-          in: header
-          name: x-anonymous-consumer
-          schema:
-            type: string
-            enum: ["true", "false"]
-            example: "false"
+           description: Indicates if the request is from an anonymous consumer (must not be 'true' for token issuance)
+           in: header
+           name: x-anonymous-consumer
+           schema:
+             type: string
+             enum: ["true", "false"]
+             example: "false"
       responses:
         "200":
           description: Successful operation
@@ -1149,31 +1226,31 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized - Missing or invalid Kong consumer headers
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Forbidden - Anonymous consumers are not allowed
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
           description: Rate limit exceeded
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Issue Token
@@ -1185,38 +1262,38 @@ paths:
       parameters: 
         -
            required: true
-          description: Bearer token to validate
-          in: header
-          name: Authorization
-          schema:
-            type: string
-            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-            pattern: ^Bearer .+$
+           description: Bearer token to validate
+           in: header
+           name: Authorization
+           schema:
+             type: string
+             example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+             pattern: ^Bearer .+$
         -
            required: true
-          description: Kong consumer ID
-          in: header
-          name: x-consumer-id
-          schema:
-            type: string
-            example: demo_user
+           description: Kong consumer ID
+           in: header
+           name: x-consumer-id
+           schema:
+             type: string
+             example: demo_user
         -
            required: true
-          description: Kong consumer username
-          in: header
-          name: x-consumer-username
-          schema:
-            type: string
-            example: demo_user
+           description: Kong consumer username
+           in: header
+           name: x-consumer-username
+           schema:
+             type: string
+             example: demo_user
         -
            required: false
-          description: Indicates if the request is from an anonymous consumer
-          in: header
-          name: x-anonymous-consumer
-          schema:
-            type: string
-            enum: ["true", "false"]
-            example: "false"
+           description: Indicates if the request is from an anonymous consumer
+           in: header
+           name: x-anonymous-consumer
+           schema:
+             type: string
+             enum: ["true", "false"]
+             example: "false"
       responses:
         "200":
           description: Successful operation
@@ -1227,19 +1304,19 @@ paths:
         "400":
           description: Bad Request
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized - Token expired or invalid consumer credentials
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       summary: Validate Token
@@ -1250,36 +1327,36 @@ security:
 servers: 
   -
      description: Local development server (current)
-    environment: local
-    url: "http://localhost:3000"
+     environment: local
+     url: "http://localhost:3000"
   -
      description: Development server
-    environment: development
-    url: "http://localhost:3000"
+     environment: development
+     url: "http://localhost:3000"
   -
      description: Staging server
-    environment: staging
-    url: "https://auth-staging.example.com"
+     environment: staging
+     url: "https://auth-staging.example.com"
   -
      description: Production server
-    environment: production
-    url: "https://auth.example.com"
+     environment: production
+     url: "https://auth.example.com"
 tags: 
   -
-     description: API documentation and specification endpoints
-    name: Documentation
+     description: API documentation and specification
+     name: Documentation
   -
-     description: JWT token issuance and authentication operations
-    name: Authentication
+     description: Service health and readiness endpoints
+     name: Health
   -
-     description: System health and dependency status monitoring
-    name: Health
+     description: JWT token generation and validation
+     name: Authentication
   -
-     description: Performance metrics and operational statistics
-    name: Metrics
+     description: Service metrics and observability
+     name: Metrics
   -
-     description: Debug endpoints for development and troubleshooting
-    name: Debug
+     description: Debug and development endpoints (non-production)
+     name: Debug
   -
-     description: CPU and memory profiling for performance analysis
-    name: Profiling
+     description: Performance profiling and analysis endpoints
+     name: Profiling
