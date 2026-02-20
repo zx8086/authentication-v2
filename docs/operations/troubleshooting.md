@@ -1350,6 +1350,109 @@ curl http://localhost:3000/metrics?view=full | jq '{
 
 ---
 
+## Bun Fetch Networking Issues (SIO-288)
+
+### Problem: FailedToOpenSocket with Private/LAN IP Addresses
+
+**Symptoms:**
+- `fetch()` throws `FailedToOpenSocket: Was there a typo in the url or port?` errors
+- `fetch()` throws `ConnectionRefused` errors
+- Health check tests timeout (5000ms each) waiting for OTEL endpoints
+- Same URL works perfectly with `curl` command
+- Affects Kong Admin API and OTEL collector connections on private IPs (192.168.x.x, 10.x.x.x)
+- Error occurs almost immediately (~12ms) rather than timing out
+
+**Example Error:**
+```
+FailedToOpenSocket: Was there a typo in the url or port?
+  url: "http://192.168.178.3:4318/v1/traces"
+```
+
+**Root Cause:**
+
+Bun v1.3.x has known networking bugs that cause `fetch()` to fail when connecting to services on local/private IP addresses, even when the service is reachable via curl.
+
+**Known Bun GitHub Issues:**
+- [#3327](https://github.com/oven-sh/bun/issues/3327) - Socket pooling bug (CLOSE_WAIT accumulation)
+- [#10731](https://github.com/oven-sh/bun/issues/10731) - DNS/IPv4 vs IPv6 issues (fixed in v1.1.9)
+- [#9917](https://github.com/oven-sh/bun/issues/9917) - Windows/Docker FailedToOpenSocket
+- [#24001](https://github.com/oven-sh/bun/issues/24001) - Proxy/Unix socket options bug
+- [#1425](https://github.com/oven-sh/bun/issues/1425) - ConnectionRefused on localhost
+- [#6885](https://github.com/oven-sh/bun/issues/6885) - Bun doesn't understand "localhost"
+
+**Solution: Use `fetchWithFallback()`**
+
+The service implements automatic curl fallback when Bun's native fetch fails:
+
+```typescript
+import { fetchWithFallback } from '../utils/bun-fetch-fallback';
+
+// Use exactly like native fetch
+const response = await fetchWithFallback('http://192.168.178.3:30001/status');
+const data = await response.json();
+```
+
+**Behavior:**
+1. Try native `fetch()` first (preferred for performance)
+2. If fetch fails, automatically retry via `curl` subprocess
+3. Return standard Response object in both cases
+4. Check AbortSignal before and after curl execution
+
+**Performance Impact:**
+
+| Scenario | Latency | Notes |
+|----------|---------|-------|
+| Successful fetch | ~5-10ms | No fallback needed |
+| Failed fetch + curl success | ~40-60ms | Acceptable for fallback |
+| Failed fetch + curl timeout | ~3000ms | Curl timeout limit |
+| Both fail | ~3050ms | Operation fails with original error |
+
+**HEAD Request Handling:**
+
+The curl fallback uses `-I` flag for HEAD requests instead of `-X HEAD`:
+
+```bash
+# Correct (returns exit code 0)
+curl -s -I -m 3 http://192.168.178.3:4318/v1/traces
+
+# Incorrect (returns exit code 28 timeout even with valid response)
+curl -s -i -X HEAD -m 3 http://192.168.178.3:4318/v1/traces
+```
+
+**When to Use:**
+
+| Use `fetchWithFallback()` for | Use native `fetch()` for |
+|-------------------------------|---------------------------|
+| Kong Admin API requests | Public internet URLs |
+| External service calls to local IPs | Localhost URLs |
+| Integration tests connecting to remote services | Performance-critical paths |
+| OTEL collector connections on LAN | |
+
+**Verification:**
+
+```bash
+# Test curl fallback is working
+LOG_LEVEL=debug bun run dev
+
+# Make request to Kong on local IP
+curl -X POST http://localhost:3000/tokens \
+  -H "X-Consumer-ID: test-consumer" \
+  -H "X-Consumer-Username: test-consumer"
+
+# Look for logs showing:
+# - "Fetch failed, trying curl fallback"
+# - "Curl fallback successful"
+```
+
+**Files Involved:**
+- `src/utils/bun-fetch-fallback.ts` - Core fetch fallback implementation
+- `src/handlers/health.ts` - Uses fallback for OTEL health checks
+- `test/integration/setup.ts` - Test polyfill with same pattern
+
+**Reference:** `docs/development/profiling.md` (Bun Fetch Curl Fallback section)
+
+---
+
 ## Related Documentation
 
 - [Performance SLA](SLA.md) - SLA definitions and thresholds

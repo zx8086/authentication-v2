@@ -174,7 +174,21 @@ export async function fetchWithFallback(
     const headers = options?.headers;
     const signal = options?.signal;
 
-    const args = ["curl", "-s", "-i", "-X", method, "-m", "10"];
+    if (signal?.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+
+    // Use curl's own timeout (3 seconds) instead of relying on the signal
+    // This ensures fast fallback when Bun's fetch fails due to networking issues
+    const args = ["curl", "-s", "-m", "3", "--connect-timeout", "2"];
+
+    // Use -I for HEAD requests (more reliable than -X HEAD)
+    // Use -i for other methods to include headers in output
+    if (method === "HEAD") {
+      args.push("-I");
+    } else {
+      args.push("-i", "-X", method);
+    }
 
     if (headers) {
       const headerEntries =
@@ -190,18 +204,16 @@ export async function fetchWithFallback(
 
     args.push(urlString);
 
-    if (signal?.aborted) {
-      throw new DOMException("The operation was aborted.", "AbortError");
-    }
-
+    // Do NOT pass the signal to curl - use curl's own timeout instead
+    // This prevents the signal from blocking curl when Bun's fetch fails quickly
     const proc = Bun.spawn(args, {
       stdout: "pipe",
       stderr: "ignore",
-      signal: signal,
     });
 
     await proc.exited;
 
+    // Check if signal was aborted while curl was running
     if (signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }

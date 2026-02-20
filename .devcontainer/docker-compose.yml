@@ -1,5 +1,3 @@
-version: "3.9"
-
 # =============================================================================
 # Kong + Redis + Postgres Infrastructure
 # =============================================================================
@@ -145,9 +143,9 @@ services:
 
 volumes:
   kong-db-data:
-    driver: local
+    name: auth-service-kong-db-data
   redis-data:
-    driver: local
+    name: auth-service-redis-data
 
 networks:
   kong-net:

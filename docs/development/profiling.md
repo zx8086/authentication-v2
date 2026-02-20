@@ -302,17 +302,22 @@ bun scripts/profiling/cleanup-profiles.ts --max-storage-gb=0.5
 
 ### Problem
 
-Bun v1.3.6 has known networking bugs that cause `fetch()` to fail when connecting to services on local/private IP addresses (e.g., `192.168.x.x`, `10.x.x.x`), even when the service is reachable via curl.
+Bun v1.3.x has known networking bugs that cause `fetch()` to fail when connecting to services on local/private IP addresses (e.g., `192.168.x.x`, `10.x.x.x`), even when the service is reachable via curl.
 
 **Symptoms:**
-- `fetch()` throws `ConnectionRefused` or `FailedToOpenSocket` errors
+- `fetch()` throws `FailedToOpenSocket: Was there a typo in the url or port?` errors
+- `fetch()` throws `ConnectionRefused` errors
 - Same URL works perfectly with `curl` command
-- Affects Kong Admin API connections on remote IPs
+- Affects Kong Admin API and OTEL collector connections on private IPs
+- Error occurs almost immediately (~12ms) rather than timing out
 
 **Known Bun Issues:**
-- https://github.com/oven-sh/bun/issues/1425
-- https://github.com/oven-sh/bun/issues/6885
-- https://github.com/oven-sh/bun/issues/10731
+- https://github.com/oven-sh/bun/issues/3327 - Socket pooling bug (CLOSE_WAIT accumulation)
+- https://github.com/oven-sh/bun/issues/10731 - DNS/IPv4 vs IPv6 issues (fixed in v1.1.9)
+- https://github.com/oven-sh/bun/issues/9917 - Windows/Docker FailedToOpenSocket
+- https://github.com/oven-sh/bun/issues/24001 - Proxy/Unix socket options bug
+- https://github.com/oven-sh/bun/issues/1425 - ConnectionRefused on localhost
+- https://github.com/oven-sh/bun/issues/6885 - Bun doesn't understand "localhost"
 
 ### Solution: fetchWithFallback()
 
@@ -334,7 +339,7 @@ const data = await response.json();
 
 ### AbortSignal Support
 
-The curl fallback now properly supports `AbortSignal` for request cancellation:
+The curl fallback properly supports `AbortSignal` for request cancellation:
 
 ```typescript
 // Abortable request with timeout
@@ -347,21 +352,53 @@ const response = await fetchWithFallback(url, {
 - Pre-check: Throws `AbortError` immediately if already aborted before curl starts
 - Post-check: Throws `AbortError` if aborted during curl execution
 - Prevents unnecessary curl subprocess when request is already cancelled
+- Uses curl's own timeout (`-m 3`, `--connect-timeout 2`) instead of passing signal to subprocess
 
 **Reference:** Commit e42d824 (2026-02-14) - Fix fetch polyfill recursive call and add AbortSignal support
+
+### HEAD Request Handling
+
+The curl fallback uses `-I` flag for HEAD requests instead of `-X HEAD`:
+
+```bash
+# Correct (returns exit code 0)
+curl -s -I -m 3 http://192.168.178.3:4318/v1/traces
+
+# Incorrect (returns exit code 28 timeout even with valid response)
+curl -s -i -X HEAD -m 3 http://192.168.178.3:4318/v1/traces
+```
+
+**Why this matters:**
+- `-X HEAD` waits for connection to fully close, causing timeouts
+- `-I` properly handles HEAD semantics and exits immediately
+- Health checks to OTEL endpoints return 405 (Method Not Allowed) which is < 500, so treated as healthy
+
+**Implementation Details:**
+```typescript
+// In fetchViaCurl()
+if (method === "HEAD") {
+  args.push("-I");  // Use -I for HEAD requests
+} else {
+  args.push("-i", "-X", method);  // Use -X for other methods
+}
+```
+
+**Reference:** 2026-02-20 - Fix HEAD request handling and signal timeout issues
 
 ### Performance Impact
 
 | Scenario | Latency | Notes |
 |----------|---------|-------|
 | Successful fetch | ~5-10ms | No fallback needed |
-| Failed fetch + curl success | ~50-100ms | Acceptable for fallback |
-| Both fail | ~65ms | Operation fails anyway |
+| Failed fetch + curl success | ~40-60ms | Acceptable for fallback |
+| Failed fetch + curl timeout | ~3000ms | Curl timeout limit |
+| Both fail | ~3050ms | Operation fails with original error |
 
 **Key Points:**
 - Zero overhead when native fetch succeeds (happy path)
 - Curl fallback only activates on fetch failure
-- 81x faster health handler tests in `TELEMETRY_MODE=both` (81s to 1s) after recursive call fix
+- Curl uses its own 3-second timeout, not the AbortSignal (prevents 5s+ waits)
+- Health handler tests: 81s reduced to 2.3s after fixes
 
 ### When to Use
 

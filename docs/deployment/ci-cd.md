@@ -178,6 +178,44 @@ The pipeline includes comprehensive security validation through multiple special
 - **Base Image Vulnerabilities**: Identifies issues in underlying OS packages
 - **Remediation Guidance**: Actionable recommendations for security improvements
 
+#### 4. DHI Base Image Attestation Verification
+```yaml
+- name: Pull DHI base image
+  run: docker pull dhi.io/static:20230311
+
+- name: Verify DHI base image attestations (SBOM + Provenance)
+  uses: docker/scout-action@v1.15.1
+  with:
+    command: attestation
+    image: dhi.io/static:20230311
+    organization: zx8086
+
+- name: Verify DHI base image has zero CVEs
+  uses: docker/scout-action@v1.15.1
+  with:
+    command: cves
+    image: dhi.io/static:20230311
+    only-severities: critical,high
+    exit-code: true
+
+- name: Report DHI verification status
+  run: |
+    echo "## DHI Base Image Verification" >> $GITHUB_STEP_SUMMARY
+    echo "**Base Image:** \`dhi.io/static:20230311\`" >> $GITHUB_STEP_SUMMARY
+    echo "### Verified Properties" >> $GITHUB_STEP_SUMMARY
+    echo "- SBOM attestation present" >> $GITHUB_STEP_SUMMARY
+    echo "- SLSA Level 3 provenance" >> $GITHUB_STEP_SUMMARY
+    echo "- VEX attestations for CVE suppression" >> $GITHUB_STEP_SUMMARY
+    echo "- Zero HIGH/CRITICAL CVEs expected" >> $GITHUB_STEP_SUMMARY
+```
+
+**DHI Verification Features:**
+- **Pre-build Verification**: Attestations checked before every build
+- **SBOM Validation**: Software Bill of Materials attestation verified
+- **Provenance Check**: SLSA Level 3 provenance attestation confirmed
+- **CVE Gate**: Build proceeds only if zero HIGH/CRITICAL CVEs
+- **GitHub Summary**: Verification results reported in workflow summary
+
 ### Security Results Integration
 All security scanning results are:
 - **Uploaded as SARIF**: Standardized Static Analysis Results Interchange Format

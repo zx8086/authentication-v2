@@ -30,7 +30,17 @@ async function fetchViaCurl(url: string, options?: FetchOptions): Promise<Respon
     throw new DOMException("The operation was aborted.", "AbortError");
   }
 
-  const args = ["curl", "-s", "-i", "-X", method, "-m", "10"];
+  // Use curl's own timeout (3 seconds) instead of relying on the signal
+  // This ensures fast fallback when Bun's fetch fails due to networking issues
+  const args = ["curl", "-s", "-m", "3", "--connect-timeout", "2"];
+
+  // Use -I for HEAD requests (more reliable than -X HEAD)
+  // Use -i for other methods to include headers in output
+  if (method === "HEAD") {
+    args.push("-I");
+  } else {
+    args.push("-i", "-X", method);
+  }
 
   for (const [key, value] of Object.entries(headers)) {
     args.push("-H", `${key}: ${value}`);
@@ -42,14 +52,16 @@ async function fetchViaCurl(url: string, options?: FetchOptions): Promise<Respon
 
   args.push(url);
 
+  // Do NOT pass the signal to curl - use curl's own timeout instead
+  // This prevents the signal from blocking curl when Bun's fetch fails quickly
   const proc = Bun.spawn(args, {
     stdout: "pipe",
     stderr: "pipe",
-    signal: signal,
   });
 
   const exitCode = await proc.exited;
 
+  // Check if signal was aborted while curl was running
   if (signal?.aborted) {
     throw new DOMException("The operation was aborted.", "AbortError");
   }

@@ -308,6 +308,22 @@ bun run docker:dhi:cve-scan             # Scan for CVEs
 # Expected output: 12/12 security score
 ```
 
+### CI/CD Attestation Verification
+
+The build workflow automatically verifies DHI attestations before every build:
+
+```bash
+# Local verification (same as CI/CD)
+docker scout attestation dhi.io/static:20230311
+docker scout cves dhi.io/static:20230311 --only-severity critical,high
+```
+
+| Verification Step | Command | Expected Result |
+|-------------------|---------|-----------------|
+| SBOM attestation | `docker scout attestation` | Present |
+| Provenance | `docker scout attestation` | SLSA Level 3 |
+| CVE scan | `docker scout cves` | 0 HIGH/CRITICAL |
+
 ## Performance Characteristics
 
 | Metric | Value |

@@ -94,7 +94,7 @@
 | **Error Handling** | RFC 7807 Problem Details with structured error codes |
 | **Resilience** | Circuit breaker with stale cache fallback |
 | **Observability** | Comprehensive OpenTelemetry instrumentation |
-| **Container** | DHI distroless builds (0 CVEs, 12/12 security score) |
+| **Container** | DHI distroless builds (0 CVEs, 12/12 security score, attestation verification) |
 
 ### Technology Stack
 

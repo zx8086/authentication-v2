@@ -104,15 +104,26 @@ bun --inspect test specific.test.ts
 
 The Bun fetch networking bug with remote IPs is automatically handled by the curl fallback workaround.
 
+**The Problem:**
+Bun v1.3.x has known issues connecting to private/LAN IP addresses (e.g., `192.168.x.x`), throwing `FailedToOpenSocket: Was there a typo in the url or port?` errors even when curl can reach the same URL. This affects:
+- Kong Admin API connections
+- OTEL collector health checks
+- Any service on private network IPs
+
+**Known Bun Issues:** See [Bun Fetch Curl Fallback](profiling.md#bun-fetch-curl-fallback-sio-288) for full list.
+
 **Features:**
 - No manual configuration needed - works out of the box
 - Transparent fallback - activates when Bun fetch fails
 - Zero overhead - only uses curl when native fetch fails
+- HEAD requests use `-I` flag for proper handling
+- 3-second curl timeout prevents long waits
 
 **Usage:**
 ```bash
 # .env
 KONG_ADMIN_URL=http://192.168.178.3:30001
+OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.178.3:4318
 
 # Run integration tests - curl fallback handles networking automatically
 bun run test:integration
@@ -125,6 +136,9 @@ import { fetchWithFallback } from '../utils/bun-fetch-fallback';
 // Tries fetch() first, falls back to curl if needed
 const response = await fetchWithFallback(kongAdminUrl);
 ```
+
+**Test Polyfill:**
+The test setup (`test/integration/setup.ts`) provides `enableFetchPolyfill()` which replaces `globalThis.fetch` with the curl fallback version for tests that import modules using native fetch.
 
 ### Alternative: Manual Port Forwarding
 

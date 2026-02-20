@@ -12,11 +12,17 @@ import {
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
 import { getSlaMonitor } from "../telemetry/sla-monitor";
+import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { log } from "../utils/logger";
 import { calculateDuration, getHighResTime } from "../utils/performance";
 import { createHealthResponse, generateRequestId } from "../utils/response";
 
 const config = loadConfig();
+
+/**
+ * Check OTLP endpoint health using fetchWithFallback to handle Bun networking issues.
+ * Uses HEAD request with curl fallback for IP addresses that Bun's fetch cannot reach.
+ */
 async function checkOtlpEndpointHealth(url: string): Promise<{
   healthy: boolean;
   responseTime: number;
@@ -28,7 +34,8 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
 
   const startTime = getHighResTime();
   try {
-    const response = await fetch(url, {
+    // Use fetchWithFallback to handle Bun networking issues with certain IP addresses
+    const response = await fetchWithFallback(url, {
       method: "HEAD",
       signal: AbortSignal.timeout(5000),
     });

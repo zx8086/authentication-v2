@@ -45,6 +45,35 @@ The authentication service uses **Docker Hardened Images (DHI)** as the base ima
 - **Issue Creation**: Automatic for HIGH/CRITICAL CVEs
 - **Artifact Retention**: 90 days for compliance
 
+### CI/CD Attestation Verification
+
+The build workflow includes explicit DHI attestation verification before every build:
+
+| Step | Purpose |
+|------|---------|
+| Pull DHI base image | Downloads `dhi.io/static:20230311` |
+| Verify SBOM + Provenance | Docker Scout attestation check |
+| Zero CVE verification | Pre-build CVE scan (HIGH/CRITICAL) |
+| GitHub Step Summary | Verification report in workflow |
+
+```yaml
+# From build-and-deploy.yml
+- name: Verify DHI base image attestations (SBOM + Provenance)
+  uses: docker/scout-action@v1.15.1
+  with:
+    command: attestation
+    image: dhi.io/static:20230311
+    organization: zx8086
+
+- name: Verify DHI base image has zero CVEs
+  uses: docker/scout-action@v1.15.1
+  with:
+    command: cves
+    image: dhi.io/static:20230311
+    only-severities: critical,high
+    exit-code: true
+```
+
 ---
 
 ## Container Deployment
