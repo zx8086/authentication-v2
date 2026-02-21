@@ -195,7 +195,7 @@
   "author": "Simon Owusu",
   "license": "UNLICENSED",
   "devDependencies": {
-    "@biomejs/biome": "^2.4.2",
+    "@biomejs/biome": "^2.4.4",
     "@playwright/test": "^1.58.2",
     "@stryker-mutator/core": "^9.5.1",
     "@stryker-mutator/typescript-checker": "^9.5.1",
