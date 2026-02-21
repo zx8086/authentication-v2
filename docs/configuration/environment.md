@@ -2,14 +2,16 @@
 
 ## 4-Pillar Configuration Architecture
 
-The authentication service implements a robust configuration pattern with comprehensive security validation:
+The authentication service implements a robust configuration pattern with comprehensive security validation.
 
-| Pillar | Description |
-|--------|-------------|
-| **1. Defaults** | All baseline values with secure defaults |
-| **2. Environment Mapping** | Explicit mapping with type safety |
-| **3. Manual Loading** | Controlled loading with proper fallbacks |
-| **4. Validation** | Zod v4 schema validation at end |
+> **Reusable Standard**: For a complete, self-contained guide to implementing this pattern in other applications, see **[4-Pillar Configuration Pattern](./4-pillar-pattern.md)**.
+
+| Pillar | File | Description |
+|--------|------|-------------|
+| **1. Defaults** | `src/config/defaults.ts` | All baseline values with secure defaults |
+| **2. Environment Mapping** | `src/config/envMapping.ts` | Explicit mapping with type safety |
+| **3. Loader** | `src/config/loader.ts` | Controlled loading with proper fallbacks |
+| **4. Validation** | `src/config/schemas.ts` | Zod v4 schema validation at end |
 
 ### Security Features
 - **HTTPS Enforcement**: Kong Admin URL must use HTTPS in production
