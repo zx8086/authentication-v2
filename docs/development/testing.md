@@ -6,8 +6,8 @@ This document consolidates all testing documentation for the authentication serv
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Count** | 2686 tests (100% pass rate) |
-| **Bun Unit/Integration Tests** | 2686 tests across 102 files |
+| **Total Test Count** | 2931 tests (100% pass rate) |
+| **Bun Unit/Integration Tests** | 2931 tests across 104 files |
 | **Chaos Engineering Tests** | 57 tests across 4 suites |
 | **Playwright E2E Tests** | 58 tests across 4 files |
 | **Mutation Score** | 100% (all mutants killed) |
@@ -15,22 +15,25 @@ This document consolidates all testing documentation for the authentication serv
 
 ### Test Organization
 
-102 test files organized into logical subdirectories by domain:
+104 test files organized into logical subdirectories by domain:
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|
-| `cache/` | 7 | Caching functionality, stale data handling |
+| `adapters/` | 4 | Kong adapter integration, mutation killers |
+| `cache/` | 15 | Caching functionality, stale data, resilience |
 | `circuit-breaker/` | 5 | Circuit breaker patterns, state transitions |
-| `config/` | 5 | Configuration validation, 4-pillar pattern |
-| `handlers/` | 5 | HTTP request handlers (tokens, OpenAPI) |
+| `config/` | 9 | Configuration validation, 4-pillar pattern |
+| `handlers/` | 6 | HTTP request handlers (tokens, OpenAPI) |
 | `health/` | 6 | Health check endpoints, telemetry |
-| `integration/` | 2 | API versioning, shutdown tests |
 | `kong/` | 4 | Kong API Gateway integration |
 | `logging/` | 4 | Winston integration |
+| `middleware/` | 1 | Request validation middleware |
 | `mutation/` | 2 | Mutation-resistant test patterns |
-| `services/` | 4 | Service layer (JWT, caching) |
-| `telemetry/` | 9 | Observability, metrics, instrumentation |
-| `utils/` | 6 | Utility functions (error codes, validation) |
+| `services/` | 8 | Service layer (JWT, caching, cache health) |
+| `shared/` | 2 | Test utilities, consumer secrets |
+| `telemetry/` | 18 | Observability, metrics, instrumentation |
+| `types/` | 1 | Type definitions and validation |
+| `utils/` | 19 | Utility functions (error codes, validation, fetch fallback) |
 
 ---
 

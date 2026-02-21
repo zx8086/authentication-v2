@@ -1326,17 +1326,13 @@ class OpenAPIGenerator {
       return this._formatYamlArray(obj as YamlValue[], spaces, indent);
     }
 
-    // Enhanced object handling - at this point obj is guaranteed to be a non-array object
-    if (typeof obj === "object" && obj !== null) {
-      return this._formatYamlObject(
-        obj as { readonly [key: string]: YamlValue } | { [key: string]: YamlValue },
-        spaces,
-        indent
-      );
-    }
-
-    // Fallback for any remaining primitive types
-    return String(obj);
+    // At this point, obj is guaranteed to be a non-null, non-array object
+    // (null/undefined handled at line 1311, primitives handled above, arrays handled above)
+    return this._formatYamlObject(
+      obj as { readonly [key: string]: YamlValue } | { [key: string]: YamlValue },
+      spaces,
+      indent
+    );
   }
 
   private _formatYamlString(str: string, spaces: string, _indent: number): string {
