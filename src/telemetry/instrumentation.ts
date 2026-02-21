@@ -27,6 +27,14 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
 import { loadConfig } from "../config/index";
+import {
+  createExportStatsTracker,
+  type ExportStats,
+  type ExportStatsTracker,
+  wrapLogRecordExporter,
+  wrapMetricExporter,
+  wrapSpanExporter,
+} from "./export-stats-tracker";
 import { initializeMetrics } from "./metrics";
 import { winstonTelemetryLogger } from "./winston-logger";
 
@@ -46,38 +54,9 @@ let metricExporter: PushMetricExporter | undefined;
 let metricReader: MetricReaderLike | undefined;
 let _meterProvider: MeterProvider | undefined;
 
-const metricExportStats = {
-  totalExports: 0,
-  successCount: 0,
-  failureCount: 0,
-  get successRate() {
-    return this.totalExports > 0 ? Math.round((this.successCount / this.totalExports) * 100) : 0;
-  },
-  lastExportTime: null as string | null,
-  lastSuccessTime: null as string | null,
-  lastFailureTime: null as string | null,
-  recentErrors: [] as string[],
-
-  recordExportAttempt() {
-    this.totalExports++;
-  },
-
-  recordExportSuccess() {
-    this.successCount++;
-    this.lastExportTime = new Date().toISOString();
-    this.lastSuccessTime = this.lastExportTime;
-  },
-
-  recordExportFailure(error: string) {
-    this.failureCount++;
-    this.lastExportTime = new Date().toISOString();
-    this.lastFailureTime = this.lastExportTime;
-    this.recentErrors.push(`${this.lastExportTime}: ${error}`);
-    if (this.recentErrors.length > 10) {
-      this.recentErrors.shift();
-    }
-  },
-};
+const traceExportStats = createExportStatsTracker();
+const metricExportStats = createExportStatsTracker();
+const logExportStats = createExportStatsTracker();
 
 export async function initializeTelemetry(): Promise<void> {
   initializeMetrics();
@@ -121,44 +100,26 @@ export async function initializeTelemetry(): Promise<void> {
     }),
   });
 
-  const otlpTraceExporter = new OTLPTraceExporter({
+  const baseOtlpTraceExporter = new OTLPTraceExporter({
     url: telemetryConfig.tracesEndpoint,
     timeoutMillis: telemetryConfig.exportTimeout,
   });
+  const trackingTraceExporter = wrapSpanExporter(baseOtlpTraceExporter, traceExportStats);
 
   const baseOtlpMetricExporter = new OTLPMetricExporter({
     url: telemetryConfig.metricsEndpoint,
     timeoutMillis: telemetryConfig.exportTimeout,
   });
-
-  const trackingMetricExporter: PushMetricExporter = {
-    export: (metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void => {
-      metricExportStats.recordExportAttempt();
-      baseOtlpMetricExporter.export(metrics, (result: ExportResult) => {
-        if (result.code === 0) {
-          metricExportStats.recordExportSuccess();
-        } else {
-          const errorMessage =
-            result.error instanceof Error ? result.error.message : "Export failed";
-          metricExportStats.recordExportFailure(errorMessage);
-        }
-        resultCallback(result);
-      });
-    },
-    forceFlush: (): Promise<void> => baseOtlpMetricExporter.forceFlush(),
-    shutdown: (): Promise<void> => baseOtlpMetricExporter.shutdown(),
-    selectAggregationTemporality: (instrumentType) =>
-      baseOtlpMetricExporter.selectAggregationTemporality(instrumentType),
-  };
-
+  const trackingMetricExporter = wrapMetricExporter(baseOtlpMetricExporter, metricExportStats);
   metricExporter = trackingMetricExporter;
 
-  const otlpLogExporter = new OTLPLogExporter({
+  const baseOtlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
     timeoutMillis: telemetryConfig.exportTimeout,
   });
+  const trackingLogExporter = wrapLogRecordExporter(baseOtlpLogExporter, logExportStats);
 
-  const traceProcessor = new BatchSpanProcessor(otlpTraceExporter, {
+  const traceProcessor = new BatchSpanProcessor(trackingTraceExporter, {
     maxExportBatchSize: 10,
     scheduledDelayMillis: 1000,
   });
@@ -175,7 +136,7 @@ export async function initializeTelemetry(): Promise<void> {
   });
   metricReader = periodicReader;
 
-  const logProcessor = new BatchLogRecordProcessor(otlpLogExporter);
+  const logProcessor = new BatchLogRecordProcessor(trackingLogExporter);
 
   // OTel SDK 0.212.0 breaking change: LoggerProvider must be explicitly registered
   // as the global provider for OpenTelemetryTransportV3 (Winston) to work.
@@ -285,6 +246,11 @@ export function getTelemetryStatus() {
   return {
     initialized: !!sdk,
     config: telemetryConfig,
+    exportStats: {
+      traces: traceExportStats.getStats(),
+      metrics: metricExportStats.getStats(),
+      logs: logExportStats.getStats(),
+    },
     metricsExportStats: metricExportStats,
   };
 }
@@ -310,8 +276,16 @@ export async function forceMetricsFlush(): Promise<void> {
   }
 }
 
-export function getMetricsExportStats() {
+export function getTraceExportStats(): ExportStats {
+  return traceExportStats.getStats();
+}
+
+export function getMetricsExportStats(): ExportStatsTracker {
   return metricExportStats;
+}
+
+export function getLogExportStats(): ExportStats {
+  return logExportStats.getStats();
 }
 
 export async function triggerImmediateMetricsExport(): Promise<void> {

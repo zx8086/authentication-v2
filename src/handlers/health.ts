@@ -6,9 +6,11 @@ import { CacheFactory } from "../services/cache/cache-factory";
 import { CacheHealthService } from "../services/cache-health.service";
 import type { IKongService } from "../services/kong.service";
 import {
+  getLogExportStats,
   getMetricsExportStats,
   getSimpleTelemetryStatus,
   getTelemetryStatus,
+  getTraceExportStats,
 } from "../telemetry/instrumentation";
 import { getMetricsStatus } from "../telemetry/metrics";
 import { getSlaMonitor } from "../telemetry/sla-monitor";
@@ -180,8 +182,10 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
 
     const [tracesHealth, metricsHealth, logsHealth] = otlpChecks;
 
-    // Get telemetry export stats for health summary
-    const exportStats = getMetricsExportStats();
+    // Get telemetry export stats for each type
+    const traceExportStats = getTraceExportStats();
+    const metricsExportStats = getMetricsExportStats();
+    const logExportStats = getLogExportStats();
 
     // Get circuit breaker stats for telemetry health summary
     let circuitBreakerStats: Record<
@@ -241,6 +245,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       environment: config.server.nodeEnv,
       uptime: formatUptime(Math.floor(process.uptime())),
       highAvailability: config.caching.highAvailability,
+      circuitBreakerState: circuitBreakerState,
       dependencies: {
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",
@@ -280,28 +285,22 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
             status: tracesHealth.healthy ? "healthy" : "unhealthy",
             endpoint: telemetryConfig.tracesEndpoint || "not configured",
             responseTime: tracesHealth.responseTime,
+            exports: traceExportStats,
             ...("error" in tracesHealth && tracesHealth.error && { error: tracesHealth.error }),
           },
           metrics: {
             status: metricsHealth.healthy ? "healthy" : "unhealthy",
             endpoint: telemetryConfig.metricsEndpoint || "not configured",
             responseTime: metricsHealth.responseTime,
+            exports: metricsExportStats.getStats(),
             ...("error" in metricsHealth && metricsHealth.error && { error: metricsHealth.error }),
           },
           logs: {
             status: logsHealth.healthy ? "healthy" : "unhealthy",
             endpoint: telemetryConfig.logsEndpoint || "not configured",
             responseTime: logsHealth.responseTime,
+            exports: logExportStats,
             ...("error" in logsHealth && logsHealth.error && { error: logsHealth.error }),
-          },
-          exportHealth: {
-            successRate: exportStats.successRate / 100, // Convert percentage to decimal
-            totalExports: exportStats.totalExports,
-            recentFailures: exportStats.failureCount,
-            circuitBreakerState: circuitBreakerState,
-            ...(exportStats.lastExportTime && {
-              lastExportTime: exportStats.lastExportTime,
-            }),
           },
         },
       },
@@ -594,7 +593,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
     const responseData = {
       metrics: {
         status: metricsStatus,
-        exports: exportStats,
+        exports: exportStats.getStats(),
         configuration: {
           exportInterval: 10000,
           batchTimeout: config.telemetry.exportTimeout,

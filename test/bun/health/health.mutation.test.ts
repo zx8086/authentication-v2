@@ -188,7 +188,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(serviceWithOpenBreaker);
       const body = await response.json();
 
-      expect(body.dependencies.telemetry.exportHealth.circuitBreakerState).toBe("open");
+      expect(body.circuitBreakerState).toBe("open");
     });
 
     it("should detect 'half-open' state when no 'open'", async () => {
@@ -221,7 +221,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(serviceWithHalfOpen);
       const body = await response.json();
 
-      expect(body.dependencies.telemetry.exportHealth.circuitBreakerState).toBe("half-open");
+      expect(body.circuitBreakerState).toBe("half-open");
     });
 
     it("should use 'closed' when all breakers are closed", async () => {
@@ -254,7 +254,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(serviceWithClosed);
       const body = await response.json();
 
-      expect(body.dependencies.telemetry.exportHealth.circuitBreakerState).toBe("closed");
+      expect(body.circuitBreakerState).toBe("closed");
     });
 
     it("should default to 'closed' when no breakers exist", async () => {
@@ -268,7 +268,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(serviceWithNoBreakers);
       const body = await response.json();
 
-      expect(body.dependencies.telemetry.exportHealth.circuitBreakerState).toBe("closed");
+      expect(body.circuitBreakerState).toBe("closed");
     });
   });
 
@@ -298,7 +298,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(errorService);
       const body = await response.json();
 
-      expect(body.dependencies.telemetry.exportHealth.circuitBreakerState).toBe("closed");
+      expect(body.circuitBreakerState).toBe("closed");
     });
   });
 
@@ -352,13 +352,15 @@ describe("Health Handler Mutation Tests", () => {
       expect(unhealthyBody.dependencies.kong.details.error).toBe("Specific error message");
     });
 
-    it("should convert export success rate to decimal", async () => {
+    it("should format export success rate as percentage string", async () => {
       const response = await handleHealthCheck(mockKongService);
       const body = await response.json();
 
-      // successRate should be decimal (0-1), not percentage (0-100)
-      expect(body.dependencies.telemetry.exportHealth.successRate).toBeLessThanOrEqual(1);
-      expect(body.dependencies.telemetry.exportHealth.successRate).toBeGreaterThanOrEqual(0);
+      // successRate should be a percentage string like "100%"
+      for (const type of ["traces", "metrics", "logs"]) {
+        expect(typeof body.dependencies.telemetry[type].exports.successRate).toBe("string");
+        expect(body.dependencies.telemetry[type].exports.successRate).toMatch(/^\d+%$/);
+      }
     });
 
     it("should include uptime as human-readable string", async () => {

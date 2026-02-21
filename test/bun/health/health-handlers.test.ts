@@ -138,14 +138,14 @@ describe("Health Handlers", () => {
       expect(typeof body.dependencies.telemetry.traces).toBe("object");
       expect(typeof body.dependencies.telemetry.metrics).toBe("object");
       expect(typeof body.dependencies.telemetry.logs).toBe("object");
-      expect(typeof body.dependencies.telemetry.exportHealth).toBe("object");
       expect(body.dependencies.telemetry.traces).not.toBeNull();
       expect(body.dependencies.telemetry.metrics).not.toBeNull();
       expect(body.dependencies.telemetry.logs).not.toBeNull();
-      expect(body.dependencies.telemetry.exportHealth).not.toBeNull();
+      // Circuit breaker state should be at top level (before dependencies)
+      expect(typeof body.circuitBreakerState).toBe("string");
     });
 
-    it("should include telemetry export health details", async () => {
+    it("should include telemetry export stats for each type", async () => {
       if (!kongAvailable || !kongService) {
         console.log(getSkipMessage());
         return;
@@ -154,16 +154,21 @@ describe("Health Handlers", () => {
       const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
-      const exportHealth = body.dependencies.telemetry.exportHealth;
-      expect(typeof exportHealth.successRate).toBe("number");
-      expect(exportHealth.successRate).toBeGreaterThanOrEqual(0);
-      expect(exportHealth.successRate).toBeLessThanOrEqual(100);
-      expect(typeof exportHealth.totalExports).toBe("number");
-      expect(exportHealth.totalExports).toBeGreaterThanOrEqual(0);
-      expect(typeof exportHealth.recentFailures).toBe("number");
-      expect(exportHealth.recentFailures).toBeGreaterThanOrEqual(0);
-      expect(typeof exportHealth.circuitBreakerState).toBe("string");
-      expect(["closed", "open", "half-open"]).toContain(exportHealth.circuitBreakerState);
+      // Each telemetry type should have exports object
+      for (const type of ["traces", "metrics", "logs"]) {
+        const telemetryType = body.dependencies.telemetry[type];
+        expect(telemetryType.exports).toBeDefined();
+        expect(typeof telemetryType.exports.successRate).toBe("string");
+        expect(telemetryType.exports.successRate).toMatch(/^\d+%$/);
+        expect(typeof telemetryType.exports.total).toBe("number");
+        expect(telemetryType.exports.total).toBeGreaterThanOrEqual(0);
+        expect(typeof telemetryType.exports.failures).toBe("number");
+        expect(telemetryType.exports.failures).toBeGreaterThanOrEqual(0);
+      }
+
+      // Circuit breaker state should be at top level (before dependencies)
+      expect(typeof body.circuitBreakerState).toBe("string");
+      expect(["closed", "open", "half-open"]).toContain(body.circuitBreakerState);
     });
 
     it("should include valid timestamp in ISO format", async () => {
