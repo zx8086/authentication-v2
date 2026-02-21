@@ -107,7 +107,46 @@ describe("Health Handlers", () => {
       expect(["API_GATEWAY", "KONNECT"]).toContain(body.dependencies.kong.details.mode);
     });
 
-    it("should include cache dependency details", async () => {
+    it("should include cache dependency details with grouped structure", async () => {
+      if (!kongAvailable || !kongService) {
+        console.log(getSkipMessage());
+        return;
+      }
+
+      const response = await handleHealthCheck(kongService);
+      const body = await response.json();
+      const cache = body.dependencies.cache;
+
+      // Top-level fields (status is in healthMonitor, not top-level)
+      expect(cache).toBeDefined();
+      expect(typeof cache.type).toBe("string");
+      expect(cache.type.length).toBeGreaterThan(0);
+
+      // Connection group
+      expect(cache.connection).toBeDefined();
+      expect(typeof cache.connection.connected).toBe("boolean");
+      expect(typeof cache.connection.responseTime).toBe("string");
+      expect(cache.connection.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
+
+      // Entries group
+      expect(cache.entries).toBeDefined();
+      expect(typeof cache.entries.primary).toBe("number");
+      expect(cache.entries.primary).toBeGreaterThanOrEqual(0);
+      expect(typeof cache.entries.primaryActive).toBe("number");
+      expect(cache.entries.primaryActive).toBeGreaterThanOrEqual(0);
+      expect(typeof cache.entries.stale).toBe("number");
+      expect(cache.entries.stale).toBeGreaterThanOrEqual(0);
+      expect(typeof cache.entries.staleCacheAvailable).toBe("boolean");
+
+      // Performance group
+      expect(cache.performance).toBeDefined();
+      expect(typeof cache.performance.hitRate).toBe("string");
+      expect(cache.performance.hitRate).toMatch(/^\d+(\.\d+)?%$/);
+      expect(typeof cache.performance.avgLatencyMs).toBe("number");
+      expect(cache.performance.avgLatencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should include cache health monitor state", async () => {
       if (!kongAvailable || !kongService) {
         console.log(getSkipMessage());
         return;
@@ -116,13 +155,37 @@ describe("Health Handlers", () => {
       const response = await handleHealthCheck(kongService);
       const body = await response.json();
 
-      expect(body.dependencies.cache).toBeDefined();
-      expect(["healthy", "unhealthy", "degraded"]).toContain(body.dependencies.cache.status);
-      expect(typeof body.dependencies.cache.type).toBe("string");
-      expect(body.dependencies.cache.type.length).toBeGreaterThan(0);
-      expect(typeof body.dependencies.cache.responseTime).toBe("string");
-      // Response time should be in human-readable format (e.g., "0.5ms", "1.5s")
-      expect(body.dependencies.cache.responseTime).toMatch(/^\d+(\.\d+)?(ms|s|m\s\d+s|m)$/);
+      // healthMonitor should be present (null for memory cache, object for distributed)
+      expect("healthMonitor" in body.dependencies.cache).toBe(true);
+
+      const healthMonitor = body.dependencies.cache.healthMonitor;
+
+      // For distributed cache (Redis/Valkey), healthMonitor should be an object
+      if (healthMonitor !== null) {
+        // Verify all required fields are present
+        expect(["healthy", "degraded", "unhealthy", "unknown"]).toContain(healthMonitor.status);
+        expect(typeof healthMonitor.isMonitoring).toBe("boolean");
+        expect(typeof healthMonitor.consecutiveSuccesses).toBe("number");
+        expect(healthMonitor.consecutiveSuccesses).toBeGreaterThanOrEqual(0);
+        expect(typeof healthMonitor.consecutiveFailures).toBe("number");
+        expect(healthMonitor.consecutiveFailures).toBeGreaterThanOrEqual(0);
+        expect(typeof healthMonitor.lastStatusChange).toBe("string");
+        expect(healthMonitor.lastStatusChange).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+
+        // lastCheck may be present
+        if (healthMonitor.lastCheck) {
+          expect(typeof healthMonitor.lastCheck.success).toBe("boolean");
+          expect(typeof healthMonitor.lastCheck.timestamp).toBe("string");
+          expect(healthMonitor.lastCheck.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+          if (healthMonitor.lastCheck.responseTimeMs !== undefined) {
+            expect(typeof healthMonitor.lastCheck.responseTimeMs).toBe("number");
+          }
+          // error should only be present when success is false
+          if (!healthMonitor.lastCheck.success) {
+            expect(typeof healthMonitor.lastCheck.error).toBe("string");
+          }
+        }
+      }
     });
 
     it("should include telemetry dependency details", async () => {

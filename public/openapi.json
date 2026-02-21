@@ -996,7 +996,7 @@
           "access_token": {
             "type": "string",
             "description": "JWT access token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NzE2Mjc3NDksImlhdCI6MTc3MTYyNjg0OSwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vX3VzZXIiLCJleHAiOjE3NzE2NzkxMDIsImlhdCI6MTc3MTY3ODIwMiwiaXNzIjoiaHR0cHM6Ly9hcGkucHZoY29ycC5jb20iLCJhdWQiOiJwdmgtYXBpIiwia2V5IjoiZ2VuZXJhdGVkLWtleSJ9.signature"
           },
           "expires_in": {
             "type": "integer",
@@ -1060,13 +1060,13 @@
             "type": "string",
             "format": "date-time",
             "description": "Token issue timestamp (iat claim)",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.025Z"
           },
           "expiresAt": {
             "type": "string",
             "format": "date-time",
             "description": "Token expiration timestamp (exp claim)",
-            "example": "2026-02-20T22:49:09.913Z"
+            "example": "2026-02-21T13:05:02.026Z"
           },
           "expiresIn": {
             "type": "integer",
@@ -1102,7 +1102,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Health check timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "version": {
             "type": "string",
@@ -1157,22 +1157,14 @@
               "cache": {
                 "type": "object",
                 "required": [
-                  "status",
                   "type",
-                  "responseTime"
+                  "connection",
+                  "entries",
+                  "performance",
+                  "healthMonitor"
                 ],
-                "description": "Cache system health with server type auto-detection",
+                "description": "Cache system health grouped by concern",
                 "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "healthy",
-                      "unhealthy",
-                      "degraded"
-                    ],
-                    "description": "Cache system health status",
-                    "example": "healthy"
-                  },
                   "type": {
                     "type": "string",
                     "enum": [
@@ -1180,90 +1172,151 @@
                       "valkey",
                       "memory"
                     ],
-                    "description": "Cache backend type (memory for local, redis/valkey auto-detected for distributed)",
+                    "description": "Cache backend type (auto-detected for distributed)",
                     "example": "redis"
                   },
-                  "serverType": {
-                    "type": "string",
-                    "enum": [
-                      "redis",
-                      "valkey"
-                    ],
-                    "description": "Server type auto-detected via INFO command (only present for distributed cache)",
-                    "example": "redis"
-                  },
-                  "responseTime": {
-                    "type": "integer",
-                    "description": "Cache response time in milliseconds",
-                    "example": 2,
-                    "minimum": 0
-                  },
-                  "stats": {
+                  "connection": {
                     "type": "object",
-                    "description": "Cache statistics with separate primary and stale tier metrics (TTL: primary=5min, stale=30min)",
+                    "description": "Cache connection status",
+                    "required": [
+                      "connected",
+                      "responseTime"
+                    ],
+                    "properties": {
+                      "connected": {
+                        "type": "boolean",
+                        "description": "Whether cache is connected",
+                        "example": true
+                      },
+                      "responseTime": {
+                        "type": "string",
+                        "description": "Cache ping response time",
+                        "example": "0.4ms"
+                      }
+                    }
+                  },
+                  "entries": {
+                    "type": "object",
+                    "description": "Cache entry counts",
+                    "required": [
+                      "primary",
+                      "primaryActive",
+                      "stale",
+                      "staleCacheAvailable"
+                    ],
                     "properties": {
                       "primary": {
-                        "type": "object",
-                        "description": "Primary cache tier - active entries with 5-minute TTL (default)",
-                        "properties": {
-                          "entries": {
-                            "type": "integer",
-                            "description": "Total primary cache entries currently stored",
-                            "example": 5,
-                            "minimum": 0
-                          },
-                          "activeEntries": {
-                            "type": "integer",
-                            "description": "Primary entries with TTL > 0 (estimated from sample when large)",
-                            "example": 5,
-                            "minimum": 0
-                          }
-                        }
-                      },
-                      "stale": {
-                        "type": "object",
-                        "description": "Stale cache tier - fallback entries with 30-minute TTL for circuit breaker recovery",
-                        "properties": {
-                          "entries": {
-                            "type": "integer",
-                            "description": "Total stale cache entries available for circuit breaker fallback",
-                            "example": 3,
-                            "minimum": 0
-                          }
-                        }
-                      },
-                      "hitRate": {
-                        "type": "string",
-                        "description": "Cache hit rate as percentage string (combines all tiers)",
-                        "example": "81.82"
-                      },
-                      "averageLatencyMs": {
-                        "type": "number",
-                        "description": "Average cache operation latency in ms",
-                        "example": 1.5,
+                        "type": "integer",
+                        "description": "Total primary cache entries",
+                        "example": 5,
                         "minimum": 0
                       },
-                      "redisConnected": {
+                      "primaryActive": {
+                        "type": "integer",
+                        "description": "Primary entries with TTL > 0",
+                        "example": 5,
+                        "minimum": 0
+                      },
+                      "stale": {
+                        "type": "integer",
+                        "description": "Stale entries for circuit breaker fallback",
+                        "example": 11,
+                        "minimum": 0
+                      },
+                      "staleCacheAvailable": {
                         "type": "boolean",
-                        "description": "Redis/Valkey connection status (only for distributed cache)",
+                        "description": "Whether stale cache fallback is available",
                         "example": true
                       }
                     }
                   },
-                  "staleCache": {
+                  "performance": {
                     "type": "object",
-                    "description": "Stale cache fallback availability",
+                    "description": "Cache performance metrics",
+                    "required": [
+                      "hitRate",
+                      "avgLatencyMs"
+                    ],
                     "properties": {
-                      "available": {
+                      "hitRate": {
+                        "type": "string",
+                        "description": "Cache hit rate percentage",
+                        "example": "62.50%"
+                      },
+                      "avgLatencyMs": {
+                        "type": "number",
+                        "description": "Average cache operation latency (ms)",
+                        "example": 0.54,
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "healthMonitor": {
+                    "type": "object",
+                    "nullable": true,
+                    "description": "Health monitor state (null for memory cache)",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "healthy",
+                          "degraded",
+                          "unhealthy",
+                          "unknown"
+                        ],
+                        "description": "Health monitor status",
+                        "example": "healthy"
+                      },
+                      "isMonitoring": {
                         "type": "boolean",
-                        "description": "Whether stale cache data is available for circuit breaker fallback",
+                        "description": "Whether health monitor is active",
                         "example": true
                       },
-                      "responseTime": {
+                      "consecutiveSuccesses": {
                         "type": "integer",
-                        "description": "Stale cache check response time in milliseconds",
-                        "example": 1,
+                        "description": "Consecutive successful PING checks",
+                        "example": 47,
                         "minimum": 0
+                      },
+                      "consecutiveFailures": {
+                        "type": "integer",
+                        "description": "Consecutive failed PING checks",
+                        "example": 0,
+                        "minimum": 0
+                      },
+                      "lastStatusChange": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "When status last changed",
+                        "example": "2026-02-21T12:00:17.489Z"
+                      },
+                      "lastCheck": {
+                        "type": "object",
+                        "description": "Most recent health check",
+                        "properties": {
+                          "success": {
+                            "type": "boolean",
+                            "description": "Whether check succeeded",
+                            "example": true
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Check timestamp",
+                            "example": "2026-02-21T12:07:47.606Z"
+                          },
+                          "responseTimeMs": {
+                            "type": "number",
+                            "description": "Check response time (ms)",
+                            "example": 1,
+                            "minimum": 0
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "Error message (only when failed)",
+                            "example": "PING timeout after 500ms"
+                          }
+                        }
                       }
                     }
                   }
@@ -1357,7 +1410,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics health check timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "telemetry": {
             "$ref": "#/components/schemas/TelemetryStatus"
@@ -1405,7 +1458,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2026-02-20T22:33:54.913Z"
+                "example": "2026-02-21T12:49:47.026Z"
               }
             }
           },
@@ -1476,7 +1529,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Metrics collection timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "uptime": {
             "type": "integer",
@@ -1580,7 +1633,7 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Next attempt time when circuit is open",
-                  "example": "2026-02-20T22:34:39.913Z"
+                  "example": "2026-02-21T12:50:32.026Z"
                 }
               },
               "description": "Individual circuit breaker statistics and configuration"
@@ -1603,7 +1656,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Statistics retrieval timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "message": {
             "type": "string",
@@ -1642,7 +1695,7 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "Last successful export timestamp",
-                "example": "2026-02-20T22:33:54.913Z"
+                "example": "2026-02-21T12:49:47.026Z"
               }
             }
           },
@@ -1672,7 +1725,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "message": {
             "type": "string",
@@ -1740,13 +1793,13 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Session start timestamp",
-                  "example": "2026-02-20T22:34:09.913Z"
+                  "example": "2026-02-21T12:50:02.026Z"
                 },
                 "endTime": {
                   "type": "string",
                   "format": "date-time",
                   "description": "Session end timestamp (if completed)",
-                  "example": "2026-02-20T22:34:09.913Z"
+                  "example": "2026-02-21T12:50:02.026Z"
                 },
                 "status": {
                   "type": "string",
@@ -1803,7 +1856,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Report retrieval timestamp",
-            "example": "2026-02-20T22:34:09.913Z"
+            "example": "2026-02-21T12:50:02.026Z"
           },
           "reports": {
             "type": "array",
@@ -1838,7 +1891,7 @@
             "type": "string",
             "format": "date-time",
             "description": "Operation timestamp",
-            "example": "2026-02-20T22:34:09.912Z"
+            "example": "2026-02-21T12:50:02.024Z"
           },
           "message": {
             "type": "string",
@@ -1930,7 +1983,7 @@
             "type": "string",
             "format": "date-time",
             "description": "ISO 8601 timestamp of when the error occurred",
-            "example": "2026-02-20T22:34:09.912Z"
+            "example": "2026-02-21T12:50:02.024Z"
           },
           "extensions": {
             "type": "object",

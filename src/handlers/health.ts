@@ -109,6 +109,22 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     };
 
     let cacheStats: Awaited<ReturnType<typeof cacheService.getStats>> | null = null;
+
+    // Declare healthMonitorState outside try block so it's accessible in healthData
+    let healthMonitorState: {
+      status: string;
+      isMonitoring: boolean;
+      consecutiveSuccesses: number;
+      consecutiveFailures: number;
+      lastStatusChange: string;
+      lastCheck?: {
+        success: boolean;
+        timestamp: string;
+        responseTimeMs?: number;
+        error?: string;
+      };
+    } | null = null;
+
     try {
       const basicCacheHealth = await cacheHealthService.checkCacheHealth(cacheService);
       cacheHealth = { ...basicCacheHealth };
@@ -121,6 +137,39 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           component: "health",
           operation: "cache_stats",
           error: statsError instanceof Error ? statsError.message : "Unknown error",
+        });
+      }
+
+      // Get cache health monitor state for resilience diagnostics
+      try {
+        const resilienceStats = (
+          cacheService as import("../cache/cache-manager").UnifiedCacheManager
+        ).getResilienceStats?.();
+        if (resilienceStats?.health) {
+          const h = resilienceStats.health;
+          healthMonitorState = {
+            status: h.status,
+            isMonitoring: h.isMonitoring,
+            consecutiveSuccesses: h.consecutiveSuccesses,
+            consecutiveFailures: h.consecutiveFailures,
+            lastStatusChange: new Date(h.lastStatusChange).toISOString(),
+            ...(h.lastCheck && {
+              lastCheck: {
+                success: h.lastCheck.success,
+                timestamp: new Date(h.lastCheck.timestamp).toISOString(),
+                ...(h.lastCheck.responseTimeMs !== undefined && {
+                  responseTimeMs: Math.round(h.lastCheck.responseTimeMs * 100) / 100,
+                }),
+                ...(h.lastCheck.error && { error: h.lastCheck.error }),
+              },
+            }),
+          };
+        }
+      } catch (resilienceError) {
+        log("Failed to get cache resilience stats during health check", {
+          component: "health",
+          operation: "cache_resilience_stats",
+          error: resilienceError instanceof Error ? resilienceError.message : "Unknown error",
         });
       }
 
@@ -257,28 +306,22 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           },
         },
         cache: {
-          status: cacheHealth.status,
           type: cacheHealth.serverType || cacheHealth.type,
-          responseTime: cacheHealth.responseTime,
-          ...(cacheStats && {
-            stats: {
-              primary: {
-                entries: cacheStats.primary.entries,
-                activeEntries: cacheStats.primary.activeEntries,
-              },
-              stale: {
-                entries: cacheStats.stale.entries,
-              },
-              hitRate: cacheStats.hitRate,
-              averageLatencyMs: Math.round(cacheStats.averageLatencyMs * 100) / 100,
-              ...(cacheStats.redisConnected !== undefined && {
-                redisConnected: cacheStats.redisConnected,
-              }),
-            },
-          }),
-          ...(cacheHealth.staleCache && {
-            staleCache: cacheHealth.staleCache,
-          }),
+          connection: {
+            connected: cacheStats?.redisConnected ?? true,
+            responseTime: cacheHealth.responseTime,
+          },
+          entries: {
+            primary: cacheStats?.primary.entries ?? 0,
+            primaryActive: cacheStats?.primary.activeEntries ?? 0,
+            stale: cacheStats?.stale.entries ?? 0,
+            staleCacheAvailable: cacheHealth.staleCache?.available ?? false,
+          },
+          performance: {
+            hitRate: cacheStats ? `${cacheStats.hitRate}%` : "0%",
+            avgLatencyMs: cacheStats ? Math.round(cacheStats.averageLatencyMs * 100) / 100 : 0,
+          },
+          healthMonitor: healthMonitorState,
         },
         telemetry: {
           traces: {

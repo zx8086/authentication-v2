@@ -274,6 +274,8 @@ Returns service health with dependency status:
   "uptime": "1h",
   "version": "1.0.0",
   "environment": "production",
+  "highAvailability": false,
+  "circuitBreakerState": "closed",
   "dependencies": {
     "kong": {
       "status": "healthy",
@@ -282,16 +284,64 @@ Returns service health with dependency status:
       "responseTime": "45ms"
     },
     "telemetry": {
-      "status": "healthy",
-      "mode": "otlp",
-      "endpoints": {
-        "traces": "https://otel.example.com/v1/traces",
-        "metrics": "https://otel.example.com/v1/metrics"
+      "traces": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/traces",
+        "responseTime": "10ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 50,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
+      },
+      "metrics": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/metrics",
+        "responseTime": "8ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 100,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
+      },
+      "logs": {
+        "status": "healthy",
+        "endpoint": "https://otel.example.com/v1/logs",
+        "responseTime": "12ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 200,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       }
     }
   }
 }
 ```
+
+#### Telemetry Export Statistics
+
+Each telemetry type (traces, metrics, logs) includes per-type export statistics in the `exports` object:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `successRate` | String | Export success rate as percentage (e.g., "100%") |
+| `total` | Integer | Total export attempts |
+| `failures` | Integer | Failed exports |
+| `lastExportTime` | String/null | ISO-8601 timestamp of last export attempt |
+| `lastFailureTime` | String/null | ISO-8601 timestamp of last failure (null if no failures) |
+| `recentErrors` | Array | Recent error messages with timestamps (max 10 entries) |
+
+These statistics help diagnose telemetry export issues by showing success rates and recent errors per signal type.
 
 #### Telemetry Health Check - `/health/telemetry`
 ```bash
@@ -825,37 +875,45 @@ T+5min  EXPIRED                               auth_service_stale:consumer:abc (T
 T+30min EXPIRED                               EXPIRED
 ```
 
-**Health Endpoint Stats:**
+**Health Endpoint Cache Section:**
 
 ```bash
-curl http://localhost:3000/health | jq '.dependencies.cache.stats'
+curl http://localhost:3000/health | jq '.dependencies.cache'
 ```
 
 ```json
 {
-  "primary": {
-    "entries": 5,
-    "activeEntries": 5
+  "type": "redis",
+  "connection": {
+    "connected": true,
+    "responseTime": "0.4ms"
   },
-  "stale": {
-    "entries": 3
+  "entries": {
+    "primary": 5,
+    "primaryActive": 5,
+    "stale": 11,
+    "staleCacheAvailable": true
   },
-  "hitRate": "98.16",
-  "averageLatencyMs": 4.18,
-  "redisConnected": true
+  "performance": {
+    "hitRate": "62.50%",
+    "avgLatencyMs": 0.54
+  },
+  "healthMonitor": { ... }
 }
 ```
 
-**Stats Fields:**
+**Field Groups:**
 
-| Field | Description |
-|-------|-------------|
-| `primary.entries` | Total primary cache entries in Redis/Valkey |
-| `primary.activeEntries` | Entries with TTL > 0 (estimated for large sets) |
-| `stale.entries` | Stale entries available for circuit breaker fallback |
-| `hitRate` | Cache hit percentage (all tiers combined) |
-| `averageLatencyMs` | Average cache operation latency |
-| `redisConnected` | Connection status (distributed cache only) |
+| Group | Field | Description |
+|-------|-------|-------------|
+| `connection` | `connected` | Redis/Valkey connection status |
+| `connection` | `responseTime` | Ping response time |
+| `entries` | `primary` | Total primary cache entries |
+| `entries` | `primaryActive` | Entries with TTL > 0 |
+| `entries` | `stale` | Stale entries for circuit breaker fallback |
+| `entries` | `staleCacheAvailable` | Whether stale fallback is available |
+| `performance` | `hitRate` | Cache hit percentage |
+| `performance` | `avgLatencyMs` | Average operation latency |
 
 **Circuit Breaker Fallback:**
 
@@ -864,6 +922,56 @@ When Kong becomes unavailable and the circuit breaker opens:
 2. Service falls back to stale tier (`auth_service_stale:*`)
 3. Stale data served while circuit breaker recovers
 4. After recovery, primary cache repopulates from Kong
+
+#### Cache Health Monitor
+
+The health endpoint exposes a `healthMonitor` object for cache resilience diagnostics. This is useful for SRE troubleshooting when cache health issues occur.
+
+```bash
+curl http://localhost:3000/health | jq '.dependencies.cache.healthMonitor'
+```
+
+**Response (Distributed Cache - Redis/Valkey):**
+```json
+{
+  "status": "healthy",
+  "isMonitoring": true,
+  "consecutiveSuccesses": 47,
+  "consecutiveFailures": 0,
+  "lastStatusChange": "2026-02-21T12:00:17.489Z",
+  "lastCheck": {
+    "success": true,
+    "timestamp": "2026-02-21T12:07:47.606Z",
+    "responseTimeMs": 0.5
+  }
+}
+```
+
+**Response (Memory Cache):** `null` (no health monitor for in-memory cache)
+
+**Health Monitor Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `status` | Health status: `healthy`, `degraded`, `unhealthy`, or `unknown` |
+| `isMonitoring` | Whether the health monitor is actively running |
+| `consecutiveSuccesses` | Consecutive successful PING checks (threshold: 2 for healthy) |
+| `consecutiveFailures` | Consecutive failed PING checks (threshold: 3 for unhealthy) |
+| `lastStatusChange` | ISO timestamp when status last transitioned |
+| `lastCheck.success` | Whether the most recent PING check succeeded |
+| `lastCheck.timestamp` | ISO timestamp of the last check |
+| `lastCheck.responseTimeMs` | Response time of the last check |
+| `lastCheck.error` | Error message (only when `success: false`) |
+
+**Status Transitions:**
+
+| From | To | Trigger |
+|------|----|----|
+| `unknown` | `healthy` | 2 consecutive successes |
+| `healthy` | `degraded` | 1 failure |
+| `degraded` | `healthy` | 2 consecutive successes |
+| `degraded` | `unhealthy` | 3 total consecutive failures |
+| `unhealthy` | `degraded` | 1 success |
 
 #### Redis vs Valkey Detection
 

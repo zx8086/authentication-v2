@@ -80,4 +80,8 @@ export class SharedRedisBackend implements ICacheBackend {
   async getServerType(): Promise<"redis" | "valkey"> {
     return await this.cache.getServerType();
   }
+
+  getResilienceStats(): ReturnType<SharedRedisCache["getResilienceStats"]> {
+    return this.cache.getResilienceStats();
+  }
 }

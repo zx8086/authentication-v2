@@ -223,9 +223,9 @@ describe("Health Handler URL Validation", () => {
       const response = await handleHealthCheck(mockKong);
       const body = await response.json();
 
-      // Cache status should be included
+      // Cache should be included (status is in healthMonitor for distributed cache)
       expect(body.dependencies.cache).toBeDefined();
-      expect(body.dependencies.cache.status).toBeDefined();
+      expect(body.dependencies.cache.type).toBeDefined();
     });
 
     it("should report stale cache availability correctly", async () => {

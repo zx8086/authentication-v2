@@ -286,6 +286,7 @@ Host: auth-service.example.com
   "environment": "production",
   "uptime": "1h",
   "highAvailability": false,
+  "circuitBreakerState": "closed",
   "dependencies": {
     "kong": {
       "status": "healthy",
@@ -296,28 +297,62 @@ Host: auth-service.example.com
       }
     },
     "cache": {
-      "status": "healthy",
       "type": "memory",
-      "responseTime": "1ms",
-      "staleCache": {
-        "available": true
-      }
+      "connection": {
+        "connected": true,
+        "responseTime": "0.1ms"
+      },
+      "entries": {
+        "primary": 5,
+        "primaryActive": 5,
+        "stale": 3,
+        "staleCacheAvailable": true
+      },
+      "performance": {
+        "hitRate": "95.00%",
+        "avgLatencyMs": 0.1
+      },
+      "healthMonitor": null
     },
     "telemetry": {
       "traces": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/traces",
-        "responseTime": "10ms"
+        "responseTime": "10ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 50,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       },
       "metrics": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/metrics",
-        "responseTime": "8ms"
+        "responseTime": "8ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 100,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       },
       "logs": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/logs",
-        "responseTime": "12ms"
+        "responseTime": "12ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 200,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       }
     }
   },
@@ -334,6 +369,7 @@ Host: auth-service.example.com
   "environment": "production",
   "uptime": "1h",
   "highAvailability": true,
+  "circuitBreakerState": "open",
   "dependencies": {
     "kong": {
       "status": "unhealthy",
@@ -345,42 +381,73 @@ Host: auth-service.example.com
       }
     },
     "cache": {
-      "status": "healthy",
       "type": "redis",
-      "serverType": "redis",
-      "responseTime": "2ms",
-      "stats": {
-        "primary": {
-          "entries": 5,
-          "activeEntries": 5
-        },
-        "stale": {
-          "entries": 3
-        },
-        "hitRate": "98.16",
-        "averageLatencyMs": 4.18,
-        "redisConnected": true
+      "connection": {
+        "connected": true,
+        "responseTime": "0.4ms"
       },
-      "staleCache": {
-        "available": true,
-        "responseTime": "1ms"
+      "entries": {
+        "primary": 5,
+        "primaryActive": 5,
+        "stale": 11,
+        "staleCacheAvailable": true
+      },
+      "performance": {
+        "hitRate": "98.16%",
+        "avgLatencyMs": 0.54
+      },
+      "healthMonitor": {
+        "status": "healthy",
+        "isMonitoring": true,
+        "consecutiveSuccesses": 47,
+        "consecutiveFailures": 0,
+        "lastStatusChange": "2026-02-21T12:00:17.489Z",
+        "lastCheck": {
+          "success": true,
+          "timestamp": "2026-02-21T12:07:47.606Z",
+          "responseTimeMs": 1
+        }
       }
     },
     "telemetry": {
       "traces": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/traces",
-        "responseTime": "10ms"
+        "responseTime": "10ms",
+        "exports": {
+          "successRate": "98%",
+          "total": 50,
+          "failures": 1,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": "2025-01-15T11:55:00.000Z",
+          "recentErrors": ["2025-01-15T11:55:00.000Z: Connection timeout"]
+        }
       },
       "metrics": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/metrics",
-        "responseTime": "8ms"
+        "responseTime": "8ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 100,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       },
       "logs": {
         "status": "healthy",
         "endpoint": "https://otel.example.com/v1/logs",
-        "responseTime": "12ms"
+        "responseTime": "12ms",
+        "exports": {
+          "successRate": "100%",
+          "total": 200,
+          "failures": 0,
+          "lastExportTime": "2025-01-15T11:59:50.000Z",
+          "lastFailureTime": null,
+          "recentErrors": []
+        }
       }
     }
   },
@@ -397,6 +464,7 @@ Host: auth-service.example.com
 | `environment` | String | Current NODE_ENV |
 | `uptime` | String | Process uptime in human-readable format (e.g., "45s", "2m 5s", "1h 2m", "1d 1h 2m") |
 | `highAvailability` | Boolean | Whether HA mode is enabled (Redis/Valkey) |
+| `circuitBreakerState` | String | Circuit breaker state: "closed", "open", or "half-open" |
 | `dependencies.kong` | Object | Kong gateway health status |
 | `dependencies.cache` | Object | Cache system health (memory, redis, or valkey) |
 | `dependencies.cache.type` | String | Cache backend: "memory", "redis", or "valkey" |
@@ -407,6 +475,13 @@ Host: auth-service.example.com
 | `dependencies.cache.stats.stale` | Object | Stale cache tier metrics (TTL: 30min default) |
 | `dependencies.cache.stats.stale.entries` | Integer | Stale entries for circuit breaker fallback |
 | `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
+| `dependencies.telemetry.*.exports` | Object | Export statistics for this telemetry type |
+| `dependencies.telemetry.*.exports.successRate` | String | Export success rate as percentage (e.g., "100%") |
+| `dependencies.telemetry.*.exports.total` | Integer | Total export attempts |
+| `dependencies.telemetry.*.exports.failures` | Integer | Failed export count |
+| `dependencies.telemetry.*.exports.lastExportTime` | String/null | ISO-8601 timestamp of last export attempt |
+| `dependencies.telemetry.*.exports.lastFailureTime` | String/null | ISO-8601 timestamp of last failed export |
+| `dependencies.telemetry.*.exports.recentErrors` | Array | Recent error messages (max 10 entries) |
 | `requestId` | String | UUID for request tracing |
 
 **OTLP Connectivity Validation**

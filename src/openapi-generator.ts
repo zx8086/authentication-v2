@@ -920,107 +920,152 @@ class OpenAPIGenerator {
               }),
               cache: Object.freeze({
                 type: "object",
-                required: Object.freeze(["status", "type", "responseTime"]),
-                description: "Cache system health with server type auto-detection",
+                required: Object.freeze([
+                  "type",
+                  "connection",
+                  "entries",
+                  "performance",
+                  "healthMonitor",
+                ]),
+                description: "Cache system health grouped by concern",
                 properties: Object.freeze({
-                  status: Object.freeze({
-                    type: "string",
-                    enum: Object.freeze(["healthy", "unhealthy", "degraded"]),
-                    description: "Cache system health status",
-                    example: "healthy",
-                  }),
                   type: Object.freeze({
                     type: "string",
                     enum: Object.freeze(["redis", "valkey", "memory"]),
-                    description:
-                      "Cache backend type (memory for local, redis/valkey auto-detected for distributed)",
+                    description: "Cache backend type (auto-detected for distributed)",
                     example: "redis",
                   }),
-                  serverType: Object.freeze({
-                    type: "string",
-                    enum: Object.freeze(["redis", "valkey"]),
-                    description:
-                      "Server type auto-detected via INFO command (only present for distributed cache)",
-                    example: "redis",
-                  }),
-                  responseTime: Object.freeze({
-                    type: "integer",
-                    description: "Cache response time in milliseconds",
-                    example: 2,
-                    minimum: 0,
-                  }),
-                  stats: Object.freeze({
+                  connection: Object.freeze({
                     type: "object",
-                    description:
-                      "Cache statistics with separate primary and stale tier metrics (TTL: primary=5min, stale=30min)",
+                    description: "Cache connection status",
+                    required: Object.freeze(["connected", "responseTime"]),
+                    properties: Object.freeze({
+                      connected: Object.freeze({
+                        type: "boolean",
+                        description: "Whether cache is connected",
+                        example: true,
+                      }),
+                      responseTime: Object.freeze({
+                        type: "string",
+                        description: "Cache ping response time",
+                        example: "0.4ms",
+                      }),
+                    }),
+                  }),
+                  entries: Object.freeze({
+                    type: "object",
+                    description: "Cache entry counts",
+                    required: Object.freeze([
+                      "primary",
+                      "primaryActive",
+                      "stale",
+                      "staleCacheAvailable",
+                    ]),
                     properties: Object.freeze({
                       primary: Object.freeze({
-                        type: "object",
-                        description:
-                          "Primary cache tier - active entries with 5-minute TTL (default)",
-                        properties: Object.freeze({
-                          entries: Object.freeze({
-                            type: "integer",
-                            description: "Total primary cache entries currently stored",
-                            example: 5,
-                            minimum: 0,
-                          }),
-                          activeEntries: Object.freeze({
-                            type: "integer",
-                            description:
-                              "Primary entries with TTL > 0 (estimated from sample when large)",
-                            example: 5,
-                            minimum: 0,
-                          }),
-                        }),
-                      }),
-                      stale: Object.freeze({
-                        type: "object",
-                        description:
-                          "Stale cache tier - fallback entries with 30-minute TTL for circuit breaker recovery",
-                        properties: Object.freeze({
-                          entries: Object.freeze({
-                            type: "integer",
-                            description:
-                              "Total stale cache entries available for circuit breaker fallback",
-                            example: 3,
-                            minimum: 0,
-                          }),
-                        }),
-                      }),
-                      hitRate: Object.freeze({
-                        type: "string",
-                        description: "Cache hit rate as percentage string (combines all tiers)",
-                        example: "81.82",
-                      }),
-                      averageLatencyMs: Object.freeze({
-                        type: "number",
-                        description: "Average cache operation latency in ms",
-                        example: 1.5,
+                        type: "integer",
+                        description: "Total primary cache entries",
+                        example: 5,
                         minimum: 0,
                       }),
-                      redisConnected: Object.freeze({
+                      primaryActive: Object.freeze({
+                        type: "integer",
+                        description: "Primary entries with TTL > 0",
+                        example: 5,
+                        minimum: 0,
+                      }),
+                      stale: Object.freeze({
+                        type: "integer",
+                        description: "Stale entries for circuit breaker fallback",
+                        example: 11,
+                        minimum: 0,
+                      }),
+                      staleCacheAvailable: Object.freeze({
                         type: "boolean",
-                        description: "Redis/Valkey connection status (only for distributed cache)",
+                        description: "Whether stale cache fallback is available",
                         example: true,
                       }),
                     }),
                   }),
-                  staleCache: Object.freeze({
+                  performance: Object.freeze({
                     type: "object",
-                    description: "Stale cache fallback availability",
+                    description: "Cache performance metrics",
+                    required: Object.freeze(["hitRate", "avgLatencyMs"]),
                     properties: Object.freeze({
-                      available: Object.freeze({
+                      hitRate: Object.freeze({
+                        type: "string",
+                        description: "Cache hit rate percentage",
+                        example: "62.50%",
+                      }),
+                      avgLatencyMs: Object.freeze({
+                        type: "number",
+                        description: "Average cache operation latency (ms)",
+                        example: 0.54,
+                        minimum: 0,
+                      }),
+                    }),
+                  }),
+                  healthMonitor: Object.freeze({
+                    type: "object",
+                    nullable: true,
+                    description: "Health monitor state (null for memory cache)",
+                    properties: Object.freeze({
+                      status: Object.freeze({
+                        type: "string",
+                        enum: Object.freeze(["healthy", "degraded", "unhealthy", "unknown"]),
+                        description: "Health monitor status",
+                        example: "healthy",
+                      }),
+                      isMonitoring: Object.freeze({
                         type: "boolean",
-                        description:
-                          "Whether stale cache data is available for circuit breaker fallback",
+                        description: "Whether health monitor is active",
                         example: true,
                       }),
-                      responseTime: Object.freeze({
+                      consecutiveSuccesses: Object.freeze({
                         type: "integer",
-                        description: "Stale cache check response time in milliseconds",
-                        example: 1,
+                        description: "Consecutive successful PING checks",
+                        example: 47,
                         minimum: 0,
+                      }),
+                      consecutiveFailures: Object.freeze({
+                        type: "integer",
+                        description: "Consecutive failed PING checks",
+                        example: 0,
+                        minimum: 0,
+                      }),
+                      lastStatusChange: Object.freeze({
+                        type: "string",
+                        format: "date-time",
+                        description: "When status last changed",
+                        example: "2026-02-21T12:00:17.489Z",
+                      }),
+                      lastCheck: Object.freeze({
+                        type: "object",
+                        description: "Most recent health check",
+                        properties: Object.freeze({
+                          success: Object.freeze({
+                            type: "boolean",
+                            description: "Whether check succeeded",
+                            example: true,
+                          }),
+                          timestamp: Object.freeze({
+                            type: "string",
+                            format: "date-time",
+                            description: "Check timestamp",
+                            example: "2026-02-21T12:07:47.606Z",
+                          }),
+                          responseTimeMs: Object.freeze({
+                            type: "number",
+                            description: "Check response time (ms)",
+                            example: 1,
+                            minimum: 0,
+                          }),
+                          error: Object.freeze({
+                            type: "string",
+                            description: "Error message (only when failed)",
+                            example: "PING timeout after 500ms",
+                          }),
+                        }),
                       }),
                     }),
                   }),
