@@ -223,12 +223,6 @@ class TestConsumerSetup {
     }
   }
 
-  private generateSecureSecret(): string {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-
   private async deleteConsumer(consumer: TestConsumer): Promise<boolean> {
     try {
       console.log(`Deleting consumer: ${consumer.id}`);
