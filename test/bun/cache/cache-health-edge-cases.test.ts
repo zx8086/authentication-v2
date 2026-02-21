@@ -33,9 +33,7 @@ describe("CacheHealthService Edge Cases", () => {
       // Create a mock cache with getClientForHealthCheck that returns invalid PING
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -65,9 +63,7 @@ describe("CacheHealthService Edge Cases", () => {
       // Create a mock cache with slow PING response
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -99,9 +95,7 @@ describe("CacheHealthService Edge Cases", () => {
       // Create a mock cache without getClientForHealthCheck
       const mockRedisCache: IKongCacheService = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -124,9 +118,7 @@ describe("CacheHealthService Edge Cases", () => {
       // Create a mock cache with error-throwing PING
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -194,9 +186,7 @@ describe("CacheHealthService Edge Cases", () => {
 
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -225,9 +215,7 @@ describe("CacheHealthService Edge Cases", () => {
 
       const mockMemoryCache: IKongCacheService = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -246,9 +234,7 @@ describe("CacheHealthService Edge Cases", () => {
 
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),
@@ -278,9 +264,7 @@ describe("CacheHealthService Edge Cases", () => {
 
       const mockRedisCache: any = {
         getConsumerSecret: async () => null,
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         setConsumerSecret: async () => {},
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock function intentionally empty
         clearConsumerSecret: async () => {},
         isHealthy: async () => true,
         getStats: async () => ({ size: 0, hits: 0, misses: 0 }),

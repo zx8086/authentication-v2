@@ -20,13 +20,13 @@ describe("Cache Health Monitor", () => {
   describe("CacheHealthMonitor", () => {
     let monitor: CacheHealthMonitor;
     let mockPingFn: jest.Mock;
-    let mockOnUnhealthy: jest.Mock;
-    let mockOnHealthy: jest.Mock;
+    let _mockOnUnhealthy: jest.Mock;
+    let _mockOnHealthy: jest.Mock;
 
     beforeEach(() => {
       mockPingFn = jest.fn().mockResolvedValue(undefined);
-      mockOnUnhealthy = jest.fn();
-      mockOnHealthy = jest.fn();
+      _mockOnUnhealthy = jest.fn();
+      _mockOnHealthy = jest.fn();
     });
 
     afterEach(() => {

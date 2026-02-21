@@ -78,6 +78,24 @@ LABEL org.opencontainers.image.base.name="dhi.io/static:20230311" \
     security.dhi.cve.sla="7-days"
 ```
 
+## Build Metadata
+
+All Docker image metadata is automatically extracted from `package.json` during build. This ensures a single source of truth for service information.
+
+| Build Argument | Source | Example |
+|----------------|--------|---------|
+| `SERVICE_NAME` | `package.json` → `name` | `authentication-service` |
+| `SERVICE_VERSION` | `package.json` → `version` | `2.6.4` |
+| `SERVICE_DESCRIPTION` | `package.json` → `description` | `High-performance JWT...` |
+| `SERVICE_AUTHOR` | `package.json` → `author` | `Simon Owusu` |
+| `SERVICE_LICENSE` | `package.json` → `license` | `UNLICENSED` |
+| `BUILD_DATE` | Generated at build time | `2025-02-21T10:30:00Z` |
+| `VCS_REF` | `git rev-parse --short HEAD` | `f5efc39` |
+
+The `scripts/docker-build.sh` script extracts these values and passes them as `--build-arg` to Docker. The Dockerfile has no hardcoded defaults - all metadata flows from `package.json`.
+
+**To update service metadata**: Edit `package.json` and rebuild. No Dockerfile changes needed.
+
 ## Build Commands
 
 ### Local Development

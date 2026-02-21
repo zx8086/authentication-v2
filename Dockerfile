@@ -105,14 +105,14 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/local/bin/bun", "src/index.ts"]
 
-# Build metadata from package.json
+# Build metadata from package.json (all values passed via --build-arg from docker-build.sh)
 ARG BUILD_DATE
 ARG VCS_REF
-ARG SERVICE_NAME="authentication-service"
-ARG SERVICE_VERSION="2.5.0"
-ARG SERVICE_DESCRIPTION="High-performance JWT authentication service built with Bun"
-ARG SERVICE_AUTHOR="Simon Owusu"
-ARG SERVICE_LICENSE="UNLICENSED"
+ARG SERVICE_NAME
+ARG SERVICE_VERSION
+ARG SERVICE_DESCRIPTION
+ARG SERVICE_AUTHOR
+ARG SERVICE_LICENSE
 
 LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
     org.opencontainers.image.description="${SERVICE_DESCRIPTION}" \

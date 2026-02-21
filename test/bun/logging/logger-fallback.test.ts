@@ -15,11 +15,8 @@ describe("Logger Fallback Behavior", () => {
     originalConsoleWarn = console.warn;
     originalConsoleError = console.error;
 
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleLogSpy = spyOn(console, "log").mockImplementation(() => {});
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleWarnSpy = spyOn(console, "warn").mockImplementation(() => {});
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
     consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
   });
 

@@ -19,18 +19,12 @@ describe("SharedRedisCache Error Handling", () => {
     });
 
     mockClient = {
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       connect: mock(async () => {}),
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       send: mock(async () => {}),
       get: mock(async () => null),
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       set: mock(async () => {}),
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       expire: mock(async () => {}),
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       del: mock(async () => {}),
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation
       close: mock(async () => {}),
     };
 
@@ -48,7 +42,6 @@ describe("SharedRedisCache Error Handling", () => {
   afterEach(async () => {
     try {
       await cache.disconnect();
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Intentionally ignoring disconnect errors in cleanup
     } catch {}
   });
 
@@ -132,7 +125,6 @@ describe("SharedRedisCache Error Handling", () => {
     });
 
     it("should handle Redis expire operation failure during set", async () => {
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
       mockClient.set.mockImplementation(async () => {});
       mockClient.expire.mockImplementation(async () => {
         throw new Error("Expire command failed");
@@ -283,7 +275,6 @@ describe("SharedRedisCache Error Handling", () => {
     });
 
     it("should handle stale cache expire failure", async () => {
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: Mock implementation intentionally empty
       mockClient.set.mockImplementation(async () => {});
       mockClient.expire.mockImplementation(async (key: string) => {
         if (key.includes("stale")) {
