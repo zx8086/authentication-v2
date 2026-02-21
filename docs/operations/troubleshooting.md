@@ -140,6 +140,84 @@ curl -s "http://localhost:3000/metrics?view=full" | jq '.circuitBreaker.failureC
 
 ---
 
+### 3.1 3-Layer Cache Fallback (HA Mode)
+
+When circuit breaker is open, the service uses a 3-layer fallback chain:
+
+**Fallback Chain**:
+```
+Redis Primary (miss) -> Redis Stale -> In-Memory Stale -> AUTH_005 error
+```
+
+**Diagnosis**:
+```bash
+# Check cache health with new grouped structure
+curl -s "http://localhost:3000/health" | jq '.dependencies.cache'
+
+# Check cache tiers
+curl -s "http://localhost:3000/health" | jq '{
+  connection: .dependencies.cache.connection,
+  entries: .dependencies.cache.entries,
+  healthMonitor: .dependencies.cache.healthMonitor
+}'
+```
+
+**Cache Health Response Structure**:
+```json
+{
+  "type": "redis",
+  "connection": {
+    "connected": true,
+    "responseTime": "0.4ms"
+  },
+  "entries": {
+    "primary": 5,
+    "primaryActive": 5,
+    "stale": 11,
+    "staleCacheAvailable": true
+  },
+  "performance": {
+    "hitRate": "62.50%",
+    "avgLatencyMs": 0.54
+  },
+  "healthMonitor": {
+    "status": "healthy",
+    "isMonitoring": true,
+    "consecutiveSuccesses": 47,
+    "consecutiveFailures": 0
+  }
+}
+```
+
+**Tier Status Interpretation**:
+
+| Field | Meaning | Action if Low/False |
+|-------|---------|---------------------|
+| `entries.primary` | Active cache entries | Check Kong connectivity |
+| `entries.stale` | Fallback entries | Extend `STALE_DATA_TOLERANCE_MINUTES` |
+| `entries.staleCacheAvailable` | Stale tier ready | Wait for primary entries to expire |
+| `healthMonitor.consecutiveFailures` | Health check failures | Investigate Redis connectivity |
+
+**In-Memory Stale Cache (Last Resort)**:
+
+When Redis is completely unavailable, in-memory stale cache serves as last resort:
+
+```bash
+# Check in-memory cache configuration
+echo "CACHE_MAX_MEMORY_ENTRIES=${CACHE_MAX_MEMORY_ENTRIES:-1000}"
+
+# Monitor in-memory fallback usage in logs
+grep "in_memory_ha_fallback" logs.json
+grep "in_memory_stale_fallback" logs.json
+```
+
+**When All Cache Tiers Fail**:
+- Service returns `AUTH_005` error
+- Check `staleCacheAvailable: false` indicates no fallback data
+- Resolution: Wait for Kong to recover and populate cache
+
+---
+
 ### 4. High Memory Usage
 
 **Symptoms**:

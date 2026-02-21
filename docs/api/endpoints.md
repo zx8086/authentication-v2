@@ -468,12 +468,18 @@ Host: auth-service.example.com
 | `dependencies.kong` | Object | Kong gateway health status |
 | `dependencies.cache` | Object | Cache system health (memory, redis, or valkey) |
 | `dependencies.cache.type` | String | Cache backend: "memory", "redis", or "valkey" |
-| `dependencies.cache.serverType` | String | Auto-detected server type via INFO command (redis/valkey only) |
-| `dependencies.cache.stats.primary` | Object | Primary cache tier metrics (TTL: 5min default) |
-| `dependencies.cache.stats.primary.entries` | Integer | Total primary cache entries |
-| `dependencies.cache.stats.primary.activeEntries` | Integer | Primary entries with TTL > 0 |
-| `dependencies.cache.stats.stale` | Object | Stale cache tier metrics (TTL: 30min default) |
-| `dependencies.cache.stats.stale.entries` | Integer | Stale entries for circuit breaker fallback |
+| `dependencies.cache.connection` | Object | Connection status and response time |
+| `dependencies.cache.connection.connected` | Boolean | Whether cache backend is connected |
+| `dependencies.cache.connection.responseTime` | String | Ping response time (e.g., "0.4ms") |
+| `dependencies.cache.entries` | Object | Cache entry counts by tier |
+| `dependencies.cache.entries.primary` | Integer | Total primary cache entries |
+| `dependencies.cache.entries.primaryActive` | Integer | Primary entries with TTL > 0 |
+| `dependencies.cache.entries.stale` | Integer | Stale entries for circuit breaker fallback |
+| `dependencies.cache.entries.staleCacheAvailable` | Boolean | Whether stale fallback is available |
+| `dependencies.cache.performance` | Object | Cache performance metrics |
+| `dependencies.cache.performance.hitRate` | String | Cache hit rate as percentage (e.g., "95.00%") |
+| `dependencies.cache.performance.avgLatencyMs` | Number | Average operation latency in milliseconds |
+| `dependencies.cache.healthMonitor` | Object/null | Health monitor status (null for memory cache) |
 | `dependencies.telemetry` | Object | OTLP endpoint health per signal type |
 | `dependencies.telemetry.*.exports` | Object | Export statistics for this telemetry type |
 | `dependencies.telemetry.*.exports.successRate` | String | Export success rate as percentage (e.g., "100%") |

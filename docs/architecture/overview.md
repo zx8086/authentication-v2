@@ -173,14 +173,79 @@ REDIS_URL=redis://localhost:6379
 STALE_DATA_TOLERANCE_MINUTES=120  # 2-hour fallback window
 ```
 
-### Fallback Chain
+### 3-Layer Cache Resilience (HA Mode)
+
+The service implements a 3-layer fallback chain to maximize availability during Redis failures:
+
+```
+Request arrives for consumer secret
+          |
+          v
+    +-------------------+
+    |  Redis Primary    |  <-- Layer 1: Active cache with TTL
+    |  (TTL: 300s)      |
+    +-------------------+
+          |
+          | (miss or error)
+          v
+    +-------------------+
+    |  Redis Stale      |  <-- Layer 2: Expired entries, kept for tolerance window
+    |  (tolerance: 30m) |
+    +-------------------+
+          |
+          | (miss or Redis unavailable)
+          v
+    +-------------------+
+    |  In-Memory Stale  |  <-- Layer 3: Last-resort LRU cache per instance
+    |  (max: 1000)      |
+    +-------------------+
+          |
+          | (miss)
+          v
+    Return null (AUTH_005)
+```
+
+### Fallback Chain by Mode
 
 | Mode | Fallback Chain |
 |------|----------------|
 | **Non-HA** | Local Memory Cache -> In-Memory Stale -> Return null |
 | **HA** | Redis Primary -> Redis Stale -> In-Memory Stale (last resort) -> Return null |
 
-In HA mode, each instance lazily populates an in-memory cache on successful Redis reads. When Redis is completely unavailable, this serves as a last-resort fallback.
+### Cache Tier Behaviors
+
+| Tier | Source | TTL/Retention | Eviction | Use Case |
+|------|--------|---------------|----------|----------|
+| Redis Primary | Kong API lookups | `CACHING_TTL_SECONDS` (300s default) | TTL expiration | Normal operation |
+| Redis Stale | Expired primary entries | `STALE_DATA_TOLERANCE_MINUTES` (30m default) | Tolerance window | Redis healthy, primary miss |
+| In-Memory Stale | Successful Redis reads | Lazy populated | LRU (`CACHE_MAX_MEMORY_ENTRIES`, 1000 default) | Redis unavailable |
+
+### Lazy Population of In-Memory Cache
+
+In HA mode, each instance lazily populates an in-memory cache on successful Redis reads:
+
+1. **On successful Redis read**: Entry is copied to in-memory cache
+2. **When Redis becomes unavailable**: In-memory cache serves as last resort
+3. **LRU eviction**: When max entries exceeded, oldest entries are evicted
+4. **Instance-specific**: Each service instance has its own in-memory cache
+
+```bash
+# Configuration
+CACHE_MAX_MEMORY_ENTRIES=1000  # Max entries before LRU eviction
+```
+
+### Circuit Breaker States
+
+| State | Behavior | Cache Access |
+|-------|----------|--------------|
+| **Closed** | Normal operation | Redis Primary |
+| **Half-Open** | Testing recovery | Attempt Redis, fall back to stale |
+| **Open** | Redis unavailable | Stale tiers only (Redis Stale -> In-Memory Stale) |
+
+When circuit is open, the service walks the stale chain:
+1. Check Redis stale cache (if Redis connection available but primary miss)
+2. Check in-memory stale cache (if Redis completely unavailable)
+3. Return null and AUTH_005 error if no cached data found
 
 ---
 

@@ -167,9 +167,25 @@ bun run docker:dhi:security-full
 # Validate Dockerfile security (12/12)
 ./scripts/validate-dockerfile-security.sh Dockerfile
 
-# Docker Scout health score
+# Docker Scout health score for built images
 docker scout quickview authentication-service:latest --org <YOUR_ORG>
 ```
+
+### DHI Base Image Verification
+
+For DHI base images (like `dhi.io/static:20230311`), use `sbom` instead of `quickview`:
+
+```bash
+# Verify DHI base image SBOM attestation
+# Note: 'quickview' fails on base images with "image has no base image" error
+# because DHI images ARE base images - use 'sbom' to verify attestation
+docker scout sbom dhi.io/static:20230311 --org <YOUR_ORG> --output dhi-base-sbom.json
+
+# Verify DHI base image has zero HIGH/CRITICAL CVEs
+docker scout cves dhi.io/static:20230311 --org <YOUR_ORG> --only-severity critical,high
+```
+
+The CI/CD workflow performs these checks automatically before every build.
 
 ---
 

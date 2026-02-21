@@ -985,16 +985,32 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
 **Response (Redis):**
 ```json
 {
-  "status": "healthy",
   "type": "redis",
-  "serverType": "redis",
-  "responseTime": "2ms",
-  "stats": {
-    "primary": { "entries": 5, "activeEntries": 5 },
-    "stale": { "entries": 3 },
-    "hitRate": "98.16",
-    "averageLatencyMs": 4.18,
-    "redisConnected": true
+  "connection": {
+    "connected": true,
+    "responseTime": "0.4ms"
+  },
+  "entries": {
+    "primary": 5,
+    "primaryActive": 5,
+    "stale": 11,
+    "staleCacheAvailable": true
+  },
+  "performance": {
+    "hitRate": "62.50%",
+    "avgLatencyMs": 0.54
+  },
+  "healthMonitor": {
+    "status": "healthy",
+    "isMonitoring": true,
+    "consecutiveSuccesses": 47,
+    "consecutiveFailures": 0,
+    "lastStatusChange": "2026-02-21T12:00:17.489Z",
+    "lastCheck": {
+      "success": true,
+      "timestamp": "2026-02-21T12:07:47.606Z",
+      "responseTimeMs": 0.5
+    }
   }
 }
 ```
@@ -1002,16 +1018,32 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
 **Response (Valkey):**
 ```json
 {
-  "status": "healthy",
-  "type": "redis",
-  "serverType": "valkey",
-  "responseTime": "2ms",
-  "stats": {
-    "primary": { "entries": 5, "activeEntries": 5 },
-    "stale": { "entries": 3 },
-    "hitRate": "98.16",
-    "averageLatencyMs": 4.18,
-    "redisConnected": true
+  "type": "valkey",
+  "connection": {
+    "connected": true,
+    "responseTime": "0.5ms"
+  },
+  "entries": {
+    "primary": 5,
+    "primaryActive": 5,
+    "stale": 8,
+    "staleCacheAvailable": true
+  },
+  "performance": {
+    "hitRate": "75.00%",
+    "avgLatencyMs": 0.48
+  },
+  "healthMonitor": {
+    "status": "healthy",
+    "isMonitoring": true,
+    "consecutiveSuccesses": 32,
+    "consecutiveFailures": 0,
+    "lastStatusChange": "2026-02-21T12:00:17.489Z",
+    "lastCheck": {
+      "success": true,
+      "timestamp": "2026-02-21T12:07:47.606Z",
+      "responseTimeMs": 0.5
+    }
   }
 }
 ```
@@ -1019,16 +1051,22 @@ curl http://localhost:3000/health | jq '.dependencies.cache'
 **Response (Memory Cache):**
 ```json
 {
-  "status": "healthy",
   "type": "memory",
-  "responseTime": "1ms",
-  "stats": {
-    "primary": { "entries": 10, "activeEntries": 10 },
-    "stale": { "entries": 10 },
-    "hitRate": "95.00",
-    "averageLatencyMs": 0.1,
-    "memoryUsageMB": 1
-  }
+  "connection": {
+    "connected": true,
+    "responseTime": "0.1ms"
+  },
+  "entries": {
+    "primary": 10,
+    "primaryActive": 10,
+    "stale": 10,
+    "staleCacheAvailable": true
+  },
+  "performance": {
+    "hitRate": "95.00%",
+    "avgLatencyMs": 0.1
+  },
+  "healthMonitor": null
 }
 ```
 

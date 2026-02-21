@@ -6,8 +6,8 @@ This document consolidates all testing documentation for the authentication serv
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Count** | 2931 tests (100% pass rate) |
-| **Bun Unit/Integration Tests** | 2931 tests across 104 files |
+| **Total Test Count** | 2954 tests (100% pass rate) |
+| **Bun Unit/Integration Tests** | 2954 tests across 114 files |
 | **Chaos Engineering Tests** | 57 tests across 4 suites |
 | **Playwright E2E Tests** | 58 tests across 4 files |
 | **Mutation Score** | 100% (all mutants killed) |
