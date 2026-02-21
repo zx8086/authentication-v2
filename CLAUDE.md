@@ -45,7 +45,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Testing | [testing.md](docs/development/testing.md) | Complete testing guide (2954 tests, mutation testing) |
 | Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
 | Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |
-| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability and memory monitoring |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry traces/metrics/logs, 65 instruments, tracer API |
 | SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Runbook, error codes, and FAQ |
 

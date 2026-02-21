@@ -4,6 +4,88 @@
 
 The service implements cost-optimized observability using vendor-neutral OpenTelemetry standards, compatible with Elastic APM, Datadog, New Relic, and other OTLP-compliant platforms. Recent improvements include consolidated metrics endpoints and reduced telemetry overhead.
 
+### Telemetry Architecture
+
+The telemetry system consists of three pillars (traces, metrics, logs) with supporting infrastructure for resilience and cardinality management.
+
+```
+src/telemetry/
+├── instrumentation.ts      # NodeSDK initialization, exporters, processors
+├── tracer.ts               # Custom span creation API
+├── winston-logger.ts       # Structured logging with OTLP transport
+├── metrics.ts              # Legacy metrics entry point
+├── metrics/                # Modular metrics system
+│   ├── index.ts            # Public API exports
+│   ├── initialization.ts   # Meter and instrument creation
+│   ├── instruments.ts      # 65 metric instrument definitions
+│   ├── types.ts            # TypeScript attribute types
+│   ├── http-metrics.ts     # HTTP request/response metrics
+│   ├── auth-metrics.ts     # JWT and authentication metrics
+│   ├── kong-metrics.ts     # Kong Admin API metrics
+│   ├── redis-metrics.ts    # Redis/Valkey cache metrics
+│   ├── cache-metrics.ts    # Cache tier metrics
+│   ├── process-metrics.ts  # Memory, CPU, GC metrics
+│   ├── circuit-breaker-metrics.ts
+│   ├── api-version-metrics.ts
+│   ├── consumer-metrics.ts
+│   ├── security-metrics.ts
+│   ├── error-metrics.ts
+│   └── telemetry-metrics.ts
+├── redis-instrumentation.ts    # Redis span creation
+├── cardinality-guard.ts        # Metric cardinality protection
+├── consumer-volume.ts          # Consumer traffic classification
+├── telemetry-circuit-breaker.ts # Per-signal circuit breakers
+├── telemetry-health-monitor.ts  # Export health tracking
+├── export-stats-tracker.ts      # Export success/failure stats
+├── gc-metrics.ts               # Garbage collection monitoring
+├── sla-monitor.ts              # SLA violation detection
+├── profiling-metrics.ts        # Profiling integration
+└── lifecycle-logger.ts         # Startup/shutdown logging
+```
+
+**Initialization Flow:**
+
+```typescript
+// src/telemetry/instrumentation.ts:61-221
+async function initializeTelemetry(): Promise<void> {
+  // 1. Initialize metrics system
+  initializeMetrics();
+
+  // 2. Create resource attributes (service.name, version, environment)
+  const resource = resourceFromAttributes({ ... });
+
+  // 3. Create OTLP exporters with stats tracking
+  const traceExporter = wrapSpanExporter(new OTLPTraceExporter(...), traceExportStats);
+  const metricExporter = wrapMetricExporter(new OTLPMetricExporter(...), metricExportStats);
+  const logExporter = wrapLogRecordExporter(new OTLPLogExporter(...), logExportStats);
+
+  // 4. Create processors (batching for efficiency)
+  const traceProcessor = new BatchSpanProcessor(traceExporter, { maxExportBatchSize: 10 });
+  const logProcessor = new BatchLogRecordProcessor(logExporter);
+  const metricReader = new PeriodicExportingMetricReader({ exportIntervalMillis: 10000 });
+
+  // 5. Register LoggerProvider globally (SDK 0.212.0+ requirement)
+  loggerProvider = new LoggerProvider({ resource, processors: [logProcessor] });
+  logs.setGlobalLoggerProvider(loggerProvider);
+
+  // 6. Start NodeSDK with auto-instrumentations
+  sdk = new NodeSDK({
+    resource,
+    spanProcessors: [traceProcessor],
+    metricReaders: [metricReader],
+    instrumentations: [getNodeAutoInstrumentations(), new RedisInstrumentation()],
+  });
+  sdk.start();
+
+  // 7. Start host metrics collection
+  hostMetrics = new HostMetrics({});
+  hostMetrics.start();
+
+  // 8. Reinitialize Winston logger to pick up global LoggerProvider
+  winstonTelemetryLogger.reinitialize();
+}
+```
+
 ### Telemetry Features
 
 #### Distributed Tracing
@@ -215,6 +297,357 @@ GET /logs-*/_search
 }
 ```
 
+### Tracer API
+
+The tracer provides a clean API for creating custom spans. Use this when adding instrumentation to new code paths.
+
+**Implementation:** `src/telemetry/tracer.ts`
+
+#### Creating Custom Spans
+
+```typescript
+import { telemetryTracer, createSpan } from '../telemetry/tracer';
+import { SpanKind } from '@opentelemetry/api';
+
+// Method 1: Using telemetryTracer instance
+const result = await telemetryTracer.createSpan(
+  {
+    operationName: 'my.custom.operation',
+    kind: SpanKind.INTERNAL,
+    attributes: {
+      'custom.attribute': 'value',
+      'operation.type': 'processing',
+    },
+  },
+  async () => {
+    // Your async operation here
+    return await doSomething();
+  }
+);
+
+// Method 2: Using exported createSpan function
+const result = createSpan(
+  { operationName: 'quick.operation' },
+  () => syncOperation()
+);
+```
+
+#### Specialized Span Methods
+
+```typescript
+// HTTP client spans (for outbound requests)
+telemetryTracer.createHttpSpan(
+  'POST',                           // method
+  'https://api.example.com/data',   // url
+  200,                              // statusCode
+  async () => await fetch(...),     // operation
+  {                                 // optional: version context
+    version: 'v2',
+    source: 'header',
+    isLatest: true,
+    isSupported: true,
+  }
+);
+
+// Kong Admin API spans
+telemetryTracer.createKongSpan(
+  'getConsumer',                    // operation name
+  'https://kong:8001/consumers/x',  // url
+  'GET',                            // method
+  async () => await kongClient.getConsumer(...)
+);
+
+// JWT generation spans
+telemetryTracer.createJWTSpan(
+  'generate',                       // operation
+  async () => await generateToken(...),
+  'user@example.com'                // optional: username
+);
+
+// API versioning spans
+telemetryTracer.createApiVersionSpan(
+  'route_selection',                // operation
+  async () => await selectRoute(...),
+  {
+    version: 'v2',
+    source: 'Accept-Version',
+    parseTimeMs: 0.5,
+    routingTimeMs: 1.2,
+  }
+);
+```
+
+#### Adding Attributes to Active Span
+
+```typescript
+// Add attributes to the currently active span
+telemetryTracer.addSpanAttributes({
+  'consumer.id': consumerId,
+  'cache.hit': true,
+  'processing.step': 'validation',
+});
+
+// Record exceptions on the active span
+try {
+  await riskyOperation();
+} catch (error) {
+  telemetryTracer.recordException(error as Error);
+  throw error;
+}
+
+// Get trace context for logging
+const traceId = telemetryTracer.getCurrentTraceId();
+const spanId = telemetryTracer.getCurrentSpanId();
+```
+
+#### Span Naming Conventions
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| `http.client.<service>.<operation>` | Outbound HTTP | `http.client.kong.getConsumer` |
+| `crypto.jwt.<operation>` | JWT operations | `crypto.jwt.generate` |
+| `cache.<backend>.<operation>` | Cache operations | `cache.redis.get` |
+| `api_versioning.<operation>` | Version routing | `api_versioning.route_selection` |
+| `<method> <path>` | HTTP server spans | `GET /tokens` |
+
+### Telemetry Circuit Breakers
+
+Each telemetry signal (traces, metrics, logs) has its own circuit breaker to prevent cascade failures when OTLP endpoints are unavailable.
+
+**Implementation:** `src/telemetry/telemetry-circuit-breaker.ts`
+
+#### Circuit Breaker Instances
+
+```typescript
+import { telemetryCircuitBreakers, getTelemetryCircuitBreakerStats } from '../telemetry/telemetry-circuit-breaker';
+
+// Three independent circuit breakers
+telemetryCircuitBreakers.traces   // Protects trace exports
+telemetryCircuitBreakers.metrics  // Protects metric exports
+telemetryCircuitBreakers.logs     // Protects log exports
+
+// Get stats for all circuit breakers
+const stats = getTelemetryCircuitBreakerStats();
+// Returns: { traces: {...}, metrics: {...}, logs: {...} }
+```
+
+#### Default Configuration
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `failureThreshold` | 5 | Failures before opening |
+| `recoveryTimeout` | 60000ms | Time before half-open |
+| `successThreshold` | 3 | Successes to close |
+| `monitoringInterval` | 10000ms | Recovery check interval |
+
+**Environment Variable Overrides:**
+```bash
+TELEMETRY_CB_FAILURE_THRESHOLD=5
+TELEMETRY_CB_RECOVERY_TIMEOUT=60000
+TELEMETRY_CB_SUCCESS_THRESHOLD=3
+TELEMETRY_CB_MONITORING_INTERVAL=10000
+```
+
+#### Circuit Breaker States
+
+| State | Value | Behavior |
+|-------|-------|----------|
+| `CLOSED` | 0 | Normal operation, exports allowed |
+| `OPEN` | 1 | Exports rejected, waiting for recovery |
+| `HALF_OPEN` | 2 | Testing recovery with limited exports |
+
+#### State Transitions
+
+```
+CLOSED --[5 failures]--> OPEN --[60s timeout]--> HALF_OPEN
+                           ^                         |
+                           |                         v
+                           +---[1 failure]---[3 successes]--> CLOSED
+```
+
+#### Manual Control
+
+```typescript
+import { resetTelemetryCircuitBreakers } from '../telemetry/telemetry-circuit-breaker';
+
+// Reset all circuit breakers to CLOSED state
+resetTelemetryCircuitBreakers();
+```
+
+### Cardinality Guard
+
+Prevents metric cardinality explosion by limiting unique consumer IDs tracked in metrics. When the limit is reached, new consumers are hashed into buckets.
+
+**Implementation:** `src/telemetry/cardinality-guard.ts`
+
+#### Configuration
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `maxUniqueConsumers` | 1000 | Max individually tracked consumers |
+| `hashBuckets` | 256 | Overflow bucket count |
+| `resetIntervalMs` | 3600000 (1 hour) | Tracking reset interval |
+| `warningThresholdPercent` | 80 | Warning at 80% capacity |
+
+#### How It Works
+
+```typescript
+import { getBoundedConsumerId, getCardinalityStats } from '../telemetry/cardinality-guard';
+
+// Returns consumerId if under limit, otherwise bucket_XXX
+const metricConsumerId = getBoundedConsumerId(actualConsumerId);
+
+// Examples:
+getBoundedConsumerId('consumer-001')  // 'consumer-001' (tracked individually)
+getBoundedConsumerId('consumer-1001') // 'bucket_042' (hashed to bucket)
+
+// Get current stats
+const stats = getCardinalityStats();
+// {
+//   uniqueConsumersTracked: 847,
+//   maxUniqueConsumers: 1000,
+//   usagePercent: 84.7,
+//   limitExceeded: false,
+//   bucketsUsed: 0,
+//   totalBuckets: 256,
+//   totalRequests: 125000,
+//   warningsEmitted: 1,
+//   timeSinceReset: 1800000
+// }
+```
+
+#### Warning Levels
+
+```typescript
+import { getCardinalityWarningLevel } from '../telemetry/cardinality-guard';
+
+const level = getCardinalityWarningLevel();
+// 'ok'       - Under 80% capacity
+// 'warning'  - 80-99% capacity
+// 'critical' - At or over 100% (bucketing active)
+```
+
+#### Monitoring Cardinality
+
+The cardinality stats are exposed in the `/metrics?view=full` endpoint:
+
+```json
+{
+  "cardinality": {
+    "uniqueConsumersTracked": 847,
+    "maxUniqueConsumers": 1000,
+    "usagePercent": 84.7,
+    "limitExceeded": false,
+    "warningLevel": "warning"
+  }
+}
+```
+
+### Winston Logger API
+
+Structured logging with ECS format and OTLP transport integration.
+
+**Implementation:** `src/telemetry/winston-logger.ts`
+
+#### Basic Logging
+
+```typescript
+import { info, warn, error, debug } from '../telemetry/winston-logger';
+
+// Simple messages
+info('Operation completed');
+warn('Cache miss, falling back to Kong');
+error('Failed to generate token');
+debug('Processing request details');
+
+// With context
+info('Token generated', {
+  consumerId: 'abc-123',
+  username: 'user@example.com',
+  requestId: 'req-456',
+  totalDuration: 45,
+});
+```
+
+#### Specialized Logging Methods
+
+```typescript
+import {
+  logHttpRequest,
+  logAuthenticationEvent,
+  logKongOperation
+} from '../telemetry/winston-logger';
+
+// HTTP request logging
+logHttpRequest('POST', '/tokens', 200, 45, {
+  consumerId: 'abc-123',
+  cacheHit: true,
+});
+
+// Authentication events
+logAuthenticationEvent('token_generation', true, {
+  consumerId: 'abc-123',
+  tokenType: 'jwt',
+});
+
+// Kong operations
+logKongOperation('getConsumerSecret', 32, true, {
+  consumerId: 'abc-123',
+  cacheHit: false,
+});
+```
+
+#### ECS Field Mapping
+
+Fields are automatically mapped to ECS (Elastic Common Schema):
+
+| Input Field | ECS Field | Type |
+|-------------|-----------|------|
+| `consumerId` | `consumer.id` | string |
+| `username` | `consumer.name` | string |
+| `requestId` | `event.id` | string |
+| `totalDuration` | `event.duration` | number (ns) |
+
+**Automatic Trace Correlation:**
+```json
+{
+  "@timestamp": "2026-01-20T12:00:00.000Z",
+  "message": "Token generated",
+  "log.level": "info",
+  "consumer.id": "abc-123",
+  "consumer.name": "user@example.com",
+  "event.id": "req-456",
+  "trace.id": "550e8400-e29b-41d4-a716-446655440000",
+  "span.id": "550e8400-e29b"
+}
+```
+
+#### Logger Lifecycle
+
+```typescript
+import { winstonTelemetryLogger } from '../telemetry/winston-logger';
+
+// Flush all transports (call before shutdown)
+await winstonTelemetryLogger.flush();
+
+// Reinitialize after telemetry SDK changes
+winstonTelemetryLogger.reinitialize();
+```
+
+#### Log Levels
+
+| Level | Use Case |
+|-------|----------|
+| `error` | Failures requiring attention |
+| `warn` | Degraded operation, recoverable issues |
+| `info` | Normal operations, business events |
+| `debug` | Development debugging (disabled in production) |
+
+**Configuration:**
+```bash
+LOG_LEVEL=info  # Minimum level to output (default: info)
+```
+
 ## Telemetry Modes
 
 Configure via `TELEMETRY_MODE` environment variable:
@@ -242,22 +675,226 @@ The service is compatible with OpenTelemetry SDK 0.212.0+, which introduced a br
 
 ## Key Metrics
 
-### Consolidated Metrics
+### Complete Metrics Reference (65 Instruments)
+
+The service exports 65 OpenTelemetry metric instruments organized by category. All metrics are defined in `src/telemetry/metrics/instruments.ts`.
+
+#### HTTP Metrics (7 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `http_requests_total` | Counter | method, path, status | Total HTTP requests |
+| `http_requests_by_status` | Counter | method, path, status | Requests grouped by status code |
+| `http_response_time` | Histogram | method, path, status | Response time distribution (ms) |
+| `http_request_size` | Histogram | method, path | Request body size (bytes) |
+| `http_response_size` | Histogram | method, path, status | Response body size (bytes) |
+| `http_active_requests` | Gauge | method, path | Currently processing requests |
+| `http_requests_in_flight` | Gauge | - | Total in-flight requests |
+
+**Recording Functions:** `src/telemetry/metrics/http-metrics.ts`
+```typescript
+recordHttpRequest(method: string, path: string, statusCode: number)
+recordHttpResponseTime(method: string, path: string, statusCode: number, durationMs: number)
+recordHttpRequestSize(method: string, path: string, sizeBytes: number)
+recordHttpResponseSize(method: string, path: string, statusCode: number, sizeBytes: number)
+recordActiveRequests(method: string, path: string, delta: number)
+```
+
+#### Authentication Metrics (4 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `jwt_token_creation_time` | Histogram | consumer_id, success | JWT generation latency (ms) |
+| `authentication_attempts` | Counter | consumer_id, success | Total auth attempts |
+| `authentication_success` | Counter | consumer_id | Successful authentications |
+| `authentication_failure` | Counter | consumer_id, reason | Failed authentications |
+
+**Recording Functions:** `src/telemetry/metrics/auth-metrics.ts`
+```typescript
+recordJwtTokenCreation(consumerId: string, durationMs: number, success: boolean)
+recordAuthenticationAttempt(consumerId: string, success: boolean)
+recordAuthenticationSuccess(consumerId: string)
+recordAuthenticationFailure(consumerId: string, reason: string)
+```
+
+#### Kong Metrics (4 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `kong_operations` | Counter | operation, status | Kong Admin API operations |
+| `kong_response_time` | Histogram | operation | Kong API latency (ms) |
+| `kong_cache_hits` | Counter | operation | Cache hits for Kong data |
+| `kong_cache_misses` | Counter | operation | Cache misses requiring Kong call |
+
+**Recording Functions:** `src/telemetry/metrics/kong-metrics.ts`
+```typescript
+recordKongOperation(operation: string, responseTimeMs: number, success?: boolean)
+recordKongResponseTime(operation: string, responseTimeMs: number)
+recordKongCacheHit(operation: string)
+recordKongCacheMiss(operation: string)
+```
+
+#### Redis/Cache Metrics (6 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `redis_operations` | Counter | operation, status | Redis command executions |
+| `redis_operation_duration` | Histogram | operation | Redis latency (ms) |
+| `redis_connections` | Gauge | state | Active Redis connections |
+| `redis_cache_hits` | Counter | key_prefix | Cache hits |
+| `redis_cache_misses` | Counter | key_prefix | Cache misses |
+| `redis_errors` | Counter | error_type | Redis errors |
+
+**Recording Functions:** `src/telemetry/metrics/redis-metrics.ts`
+```typescript
+recordRedisOperation(operation: string, durationMs: number, success?: boolean)
+recordRedisConnection(state: 'connected' | 'disconnected' | 'reconnecting')
+recordCacheOperation(operation: string, hit: boolean, keyPrefix?: string)
+```
+
+#### Cache Tier Metrics (3 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `cache_tier_usage` | Counter | tier, operation, result | Cache tier access patterns |
+| `cache_tier_latency` | Histogram | tier, operation | Tier-specific latency |
+| `cache_tier_errors` | Counter | tier, error_type | Cache tier failures |
+
+**Tier Values:** `redis-primary`, `redis-stale`, `memory-stale`, `kong-fallback`
+
+**Recording Functions:** `src/telemetry/metrics/cache-metrics.ts`
+```typescript
+recordCacheTierUsage(tier: string, operation: string, result: 'hit' | 'miss' | 'error')
+recordCacheTierLatency(tier: string, operation: string, latencyMs: number)
+recordCacheTierError(tier: string, errorType: string)
+```
+
+#### Circuit Breaker Metrics (5 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `circuit_breaker_state` | Gauge | name | State (0=closed, 1=open, 2=half-open) |
+| `circuit_breaker_requests` | Counter | name, result | Requests through circuit breaker |
+| `circuit_breaker_rejected` | Counter | name | Rejected due to open circuit |
+| `circuit_breaker_fallback` | Counter | name, fallback_type | Fallback invocations |
+| `circuit_breaker_state_transitions` | Counter | name, from_state, to_state | State changes |
+
+**Recording Functions:** `src/telemetry/metrics/circuit-breaker-metrics.ts`
+```typescript
+recordCircuitBreakerState(name: string, state: CircuitBreakerStateEnum)
+recordCircuitBreakerRequest(name: string, result: 'success' | 'failure' | 'timeout')
+recordCircuitBreakerRejection(name: string)
+recordCircuitBreakerFallback(name: string, fallbackType: string)
+recordCircuitBreakerStateTransition(name: string, fromState: string, toState: string)
+```
+
+#### Process Metrics (22 instruments)
+
 | Metric Name | Type | Description |
-|------------|------|-------------|
-| `nodejs.eventloop.delay` | Gauge | Event loop utilization percentage |
-| `process.memory.usage` | Gauge | Memory usage by type |
-| `process.cpu.usage` | Gauge | CPU utilization percentage |
-| `http_requests_total` | Counter | Total HTTP requests by status |
-| `http_request_duration` | Histogram | Request duration distribution |
-| `jwt_tokens_generated` | Counter | JWT tokens issued |
-| `kong_admin_requests` | Counter | Kong Admin API calls |
-| `cache_operations` | Counter | Cache hits/misses by operation |
-| `circuit_breaker_state` | Gauge | Circuit breaker state (0=closed, 1=open, 2=half-open) |
-| `circuit_breaker_requests` | Counter | Circuit breaker requests by result |
-| `cache_tier_operations` | Counter | Cache tier usage (redis-stale, in-memory) |
-| `cache_tier_latency` | Histogram | Cache tier access latency by operation |
-| `unified_metrics_collection` | Counter | Consolidated metrics endpoint usage |
+|-------------|------|-------------|
+| `process_start_time` | Gauge | Process start timestamp |
+| `process_uptime` | Gauge | Uptime in seconds |
+| `process_memory_usage` | Gauge | Total memory usage |
+| `process_heap_used` | Gauge | V8 heap used bytes |
+| `process_heap_total` | Gauge | V8 heap total bytes |
+| `process_rss` | Gauge | Resident set size |
+| `process_external` | Gauge | External memory (C++ objects) |
+| `process_cpu_usage` | Gauge | CPU utilization percentage |
+| `process_event_loop_delay` | Histogram | Event loop delay distribution |
+| `process_event_loop_utilization` | Gauge | Event loop utilization ratio |
+| `system_memory_usage` | Gauge | System memory used |
+| `system_memory_free` | Gauge | System memory free |
+| `system_memory_total` | Gauge | System total memory |
+| `system_cpu_usage` | Gauge | System CPU percentage |
+| `system_load_average` | Gauge | System load average |
+| `gc_collections` | Counter | GC collection count by type |
+| `gc_duration` | Histogram | GC pause duration |
+| `gc_old_generation_size_before` | Gauge | Old gen size before GC |
+| `gc_old_generation_size_after` | Gauge | Old gen size after GC |
+| `gc_young_generation_size_before` | Gauge | Young gen size before GC |
+| `gc_young_generation_size_after` | Gauge | Young gen size after GC |
+| `file_descriptor_usage` | Gauge | Open file descriptors |
+
+**Recording Functions:** `src/telemetry/metrics/process-metrics.ts`
+```typescript
+recordGCCollection(type: string)
+recordGCDuration(durationMs: number)
+recordGCHeapSizes(before: { old: number, young: number }, after: { old: number, young: number })
+startSystemMetricsCollection(intervalMs?: number)
+stopSystemMetricsCollection()
+```
+
+#### API Versioning Metrics (6 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `api_version_requests` | Counter | version, path | Requests by API version |
+| `api_version_header_source` | Counter | source, version | Version header source |
+| `api_version_unsupported` | Counter | requested_version | Unsupported version requests |
+| `api_version_fallback` | Counter | from_version, to_version | Version fallback events |
+| `api_version_parsing_duration` | Histogram | version | Version parsing latency |
+| `api_version_routing_duration` | Histogram | version | Version routing latency |
+
+**Recording Functions:** `src/telemetry/metrics/api-version-metrics.ts`
+```typescript
+recordApiVersionRequest(version: string, path: string)
+recordApiVersionHeaderSource(source: 'header' | 'query' | 'default', version: string)
+recordApiVersionUnsupported(requestedVersion: string)
+recordApiVersionFallback(fromVersion: string, toVersion: string)
+```
+
+#### Consumer Volume Metrics (3 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `consumer_requests_by_volume` | Counter | volume_class, consumer_id | Requests by volume tier |
+| `consumer_errors_by_volume` | Counter | volume_class, error_type | Errors by volume tier |
+| `consumer_latency_by_volume` | Histogram | volume_class | Latency by volume tier |
+
+**Volume Classes:** `high` (>5K req/hr), `medium` (100-5K req/hr), `low` (<100 req/hr)
+
+#### Security Metrics (5 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `security_events` | Counter | event_type, severity | Security events |
+| `security_headers_applied` | Counter | header_set, version | Security headers applied |
+| `audit_events` | Counter | event_type, consumer_id | Audit log events |
+| `security_risk_score` | Histogram | consumer_id | Risk score distribution |
+| `security_anomalies` | Counter | anomaly_type | Detected anomalies |
+
+**Recording Functions:** `src/telemetry/metrics/security-metrics.ts`
+```typescript
+recordSecurityEvent(eventType: string, severity: 'low' | 'medium' | 'high' | 'critical')
+recordSecurityHeaders(headerSet: string, version: string)
+recordAuditEvent(eventType: string, consumerId: string)
+```
+
+#### Error Metrics (2 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `error_rate` | Counter | error_code, path | Errors by code |
+| `exceptions` | Counter | exception_type, handled | Exceptions caught |
+
+**Recording Functions:** `src/telemetry/metrics/error-metrics.ts`
+```typescript
+recordError(errorCode: string, path: string)
+recordException(exceptionType: string, handled: boolean)
+```
+
+#### Telemetry Self-Metrics (2 instruments)
+
+| Metric Name | Type | Attributes | Description |
+|-------------|------|------------|-------------|
+| `telemetry_exports` | Counter | signal_type, status | Export attempts |
+| `telemetry_export_errors` | Counter | signal_type, error_type | Export failures |
+
+**Recording Functions:** `src/telemetry/metrics/telemetry-metrics.ts`
+```typescript
+recordTelemetryExport(signalType: 'traces' | 'metrics' | 'logs', success: boolean)
+recordTelemetryExportError(signalType: string, errorType: string)
+```
 
 ### Health Check Endpoints
 
@@ -678,18 +1315,275 @@ Errors include full context and stack traces:
 
 ## Production Monitoring Setup
 
-### OpenTelemetry Configuration
+### Complete Environment Variables Reference
+
+All telemetry-related environment variables in one place for easy copy-paste setup.
+
+#### Core Telemetry Settings
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `TELEMETRY_MODE` | Output mode: `console`, `otlp`, `both` | `both` | No |
+| `LOG_LEVEL` | Logging level: `error`, `warn`, `info`, `debug`, `silent` | `info` | No |
+
+#### OpenTelemetry Service Identity
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OTEL_SERVICE_NAME` | Service name in traces/metrics | `authentication-service` | No |
+| `OTEL_SERVICE_VERSION` | Service version (overrides package.json) | from `package.json` | No |
+| `NODE_ENV` | Environment name for `deployment.environment` | `development` | No |
+
+#### OTLP Exporter Endpoints
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint (if all signals use same host) | - | No |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces endpoint | `{base}/v1/traces` | No |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics endpoint | `{base}/v1/metrics` | No |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Logs endpoint | `{base}/v1/logs` | No |
+
+#### OTLP Exporter Tuning
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `30000` | 1000-120000 |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for spans | `512` | 1-4096 |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | Max queued spans | `2048` | 512-16384 |
+| `OTEL_BSP_SCHEDULE_DELAY` | Export interval (ms) | `1000` | 100-60000 |
+
+#### Telemetry Circuit Breaker
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `TELEMETRY_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-100 |
+| `TELEMETRY_CB_RECOVERY_TIMEOUT` | Recovery timeout (ms) | `60000` | 1000-600000 |
+| `TELEMETRY_CB_SUCCESS_THRESHOLD` | Successes to close | `3` | 1-20 |
+| `TELEMETRY_CB_MONITORING_INTERVAL` | Monitoring interval (ms) | `10000` | 1000-60000 |
+
+### Configuration Examples
+
+#### Development (Console Only)
 ```bash
-# Production telemetry configuration
-TELEMETRY_MODE=otlp
+TELEMETRY_MODE=console
+LOG_LEVEL=debug
 OTEL_SERVICE_NAME=authentication-service
-OTEL_SERVICE_VERSION=1.0.0
+```
+
+#### Development with Local Collector
+```bash
+TELEMETRY_MODE=both
+LOG_LEVEL=debug
+OTEL_SERVICE_NAME=authentication-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+#### Production (OTLP Export)
+```bash
+TELEMETRY_MODE=otlp
+LOG_LEVEL=info
+NODE_ENV=production
+OTEL_SERVICE_NAME=authentication-service
 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://otel.example.com/v1/traces
 OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://otel.example.com/v1/metrics
 OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://otel.example.com/v1/logs
 OTEL_EXPORTER_OTLP_TIMEOUT=30000
 OTEL_BSP_MAX_EXPORT_BATCH_SIZE=2048
 OTEL_BSP_MAX_QUEUE_SIZE=10000
+```
+
+#### Kubernetes ConfigMap
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-telemetry
+data:
+  TELEMETRY_MODE: "otlp"
+  LOG_LEVEL: "info"
+  OTEL_SERVICE_NAME: "authentication-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring:4318"
+  OTEL_EXPORTER_OTLP_TIMEOUT: "30000"
+  OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "2048"
+  OTEL_BSP_MAX_QUEUE_SIZE: "10000"
+```
+
+#### Docker Compose
+```yaml
+services:
+  auth-service:
+    environment:
+      - TELEMETRY_MODE=otlp
+      - LOG_LEVEL=info
+      - OTEL_SERVICE_NAME=authentication-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+```
+
+### Package Dependencies
+
+The telemetry system requires these OpenTelemetry packages:
+
+```json
+{
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.212.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.212.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.212.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.212.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
+    "@opentelemetry/host-metrics": "^0.212.0",
+    "@opentelemetry/instrumentation-redis": "^0.212.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-logs": "^0.212.0",
+    "@opentelemetry/sdk-metrics": "^2.0.0",
+    "@opentelemetry/sdk-node": "^0.212.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@opentelemetry/winston-transport": "^0.12.0",
+    "@elastic/ecs-winston-format": "^1.6.2",
+    "winston": "^3.18.0"
+  }
+}
+```
+
+### Initialization Code
+
+To mimic this setup in another project, use this initialization pattern:
+
+```typescript
+// src/telemetry/instrumentation.ts
+import { logs } from "@opentelemetry/api-logs";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { HostMetrics } from "@opentelemetry/host-metrics";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from "@opentelemetry/semantic-conventions";
+import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
+
+export async function initializeTelemetry(config: {
+  serviceName: string;
+  serviceVersion: string;
+  environment: string;
+  tracesEndpoint: string;
+  metricsEndpoint: string;
+  logsEndpoint: string;
+  exportTimeout?: number;
+}): Promise<void> {
+  // 1. Create resource with service identity
+  const resource = resourceFromAttributes({
+    [ATTR_SERVICE_NAME]: config.serviceName,
+    [ATTR_SERVICE_VERSION]: config.serviceVersion,
+    [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: config.environment,
+  });
+
+  // 2. Create OTLP exporters
+  const traceExporter = new OTLPTraceExporter({
+    url: config.tracesEndpoint,
+    timeoutMillis: config.exportTimeout || 30000,
+  });
+
+  const metricExporter = new OTLPMetricExporter({
+    url: config.metricsEndpoint,
+    timeoutMillis: config.exportTimeout || 30000,
+  });
+
+  const logExporter = new OTLPLogExporter({
+    url: config.logsEndpoint,
+    timeoutMillis: config.exportTimeout || 30000,
+  });
+
+  // 3. Create processors
+  const traceProcessor = new BatchSpanProcessor(traceExporter, {
+    maxExportBatchSize: 10,
+    scheduledDelayMillis: 1000,
+  });
+
+  const metricReader = new PeriodicExportingMetricReader({
+    exporter: metricExporter,
+    exportIntervalMillis: 10000,
+  });
+
+  const logProcessor = new BatchLogRecordProcessor(logExporter);
+
+  // 4. Create and register LoggerProvider (SDK 0.212.0+ requirement)
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [logProcessor],
+  });
+  logs.setGlobalLoggerProvider(loggerProvider);
+
+  // 5. Start NodeSDK with auto-instrumentations
+  const sdk = new NodeSDK({
+    resource,
+    spanProcessors: [traceProcessor],
+    metricReaders: [metricReader],
+    instrumentations: [
+      getNodeAutoInstrumentations({
+        "@opentelemetry/instrumentation-fs": { enabled: false },
+        "@opentelemetry/instrumentation-grpc": { enabled: false },
+      }),
+    ],
+  });
+  sdk.start();
+
+  // 6. Start host metrics collection
+  const hostMetrics = new HostMetrics({});
+  hostMetrics.start();
+}
+```
+
+```typescript
+// src/telemetry/winston-logger.ts
+import ecsFormat from "@elastic/ecs-winston-format";
+import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
+import winston from "winston";
+
+export function createLogger(config: {
+  serviceName: string;
+  serviceVersion: string;
+  environment: string;
+  level?: string;
+  enableOtlp?: boolean;
+}): winston.Logger {
+  const transports: winston.transport[] = [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize({ all: true }),
+        winston.format.simple()
+      ),
+    }),
+  ];
+
+  if (config.enableOtlp) {
+    transports.push(new OpenTelemetryTransportV3());
+  }
+
+  return winston.createLogger({
+    level: config.level || "info",
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.errors({ stack: true }),
+      ecsFormat({
+        convertErr: true,
+        apmIntegration: true,
+        serviceName: config.serviceName,
+        serviceVersion: config.serviceVersion,
+        serviceEnvironment: config.environment,
+      })
+    ),
+    transports,
+  });
+}
 ```
 
 ### OTEL Collector Configuration (Required)
