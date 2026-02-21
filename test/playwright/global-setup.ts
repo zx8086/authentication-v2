@@ -167,7 +167,7 @@ class PlaywrightTestSetup {
       const consumerData = (await consumerResponse.json()) as KongConsumer;
       const consumerUuid = consumerData.id;
 
-      // Force delete existing JWT credentials to ensure unique credentials for each consumer
+      // Check existing JWT credentials
       const jwtEndpoint = isKongGateway
         ? `${this.adminUrl}/consumers/${consumerUuid}/jwt`
         : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt`;
@@ -180,41 +180,40 @@ class PlaywrightTestSetup {
       if (jwtResponse.ok) {
         const jwtData = await jwtResponse.json();
         if (jwtData.data && jwtData.data.length > 0) {
-          // Delete existing JWT credentials to force unique credential creation
-          for (const credential of jwtData.data) {
+          // Keep exactly one credential per consumer - reuse existing if valid
+          const existingCredential = jwtData.data[0];
+
+          // If there are multiple credentials, delete extras (cleanup orphans)
+          if (jwtData.data.length > 1) {
             console.log(
-              `[Playwright Setup] Deleting existing JWT credential for ${consumer.username}: ${credential.id}`
+              `[Playwright Setup] Cleaning up ${jwtData.data.length - 1} extra JWT credentials for ${consumer.username}`
             );
+            for (let i = 1; i < jwtData.data.length; i++) {
+              const credential = jwtData.data[i];
+              const deleteEndpoint = isKongGateway
+                ? `${this.adminUrl}/consumers/${consumerUuid}/jwt/${credential.id}`
+                : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`;
 
-            const deleteEndpoint = isKongGateway
-              ? `${this.adminUrl}/consumers/${consumerUuid}/jwt/${credential.id}`
-              : `${this.adminUrl}/core-entities/consumers/${consumerUuid}/jwt/${credential.id}`;
-
-            const deleteResponse = await fetch(deleteEndpoint, {
-              method: "DELETE",
-              headers,
-            });
-
-            if (!deleteResponse.ok) {
-              console.warn(
-                `[Playwright Setup] Failed to delete JWT credential ${credential.id} for ${consumer.username}: ${deleteResponse.status}`
-              );
-            } else {
-              console.log(
-                `[Playwright Setup] Deleted JWT credential ${credential.id} for ${consumer.username}`
-              );
+              await fetch(deleteEndpoint, {
+                method: "DELETE",
+                headers,
+              });
             }
           }
+
+          console.log(
+            `[Playwright Setup] Using existing JWT credential for ${consumer.username}: key=${existingCredential.key}`
+          );
+          return true;
         }
       }
 
-      // Create new JWT credentials with unique key and secret
-      console.log(
-        `[Playwright Setup] Creating new unique JWT credentials for: ${consumer.username}`
-      );
+      // Only create new JWT credentials if none exist
+      console.log(`[Playwright Setup] Creating JWT credentials for: ${consumer.username}`);
 
-      const key = `test-key-${consumer.id}-${Date.now()}`;
-      const secret = this.generateSecureSecret();
+      // Use key format matching kong/kong.yml declarative config
+      const key = `${consumer.username}-jwt-key`;
+      const secret = `${consumer.username}-jwt-secret`;
 
       const createEndpoint = isKongGateway
         ? `${this.adminUrl}/consumers/${consumerUuid}/jwt`
@@ -236,7 +235,7 @@ class PlaywrightTestSetup {
       if (createJwtResponse.ok) {
         const createdCredential = await createJwtResponse.json();
         console.log(
-          `[Playwright Setup] New JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
+          `[Playwright Setup] JWT credentials created for ${consumer.username}: key=${createdCredential.key}`
         );
         return true;
       } else {

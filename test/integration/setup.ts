@@ -350,6 +350,54 @@ export function skipIfNoIntegrationEnv(
 export { ANONYMOUS_CONSUMER, TEST_CONSUMERS };
 
 /**
+ * Clean up extra JWT credentials for a consumer, keeping only one.
+ * This prevents credential accumulation from repeated test runs.
+ */
+export async function cleanupExtraJwtCredentials(consumerId: string): Promise<number> {
+  try {
+    const response = await fetch(
+      `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumerId}/jwt`
+    );
+    if (!response.ok) return 0;
+
+    const data = await response.json();
+    const credentials = data.data || [];
+
+    if (credentials.length <= 1) return 0;
+
+    // Keep the first credential, delete the rest
+    let deletedCount = 0;
+    for (let i = 1; i < credentials.length; i++) {
+      try {
+        const deleteResponse = await fetch(
+          `${INTEGRATION_CONFIG.KONG_ADMIN_URL}/consumers/${consumerId}/jwt/${credentials[i].id}`,
+          { method: "DELETE" }
+        );
+        if (deleteResponse.ok) deletedCount++;
+      } catch {
+        // Ignore individual deletion errors
+      }
+    }
+    return deletedCount;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Clean up extra JWT credentials for all test consumers.
+ * Call this periodically or in afterAll() to prevent credential accumulation.
+ */
+export async function cleanupAllExtraJwtCredentials(): Promise<number> {
+  let totalDeleted = 0;
+  for (const consumer of TEST_CONSUMERS) {
+    totalDeleted += await cleanupExtraJwtCredentials(consumer.id);
+  }
+  totalDeleted += await cleanupExtraJwtCredentials(ANONYMOUS_CONSUMER.id);
+  return totalDeleted;
+}
+
+/**
  * Enable fetch polyfill with curl fallback for integration tests
  * Call this in beforeAll() to override fetch globally
  */
