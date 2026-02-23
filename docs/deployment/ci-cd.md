@@ -242,17 +242,24 @@ All security scanning results are:
 ```
 
 ### Build Provenance Attestations
+
+Provenance is generated natively by BuildKit using SLSA v0.2 format for DHI compatibility:
+
 ```yaml
-- name: Generate provenance attestation
-  uses: actions/attest-build-provenance@v1
+- name: Build and push Docker image
+  uses: docker/build-push-action@v6
   with:
-    subject-name: example/authentication-service
-    subject-digest: ${{ steps.build.outputs.digest }}
+    provenance: mode=max  # SLSA v0.2 - matches DHI base image attestations
+    sbom: true
 ```
+
+> **Note**: We use BuildKit's native provenance (SLSA v0.2) instead of `actions/attest-build-provenance@v1`
+> (SLSA v1.0) to maintain compatibility with DHI base images. Mixed SLSA versions cause Docker Scout
+> DHI policy validation failures.
 
 **Supply Chain Features:**
 - **SBOM Generation**: Complete inventory of software components
-- **Provenance Attestations**: Cryptographic proof of build integrity
+- **Provenance Attestations**: BuildKit SLSA v0.2 provenance (DHI-compatible)
 - **License Compliance**: Automated validation against approved license list
 - **Multi-platform Security**: Consistent security across AMD64 and ARM64 builds
 
