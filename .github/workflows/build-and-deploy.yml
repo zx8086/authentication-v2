@@ -314,7 +314,7 @@ jobs:
           cache-to: |
             type=gha,mode=max
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-          provenance: mode=max
+          provenance: true
           sbom: true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
