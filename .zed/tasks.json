@@ -1,25 +1,224 @@
 [
+  // ============================================================
+  // SERVICE / SERVER
+  // ============================================================
+  {
+    "label": "service: version",
+    "command": "echo \"=== Service Version ===\" && jq '{name, version, description}' package.json",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "service: endpoints",
+    "command": "echo \"=== API Endpoints ===\" && (set -o pipefail; curl -s http://localhost:3000 | jq '.paths | keys') || echo \"Status: Server not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "service: metrics",
+    "command": "echo \"=== Prometheus Metrics ===\" && curl -s http://localhost:3000/metrics | head -50 || echo \"Status: Server not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "service: openapi spec",
+    "command": "echo \"=== OpenAPI Spec (first 60 lines) ===\" && head -60 docs/openapi.yaml",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "server: health check",
+    "command": "echo \"=== Server Health Check ===\" && (set -o pipefail; curl -s http://localhost:3000/health | jq .) || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "server: health check (Valkey)",
+    "command": "echo \"=== Server Health (Cache) ===\" && (set -o pipefail; curl -s http://localhost:3000/health | jq '.dependencies.cache') || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "server: kill (port 3000)",
+    "command": "echo \"=== Kill Server ===\" && PID=$(lsof -ti :3000) && if [ -n \"$PID\" ]; then kill -9 $PID 2>/dev/null && echo \"Port:   3000\" && echo \"PID:    $PID\" && echo \"Status: Killed\"; else echo \"Port:   3000\" && echo \"Status: No process running\"; fi",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // DEVELOPMENT
+  // ============================================================
+  {
+    "label": "dev: start (watch mode)",
+    "command": "bun --watch src/index.ts",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "dev: start (devcontainer env)",
+    "command": "bun --env-file=.env.devcontainer run dev",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "dev: start with Valkey",
+    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; REDIS_URL=redis://localhost:6380 bun --watch src/index.ts",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "dev: clean restart",
+    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; bun --watch src/index.ts",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "dev: quickstart",
+    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; bun scripts/generate-openapi.ts && bun --watch src/index.ts",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+
+  // ============================================================
+  // INFRASTRUCTURE
+  // ============================================================
+  {
+    "label": "infra: status check",
+    "command": "echo \"=== Infrastructure Status ===\" && printf 'Kong:     ' && (curl -sf http://localhost:8001/status > /dev/null 2>&1 && echo 'Online' || echo 'Offline') && printf 'Redis:    ' && (docker exec \"$(docker ps --filter name=redis -q | head -1)\" redis-cli ping 2>/dev/null | grep -q PONG && echo 'Online' || echo 'Offline') && printf 'Valkey:   ' && (docker exec \"$(docker ps --filter name=valkey -q | head -1)\" valkey-cli ping 2>/dev/null | grep -q PONG && echo 'Online' || echo 'Offline') && printf 'Postgres: ' && (docker exec \"$(docker ps --filter name=kong-db -q | head -1)\" pg_isready -U kong > /dev/null 2>&1 && echo 'Online' || echo 'Offline')",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "devcontainer: up",
+    "command": "echo \"=== Starting Devcontainer ===\" && docker compose -f .devcontainer/docker-compose.yml up -d 2>&1 | tail -5 && echo '---' && echo 'Status: Started'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "devcontainer: down",
+    "command": "echo \"=== Stopping Devcontainer ===\" && docker compose -f .devcontainer/docker-compose.yml down 2>&1 | tail -5 && echo '---' && echo 'Status: Stopped'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "devcontainer: down (clean volumes)",
+    "command": "echo \"=== Stopping Devcontainer (with volumes) ===\" && docker compose -f .devcontainer/docker-compose.yml down -v 2>&1 | tail -5 && echo '---' && echo 'Status:  Stopped' && echo 'Volumes: Removed'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "devcontainer: status",
+    "command": "docker compose -f .devcontainer/docker-compose.yml ps",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "devcontainer: logs",
+    "command": "docker compose -f .devcontainer/docker-compose.yml logs -f",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "deps: up (Kong + Redis)",
+    "command": "echo \"=== Starting Dependencies ===\" && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations redis 2>&1 | tail -5 && echo '---' && echo 'Kong:  localhost:8001' && echo 'Redis: localhost:6379'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: up (Kong + Valkey)",
+    "command": "echo \"=== Starting Dependencies ===\" && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations valkey 2>&1 | tail -5 && echo '---' && echo 'Kong:   localhost:8001' && echo 'Valkey: localhost:6380'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: up (all)",
+    "command": "echo \"=== Starting All Dependencies ===\" && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations redis valkey 2>&1 | tail -5 && echo '---' && echo 'Kong:   localhost:8001' && echo 'Redis:  localhost:6379' && echo 'Valkey: localhost:6380'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: down",
+    "command": "echo \"=== Stopping Dependencies ===\" && docker compose -f .devcontainer/docker-compose.yml stop kong kong-db redis valkey 2>&1 | tail -5 && echo '---' && echo 'Status: Stopped'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // DEPENDENCIES (NPM/BUN)
+  // ============================================================
+  {
+    "label": "deps: outdated",
+    "command": "echo \"=== Outdated Packages ===\" && bun outdated 2>&1 || echo \"All packages up to date\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: audit",
+    "command": "echo \"=== Security Audit ===\" && npm audit 2>&1 | head -50",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: licenses",
+    "command": "echo \"=== License Check ===\" && bun scripts/license-check.ts",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "deps: tree",
+    "command": "echo \"=== Dependency Tree ===\" && bun pm ls --all 2>&1 | head -60",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // KONG
+  // ============================================================
   {
     "label": "kong: status",
-    "command": "echo '=== Kong Gateway Status ===' && curl -sf http://localhost:8001/status | jq .",
+    "command": "echo \"=== Kong Gateway Status ===\" && (set -o pipefail; curl -s http://localhost:8001/status | jq .) || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "kong: version",
+    "command": "echo \"=== Kong Version ===\" && (set -o pipefail; curl -s http://localhost:8001 | jq '{version, edition, hostname}') || echo \"Status: Not responding\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "kong: list services",
-    "command": "echo '=== Kong Services ===' && curl -sf http://localhost:8001/services | jq .",
+    "command": "echo \"=== Kong Services ===\" && (set -o pipefail; curl -s http://localhost:8001/services | jq .) || echo \"Status: Not responding\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "kong: list routes",
-    "command": "echo '=== Kong Routes ===' && curl -sf http://localhost:8001/routes | jq .",
+    "command": "echo \"=== Kong Routes ===\" && (set -o pipefail; curl -s http://localhost:8001/routes | jq .) || echo \"Status: Not responding\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "kong: list plugins",
-    "command": "echo '=== Kong Plugins ===' && curl -sf http://localhost:8001/plugins | jq .",
+    "command": "echo \"=== Kong Plugins ===\" && (set -o pipefail; curl -s http://localhost:8001/plugins | jq .) || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "kong: list consumers",
+    "command": "echo \"=== Kong Consumers ===\" && (set -o pipefail; curl -s http://localhost:8001/consumers | jq '.data[] | {username, id, custom_id}') || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "kong: list upstreams",
+    "command": "echo \"=== Kong Upstreams ===\" && (set -o pipefail; curl -s http://localhost:8001/upstreams | jq .) || echo \"Status: Not responding\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "kong: jwt secrets (count)",
+    "command": "echo \"=== Kong JWT Secrets ===\" && (set -o pipefail; curl -s http://localhost:8001/jwts | jq '{total: .data | length, secrets: [.data[] | {consumer: .consumer.id, key: .key, algorithm: .algorithm}]}') || echo \"Status: Not responding\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
@@ -31,13 +230,19 @@
   },
   {
     "label": "kong: dump config (decK)",
-    "command": "deck gateway dump --kong-addr http://localhost:8001 | jq .",
+    "command": "echo \"=== Kong Config (YAML) ===\" && deck gateway dump --kong-addr http://localhost:8001 || echo \"Status: Kong not available\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "kong: diff config (decK)",
     "command": "deck gateway diff kong/kong.yml --kong-addr http://localhost:8001",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "kong: seed test consumers",
+    "command": "echo \"=== Seeding Test Consumers ===\" && bun scripts/seed-test-consumers.ts",
     "use_new_terminal": false,
     "reveal": "always",
   },
@@ -49,79 +254,41 @@
   },
   {
     "label": "kong: restart",
-    "command": "echo '=== Restarting Kong ===' && docker restart $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1) > /dev/null && echo 'Status: Restarted successfully' && echo 'Health: Waiting...' && sleep 2 && curl -sf http://localhost:8001/status > /dev/null && echo 'Health: Ready'",
+    "command": "echo \"=== Restarting Kong ===\" && docker restart $(docker ps --filter 'name=kong' --filter 'ancestor=kong/kong-gateway:3.9' -q | head -1) > /dev/null && echo 'Status: Restarted successfully' && echo 'Health: Waiting...' && sleep 2 && (curl -sf http://localhost:8001/status > /dev/null && echo 'Health: Ready' || echo 'Health: Not ready yet')",
     "use_new_terminal": false,
     "reveal": "always",
   },
+
+  // ============================================================
+  // REDIS
+  // ============================================================
   {
     "label": "redis: ping",
-    "command": "echo '=== Redis Health ===' && RESULT=$(docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli ping 2>/dev/null) && echo \"Response: $RESULT\" && echo \"Status:   Connected\"",
+    "command": "echo \"=== Redis Health ===\" && RESULT=$(docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli ping 2>/dev/null) && echo \"Response: $RESULT\" && echo \"Status:   Connected\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "redis: monitor (live commands)",
-    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli monitor",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
+    "label": "redis: status",
+    "command": "echo \"=== Redis Status ===\" && docker ps --filter 'name=redis' --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || echo \"Status: No Redis container\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "redis: info server",
+    "command": "echo \"=== Redis Server Info ===\" && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli info server",
+    "use_new_terminal": false,
+    "reveal": "always",
   },
   {
     "label": "redis: info stats",
-    "command": "echo '=== Redis Statistics ===' && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli info stats",
+    "command": "echo \"=== Redis Statistics ===\" && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli info stats",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "redis: keys (all)",
-    "command": "echo '=== Redis Keys ===' && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli keys '*'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: flush all",
-    "command": "echo '=== Redis Flush ===' && BEFORE=$(docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli dbsize | awk '{print $2}') && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli flushall > /dev/null && echo \"Keys before: $BEFORE\" && echo \"Keys after:  0\" && echo \"Status:      Flushed\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: interactive CLI",
-    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "redis: start (standalone)",
-    "command": "echo '=== Starting Redis ===' && docker run -d --name auth-redis -p 6379:6379 --restart unless-stopped redis:7-alpine redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-redis\" && echo \"Port:      6379\" && echo \"Memory:    128MB (LRU eviction)\" && echo \"Status:    Running\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: stop",
-    "command": "echo '=== Stopping Redis ===' && docker stop auth-redis 2>/dev/null && echo \"Container: auth-redis\" && echo \"Status:    Stopped\" || echo \"Status:    Not running\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: remove",
-    "command": "echo '=== Removing Redis ===' && docker rm auth-redis 2>/dev/null && echo \"Container: auth-redis\" && echo \"Status:    Removed\" || echo \"Status:    No container to remove\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: restart (standalone)",
-    "command": "echo '=== Restarting Redis ===' && docker stop auth-redis 2>/dev/null; docker rm auth-redis 2>/dev/null; docker run -d --name auth-redis -p 6379:6379 --restart unless-stopped redis:7-alpine redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-redis\" && echo \"Port:      6379\" && echo \"Status:    Restarted\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "redis: logs",
-    "command": "docker logs -f auth-redis",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "redis: status",
-    "command": "echo '=== Redis Status ===' && docker ps --filter 'name=redis' --format 'Container: {{.Names}}\\nStatus:    {{.Status}}\\nPorts:     {{.Ports}}' | head -3",
+    "command": "echo \"=== Redis Keys ===\" && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli keys '*'",
     "use_new_terminal": false,
     "reveal": "always",
   },
@@ -144,34 +311,110 @@
     "reveal": "always",
   },
   {
+    "label": "redis: monitor (live commands)",
+    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli monitor",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "redis: interactive CLI",
+    "command": "docker exec -it $(docker ps --filter 'name=redis' -q | head -1) redis-cli",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "redis: logs",
+    "command": "docker logs -f auth-redis",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "redis: flush all",
+    "command": "echo \"=== Redis Flush ===\" && BEFORE=$(docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli dbsize | awk '{print $2}') && docker exec $(docker ps --filter 'name=redis' -q | head -1) redis-cli flushall > /dev/null && echo \"Keys before: $BEFORE\" && echo \"Keys after:  0\" && echo \"Status:      Flushed\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "redis: start (standalone)",
+    "command": "echo \"=== Starting Redis ===\" && docker run -d --name auth-redis -p 6379:6379 --restart unless-stopped redis:7-alpine redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-redis\" && echo \"Port:      6379\" && echo \"Memory:    128MB (LRU eviction)\" && echo \"Status:    Running\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "redis: stop",
+    "command": "echo \"=== Stopping Redis ===\" && docker stop auth-redis 2>/dev/null && echo \"Container: auth-redis\" && echo \"Status:    Stopped\" || echo \"Status:    Not running\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "redis: remove",
+    "command": "echo \"=== Removing Redis ===\" && docker rm auth-redis 2>/dev/null && echo \"Container: auth-redis\" && echo \"Status:    Removed\" || echo \"Status:    No container to remove\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "redis: restart (standalone)",
+    "command": "echo \"=== Restarting Redis ===\" && docker stop auth-redis 2>/dev/null; docker rm auth-redis 2>/dev/null; docker run -d --name auth-redis -p 6379:6379 --restart unless-stopped redis:7-alpine redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-redis\" && echo \"Port:      6379\" && echo \"Status:    Restarted\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // VALKEY
+  // ============================================================
+  {
     "label": "valkey: ping",
-    "command": "echo '=== Valkey Health ===' && RESULT=$(docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli ping 2>/dev/null) && echo \"Response: $RESULT\" && echo \"Status:   Connected\"",
+    "command": "echo \"=== Valkey Health ===\" && RESULT=$(docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli ping 2>/dev/null) && echo \"Response: $RESULT\" && echo \"Status:   Connected\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "valkey: status",
+    "command": "echo \"=== Valkey Status ===\" && docker ps --filter 'name=valkey' --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || echo \"Status: No Valkey container\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "valkey: info server",
-    "command": "echo '=== Valkey Server Info ===' && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli info server",
+    "command": "echo \"=== Valkey Server Info ===\" && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli info server",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "valkey: info stats",
-    "command": "echo '=== Valkey Statistics ===' && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli info stats",
+    "command": "echo \"=== Valkey Statistics ===\" && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli info stats",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "valkey: keys (all)",
-    "command": "echo '=== Valkey Keys ===' && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli keys '*'",
+    "command": "echo \"=== Valkey Keys ===\" && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli keys '*'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "valkey: flush all",
-    "command": "echo '=== Valkey Flush ===' && BEFORE=$(docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli dbsize | awk '{print $2}') && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli flushall > /dev/null && echo \"Keys before: $BEFORE\" && echo \"Keys after:  0\" && echo \"Status:      Flushed\"",
+    "label": "valkey: bigkeys",
+    "command": "docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli --bigkeys",
     "use_new_terminal": false,
     "reveal": "always",
+  },
+  {
+    "label": "valkey: memkeys",
+    "command": "docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli --memkeys",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "valkey: scan auth keys",
+    "command": "docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli --scan --pattern '*auth_service*'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "valkey: monitor (live commands)",
+    "command": "docker exec -it $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli monitor",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
   },
   {
     "label": "valkey: interactive CLI",
@@ -180,50 +423,66 @@
     "allow_concurrent_runs": false,
   },
   {
-    "label": "valkey: start (standalone)",
-    "command": "echo '=== Starting Valkey ===' && docker run -d --name auth-valkey -p 6380:6379 --restart unless-stopped valkey/valkey:8-alpine valkey-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-valkey\" && echo \"Port:      6380\" && echo \"Memory:    128MB (LRU eviction)\" && echo \"Status:    Running\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "valkey: stop",
-    "command": "echo '=== Stopping Valkey ===' && docker stop auth-valkey 2>/dev/null && echo \"Container: auth-valkey\" && echo \"Status:    Stopped\" || echo \"Status:    Not running\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "valkey: remove",
-    "command": "echo '=== Removing Valkey ===' && docker rm auth-valkey 2>/dev/null && echo \"Container: auth-valkey\" && echo \"Status:    Removed\" || echo \"Status:    No container to remove\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "valkey: restart (standalone)",
-    "command": "echo '=== Restarting Valkey ===' && docker stop auth-valkey 2>/dev/null; docker rm auth-valkey 2>/dev/null; docker run -d --name auth-valkey -p 6380:6379 --restart unless-stopped valkey/valkey:8-alpine valkey-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-valkey\" && echo \"Port:      6380\" && echo \"Status:    Restarted\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
     "label": "valkey: logs",
     "command": "docker logs -f auth-valkey",
     "use_new_terminal": true,
     "allow_concurrent_runs": false,
   },
   {
-    "label": "valkey: status",
-    "command": "echo '=== Valkey Status ===' && docker ps --filter 'name=valkey' --format 'Container: {{.Names}}\\nStatus:    {{.Status}}\\nPorts:     {{.Ports}}' | head -3",
+    "label": "valkey: flush all",
+    "command": "echo \"=== Valkey Flush ===\" && BEFORE=$(docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli dbsize | awk '{print $2}') && docker exec $(docker ps --filter 'name=valkey' -q | head -1) valkey-cli flushall > /dev/null && echo \"Keys before: $BEFORE\" && echo \"Keys after:  0\" && echo \"Status:      Flushed\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "dev: start with Valkey",
-    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; REDIS_URL=redis://localhost:6380 bun --watch src/index.ts",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
+    "label": "valkey: start (standalone)",
+    "command": "echo \"=== Starting Valkey ===\" && docker run -d --name auth-valkey -p 6380:6379 --restart unless-stopped valkey/valkey:8-alpine valkey-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-valkey\" && echo \"Port:      6380\" && echo \"Memory:    128MB (LRU eviction)\" && echo \"Status:    Running\"",
+    "use_new_terminal": false,
+    "reveal": "always",
   },
   {
-    "label": "server: health check (Valkey)",
-    "command": "echo '=== Server Health (Cache) ===' && curl -sf http://localhost:3000/health | jq '.dependencies.cache' || echo 'Status: Not responding'",
+    "label": "valkey: stop",
+    "command": "echo \"=== Stopping Valkey ===\" && docker stop auth-valkey 2>/dev/null && echo \"Container: auth-valkey\" && echo \"Status:    Stopped\" || echo \"Status:    Not running\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "valkey: remove",
+    "command": "echo \"=== Removing Valkey ===\" && docker rm auth-valkey 2>/dev/null && echo \"Container: auth-valkey\" && echo \"Status:    Removed\" || echo \"Status:    No container to remove\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "valkey: restart (standalone)",
+    "command": "echo \"=== Restarting Valkey ===\" && docker stop auth-valkey 2>/dev/null; docker rm auth-valkey 2>/dev/null; docker run -d --name auth-valkey -p 6380:6379 --restart unless-stopped valkey/valkey:8-alpine valkey-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru > /dev/null && echo \"Container: auth-valkey\" && echo \"Port:      6380\" && echo \"Status:    Restarted\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // POSTGRES
+  // ============================================================
+  {
+    "label": "postgres: list tables",
+    "command": "echo \"=== Kong Database Tables ===\" && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c '\\dt'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "postgres: kong services (SQL)",
+    "command": "echo \"=== Kong Services (Database) ===\" && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, host, port, protocol FROM services;'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "postgres: kong routes (SQL)",
+    "command": "echo \"=== Kong Routes (Database) ===\" && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, paths, service_id FROM routes;'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "postgres: db size",
+    "command": "echo \"=== Kong Database Size ===\" && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c \"SELECT pg_size_pretty(pg_database_size('kong'));\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
@@ -233,137 +492,103 @@
     "use_new_terminal": true,
     "allow_concurrent_runs": false,
   },
-  {
-    "label": "postgres: list tables",
-    "command": "echo '=== Kong Database Tables ===' && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c '\\dt'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "postgres: kong services (SQL)",
-    "command": "echo '=== Kong Services (Database) ===' && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, host, port, protocol FROM services;'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "postgres: kong routes (SQL)",
-    "command": "echo '=== Kong Routes (Database) ===' && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c 'SELECT id, name, paths, service_id FROM routes;'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "postgres: db size",
-    "command": "echo '=== Kong Database Size ===' && docker exec $(docker ps --filter 'name=kong-db' -q | head -1) psql -U kong -d kong -c \"SELECT pg_size_pretty(pg_database_size('kong'));\"",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "infra: status check",
-    "command": "echo '=== Infrastructure Status ===' && printf 'Kong:     ' && (curl -sf http://localhost:8001/status > /dev/null 2>&1 && echo 'Online' || echo 'Offline') && printf 'Redis:    ' && (docker exec \"$(docker ps --filter name=redis -q | head -1)\" redis-cli ping 2>/dev/null | grep -q PONG && echo 'Online' || echo 'Offline') && printf 'Valkey:   ' && (docker exec \"$(docker ps --filter name=valkey -q | head -1)\" valkey-cli ping 2>/dev/null | grep -q PONG && echo 'Online' || echo 'Offline') && printf 'Postgres: ' && (docker exec \"$(docker ps --filter name=kong-db -q | head -1)\" pg_isready -U kong > /dev/null 2>&1 && echo 'Online' || echo 'Offline')",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "devcontainer: up",
-    "command": "echo '=== Starting Devcontainer ===' && docker compose -f .devcontainer/docker-compose.yml up -d 2>&1 | tail -5 && echo '---' && echo 'Status: Started'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "deps: up (Kong + Redis)",
-    "command": "echo '=== Starting Dependencies ===' && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations redis 2>&1 | tail -5 && echo '---' && echo 'Kong:  localhost:8001' && echo 'Redis: localhost:6379'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "deps: up (Kong + Valkey)",
-    "command": "echo '=== Starting Dependencies ===' && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations valkey 2>&1 | tail -5 && echo '---' && echo 'Kong:   localhost:8001' && echo 'Valkey: localhost:6380'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "deps: up (all)",
-    "command": "echo '=== Starting All Dependencies ===' && docker compose -f .devcontainer/docker-compose.yml up -d kong kong-db kong-migrations redis valkey 2>&1 | tail -5 && echo '---' && echo 'Kong:   localhost:8001' && echo 'Redis:  localhost:6379' && echo 'Valkey: localhost:6380'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "deps: down",
-    "command": "echo '=== Stopping Dependencies ===' && docker compose -f .devcontainer/docker-compose.yml stop kong kong-db redis valkey 2>&1 | tail -5 && echo '---' && echo 'Status: Stopped'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
+
+  // ============================================================
+  // DOCKER
+  // ============================================================
   {
     "label": "docker: ps",
-    "command": "echo '=== Running Containers ===' && docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'",
+    "command": "echo \"=== Running Containers ===\" && docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "docker: ps (all)",
-    "command": "echo '=== All Containers ===' && docker ps -a --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'",
+    "command": "echo \"=== All Containers ===\" && docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "devcontainer: down",
-    "command": "echo '=== Stopping Devcontainer ===' && docker compose -f .devcontainer/docker-compose.yml down 2>&1 | tail -5 && echo '---' && echo 'Status: Stopped'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "devcontainer: down (clean volumes)",
-    "command": "echo '=== Stopping Devcontainer (with volumes) ===' && docker compose -f .devcontainer/docker-compose.yml down -v 2>&1 | tail -5 && echo '---' && echo 'Status:  Stopped' && echo 'Volumes: Removed'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "devcontainer: logs",
-    "command": "docker compose -f .devcontainer/docker-compose.yml logs -f",
+    "label": "docker: build (local)",
+    "command": "echo \"=== Building Docker Image ===\" && bun run docker:build",
     "use_new_terminal": true,
     "allow_concurrent_runs": false,
   },
   {
-    "label": "devcontainer: status",
-    "command": "docker compose -f .devcontainer/docker-compose.yml ps",
+    "label": "docker: scout CVEs (pushed image)",
+    "command": "echo \"=== Docker Scout CVE Scan ===\" && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo 'Filter: CRITICAL, HIGH' && echo '---' && docker scout cves docker.io/zx8086/authentication-v2:latest --only-severities critical,high 2>&1 | head -50",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "dev: start (watch mode)",
-    "command": "bun --watch src/index.ts",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "dev: start (devcontainer env)",
-    "command": "bun --env-file=.env.devcontainer run dev",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "dev: clean restart",
-    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; bun --watch src/index.ts",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "dev: quickstart",
-    "command": "lsof -ti :3000 | xargs kill -9 2>/dev/null || true; bun scripts/generate-openapi.ts && bun --watch src/index.ts",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "server: kill (port 3000)",
-    "command": "echo '=== Kill Server ===' && PID=$(lsof -ti :3000) && if [ -n \"$PID\" ]; then kill -9 $PID 2>/dev/null && echo \"Port:   3000\" && echo \"PID:    $PID\" && echo \"Status: Killed\"; else echo \"Port:   3000\" && echo \"Status: No process running\"; fi",
+    "label": "docker: scout quickview (pushed image)",
+    "command": "echo \"=== Docker Scout Quickview ===\" && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout quickview docker.io/zx8086/authentication-v2:latest 2>&1",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "server: health check",
-    "command": "echo '=== Server Health Check ===' && curl -sf http://localhost:3000/health | jq . || echo 'Status: Not responding'",
+    "label": "docker: scout SBOM (pushed image)",
+    "command": "echo \"=== Docker Scout SBOM ===\" && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout sbom docker.io/zx8086/authentication-v2:latest --format list 2>&1 | head -40",
     "use_new_terminal": false,
     "reveal": "always",
+  },
+  {
+    "label": "docker: scout recommendations",
+    "command": "echo \"=== Docker Scout Recommendations ===\" && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout recommendations docker.io/zx8086/authentication-v2:latest 2>&1",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "docker: inspect labels (pushed image)",
+    "command": "echo \"=== Docker Image Labels ===\" && docker pull -q docker.io/zx8086/authentication-v2:latest > /dev/null && docker inspect docker.io/zx8086/authentication-v2:latest --format '{{json .Config.Labels}}' | jq .",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "docker: verify metadata (pushed image)",
+    "command": "echo \"=== Docker Image Metadata ===\" && docker pull -q docker.io/zx8086/authentication-v2:latest > /dev/null && docker inspect docker.io/zx8086/authentication-v2:latest --format '{{json .Config.Labels}}' | jq -r '[\"Version:  \" + .[\"org.opencontainers.image.version\"], \"Created:  \" + .[\"org.opencontainers.image.created\"], \"Revision: \" + .[\"org.opencontainers.image.revision\"], \"Title:    \" + .[\"org.opencontainers.image.title\"], \"Vendor:   \" + .[\"org.opencontainers.image.vendor\"]] | .[]'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "docker: verify version (registry API)",
+    "command": "echo \"=== Docker Registry Version Check ===\" && echo '--- Local Version ---' && grep '\"version\"' package.json | head -1 && echo '--- Registry Tags ---' && curl -s 'https://hub.docker.com/v2/repositories/zx8086/authentication-v2/tags?page_size=5' | jq . && echo '--- Platforms ---' && docker buildx imagetools inspect docker.io/zx8086/authentication-v2:latest --raw 2>/dev/null | jq .",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "docker: image size (pushed)",
+    "command": "echo \"=== Docker Image Size ===\" && docker manifest inspect docker.io/zx8086/authentication-v2:latest --verbose 2>/dev/null | jq . || echo 'Unable to inspect manifest'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "docker: attestations (SLSA provenance)",
+    "command": "echo \"=== Docker Attestations (SLSA) ===\" && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout attestation docker.io/zx8086/authentication-v2:latest 2>&1",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // TESTING
+  // ============================================================
+  {
+    "label": "test: bun (all)",
+    "command": "bun test",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "test: bun (watch)",
+    "command": "bun test --watch",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "test: coverage report",
+    "command": "echo \"=== Test Coverage ===\" && bun run test:bun:coverage",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
   },
   {
     "label": "test: e2e (direct)",
@@ -384,23 +609,27 @@
     "allow_concurrent_runs": false,
   },
   {
-    "label": "test: bun (all)",
-    "command": "bun test",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
-    "label": "test: bun (watch)",
-    "command": "bun test --watch",
-    "use_new_terminal": true,
-    "allow_concurrent_runs": false,
-  },
-  {
     "label": "test: k6 smoke (quick)",
     "command": "bun run test:k6:quick",
     "use_new_terminal": true,
     "allow_concurrent_runs": false,
   },
+  {
+    "label": "test: integration (circuit breaker)",
+    "command": "bun run test:integration:circuit",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "test: mutation (dry run)",
+    "command": "echo \"=== Mutation Test Preview ===\" && bun run test:mutation:dry",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+
+  // ============================================================
+  // QUALITY
+  // ============================================================
   {
     "label": "quality: check (all)",
     "command": "bun run quality:check",
@@ -413,207 +642,295 @@
     "use_new_terminal": false,
     "reveal": "always",
   },
+
+  // ============================================================
+  // PROFILING
+  // ============================================================
   {
-    "label": "docs: generate OpenAPI",
-    "command": "echo '=== Generating OpenAPI Spec ===' && bun scripts/generate-openapi.ts && echo '---' && echo 'Output: docs/openapi.yaml' && echo 'Status: Generated'",
+    "label": "profile: tokens",
+    "command": "echo \"=== Profiling Token Generation ===\" && bun run profile:scenario:tokens",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "profile: health",
+    "command": "echo \"=== Profiling Health Endpoint ===\" && bun run profile:scenario:health",
+    "use_new_terminal": true,
+    "allow_concurrent_runs": false,
+  },
+  {
+    "label": "profile: list",
+    "command": "echo \"=== Profile Files ===\" && ls -lh profiles/ 2>/dev/null || echo \"No profiles directory\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "profile: cleanup (dry run)",
+    "command": "echo \"=== Profile Cleanup Preview ===\" && bun scripts/profiling/cleanup-profiles.ts --dry-run",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // GIT
+  // ============================================================
+  {
+    "label": "git: recent commits",
+    "command": "echo \"=== Recent Commits ===\" && git log --oneline -15",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "git: branch list",
+    "command": "echo \"=== Git Branches ===\" && git branch -a",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "git: status",
+    "command": "echo \"=== Git Status ===\" && git status",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "git: diff stats",
+    "command": "echo \"=== Uncommitted Changes ===\" && git diff --stat",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "git: stash list",
+    "command": "echo \"=== Git Stashes ===\" && git stash list || echo \"No stashes\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "git: hard reset (from remote)",
+    "command": "echo \"=== WARNING: Hard Reset from Remote ===\" && echo 'This will DISCARD all local changes!' && echo '---' && git fetch origin && git reset --hard origin/$(git branch --show-current) && echo '---' && echo 'Status: Reset complete' && git log --oneline -3",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // GITHUB
+  // ============================================================
+  {
+    "label": "github: PR list (open)",
+    "command": "echo \"=== Open Pull Requests ===\" && gh pr list --state open",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: PR checks",
+    "command": "echo \"=== PR Check Status ===\" && gh pr checks || echo \"No PR for current branch\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: issues (open)",
+    "command": "echo \"=== Open Issues ===\" && gh issue list --state open --limit 15",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: security alerts (open only)",
-    "command": "echo '=== Open Security Alerts ===' && gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
+    "command": "echo \"=== Open Security Alerts ===\" && gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: security alerts (all)",
-    "command": "echo '=== All Security Alerts ===' && gh api repos/:owner/:repo/code-scanning/alerts || echo 'No alerts found'",
+    "command": "echo \"=== All Security Alerts ===\" && gh api repos/:owner/:repo/code-scanning/alerts || echo 'No alerts found'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: security alerts (Dependabot)",
-    "command": "echo '=== Dependabot Alerts ===' && gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "github: trigger security audit",
-    "command": "echo '=== Triggering Security Audit ===' && gh workflow run 'Comprehensive Security Audit' --ref master && echo 'Workflow: Comprehensive Security Audit' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"Comprehensive Security Audit\" --limit=1'",
+    "command": "echo \"=== Dependabot Alerts ===\" && gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: docker security (Trivy)",
-    "command": "echo '=== Docker Security Scan (Trivy) ===' && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh run view {} --log | grep -E '(CRITICAL|HIGH|MEDIUM|CVE-)' | head -100",
+    "command": "echo \"=== Docker Security Scan (Trivy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh run view {} --log | grep -E '(CRITICAL|HIGH|MEDIUM|CVE-)' | head -100",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: latest workflow run (Build and Deploy)",
-    "command": "echo '=== Latest Workflow Runs (Build and Deploy) ===' && gh run list --workflow=build-and-deploy.yml --limit=5",
+    "command": "echo \"=== Latest Workflow Runs (Build and Deploy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=5",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: latest workflow run (DHI CVE Monitor)",
-    "command": "echo '=== Latest Workflow Runs (DHI CVE Monitor) ===' && gh run list --workflow=dhi-cve-monitor.yml --limit=5",
+    "command": "echo \"=== Latest Workflow Runs (DHI CVE Monitor) ===\" && gh run list --workflow=dhi-cve-monitor.yml --limit=5",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: latest workflow run (Security Audit)",
-    "command": "echo '=== Latest Workflow Runs (Security Audit) ===' && gh run list --workflow=security-audit.yml --limit=5",
+    "command": "echo \"=== Latest Workflow Runs (Security Audit) ===\" && gh run list --workflow=security-audit.yml --limit=5",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: latest workflow run (all)",
-    "command": "echo '=== Latest Workflow Runs (All) ===' && gh run list --limit=10",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "github: trigger DHI CVE Monitor",
-    "command": "echo '=== Triggering DHI CVE Monitor ===' && gh workflow run 'DHI CVE Monitoring' --ref master && echo 'Workflow: DHI CVE Monitoring' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"dhi-cve-monitor.yml\" --limit=1'",
+    "command": "echo \"=== Latest Workflow Runs (All) ===\" && gh run list --limit=30",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: workflow artifacts (Build and Deploy)",
-    "command": "echo '=== Workflow Artifacts (Build and Deploy) ===' && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
+    "command": "echo \"=== Workflow Artifacts (Build and Deploy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: workflow artifacts (DHI CVE Monitor)",
-    "command": "echo '=== Workflow Artifacts (DHI CVE Monitor) ===' && gh run list --workflow=dhi-cve-monitor.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
+    "command": "echo \"=== Workflow Artifacts (DHI CVE Monitor) ===\" && gh run list --workflow=dhi-cve-monitor.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "github: workflow artifacts (Security Audit)",
-    "command": "echo '=== Workflow Artifacts (Security Audit) ===' && gh run list --workflow=security-audit.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
+    "command": "echo \"=== Workflow Artifacts (Security Audit) ===\" && gh run list --workflow=security-audit.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
     "use_new_terminal": false,
     "reveal": "always",
   },
+  {
+    "label": "github: trigger security audit",
+    "command": "echo \"=== Triggering Security Audit ===\" && gh workflow run 'Comprehensive Security Audit' --ref master && echo 'Workflow: Comprehensive Security Audit' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"Comprehensive Security Audit\" --limit=1'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "github: trigger DHI CVE Monitor",
+    "command": "echo \"=== Triggering DHI CVE Monitor ===\" && gh workflow run 'DHI CVE Monitoring' --ref master && echo 'Workflow: DHI CVE Monitoring' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"dhi-cve-monitor.yml\" --limit=1'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // OPENTELEMETRY
+  // ============================================================
   {
     "label": "otel: status (all endpoints)",
-    "command": "echo '=== OTEL Endpoint Status ===' && set -a && source .env && set +a && echo '--- Base Endpoint ---' && echo $OTEL_EXPORTER_OTLP_ENDPOINT && curl -sf -o /dev/null -w 'HTTP: %{http_code}\\n' --max-time 3 $OTEL_EXPORTER_OTLP_ENDPOINT 2>/dev/null || echo 'Unreachable' && echo '--- Traces Endpoint ---' && echo $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Metrics Endpoint ---' && echo $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Logs Endpoint ---' && echo $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "otel: ping collector",
-    "command": "echo '=== OTEL Collector Ping ===' && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_ENDPOINT\" && curl -sf --max-time 3 -v $OTEL_EXPORTER_OTLP_ENDPOINT 2>&1 || echo 'Unreachable'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "otel: traces endpoint check",
-    "command": "echo '=== OTEL Traces Endpoint ===' && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceSpans\":[]}' $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -v 2>&1 || echo 'Not responding'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "otel: metrics endpoint check",
-    "command": "echo '=== OTEL Metrics Endpoint ===' && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceMetrics\":[]}' $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -v 2>&1 || echo 'Not responding'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "otel: logs endpoint check",
-    "command": "echo '=== OTEL Logs Endpoint ===' && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceLogs\":[]}' $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -v 2>&1 || echo 'Not responding'",
+    "command": "echo \"=== OTEL Endpoint Status ===\" && set -a && source .env && set +a && echo '--- Base Endpoint ---' && echo $OTEL_EXPORTER_OTLP_ENDPOINT && curl -sf -o /dev/null -w 'HTTP: %{http_code}\\n' --max-time 3 $OTEL_EXPORTER_OTLP_ENDPOINT 2>/dev/null || echo 'Unreachable' && echo '--- Traces Endpoint ---' && echo $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Metrics Endpoint ---' && echo $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Logs Endpoint ---' && echo $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: show config",
-    "command": "echo '=== OTEL Configuration ===' && set -a && source .env && set +a && echo \"Service: $OTEL_SERVICE_NAME\" && echo \"---\" && echo \"Base:    $OTEL_EXPORTER_OTLP_ENDPOINT\" && echo \"Traces:  $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && echo \"Metrics: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && echo \"Logs:    $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\"",
+    "command": "echo \"=== OTEL Configuration ===\" && set -a && source .env && set +a && echo \"Service: $OTEL_SERVICE_NAME\" && echo \"---\" && echo \"Base:    $OTEL_EXPORTER_OTLP_ENDPOINT\" && echo \"Traces:  $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && echo \"Metrics: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && echo \"Logs:    $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "otel: ping collector",
+    "command": "echo \"=== OTEL Collector Ping ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_ENDPOINT\" && curl -sf --max-time 3 -v $OTEL_EXPORTER_OTLP_ENDPOINT 2>&1 || echo 'Unreachable'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "otel: traces endpoint check",
+    "command": "echo \"=== OTEL Traces Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceSpans\":[]}' $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -v 2>&1 || echo 'Not responding'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "otel: metrics endpoint check",
+    "command": "echo \"=== OTEL Metrics Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceMetrics\":[]}' $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -v 2>&1 || echo 'Not responding'",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+  {
+    "label": "otel: logs endpoint check",
+    "command": "echo \"=== OTEL Logs Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceLogs\":[]}' $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -v 2>&1 || echo 'Not responding'",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: network connectivity test",
-    "command": "echo '=== OTEL Network Test ===' && set -a && source .env && set +a && OTEL_HOST=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f1) && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Host: $OTEL_HOST\" && echo \"Port: $OTEL_PORT\" && nc -zv -w 3 $OTEL_HOST $OTEL_PORT 2>&1",
+    "command": "echo \"=== OTEL Network Test ===\" && set -a && source .env && set +a && OTEL_HOST=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f1) && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Host: $OTEL_HOST\" && echo \"Port: $OTEL_PORT\" && nc -zv -w 3 $OTEL_HOST $OTEL_PORT 2>&1",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: service telemetry health",
-    "command": "echo '=== Service Telemetry Health ===' && curl -sf http://localhost:3000/health/telemetry | jq . || echo 'Status: Not responding'",
+    "command": "echo \"=== Service Telemetry Health ===\" && (set -o pipefail; curl -s http://localhost:3000/health/telemetry | jq .) || echo \"Status: Not responding\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: ssh tunnel start",
-    "command": "echo '=== SSH Tunnel Start ===' && OTEL_REMOTE=192.168.178.3 && OTEL_PORT=4318 && if lsof -i :${OTEL_PORT} 2>/dev/null | grep -q ssh; then echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Already running\"; else ssh -L ${OTEL_PORT}:127.0.0.1:${OTEL_PORT} pi@${OTEL_REMOTE} -N -f && echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Started\"; fi",
+    "command": "echo \"=== SSH Tunnel Start ===\" && OTEL_REMOTE=192.168.178.3 && OTEL_PORT=4318 && if lsof -i :${OTEL_PORT} 2>/dev/null | grep -q ssh; then echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Already running\"; else ssh -L ${OTEL_PORT}:127.0.0.1:${OTEL_PORT} pi@${OTEL_REMOTE} -N -f && echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Started\"; fi",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: ssh tunnel stop",
-    "command": "echo '=== SSH Tunnel Stop ===' && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && PID=$(lsof -t -i :$OTEL_PORT | head -1) && if [ -n \"$PID\" ]; then kill $PID && echo \"Port:   $OTEL_PORT\" && echo \"PID:    $PID\" && echo \"Status: Stopped\"; else echo \"Port:   $OTEL_PORT\" && echo \"Status: No tunnel running\"; fi",
+    "command": "echo \"=== SSH Tunnel Stop ===\" && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && PID=$(lsof -t -i :$OTEL_PORT | head -1) && if [ -n \"$PID\" ]; then kill $PID && echo \"Port:   $OTEL_PORT\" && echo \"PID:    $PID\" && echo \"Status: Stopped\"; else echo \"Port:   $OTEL_PORT\" && echo \"Status: No tunnel running\"; fi",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
     "label": "otel: ssh tunnel status",
-    "command": "echo '=== SSH Tunnel Status ===' && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Port: $OTEL_PORT\" && lsof -i :$OTEL_PORT 2>&1",
+    "command": "echo \"=== SSH Tunnel Status ===\" && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Port: $OTEL_PORT\" && lsof -i :$OTEL_PORT 2>&1",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // CODE ANALYSIS
+  // ============================================================
+  {
+    "label": "code: find TODOs",
+    "command": "echo \"=== TODOs and FIXMEs ===\" && grep -rn 'TODO\\|FIXME' src/ --include='*.ts' | head -30 || echo \"None found\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "docker: scout CVEs (pushed image)",
-    "command": "echo '=== Docker Scout CVE Scan ===' && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo 'Filter: CRITICAL, HIGH' && echo '---' && docker scout cves docker.io/zx8086/authentication-v2:latest --only-severities critical,high 2>&1 | head -50",
+    "label": "code: line count",
+    "command": "echo \"=== Source Code Line Count ===\" && find src -name '*.ts' | xargs wc -l | tail -1",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "docker: scout quickview (pushed image)",
-    "command": "echo '=== Docker Scout Quickview ===' && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout quickview docker.io/zx8086/authentication-v2:latest 2>&1",
+    "label": "code: exports count",
+    "command": "echo \"=== Export Count ===\" && grep -rn '^export' src/ --include='*.ts' | wc -l",
+    "use_new_terminal": false,
+    "reveal": "always",
+  },
+
+  // ============================================================
+  // ENVIRONMENT
+  // ============================================================
+  {
+    "label": "env: show (safe)",
+    "command": "echo \"=== Environment (Safe View) ===\" && env | grep -E '^(PORT|NODE_ENV|KONG_MODE|TELEMETRY_MODE|HIGH_AVAILABILITY|OTEL_SERVICE_NAME)=' | sort",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "docker: scout SBOM (pushed image)",
-    "command": "echo '=== Docker Scout SBOM ===' && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout sbom docker.io/zx8086/authentication-v2:latest --format list 2>&1 | head -40",
+    "label": "env: diff (.env vs .env.example)",
+    "command": "echo \"=== Environment Diff ===\" && diff <(grep -v '^#' .env | grep '=' | cut -d= -f1 | sort) <(grep -v '^#' .env.example | grep '=' | cut -d= -f1 | sort) || echo \"Files differ (< = .env only, > = .env.example only)\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
   {
-    "label": "docker: scout recommendations",
-    "command": "echo '=== Docker Scout Recommendations ===' && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout recommendations docker.io/zx8086/authentication-v2:latest 2>&1",
+    "label": "config: validate",
+    "command": "echo \"=== Config Validation ===\" && bun -e \"import { getConfig } from './src/config'; const c = getConfig(); console.log('Config loaded successfully'); console.log('Kong Mode:', c.kong.mode); console.log('Port:', c.server.port);\"",
     "use_new_terminal": false,
     "reveal": "always",
   },
+
+  // ============================================================
+  // DOCUMENTATION
+  // ============================================================
   {
-    "label": "docker: inspect labels (pushed image)",
-    "command": "echo '=== Docker Image Labels ===' && docker pull -q docker.io/zx8086/authentication-v2:latest > /dev/null && docker inspect docker.io/zx8086/authentication-v2:latest --format '{{json .Config.Labels}}' | jq .",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "docker: verify metadata (pushed image)",
-    "command": "echo '=== Docker Image Metadata ===' && docker pull -q docker.io/zx8086/authentication-v2:latest > /dev/null && docker inspect docker.io/zx8086/authentication-v2:latest --format '{{json .Config.Labels}}' | jq -r '[\"Version:  \" + .[\"org.opencontainers.image.version\"], \"Created:  \" + .[\"org.opencontainers.image.created\"], \"Revision: \" + .[\"org.opencontainers.image.revision\"], \"Title:    \" + .[\"org.opencontainers.image.title\"], \"Vendor:   \" + .[\"org.opencontainers.image.vendor\"]] | .[]'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "docker: verify version (registry API)",
-    "command": "echo '=== Docker Registry Version Check ===' && echo '--- Local Version ---' && grep '\"version\"' package.json | head -1 && echo '--- Registry Tags ---' && curl -s 'https://hub.docker.com/v2/repositories/zx8086/authentication-v2/tags?page_size=5' | jq . && echo '--- Platforms ---' && docker buildx imagetools inspect docker.io/zx8086/authentication-v2:latest --raw 2>/dev/null | jq .",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "docker: image size (pushed)",
-    "command": "echo '=== Docker Image Size ===' && docker manifest inspect docker.io/zx8086/authentication-v2:latest --verbose 2>/dev/null | jq . || echo 'Unable to inspect manifest'",
-    "use_new_terminal": false,
-    "reveal": "always",
-  },
-  {
-    "label": "docker: attestations (SLSA provenance)",
-    "command": "echo '=== Docker Attestations (SLSA) ===' && echo 'Image: docker.io/zx8086/authentication-v2:latest' && echo '---' && docker scout attestation docker.io/zx8086/authentication-v2:latest 2>&1",
+    "label": "docs: generate OpenAPI",
+    "command": "echo \"=== Generating OpenAPI Spec ===\" && bun scripts/generate-openapi.ts && echo '---' && echo 'Output: docs/openapi.yaml' && echo 'Status: Generated'",
     "use_new_terminal": false,
     "reveal": "always",
   },

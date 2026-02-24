@@ -4,24 +4,86 @@ This document describes the Zed IDE tasks available in `.zed/tasks.json` for man
 
 ## Overview
 
-The project includes 97 pre-configured Zed tasks organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
+The project includes **137 pre-configured Zed tasks** organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
 
 ## Task Categories
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Kong | 9 | API Gateway management |
-| Redis | 15 | Redis cache operations |
-| Valkey | 12 | Valkey cache operations |
+| Service / Server | 7 | Service info, health checks, server management |
+| Development | 5 | Dev server and workflow tasks |
+| Infrastructure | 10 | DevContainer and dependency management |
+| Dependencies (NPM/Bun) | 4 | Package management and auditing |
+| Kong | 15 | API Gateway management |
+| Redis | 16 | Redis cache operations |
+| Valkey | 16 | Valkey cache operations |
 | Postgres | 5 | Kong database queries |
-| Infrastructure | 6 | Combined status checks |
-| Devcontainer | 7 | Docker Compose management |
-| Development | 6 | Server and dev workflows |
-| Testing | 6 | Unit, E2E, and performance tests |
+| Docker | 12 | Container and image management |
+| Testing | 9 | Unit, E2E, performance, and mutation tests |
 | Quality | 2 | Linting and formatting |
-| GitHub | 7 | Security alerts and workflows |
-| OTEL | 12 | OpenTelemetry observability |
-| Docker | 10 | Image verification and security |
+| Profiling | 4 | CPU/memory profiling workflows |
+| Git | 6 | Version control operations |
+| GitHub | 15 | PRs, issues, workflows, security alerts |
+| OpenTelemetry | 11 | OTEL endpoints and configuration |
+| Code Analysis | 3 | TODOs, line count, exports |
+| Environment | 3 | Config validation and env diff |
+| Documentation | 1 | OpenAPI generation |
+
+---
+
+## Service / Server Tasks
+
+| Task | Description |
+|------|-------------|
+| `service: version` | Package name, version, description |
+| `service: endpoints` | List API endpoint paths |
+| `service: metrics` | Prometheus metrics (first 50 lines) |
+| `service: openapi spec` | OpenAPI spec (first 60 lines) |
+| `server: health check` | Full health endpoint response |
+| `server: health check (Valkey)` | Cache-specific health |
+| `server: kill (port 3000)` | Kill process on port 3000 |
+
+---
+
+## Development Tasks
+
+| Task | Description |
+|------|-------------|
+| `dev: start (watch mode)` | Start with hot reload |
+| `dev: start (devcontainer env)` | Start with devcontainer config |
+| `dev: start with Valkey` | Start using Valkey cache |
+| `dev: clean restart` | Kill port 3000 and restart |
+| `dev: quickstart` | Generate OpenAPI, then start |
+
+---
+
+## Infrastructure Tasks
+
+| Task | Description |
+|------|-------------|
+| `infra: status check` | Check all services (Kong, Redis, Valkey, Postgres) |
+| `devcontainer: up` | Start full devcontainer stack |
+| `devcontainer: down` | Stop devcontainer |
+| `devcontainer: down (clean volumes)` | Stop and remove volumes |
+| `devcontainer: status` | Show container status |
+| `devcontainer: logs` | Stream all container logs |
+| `deps: up (Kong + Redis)` | Start Kong and Redis |
+| `deps: up (Kong + Valkey)` | Start Kong and Valkey |
+| `deps: up (all)` | Start all dependencies |
+| `deps: down` | Stop all dependencies |
+
+**Compose File:** `.devcontainer/docker-compose.yml`
+
+---
+
+## Dependencies (NPM/Bun) Tasks
+
+| Task | Description |
+|------|-------------|
+| `deps: outdated` | Check for outdated packages |
+| `deps: audit` | Run security audit |
+| `deps: licenses` | Check package licenses |
+| `deps: tree` | Show dependency tree (first 60 lines) |
 
 ---
 
@@ -30,12 +92,17 @@ The project includes 97 pre-configured Zed tasks organized by category. Tasks ca
 | Task | Description |
 |------|-------------|
 | `kong: status` | Gateway status (connections, memory) |
+| `kong: version` | Kong version, edition, hostname |
 | `kong: list services` | All registered services |
 | `kong: list routes` | All registered routes |
 | `kong: list plugins` | All enabled plugins |
+| `kong: list consumers` | All consumers (username, id, custom_id) |
+| `kong: list upstreams` | All upstream configurations |
+| `kong: jwt secrets (count)` | JWT secrets count and details |
 | `kong: sync config (decK)` | Sync `kong/kong.yml` to gateway |
 | `kong: dump config (decK)` | Export current config as YAML |
 | `kong: diff config (decK)` | Show pending config changes |
+| `kong: seed test consumers` | Create test consumers |
 | `kong: view logs` | Stream Kong container logs |
 | `kong: restart` | Restart Kong container |
 
@@ -48,20 +115,21 @@ The project includes 97 pre-configured Zed tasks organized by category. Tasks ca
 | Task | Description |
 |------|-------------|
 | `redis: ping` | Health check (PONG response) |
-| `redis: monitor (live commands)` | Stream all commands in real-time |
+| `redis: status` | Container status |
+| `redis: info server` | Server information |
 | `redis: info stats` | Server statistics |
 | `redis: keys (all)` | List all keys |
-| `redis: flush all` | Clear all data |
+| `redis: bigkeys` | Find largest keys |
+| `redis: memkeys` | Memory usage by key |
+| `redis: scan auth keys` | Find auth_service keys |
+| `redis: monitor (live commands)` | Stream all commands in real-time |
 | `redis: interactive CLI` | Open redis-cli session |
+| `redis: logs` | Stream container logs |
+| `redis: flush all` | Clear all data |
 | `redis: start (standalone)` | Start standalone container (port 6379) |
 | `redis: stop` | Stop standalone container |
 | `redis: remove` | Remove standalone container |
 | `redis: restart (standalone)` | Full restart cycle |
-| `redis: logs` | Stream container logs |
-| `redis: status` | Container status |
-| `redis: bigkeys` | Find largest keys |
-| `redis: memkeys` | Memory usage by key |
-| `redis: scan auth keys` | Find auth_service keys |
 
 **Standalone Configuration:**
 - Container: `auth-redis`
@@ -76,17 +144,21 @@ The project includes 97 pre-configured Zed tasks organized by category. Tasks ca
 | Task | Description |
 |------|-------------|
 | `valkey: ping` | Health check (PONG response) |
+| `valkey: status` | Container status |
 | `valkey: info server` | Server information |
 | `valkey: info stats` | Server statistics |
 | `valkey: keys (all)` | List all keys |
-| `valkey: flush all` | Clear all data |
+| `valkey: bigkeys` | Find largest keys |
+| `valkey: memkeys` | Memory usage by key |
+| `valkey: scan auth keys` | Find auth_service keys |
+| `valkey: monitor (live commands)` | Stream all commands in real-time |
 | `valkey: interactive CLI` | Open valkey-cli session |
+| `valkey: logs` | Stream container logs |
+| `valkey: flush all` | Clear all data |
 | `valkey: start (standalone)` | Start standalone container (port 6380) |
 | `valkey: stop` | Stop standalone container |
 | `valkey: remove` | Remove standalone container |
 | `valkey: restart (standalone)` | Full restart cycle |
-| `valkey: logs` | Stream container logs |
-| `valkey: status` | Container status |
 
 **Standalone Configuration:**
 - Container: `auth-valkey`
@@ -94,128 +166,31 @@ The project includes 97 pre-configured Zed tasks organized by category. Tasks ca
 - Memory: 128MB with LRU eviction
 - Persistence: AOF enabled
 
+**Note:** Redis and Valkey have identical task sets for consistency.
+
 ---
 
 ## Postgres Tasks
 
 | Task | Description |
 |------|-------------|
-| `postgres: interactive psql` | Open psql session |
 | `postgres: list tables` | Show Kong database tables |
 | `postgres: kong services (SQL)` | Query services table |
 | `postgres: kong routes (SQL)` | Query routes table |
 | `postgres: db size` | Database size |
+| `postgres: interactive psql` | Open psql session |
 
 **Connection:** Uses Kong database container (`kong-db`)
 
 ---
 
-## Infrastructure Tasks
+## Docker Tasks
 
 | Task | Description |
 |------|-------------|
-| `infra: status check` | Check all services (Kong, Redis, Valkey, Postgres) |
-| `deps: up (Kong + Redis)` | Start Kong and Redis |
-| `deps: up (Kong + Valkey)` | Start Kong and Valkey |
-| `deps: up (all)` | Start all dependencies |
-| `deps: down` | Stop all dependencies |
 | `docker: ps` | List running containers |
 | `docker: ps (all)` | List all containers |
-
----
-
-## Devcontainer Tasks
-
-| Task | Description |
-|------|-------------|
-| `devcontainer: up` | Start full devcontainer stack |
-| `devcontainer: down` | Stop devcontainer |
-| `devcontainer: down (clean volumes)` | Stop and remove volumes |
-| `devcontainer: logs` | Stream all container logs |
-| `devcontainer: status` | Show container status |
-
-**Compose File:** `.devcontainer/docker-compose.yml`
-
----
-
-## Development Tasks
-
-| Task | Description |
-|------|-------------|
-| `dev: start (watch mode)` | Start with hot reload |
-| `dev: start (devcontainer env)` | Start with devcontainer config |
-| `dev: start with Valkey` | Start using Valkey cache |
-| `dev: clean restart` | Kill port 3000 and restart |
-| `dev: quickstart` | Generate OpenAPI, then start |
-| `server: kill (port 3000)` | Kill process on port 3000 |
-| `server: health check` | Full health endpoint response |
-| `server: health check (Valkey)` | Cache-specific health |
-
----
-
-## Testing Tasks
-
-| Task | Description |
-|------|-------------|
-| `test: bun (all)` | Run all Bun tests |
-| `test: bun (watch)` | Watch mode for tests |
-| `test: e2e (direct)` | Playwright tests (direct) |
-| `test: e2e (via Kong)` | Playwright tests (via gateway) |
-| `test: e2e UI` | Playwright UI mode |
-| `test: k6 smoke (quick)` | Quick performance smoke tests |
-
----
-
-## Quality Tasks
-
-| Task | Description |
-|------|-------------|
-| `quality: check (all)` | Run all quality checks |
-| `quality: fix` | Auto-fix quality issues |
-| `docs: generate OpenAPI` | Generate OpenAPI spec |
-
----
-
-## GitHub Tasks
-
-| Task | Description |
-|------|-------------|
-| `github: security alerts (open only)` | Open code scanning alerts |
-| `github: security alerts (all)` | All code scanning alerts |
-| `github: security alerts (Dependabot)` | Open Dependabot alerts |
-| `github: trigger security audit` | Run security audit workflow |
-| `github: docker security (Trivy)` | CVEs from latest build |
-| `github: latest workflow run` | Recent CI/CD runs |
-| `github: workflow artifacts` | Artifacts from latest run |
-
-**Prerequisites:** GitHub CLI (`gh`) authenticated
-
----
-
-## OpenTelemetry Tasks
-
-| Task | Description |
-|------|-------------|
-| `otel: status (all endpoints)` | Check all OTLP endpoints |
-| `otel: ping collector` | Test collector connectivity |
-| `otel: traces endpoint check` | Test traces endpoint |
-| `otel: metrics endpoint check` | Test metrics endpoint |
-| `otel: logs endpoint check` | Test logs endpoint |
-| `otel: show config` | Display OTEL configuration |
-| `otel: network connectivity test` | TCP connectivity test |
-| `otel: service telemetry health` | Service telemetry status |
-| `otel: ssh tunnel start` | Start SSH tunnel to collector |
-| `otel: ssh tunnel stop` | Stop SSH tunnel |
-| `otel: ssh tunnel status` | Check tunnel status |
-
-**Configuration:** Loaded from `.env` file
-
----
-
-## Docker Image Tasks
-
-| Task | Description |
-|------|-------------|
+| `docker: build (local)` | Build Docker image locally |
 | `docker: scout CVEs (pushed image)` | Scan for CRITICAL/HIGH CVEs |
 | `docker: scout quickview (pushed image)` | Security overview |
 | `docker: scout SBOM (pushed image)` | Software Bill of Materials |
@@ -227,6 +202,130 @@ The project includes 97 pre-configured Zed tasks organized by category. Tasks ca
 | `docker: attestations (SLSA provenance)` | SLSA attestations |
 
 **Image:** `docker.io/zx8086/authentication-v2:latest`
+
+---
+
+## Testing Tasks
+
+| Task | Description |
+|------|-------------|
+| `test: bun (all)` | Run all Bun tests |
+| `test: bun (watch)` | Watch mode for tests |
+| `test: coverage report` | Generate test coverage |
+| `test: e2e (direct)` | Playwright tests (direct) |
+| `test: e2e (via Kong)` | Playwright tests (via gateway) |
+| `test: e2e UI` | Playwright UI mode |
+| `test: k6 smoke (quick)` | Quick performance smoke tests |
+| `test: integration (circuit breaker)` | Circuit breaker integration tests |
+| `test: mutation (dry run)` | Mutation testing preview |
+
+---
+
+## Quality Tasks
+
+| Task | Description |
+|------|-------------|
+| `quality: check (all)` | Run all quality checks |
+| `quality: fix` | Auto-fix quality issues |
+
+---
+
+## Profiling Tasks
+
+| Task | Description |
+|------|-------------|
+| `profile: tokens` | Profile token generation scenario |
+| `profile: health` | Profile health endpoint |
+| `profile: list` | List profile files |
+| `profile: cleanup (dry run)` | Preview profile cleanup |
+
+---
+
+## Git Tasks
+
+| Task | Description |
+|------|-------------|
+| `git: recent commits` | Last 15 commits (oneline) |
+| `git: branch list` | All branches (local and remote) |
+| `git: status` | Working directory status |
+| `git: diff stats` | Uncommitted change statistics |
+| `git: stash list` | All stashes |
+| `git: hard reset (from remote)` | Reset to remote branch (destructive) |
+
+**Warning:** `git: hard reset` discards all local changes.
+
+---
+
+## GitHub Tasks
+
+| Task | Description |
+|------|-------------|
+| `github: PR list (open)` | Open pull requests |
+| `github: PR checks` | PR check status |
+| `github: issues (open)` | Open issues (limit 15) |
+| `github: security alerts (open only)` | Open code scanning alerts |
+| `github: security alerts (all)` | All code scanning alerts |
+| `github: security alerts (Dependabot)` | Open Dependabot alerts |
+| `github: docker security (Trivy)` | CVEs from latest build |
+| `github: latest workflow run (Build and Deploy)` | Recent build runs |
+| `github: latest workflow run (DHI CVE Monitor)` | Recent CVE monitor runs |
+| `github: latest workflow run (Security Audit)` | Recent security audit runs |
+| `github: latest workflow run (all)` | All recent workflow runs |
+| `github: workflow artifacts (Build and Deploy)` | Build artifacts |
+| `github: workflow artifacts (DHI CVE Monitor)` | CVE monitor artifacts |
+| `github: workflow artifacts (Security Audit)` | Security audit artifacts |
+| `github: trigger security audit` | Run security audit workflow |
+| `github: trigger DHI CVE Monitor` | Run CVE monitor workflow |
+
+**Prerequisites:** GitHub CLI (`gh`) authenticated
+
+---
+
+## OpenTelemetry Tasks
+
+| Task | Description |
+|------|-------------|
+| `otel: status (all endpoints)` | Check all OTLP endpoints |
+| `otel: show config` | Display OTEL configuration |
+| `otel: ping collector` | Test collector connectivity |
+| `otel: traces endpoint check` | Test traces endpoint |
+| `otel: metrics endpoint check` | Test metrics endpoint |
+| `otel: logs endpoint check` | Test logs endpoint |
+| `otel: network connectivity test` | TCP connectivity test |
+| `otel: service telemetry health` | Service telemetry status |
+| `otel: ssh tunnel start` | Start SSH tunnel to collector |
+| `otel: ssh tunnel stop` | Stop SSH tunnel |
+| `otel: ssh tunnel status` | Check tunnel status |
+
+**Configuration:** Loaded from `.env` file
+
+---
+
+## Code Analysis Tasks
+
+| Task | Description |
+|------|-------------|
+| `code: find TODOs` | Find TODOs and FIXMEs in src/ |
+| `code: line count` | Source code line count |
+| `code: exports count` | Count of exports in src/ |
+
+---
+
+## Environment Tasks
+
+| Task | Description |
+|------|-------------|
+| `env: show (safe)` | Show non-sensitive env vars |
+| `env: diff (.env vs .env.example)` | Compare env files |
+| `config: validate` | Validate configuration loading |
+
+---
+
+## Documentation Tasks
+
+| Task | Description |
+|------|-------------|
+| `docs: generate OpenAPI` | Generate OpenAPI spec |
 
 ---
 
@@ -245,16 +344,26 @@ Tasks use the following Zed task properties:
 
 ---
 
-## Output Format
+## Command Patterns
 
-All tasks include a header for identification:
+Tasks follow established patterns for reliability:
 
+### curl + jq with fallback
+```bash
+(set -o pipefail; curl -s URL | jq .) || echo "Status: Not responding"
 ```
-=== Task Name ===
-[output]
+
+### Docker table format
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 ```
 
-Tasks show full output without filtering to provide complete information for debugging and verification.
+### Header format
+```bash
+echo "=== Task Name ===" && command
+```
+
+**Note:** Avoid `curl -f` when response body is needed (it fails silently on HTTP errors).
 
 ---
 
@@ -265,7 +374,7 @@ Edit `.zed/tasks.json` to add tasks:
 ```json
 {
   "label": "category: task name",
-  "command": "echo '=== Task Header ===' && your-command-here",
+  "command": "echo \"=== Task Header ===\" && (set -o pipefail; your-command | jq .) || echo \"Status: Not available\"",
   "use_new_terminal": false,
   "reveal": "always",
 }
@@ -274,5 +383,5 @@ Edit `.zed/tasks.json` to add tasks:
 **Conventions:**
 - Use `category: name` format for labels
 - Include `=== Header ===` echo for identification
-- Use `jq .` for JSON output formatting
-- Use `2>&1` to capture stderr when needed
+- Use `(set -o pipefail; ... | jq .) || echo "fallback"` for curl+jq
+- Group tasks by category with JSONC comments (`// === CATEGORY ===`)

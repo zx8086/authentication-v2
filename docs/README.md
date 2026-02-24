@@ -43,6 +43,7 @@
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
 | [devcontainer.md](development/devcontainer.md) | Zed IDE DevContainer setup for local Docker development |
+| [zed-tasks.md](development/zed-tasks.md) | Complete Zed IDE task reference (137 tasks) |
 | [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation, chaos) |
 | [api-best-practices.md](development/api-best-practices.md) | API standards: method validation, ETag, rate limiting |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong integration, dual-mode E2E testing, http-log setup, test consumers |
