@@ -447,6 +447,13 @@ export function initializeConfig(): AppConfig {
     continuousProfiling: {
       ...defaultConfig.continuousProfiling,
       ...structuredEnvConfig.continuousProfiling,
+      // Derive outputDir for container environments (read-only filesystem)
+      outputDir:
+        structuredEnvConfig.continuousProfiling.outputDir ??
+        (structuredEnvConfig.telemetry.infrastructure.isEcs ||
+        structuredEnvConfig.telemetry.infrastructure.isKubernetes
+          ? "/tmp/profiles"
+          : defaultConfig.continuousProfiling.outputDir),
     },
     apiInfo: {
       ...defaultConfig.apiInfo,

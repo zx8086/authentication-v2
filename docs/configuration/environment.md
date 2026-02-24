@@ -210,6 +210,32 @@ In HA mode, each service instance lazily populates an in-memory cache on success
 
 These settings are part of the API best practices implementation. See [api-best-practices.md](../development/api-best-practices.md) for details.
 
+### Continuous Profiling
+
+| Variable | Description | Default | Notes |
+|----------|-------------|---------|-------|
+| `PROFILING_ENABLED` | Enable Chrome DevTools profiling | `false` | Development only |
+| `CONTINUOUS_PROFILING_ENABLED` | Enable automatic SLA-triggered profiling | `false` | |
+| `CONTINUOUS_PROFILING_AUTO_TRIGGER_ON_SLA` | Auto-trigger on SLA violations | `true` | |
+| `CONTINUOUS_PROFILING_THROTTLE_MINUTES` | Min minutes between triggers | `60` | 1-1440 |
+| `CONTINUOUS_PROFILING_OUTPUT_DIR` | Profile output directory | Auto-detected | See below |
+| `CONTINUOUS_PROFILING_MAX_CONCURRENT` | Max concurrent sessions | `1` | 1-5 |
+| `CONTINUOUS_PROFILING_BUFFER_SIZE` | Rolling buffer for P95/P99 | `100` | 10-1000 |
+
+**Container-Aware Output Directory**:
+
+The `outputDir` is automatically derived based on the deployment environment:
+
+| Environment | Detection | Default Path |
+|-------------|-----------|--------------|
+| Local/Dev | No container env vars | `profiles/auto` |
+| AWS Fargate | `ECS_CONTAINER_METADATA_URI_V4` present | `/tmp/profiles` |
+| Kubernetes | `KUBERNETES_SERVICE_HOST` present | `/tmp/profiles` |
+
+This handles read-only filesystem containers (DHI distroless with `readOnlyRootFilesystem: true`).
+
+See [profiling.md](../development/profiling.md) for complete profiling guide.
+
 ---
 
 ## Example Configuration

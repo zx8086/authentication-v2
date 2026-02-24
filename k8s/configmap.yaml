@@ -47,3 +47,6 @@ data:
   API_LICENSE_NAME: "Proprietary"
   API_LICENSE_IDENTIFIER: "UNLICENSED"
   API_CORS: "*"
+
+  # Profiling Configuration (uses /tmp for read-only filesystem compatibility)
+  CONTINUOUS_PROFILING_OUTPUT_DIR: "/tmp/profiles"

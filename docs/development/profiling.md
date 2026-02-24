@@ -194,6 +194,67 @@ CONTINUOUS_PROFILING_MAX_CONCURRENT=1           # Max concurrent sessions
 4. **Automatic Throttling**: Min 60 minutes between auto-triggered profiles
 5. **Graceful Degradation**: Profiling disabled if overhead exceeds limits
 
+### Container Deployment (Fargate/Kubernetes)
+
+Container environments with read-only filesystems require special configuration for profiling output.
+
+**Problem**: DHI distroless containers have `readOnlyRootFilesystem: true`, causing:
+```
+EROFS: read-only file system, mkdir 'profiles'
+```
+
+**Automatic Detection**: The configuration loader auto-detects container environments and adjusts the output directory:
+
+| Environment | Detection Method | Default Output Dir |
+|-------------|-----------------|-------------------|
+| Local/Dev | No container env vars | `profiles/auto` |
+| AWS Fargate | `ECS_CONTAINER_METADATA_URI_V4` | `/tmp/profiles` |
+| Kubernetes | `KUBERNETES_SERVICE_HOST` | `/tmp/profiles` |
+
+**Configuration Priority** (4-Pillar Pattern):
+1. `CONTINUOUS_PROFILING_OUTPUT_DIR` env var (highest priority)
+2. Auto-detected container path (`/tmp/profiles`)
+3. Default from `defaults.ts` (`profiles/auto`)
+
+**AWS Fargate Setup**:
+
+Add a bind mount volume in your ECS Task Definition:
+
+```json
+{
+  "containerDefinitions": [{
+    "name": "authentication-service",
+    "mountPoints": [{
+      "sourceVolume": "tmp-storage",
+      "containerPath": "/tmp",
+      "readOnly": false
+    }]
+  }],
+  "volumes": [{
+    "name": "tmp-storage"
+  }],
+  "ephemeralStorage": {
+    "sizeInGiB": 21
+  }
+}
+```
+
+**Kubernetes Setup**:
+
+The existing `k8s/deployment.yaml` already mounts `/tmp` as an emptyDir volume. Add to ConfigMap:
+
+```yaml
+# k8s/configmap.yaml
+data:
+  CONTINUOUS_PROFILING_OUTPUT_DIR: "/tmp/profiles"
+```
+
+**Storage Considerations**:
+- Fargate ephemeral storage: 20GB default (expandable to 200GB)
+- Kubernetes emptyDir: 100Mi limit (configurable in deployment.yaml)
+- Profiles are ephemeral and lost on pod restart
+- For persistent profiles, consider mounting an EFS/PVC volume
+
 ---
 
 ## Performance Targets
@@ -441,6 +502,41 @@ curl -X POST http://localhost:3000/tokens \
 2. Verify Bun version: `bun --version` (requires 1.3+)
 3. Check for permission errors: `ls -la profiles/`
 4. Increase profile duration: `bun run profile:scenario:tokens --duration=60`
+
+### EROFS: Read-Only File System Error
+
+**Symptom**: `EROFS: read-only file system, mkdir 'profiles'` in container logs
+
+**Cause**: Container running with `readOnlyRootFilesystem: true` (DHI distroless)
+
+**Solutions**:
+
+1. **AWS Fargate**: Add bind mount for `/tmp` in ECS Task Definition:
+   ```json
+   {
+     "volumes": [{ "name": "tmp-storage" }],
+     "containerDefinitions": [{
+       "mountPoints": [{
+         "sourceVolume": "tmp-storage",
+         "containerPath": "/tmp"
+       }]
+     }]
+   }
+   ```
+
+2. **Kubernetes**: Verify `/tmp` emptyDir is mounted (already in `k8s/deployment.yaml`)
+
+3. **Verify auto-detection**:
+   ```bash
+   # Check environment variables in container
+   env | grep -E "(ECS_CONTAINER|KUBERNETES_SERVICE)"
+
+   # Should see one of:
+   # ECS_CONTAINER_METADATA_URI_V4=... (Fargate)
+   # KUBERNETES_SERVICE_HOST=... (K8s)
+   ```
+
+4. **Manual override**: Set `CONTINUOUS_PROFILING_OUTPUT_DIR=/tmp/profiles`
 
 ### Empty or Incomplete Profile
 
