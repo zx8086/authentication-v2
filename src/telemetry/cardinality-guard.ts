@@ -1,13 +1,16 @@
 // src/telemetry/cardinality-guard.ts
 
 import { loadConfig } from "../config/index";
+import { log } from "../utils/logger";
 
 const config = loadConfig();
 
 const CARDINALITY_CONFIG = {
   maxUniqueConsumers: 1000,
   hashBuckets: 256,
-  resetIntervalMs: 60 * 60 * 1000,
+  // Reset every 15 minutes to prevent unbounded memory growth from unique consumer IDs
+  // (reduced from 1 hour to limit memory accumulation)
+  resetIntervalMs: 15 * 60 * 1000,
   warningThresholdPercent: 80,
 };
 
@@ -109,6 +112,9 @@ export function getCardinalityStats(): {
 }
 
 export function resetCardinalityTracking(): void {
+  const previousSize = trackedConsumerIds.size;
+  const wasLimitExceeded = cardinalityLimitExceeded;
+
   trackedConsumerIds.clear();
   cardinalityLimitExceeded = false;
   lastResetTime = Date.now();
@@ -116,6 +122,16 @@ export function resetCardinalityTracking(): void {
   cardinalityStats.bucketsUsed = 0;
   cardinalityStats.totalRequests = 0;
   cardinalityStats.limitExceededAt = null;
+
+  if (previousSize > 0) {
+    log("Cleared cardinality tracking (periodic reset)", {
+      component: "cardinality-guard",
+      action: "periodic_reset",
+      clearedConsumers: previousSize,
+      wasLimitExceeded,
+      intervalMinutes: CARDINALITY_CONFIG.resetIntervalMs / 60000,
+    });
+  }
 }
 
 export function getCardinalityWarningLevel(): "ok" | "warning" | "critical" {

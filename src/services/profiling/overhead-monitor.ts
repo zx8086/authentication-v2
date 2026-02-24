@@ -2,6 +2,9 @@
 
 import { log, warn } from "../../utils/logger";
 
+// Maximum duration for profiling measurement (5 minutes) - prevents runaway intervals
+const MAX_PROFILE_DURATION_MS = 5 * 60 * 1000;
+
 interface CpuMeasurement {
   timestamp: number;
   cpuUsagePercent: number;
@@ -23,6 +26,7 @@ export class OverheadMonitor {
   private isProfilingActive = false;
   private baselineCpu = 0;
   private measurementInterval: Timer | null = null;
+  private autoCleanupTimeout: Timer | null = null;
 
   constructor(maxOverheadPercent = 2, measurementWindowMs = 10000, baselineSampleCount = 30) {
     this.maxOverheadPercent = maxOverheadPercent;
@@ -129,9 +133,23 @@ export class OverheadMonitor {
       }
     }, 1000);
 
+    // Safety timeout to auto-stop profiling measurement if not stopped manually
+    // This prevents runaway intervals from causing memory leaks
+    this.autoCleanupTimeout = setTimeout(() => {
+      if (this.isProfilingActive) {
+        warn("Auto-stopping profiling measurement after max duration", {
+          component: "overhead-monitor",
+          maxDurationMs: MAX_PROFILE_DURATION_MS,
+          maxDurationMinutes: MAX_PROFILE_DURATION_MS / 60000,
+        });
+        this.stopProfilingMeasurement();
+      }
+    }, MAX_PROFILE_DURATION_MS);
+
     log("Started profiling measurement", {
       component: "overhead-monitor",
       baselineCpu: this.baselineCpu.toFixed(2),
+      maxDurationMinutes: MAX_PROFILE_DURATION_MS / 60000,
     });
   }
 
@@ -148,6 +166,12 @@ export class OverheadMonitor {
     if (this.measurementInterval) {
       clearInterval(this.measurementInterval);
       this.measurementInterval = null;
+    }
+
+    // Clear auto-cleanup timeout since we're stopping manually
+    if (this.autoCleanupTimeout) {
+      clearTimeout(this.autoCleanupTimeout);
+      this.autoCleanupTimeout = null;
     }
 
     const metrics = this.getOverheadMetrics();
@@ -198,6 +222,11 @@ export class OverheadMonitor {
     if (this.measurementInterval) {
       clearInterval(this.measurementInterval);
       this.measurementInterval = null;
+    }
+
+    if (this.autoCleanupTimeout) {
+      clearTimeout(this.autoCleanupTimeout);
+      this.autoCleanupTimeout = null;
     }
 
     this.isProfilingActive = false;

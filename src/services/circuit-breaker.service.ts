@@ -40,13 +40,25 @@ type GracefulDegradationResponse = HealthCheckDegradedResponse | GenericDegraded
 
 const DEFAULT_MAX_STALE_ENTRIES = 1000;
 
+// TTL for unused circuit breakers (10 minutes) - breakers not used within this time will be cleaned up
+const BREAKER_TTL_MS = 10 * 60 * 1000;
+// Cleanup interval for expired breakers and stale cache entries (1 minute)
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+
 export class KongCircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();
   private staleCache?: Map<string, { data: ConsumerSecret; timestamp: number }>;
   private config: CircuitBreakerConfig & { highAvailability?: boolean };
   private readonly staleDataToleranceMinutes: number;
+  private readonly staleDataToleranceMs: number;
   private readonly maxStaleEntries: number;
   private operationConfigs: Map<string, OperationCircuitBreakerConfig> = new Map();
+
+  // Track last usage time for each breaker to enable TTL-based cleanup
+  private lastUsed: Map<string, number> = new Map();
+  // Cleanup interval IDs for proper shutdown
+  private breakerCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+  private staleCacheCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     config: CircuitBreakerConfig & { highAvailability?: boolean },
@@ -55,11 +67,82 @@ export class KongCircuitBreakerService {
   ) {
     this.config = config;
     this.staleDataToleranceMinutes = cachingConfig.staleDataToleranceMinutes;
+    this.staleDataToleranceMs = this.staleDataToleranceMinutes * 60 * 1000;
     this.maxStaleEntries = cachingConfig.maxMemoryEntries ?? DEFAULT_MAX_STALE_ENTRIES;
 
     this.initializeOperationConfigs();
 
     this.staleCache = new Map();
+
+    // Start cleanup intervals to prevent memory leaks from accumulated breakers and stale entries
+    this.startCleanupIntervals();
+  }
+
+  private startCleanupIntervals(): void {
+    // Cleanup unused breakers every minute
+    this.breakerCleanupIntervalId = setInterval(() => {
+      this.cleanupUnusedBreakers();
+    }, CLEANUP_INTERVAL_MS);
+
+    // Cleanup expired stale cache entries every minute
+    this.staleCacheCleanupIntervalId = setInterval(() => {
+      this.cleanupExpiredStaleEntries();
+    }, CLEANUP_INTERVAL_MS);
+  }
+
+  private cleanupUnusedBreakers(): void {
+    const now = Date.now();
+    const toRemove: string[] = [];
+
+    for (const [name, timestamp] of this.lastUsed) {
+      if (now - timestamp > BREAKER_TTL_MS) {
+        toRemove.push(name);
+      }
+    }
+
+    for (const name of toRemove) {
+      const breaker = this.breakers.get(name);
+      if (breaker) {
+        breaker.shutdown();
+        this.breakers.delete(name);
+        this.lastUsed.delete(name);
+
+        winstonTelemetryLogger.debug("Cleaned up unused circuit breaker (TTL expired)", {
+          component: "circuit_breaker",
+          action: "breaker_ttl_cleanup",
+          operation: name,
+          ttlMinutes: BREAKER_TTL_MS / 60000,
+          remainingBreakers: this.breakers.size,
+        });
+      }
+    }
+  }
+
+  private cleanupExpiredStaleEntries(): void {
+    if (!this.staleCache) return;
+
+    const now = Date.now();
+    const toRemove: string[] = [];
+
+    for (const [key, entry] of this.staleCache) {
+      if (now - entry.timestamp > this.staleDataToleranceMs) {
+        toRemove.push(key);
+      }
+    }
+
+    for (const key of toRemove) {
+      this.staleCache.delete(key);
+    }
+
+    if (toRemove.length > 0) {
+      winstonTelemetryLogger.debug("Cleaned up expired stale cache entries (TTL)", {
+        component: "circuit_breaker",
+        action: "stale_cache_ttl_cleanup",
+        removedCount: toRemove.length,
+        remainingEntries: this.staleCache.size,
+        toleranceMinutes: this.staleDataToleranceMinutes,
+      });
+    }
   }
 
   private initializeOperationConfigs(): void {
@@ -97,6 +180,9 @@ export class KongCircuitBreakerService {
   }
 
   private getOrCreateBreaker<T>(operation: string): CircuitBreaker<[() => Promise<T>], T> {
+    // Track usage time for TTL-based cleanup
+    this.lastUsed.set(operation, Date.now());
+
     if (!this.breakers.has(operation)) {
       const operationConfig = this.operationConfigs.get(operation);
 
@@ -594,10 +680,22 @@ export class KongCircuitBreakerService {
   }
 
   shutdown(): void {
+    // Clear cleanup intervals to prevent memory leaks
+    if (this.breakerCleanupIntervalId) {
+      clearInterval(this.breakerCleanupIntervalId);
+      this.breakerCleanupIntervalId = null;
+    }
+    if (this.staleCacheCleanupIntervalId) {
+      clearInterval(this.staleCacheCleanupIntervalId);
+      this.staleCacheCleanupIntervalId = null;
+    }
+
+    // Shutdown all breakers
     for (const breaker of this.breakers.values()) {
       breaker.shutdown();
     }
     this.breakers.clear();
+    this.lastUsed.clear();
 
     if (this.staleCache) {
       this.staleCache.clear();

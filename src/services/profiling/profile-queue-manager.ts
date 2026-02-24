@@ -6,6 +6,9 @@ import type { Subprocess } from "bun";
 import type { ContinuousProfilingConfig } from "../../config/schemas";
 import { error, log, warn } from "../../utils/logger";
 
+// Maximum queue size to prevent unbounded memory growth from accumulated profile requests
+const MAX_QUEUE_SIZE = 100;
+
 interface ProfileRequest {
   endpoint: string;
   reason: "sla_violation" | "manual";
@@ -139,6 +142,18 @@ export class ProfileQueueManager {
     }
 
     if (this.activeProfile !== null) {
+      // Enforce max queue size to prevent unbounded memory growth
+      if (this.queue.length >= MAX_QUEUE_SIZE) {
+        warn("Profiling queue full, rejecting request", {
+          component: "profile-queue-manager",
+          endpoint: request.endpoint,
+          reason: request.reason,
+          queueLength: this.queue.length,
+          maxQueueSize: MAX_QUEUE_SIZE,
+        });
+        return false;
+      }
+
       this.queue.push(request);
       log("Profiling request queued", {
         component: "profile-queue-manager",

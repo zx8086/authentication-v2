@@ -222,6 +222,8 @@ export async function initializeTelemetry(): Promise<void> {
 
 export async function shutdownTelemetry(): Promise<void> {
   if (hostMetrics) {
+    // HostMetrics cleanup happens through OTel SDK shutdown (no explicit stop method)
+    // Setting to undefined allows garbage collection of internal meter references
     hostMetrics = undefined;
   }
 

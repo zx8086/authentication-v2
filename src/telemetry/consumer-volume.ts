@@ -1,5 +1,7 @@
 // src/telemetry/consumer-volume.ts
 
+import { log } from "../utils/logger";
+
 const consumerRequestCounts = new Map<string, number>();
 
 let consumerVolumeIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -47,10 +49,21 @@ export function getConsumerVolumeStats(): {
   };
 }
 
-const HOUR_IN_MS = 60 * 60 * 1000;
+// Clear consumer request counts every 15 minutes to prevent unbounded memory growth
+// (reduced from 1 hour to limit memory accumulation from unique consumer IDs)
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 consumerVolumeIntervalId = setInterval(() => {
+  const previousSize = consumerRequestCounts.size;
   consumerRequestCounts.clear();
-}, HOUR_IN_MS);
+  if (previousSize > 0) {
+    log("Cleared consumer volume tracking (periodic reset)", {
+      component: "consumer-volume",
+      action: "periodic_clear",
+      clearedEntries: previousSize,
+      intervalMinutes: FIFTEEN_MINUTES_MS / 60000,
+    });
+  }
+}, FIFTEEN_MINUTES_MS);
 
 export function shutdownConsumerVolume(): void {
   if (consumerVolumeIntervalId) {
