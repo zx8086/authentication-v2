@@ -138,6 +138,107 @@ spec:
           sizeLimit: 50Mi
 ```
 
+### AWS Fargate/ECS Deployment
+
+```json
+{
+  "family": "authentication-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "ephemeralStorage": {
+    "sizeInGiB": 21
+  },
+  "containerDefinitions": [{
+    "name": "authentication-service",
+    "image": "authentication-service:latest",
+    "portMappings": [{
+      "containerPort": 3000,
+      "protocol": "tcp"
+    }],
+    "user": "65532:65532",
+    "readonlyRootFilesystem": true,
+    "linuxParameters": {
+      "initProcessEnabled": true,
+      "capabilities": {
+        "drop": ["ALL"]
+      }
+    },
+    "mountPoints": [{
+      "sourceVolume": "tmp-storage",
+      "containerPath": "/tmp",
+      "readOnly": false
+    }, {
+      "sourceVolume": "profiles-storage",
+      "containerPath": "/app/profiles",
+      "readOnly": false
+    }],
+    "healthCheck": {
+      "command": ["CMD-SHELL", "wget -q --spider http://localhost:3000/health || exit 1"],
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 60
+    },
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/authentication-service",
+        "awslogs-region": "eu-west-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    }
+  }],
+  "volumes": [{
+    "name": "tmp-storage"
+  }, {
+    "name": "profiles-storage"
+  }]
+}
+```
+
+**Fargate Resource Limits**:
+
+| Resource | Value | Notes |
+|----------|-------|-------|
+| CPU | 256 (.25 vCPU) | Minimum for Fargate, scale to 512/1024 for production |
+| Memory | 512 MB | Matches K8s request, scale to 1024 for production |
+| Ephemeral Storage | 21 GB | Default 20GB + 1GB for profiles |
+
+**Security Context (Matching Kubernetes)**:
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `user` | `65532:65532` | Distroless nonroot user |
+| `readonlyRootFilesystem` | `true` | Immutable container |
+| `capabilities.drop` | `["ALL"]` | Minimal privileges |
+| `initProcessEnabled` | `true` | PID 1 signal handling (dumb-init equivalent) |
+
+**Health Check Configuration**:
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `interval` | 30s | Time between health checks |
+| `timeout` | 5s | Health check timeout |
+| `retries` | 3 | Unhealthy threshold |
+| `startPeriod` | 60s | Grace period for startup |
+
+**Required IAM Permissions** (Task Execution Role):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ],
+    "Resource": "arn:aws:logs:*:*:log-group:/ecs/authentication-service:*"
+  }]
+}
+```
+
 ---
 
 ## Security Commands
