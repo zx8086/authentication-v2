@@ -77,6 +77,33 @@ const envSchema = z
     REDIS_MAX_RETRIES: z.coerce.number().int().min(1).max(10).optional(),
     REDIS_CONNECTION_TIMEOUT: z.coerce.number().int().min(1000).max(30000).optional(),
 
+    // Cache Resilience - Circuit Breaker
+    CACHE_CB_ENABLED: z.string().optional(),
+    CACHE_CB_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(100).optional(),
+    CACHE_CB_RESET_TIMEOUT: z.coerce.number().int().min(1000).max(300000).optional(),
+    CACHE_CB_SUCCESS_THRESHOLD: z.coerce.number().int().min(1).max(20).optional(),
+
+    // Cache Resilience - Reconnect
+    CACHE_RECONNECT_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).optional(),
+    CACHE_RECONNECT_BASE_DELAY_MS: z.coerce.number().int().min(50).max(5000).optional(),
+    CACHE_RECONNECT_MAX_DELAY_MS: z.coerce.number().int().min(1000).max(60000).optional(),
+    CACHE_RECONNECT_COOLDOWN_MS: z.coerce.number().int().min(10000).max(300000).optional(),
+
+    // Cache Resilience - Health Monitor
+    CACHE_HEALTH_MONITOR_ENABLED: z.string().optional(),
+    CACHE_HEALTH_MONITOR_INTERVAL_MS: z.coerce.number().int().min(1000).max(60000).optional(),
+    CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD: z.coerce.number().int().min(1).max(20).optional(),
+    CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD: z.coerce.number().int().min(1).max(20).optional(),
+    CACHE_HEALTH_MONITOR_PING_TIMEOUT_MS: z.coerce.number().int().min(100).max(5000).optional(),
+
+    // Cache Resilience - Operation Timeouts
+    CACHE_TIMEOUT_GET_MS: z.coerce.number().int().min(100).max(10000).optional(),
+    CACHE_TIMEOUT_SET_MS: z.coerce.number().int().min(100).max(10000).optional(),
+    CACHE_TIMEOUT_DELETE_MS: z.coerce.number().int().min(100).max(10000).optional(),
+    CACHE_TIMEOUT_SCAN_MS: z.coerce.number().int().min(100).max(30000).optional(),
+    CACHE_TIMEOUT_PING_MS: z.coerce.number().int().min(50).max(5000).optional(),
+    CACHE_TIMEOUT_CONNECT_MS: z.coerce.number().int().min(1000).max(30000).optional(),
+
     PROFILING_ENABLED: z.string().optional(),
 
     CONTINUOUS_PROFILING_ENABLED: z.string().optional(),
@@ -220,6 +247,35 @@ export function initializeConfig(): AppConfig {
       healthCheckTtlMs: number;
       redisMaxRetries: number;
       redisConnectionTimeout: number;
+      resilience: {
+        circuitBreaker: Partial<{
+          enabled: boolean;
+          failureThreshold: number;
+          resetTimeout: number;
+          successThreshold: number;
+        }>;
+        reconnect: Partial<{
+          maxAttempts: number;
+          baseDelayMs: number;
+          maxDelayMs: number;
+          cooldownMs: number;
+        }>;
+        healthMonitor: Partial<{
+          enabled: boolean;
+          intervalMs: number;
+          unhealthyThreshold: number;
+          healthyThreshold: number;
+          pingTimeoutMs: number;
+        }>;
+        operationTimeouts: Partial<{
+          get: number;
+          set: number;
+          delete: number;
+          scan: number;
+          ping: number;
+          connect: number;
+        }>;
+      };
     }>;
     telemetry: {
       serviceName?: string;
@@ -313,19 +369,58 @@ export function initializeConfig(): AppConfig {
         }).filter(([, value]) => value !== undefined)
       ),
     },
-    caching: Object.fromEntries(
-      Object.entries({
-        highAvailability: envConfig.HIGH_AVAILABILITY,
-        redisUrl: envConfig.REDIS_URL,
-        redisPassword: envConfig.REDIS_PASSWORD,
-        redisDb: envConfig.REDIS_DB,
-        staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
-        maxMemoryEntries: envConfig.CACHE_MAX_MEMORY_ENTRIES,
-        healthCheckTtlMs: envConfig.CACHE_HEALTH_TTL_MS,
-        redisMaxRetries: envConfig.REDIS_MAX_RETRIES,
-        redisConnectionTimeout: envConfig.REDIS_CONNECTION_TIMEOUT,
-      }).filter(([, value]) => value !== undefined)
-    ),
+    caching: {
+      ...Object.fromEntries(
+        Object.entries({
+          highAvailability: envConfig.HIGH_AVAILABILITY,
+          redisUrl: envConfig.REDIS_URL,
+          redisPassword: envConfig.REDIS_PASSWORD,
+          redisDb: envConfig.REDIS_DB,
+          staleDataToleranceMinutes: envConfig.STALE_DATA_TOLERANCE_MINUTES,
+          maxMemoryEntries: envConfig.CACHE_MAX_MEMORY_ENTRIES,
+          healthCheckTtlMs: envConfig.CACHE_HEALTH_TTL_MS,
+          redisMaxRetries: envConfig.REDIS_MAX_RETRIES,
+          redisConnectionTimeout: envConfig.REDIS_CONNECTION_TIMEOUT,
+        }).filter(([, value]) => value !== undefined)
+      ),
+      resilience: {
+        circuitBreaker: Object.fromEntries(
+          Object.entries({
+            enabled: toBool(envConfig.CACHE_CB_ENABLED, undefined),
+            failureThreshold: envConfig.CACHE_CB_FAILURE_THRESHOLD,
+            resetTimeout: envConfig.CACHE_CB_RESET_TIMEOUT,
+            successThreshold: envConfig.CACHE_CB_SUCCESS_THRESHOLD,
+          }).filter(([, value]) => value !== undefined)
+        ),
+        reconnect: Object.fromEntries(
+          Object.entries({
+            maxAttempts: envConfig.CACHE_RECONNECT_MAX_ATTEMPTS,
+            baseDelayMs: envConfig.CACHE_RECONNECT_BASE_DELAY_MS,
+            maxDelayMs: envConfig.CACHE_RECONNECT_MAX_DELAY_MS,
+            cooldownMs: envConfig.CACHE_RECONNECT_COOLDOWN_MS,
+          }).filter(([, value]) => value !== undefined)
+        ),
+        healthMonitor: Object.fromEntries(
+          Object.entries({
+            enabled: toBool(envConfig.CACHE_HEALTH_MONITOR_ENABLED, undefined),
+            intervalMs: envConfig.CACHE_HEALTH_MONITOR_INTERVAL_MS,
+            unhealthyThreshold: envConfig.CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD,
+            healthyThreshold: envConfig.CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD,
+            pingTimeoutMs: envConfig.CACHE_HEALTH_MONITOR_PING_TIMEOUT_MS,
+          }).filter(([, value]) => value !== undefined)
+        ),
+        operationTimeouts: Object.fromEntries(
+          Object.entries({
+            get: envConfig.CACHE_TIMEOUT_GET_MS,
+            set: envConfig.CACHE_TIMEOUT_SET_MS,
+            delete: envConfig.CACHE_TIMEOUT_DELETE_MS,
+            scan: envConfig.CACHE_TIMEOUT_SCAN_MS,
+            ping: envConfig.CACHE_TIMEOUT_PING_MS,
+            connect: envConfig.CACHE_TIMEOUT_CONNECT_MS,
+          }).filter(([, value]) => value !== undefined)
+        ),
+      },
+    },
     telemetry: {
       ...Object.fromEntries(
         Object.entries({
@@ -413,7 +508,36 @@ export function initializeConfig(): AppConfig {
         ...structuredEnvConfig.kong.circuitBreaker,
       },
     },
-    caching: { ...defaultConfig.caching, ...structuredEnvConfig.caching },
+    caching: (() => {
+      const defaultResilience = defaultConfig.caching.resilience;
+      const envResilience = structuredEnvConfig.caching.resilience;
+
+      return {
+        ...defaultConfig.caching,
+        ...structuredEnvConfig.caching,
+        // Deep merge resilience config - defaults guarantee all required values
+        resilience: defaultResilience
+          ? {
+              circuitBreaker: {
+                ...defaultResilience.circuitBreaker,
+                ...envResilience?.circuitBreaker,
+              },
+              reconnect: {
+                ...defaultResilience.reconnect,
+                ...envResilience?.reconnect,
+              },
+              healthMonitor: {
+                ...defaultResilience.healthMonitor,
+                ...envResilience?.healthMonitor,
+              },
+              operationTimeouts: {
+                ...defaultResilience.operationTimeouts,
+                ...envResilience?.operationTimeouts,
+              },
+            }
+          : undefined,
+      };
+    })(),
     telemetry: {
       ...defaultConfig.telemetry,
       ...structuredEnvConfig.telemetry,
