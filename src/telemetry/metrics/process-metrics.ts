@@ -20,6 +20,8 @@ import type { ProcessAttributes } from "./types";
 
 // Memory pressure monitoring
 let memoryPressureInterval: NodeJS.Timeout | null = null;
+// Uptime monitoring
+let uptimeMonitoringInterval: NodeJS.Timeout | null = null;
 
 export function startMemoryPressureMonitoring(): void {
   if (memoryPressureInterval) {
@@ -39,7 +41,7 @@ export function startMemoryPressureMonitoring(): void {
       processExternalGauge.record(memUsage.external, attributes);
     } catch (err) {
       error("Failed to record memory metrics", {
-        error: (err as Error).message,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }, 5000); // Every 5 seconds
@@ -61,7 +63,7 @@ export function setupSystemMetricsCollection(): void {
 
     processStartTimeGauge.record(processStartTime, attributes);
 
-    setInterval(() => {
+    uptimeMonitoringInterval = setInterval(() => {
       if (!isMetricsInitialized()) return;
 
       try {
@@ -69,13 +71,13 @@ export function setupSystemMetricsCollection(): void {
         processUptimeGauge.record(uptime, attributes);
       } catch (err) {
         error("Failed to record process uptime", {
-          error: (err as Error).message,
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }, 10000); // Every 10 seconds
   } catch (err) {
     error("Failed to setup system metrics collection", {
-      error: (err as Error).message,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 }
@@ -86,6 +88,10 @@ export function startSystemMetricsCollection(): void {
 
 export function stopSystemMetricsCollection(): void {
   stopMemoryPressureMonitoring();
+  if (uptimeMonitoringInterval) {
+    clearInterval(uptimeMonitoringInterval);
+    uptimeMonitoringInterval = null;
+  }
 }
 
 export function recordGCCollection(gcType: string): void {
@@ -100,7 +106,7 @@ export function recordGCCollection(gcType: string): void {
     gcCollectionCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record GC collection metric", {
-      error: (err as Error).message,
+      error: err instanceof Error ? err.message : String(err),
       gcType,
     });
   }
@@ -118,7 +124,7 @@ export function recordGCDuration(durationSeconds: number, gcType: string): void 
     gcDurationHistogram.record(durationSeconds, attributes);
   } catch (err) {
     error("Failed to record GC duration metric", {
-      error: (err as Error).message,
+      error: err instanceof Error ? err.message : String(err),
       durationSeconds,
       gcType,
     });
@@ -144,7 +150,7 @@ export function recordGCHeapSizes(
     gcYoungGenerationSizeAfterGauge.record(youngGenAfter, attributes);
   } catch (err) {
     error("Failed to record GC heap size metrics", {
-      error: (err as Error).message,
+      error: err instanceof Error ? err.message : String(err),
       oldGenBefore,
       oldGenAfter,
       youngGenBefore,
