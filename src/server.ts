@@ -324,7 +324,7 @@ const gracefulShutdown = async (signal: string) => {
     }
 
     // Close cache connections (Redis/Valkey) to prevent connection leaks
-    CacheFactory.reset();
+    await CacheFactory.reset();
 
     // Clear all intervals to prevent memory leaks
     shutdownGCMetrics();

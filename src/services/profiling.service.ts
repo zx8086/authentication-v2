@@ -287,6 +287,9 @@ class ProfilingService {
       }
     }
 
+    // Clear session metadata to release memory
+    this.sessions.clear();
+
     log("Profiling service shutdown completed", {
       component: "profiling",
       event: "shutdown_completed",

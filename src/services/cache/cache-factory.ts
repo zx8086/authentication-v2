@@ -104,15 +104,17 @@ export class CacheFactory {
     };
   }
 
-  static reset(): void {
+  static async reset(): Promise<void> {
     if (CacheFactory.instance && CacheFactory.instance instanceof UnifiedCacheManager) {
-      CacheFactory.instance.shutdown().catch((error) => {
+      try {
+        await CacheFactory.instance.shutdown();
+      } catch (error) {
         winstonTelemetryLogger.warn("Error during cache shutdown in reset", {
           error: error instanceof Error ? error.message : "Unknown error",
           component: "cache_factory",
           operation: "reset_shutdown_error",
         });
-      });
+      }
     }
     CacheFactory.instance = null;
     CacheFactory.currentConfig = null;

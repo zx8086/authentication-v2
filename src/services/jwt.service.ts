@@ -95,7 +95,7 @@ export class NativeBunJWT {
 
       span.setAttributes({
         "error.type": "jwt_creation_error",
-        "error.message": (error as Error).message,
+        "error.message": error instanceof Error ? error.message : String(error),
         "jwt.duration_ms": duration,
       });
 
@@ -253,14 +253,15 @@ export class NativeBunJWT {
       return { valid: true, payload };
     } catch (err) {
       const duration = calculateDuration(startTime);
+      const errorMessage = err instanceof Error ? err.message : String(err);
       span.setAttributes({
         "error.type": "jwt_validation_error",
-        "error.message": (err as Error).message,
+        "error.message": errorMessage,
         "jwt.duration_ms": duration,
       });
       return {
         valid: false,
-        error: `Token validation failed: ${(err as Error).message}`,
+        error: `Token validation failed: ${errorMessage}`,
       };
     } finally {
       span.end();

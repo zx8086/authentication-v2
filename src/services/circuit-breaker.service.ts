@@ -59,6 +59,8 @@ export class KongCircuitBreakerService {
   // Cleanup interval IDs for proper shutdown
   private breakerCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
   private staleCacheCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+  // Flag to prevent cleanup race conditions during shutdown
+  private isShuttingDown = false;
 
   constructor(
     config: CircuitBreakerConfig & { highAvailability?: boolean },
@@ -91,6 +93,9 @@ export class KongCircuitBreakerService {
   }
 
   private cleanupUnusedBreakers(): void {
+    // Guard against cleanup race conditions during shutdown
+    if (this.isShuttingDown) return;
+
     const now = Date.now();
     const toRemove: string[] = [];
 
@@ -119,6 +124,8 @@ export class KongCircuitBreakerService {
   }
 
   private cleanupExpiredStaleEntries(): void {
+    // Guard against cleanup race conditions during shutdown
+    if (this.isShuttingDown) return;
     if (!this.staleCache) return;
 
     const now = Date.now();
@@ -680,6 +687,9 @@ export class KongCircuitBreakerService {
   }
 
   shutdown(): void {
+    // Set shutdown flag first to prevent cleanup race conditions
+    this.isShuttingDown = true;
+
     // Clear cleanup intervals to prevent memory leaks
     if (this.breakerCleanupIntervalId) {
       clearInterval(this.breakerCleanupIntervalId);
