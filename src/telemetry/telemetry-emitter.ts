@@ -1,7 +1,7 @@
 /* src/telemetry/telemetry-emitter.ts */
 
 import { trace } from "@opentelemetry/api";
-import { winstonTelemetryLogger } from "./winston-logger";
+import { getLogger } from "../logging/container";
 import type { SpanEventName } from "./span-event-names";
 
 /**
@@ -89,19 +89,21 @@ class TelemetryEmitter {
     }
 
     // 2. Emit log (filtered by LOG_LEVEL)
+    // SIO-447: Use logging container for Pino/Winston backend selection
+    const logger = getLogger();
     const logContext = { ...cleanAttributes, "span.event": event };
     switch (level) {
       case "debug":
-        winstonTelemetryLogger.debug(message, logContext);
+        logger.debug(message, logContext);
         break;
       case "info":
-        winstonTelemetryLogger.info(message, logContext);
+        logger.info(message, logContext);
         break;
       case "warn":
-        winstonTelemetryLogger.warn(message, logContext);
+        logger.warn(message, logContext);
         break;
       case "error":
-        winstonTelemetryLogger.error(message, logContext);
+        logger.error(message, logContext);
         break;
     }
   }

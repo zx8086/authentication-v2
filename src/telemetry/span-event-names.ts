@@ -106,6 +106,19 @@ export const SpanEvents = {
   HEALTH_CHECK_DEGRADED: "health.check.degraded",
   HEALTH_CHECK_FAILED: "health.check.failed",
 
+  // HTTP Request Events
+  HTTP_REQUEST_STARTED: "http.request.started",
+  HTTP_REQUEST_COMPLETED: "http.request.completed",
+  HTTP_REQUEST_FAILED: "http.request.failed",
+
+  // Token Handler Events
+  TOKEN_REQUEST_STARTED: "token.request.started",
+  TOKEN_REQUEST_SUCCESS: "token.request.success",
+  TOKEN_REQUEST_FAILED: "token.request.failed",
+  TOKEN_VALIDATION_STARTED: "token.validation.started",
+  TOKEN_VALIDATION_SUCCESS: "token.validation.success",
+  TOKEN_VALIDATION_FAILED: "token.validation.failed",
+
   // Validation Events
   VALIDATION_FAILED: "validation.failed",
   VALIDATION_FAILED_STRICT: "validation.failed.strict",

@@ -16,8 +16,7 @@ import {
   recordOperationDuration,
 } from "../telemetry/metrics";
 import { getSlaMonitor } from "../telemetry/sla-monitor";
-import { telemetryTracer } from "../telemetry/tracer";
-import { error, log } from "../utils/logger";
+import { SpanEvents, telemetryEmitter, telemetryTracer } from "../telemetry/tracer";
 import { calculateDuration, getHighResTime } from "../utils/performance";
 import {
   createStructuredErrorResponse,
@@ -148,7 +147,7 @@ export async function handleTokenRequest(
   req: Request,
   kongService: IKongService
 ): Promise<Response> {
-  log("Processing token request", {
+  telemetryEmitter.info(SpanEvents.TOKEN_REQUEST_STARTED, "Processing token request", {
     component: "tokens",
     operation: "handle_token_request",
     endpoint: "/tokens",
@@ -159,10 +158,10 @@ export async function handleTokenRequest(
   const startTime = getHighResTime();
 
   return telemetryTracer.createHttpSpan(req.method, ctx.pathname, 200, async () => {
-    log("Token request started", {
+    telemetryEmitter.debug(SpanEvents.HTTP_REQUEST_STARTED, "Token request started", {
       method: req.method,
       url: ctx.pathname,
-      requestId,
+      request_id: requestId,
     });
 
     const headerValidation = validateKongHeaders(req);
@@ -188,14 +187,14 @@ export async function handleTokenRequest(
         recordConsumerLatency(volume, duration);
       }
 
-      log("HTTP request processed", {
+      telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
         method: req.method,
         url: ctx.pathname,
-        statusCode: 401,
-        duration,
-        requestId,
+        status_code: 401,
+        duration_ms: duration,
+        request_id: requestId,
         error: headerValidation.error,
-        errorCode: headerValidation.errorCode,
+        error_code: headerValidation.errorCode,
       });
 
       return createStructuredErrorResponse(
@@ -231,22 +230,26 @@ export async function handleTokenRequest(
         recordConsumerError(volume);
         recordConsumerLatency(volume, duration);
 
-        error("Kong service unavailable during token request", {
-          consumerId,
-          username,
-          error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
-          errorCode: ErrorCodes.AUTH_004,
-          requestId,
-        });
+        telemetryEmitter.error(
+          SpanEvents.AUTH_REQUEST_FAILED,
+          "Kong service unavailable during token request",
+          {
+            consumer_id: consumerId,
+            username,
+            error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
+            error_code: ErrorCodes.AUTH_004,
+            request_id: requestId,
+          }
+        );
 
-        log("HTTP request processed", {
+        telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
           method: req.method,
           url: ctx.pathname,
-          statusCode: 503,
-          duration,
-          requestId,
+          status_code: 503,
+          duration_ms: duration,
+          request_id: requestId,
           error: "Service temporarily unavailable",
-          errorCode: ErrorCodes.AUTH_004,
+          error_code: ErrorCodes.AUTH_004,
         });
 
         return createStructuredErrorResponse(
@@ -275,22 +278,26 @@ export async function handleTokenRequest(
         recordConsumerError(volume);
         recordConsumerLatency(volume, duration);
 
-        log("Consumer not found or has no JWT credentials", {
-          consumerId,
-          username,
-          error: "Invalid consumer credentials",
-          errorCode: ErrorCodes.AUTH_002,
-          requestId,
-        });
+        telemetryEmitter.warn(
+          SpanEvents.KONG_CONSUMER_NOT_FOUND,
+          "Consumer not found or has no JWT credentials",
+          {
+            consumer_id: consumerId,
+            username,
+            error: "Invalid consumer credentials",
+            error_code: ErrorCodes.AUTH_002,
+            request_id: requestId,
+          }
+        );
 
-        log("HTTP request processed", {
+        telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
           method: req.method,
           url: ctx.pathname,
-          statusCode: 401,
-          duration,
-          requestId,
+          status_code: 401,
+          duration_ms: duration,
+          request_id: requestId,
           error: "Invalid consumer credentials",
-          errorCode: ErrorCodes.AUTH_002,
+          error_code: ErrorCodes.AUTH_002,
         });
 
         return createStructuredErrorResponse(
@@ -318,19 +325,19 @@ export async function handleTokenRequest(
       const slaMonitor = getSlaMonitor();
       await slaMonitor.recordLatency("/tokens", duration);
 
-      log("JWT token generated successfully", {
-        consumerId,
+      telemetryEmitter.info(SpanEvents.TOKEN_REQUEST_SUCCESS, "JWT token generated successfully", {
+        consumer_id: consumerId,
         username,
-        totalDuration: duration,
-        requestId,
+        duration_ms: duration,
+        request_id: requestId,
       });
 
-      log("HTTP request processed", {
+      telemetryEmitter.info(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
         method: req.method,
         url: ctx.pathname,
-        statusCode: 200,
-        duration,
-        requestId,
+        status_code: 200,
+        duration_ms: duration,
+        request_id: requestId,
       });
 
       return createTokenResponse(tokenData.access_token, tokenData.expires_in, requestId);
@@ -346,23 +353,26 @@ export async function handleTokenRequest(
         recordConsumerLatency(volume, duration);
       }
 
-      error("Unexpected error during token generation", {
-        error: err instanceof Error ? err.message : "Unknown error",
-        stack: err instanceof Error ? err.stack : undefined,
-        consumerId: headerValidation.consumerId,
-        username: headerValidation.username,
-        errorCode: ErrorCodes.AUTH_008,
-        requestId,
-      });
+      telemetryEmitter.error(
+        SpanEvents.TOKEN_REQUEST_FAILED,
+        "Unexpected error during token generation",
+        {
+          error: err instanceof Error ? err.message : "Unknown error",
+          consumer_id: headerValidation.consumerId,
+          username: headerValidation.username,
+          error_code: ErrorCodes.AUTH_008,
+          request_id: requestId,
+        }
+      );
 
-      log("HTTP request processed", {
+      telemetryEmitter.error(SpanEvents.HTTP_REQUEST_FAILED, "HTTP request processed", {
         method: req.method,
         url: ctx.pathname,
-        statusCode: 500,
-        duration,
-        requestId,
+        status_code: 500,
+        duration_ms: duration,
+        request_id: requestId,
         error: "Unexpected error",
-        errorCode: ErrorCodes.AUTH_008,
+        error_code: ErrorCodes.AUTH_008,
       });
 
       return createStructuredErrorWithMessage(
@@ -381,11 +391,15 @@ export async function handleTokenValidation(
   req: Request,
   kongService: IKongService
 ): Promise<Response> {
-  log("Processing token validation request", {
-    component: "tokens",
-    operation: "handle_token_validation",
-    endpoint: "/tokens/validate",
-  });
+  telemetryEmitter.info(
+    SpanEvents.TOKEN_VALIDATION_STARTED,
+    "Processing token validation request",
+    {
+      component: "tokens",
+      operation: "handle_token_validation",
+      endpoint: "/tokens/validate",
+    }
+  );
 
   const requestId = generateRequestId();
   const startTime = Bun.nanoseconds();
@@ -395,11 +409,15 @@ export async function handleTokenValidation(
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       const duration = calculateDuration(startTime);
-      log("Token validation failed: missing Authorization header", {
-        duration,
-        requestId,
-        errorCode: ErrorCodes.AUTH_012,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.TOKEN_VALIDATION_FAILED,
+        "Token validation failed: missing Authorization header",
+        {
+          duration_ms: duration,
+          request_id: requestId,
+          error_code: ErrorCodes.AUTH_012,
+        }
+      );
       return createStructuredErrorResponse(
         ErrorCodes.AUTH_012,
         requestId,
@@ -414,11 +432,15 @@ export async function handleTokenValidation(
     // Stryker disable next-line all: Defensive validation - empty string edge case
     if (!token || token.trim() === "") {
       const duration = calculateDuration(startTime);
-      log("Token validation failed: empty token", {
-        duration,
-        requestId,
-        errorCode: ErrorCodes.AUTH_011,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.TOKEN_VALIDATION_FAILED,
+        "Token validation failed: empty token",
+        {
+          duration_ms: duration,
+          request_id: requestId,
+          error_code: ErrorCodes.AUTH_011,
+        }
+      );
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_011,
         "Token cannot be empty",
@@ -433,12 +455,16 @@ export async function handleTokenValidation(
 
     if ("error" in headerValidation) {
       const duration = calculateDuration(startTime);
-      log("Token validation failed: missing Kong headers", {
-        duration,
-        requestId,
-        error: headerValidation.error,
-        errorCode: headerValidation.errorCode,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.TOKEN_VALIDATION_FAILED,
+        "Token validation failed: missing Kong headers",
+        {
+          duration_ms: duration,
+          request_id: requestId,
+          error: headerValidation.error,
+          error_code: headerValidation.errorCode,
+        }
+      );
       return createStructuredErrorResponse(
         headerValidation.errorCode,
         requestId,
@@ -455,13 +481,17 @@ export async function handleTokenValidation(
 
       if (!secretResult) {
         const duration = calculateDuration(startTime);
-        log("Token validation failed: consumer not found", {
-          consumerId,
-          username,
-          duration,
-          requestId,
-          errorCode: ErrorCodes.AUTH_002,
-        });
+        telemetryEmitter.warn(
+          SpanEvents.TOKEN_VALIDATION_FAILED,
+          "Token validation failed: consumer not found",
+          {
+            consumer_id: consumerId,
+            username,
+            duration_ms: duration,
+            request_id: requestId,
+            error_code: ErrorCodes.AUTH_002,
+          }
+        );
         return createStructuredErrorResponse(
           ErrorCodes.AUTH_002,
           requestId,
@@ -478,12 +508,12 @@ export async function handleTokenValidation(
         const slaMonitor = getSlaMonitor();
         await slaMonitor.recordLatency("/tokens/validate", duration);
 
-        log("Token validation successful", {
-          consumerId,
+        telemetryEmitter.info(SpanEvents.TOKEN_VALIDATION_SUCCESS, "Token validation successful", {
+          consumer_id: consumerId,
           username,
-          tokenId: validationResult.payload.jti,
-          duration,
-          requestId,
+          token_id: validationResult.payload.jti,
+          duration_ms: duration,
+          request_id: requestId,
         });
 
         return createSuccessResponse(
@@ -502,14 +532,14 @@ export async function handleTokenValidation(
       }
 
       const errorCode = validationResult.expired ? ErrorCodes.AUTH_010 : ErrorCodes.AUTH_011;
-      log("Token validation failed", {
-        consumerId,
+      telemetryEmitter.warn(SpanEvents.TOKEN_VALIDATION_FAILED, "Token validation failed", {
+        consumer_id: consumerId,
         username,
         error: validationResult.error,
         expired: validationResult.expired,
-        duration,
-        requestId,
-        errorCode,
+        duration_ms: duration,
+        request_id: requestId,
+        error_code: errorCode,
       });
 
       const details: Record<string, unknown> = {};
@@ -531,14 +561,17 @@ export async function handleTokenValidation(
     } catch (err) {
       recordException(err as Error);
 
-      error("Unexpected error during token validation", {
-        error: err instanceof Error ? err.message : "Unknown error",
-        stack: err instanceof Error ? err.stack : undefined,
-        consumerId,
-        username,
-        errorCode: ErrorCodes.AUTH_008,
-        requestId,
-      });
+      telemetryEmitter.error(
+        SpanEvents.TOKEN_VALIDATION_FAILED,
+        "Unexpected error during token validation",
+        {
+          error: err instanceof Error ? err.message : "Unknown error",
+          consumer_id: consumerId,
+          username,
+          error_code: ErrorCodes.AUTH_008,
+          request_id: requestId,
+        }
+      );
 
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_008,
