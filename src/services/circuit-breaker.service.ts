@@ -17,7 +17,7 @@ import {
   recordCircuitBreakerRequest,
   recordCircuitBreakerStateTransition,
 } from "../telemetry/metrics";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 
 export type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
@@ -112,13 +112,17 @@ export class KongCircuitBreakerService {
         this.breakers.delete(name);
         this.lastUsed.delete(name);
 
-        winstonTelemetryLogger.debug("Cleaned up unused circuit breaker (TTL expired)", {
-          component: "circuit_breaker",
-          action: "breaker_ttl_cleanup",
-          operation: name,
-          ttlMinutes: BREAKER_TTL_MS / 60000,
-          remainingBreakers: this.breakers.size,
-        });
+        telemetryEmitter.debug(
+          "circuit_breaker.cleanup.ttl",
+          "Cleaned up unused circuit breaker (TTL expired)",
+          {
+            component: "circuit_breaker",
+            action: "breaker_ttl_cleanup",
+            operation: name,
+            ttl_minutes: BREAKER_TTL_MS / 60000,
+            remaining_breakers: this.breakers.size,
+          }
+        );
       }
     }
   }
@@ -142,13 +146,17 @@ export class KongCircuitBreakerService {
     }
 
     if (toRemove.length > 0) {
-      winstonTelemetryLogger.debug("Cleaned up expired stale cache entries (TTL)", {
-        component: "circuit_breaker",
-        action: "stale_cache_ttl_cleanup",
-        removedCount: toRemove.length,
-        remainingEntries: this.staleCache.size,
-        toleranceMinutes: this.staleDataToleranceMinutes,
-      });
+      telemetryEmitter.debug(
+        "circuit_breaker.cleanup.stale_cache",
+        "Cleaned up expired stale cache entries (TTL)",
+        {
+          component: "circuit_breaker",
+          action: "stale_cache_ttl_cleanup",
+          removed_count: toRemove.length,
+          remaining_entries: this.staleCache.size,
+          tolerance_minutes: this.staleDataToleranceMinutes,
+        }
+      );
     }
   }
 
@@ -210,43 +218,59 @@ export class KongCircuitBreakerService {
       const breaker = new CircuitBreaker(actionWrapper, circuitBreakerOptions);
 
       breaker.on("open", () => {
-        winstonTelemetryLogger.warn(`Circuit breaker opened for ${operation}`, {
+        telemetryEmitter.warn(SpanEvents.CB_STATE_OPEN, `Circuit breaker opened for ${operation}`, {
           operation,
           component: "circuit_breaker",
+          previous_state: "closed",
           state: "open",
         });
         recordCircuitBreakerStateTransition(operation, "closed", "open");
       });
 
       breaker.on("halfOpen", () => {
-        winstonTelemetryLogger.info(`Circuit breaker half-open for ${operation}`, {
-          operation,
-          component: "circuit_breaker",
-          state: "half-open",
-        });
+        telemetryEmitter.info(
+          SpanEvents.CB_STATE_HALF_OPEN,
+          `Circuit breaker half-open for ${operation}`,
+          {
+            operation,
+            component: "circuit_breaker",
+            previous_state: "open",
+            state: "half_open",
+          }
+        );
         recordCircuitBreakerStateTransition(operation, "open", "half-open");
       });
 
       breaker.on("close", () => {
-        winstonTelemetryLogger.info(`Circuit breaker closed for ${operation}`, {
-          operation,
-          component: "circuit_breaker",
-          state: "closed",
-        });
+        telemetryEmitter.info(
+          SpanEvents.CB_STATE_CLOSED,
+          `Circuit breaker closed for ${operation}`,
+          {
+            operation,
+            component: "circuit_breaker",
+            previous_state: "half_open",
+            state: "closed",
+          }
+        );
         recordCircuitBreakerStateTransition(operation, "half-open", "closed");
       });
 
       breaker.on("reject", () => {
-        winstonTelemetryLogger.warn(`Circuit breaker rejected request for ${operation}`, {
-          operation,
-          component: "circuit_breaker",
-          action: "reject",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CB_REQUEST_REJECTED,
+          `Circuit breaker rejected request for ${operation}`,
+          {
+            operation,
+            component: "circuit_breaker",
+            action: "reject",
+            reason: "circuit_open",
+          }
+        );
         recordCircuitBreakerRejection(operation, "circuit_open");
       });
 
       breaker.on("timeout", () => {
-        winstonTelemetryLogger.warn(`Circuit breaker timeout for ${operation}`, {
+        telemetryEmitter.warn(SpanEvents.CB_TIMEOUT, `Circuit breaker timeout for ${operation}`, {
           operation,
           component: "circuit_breaker",
           action: "timeout",
@@ -279,12 +303,16 @@ export class KongCircuitBreakerService {
       recordCircuitBreakerRequest(operation, "closed");
       return result;
     } catch (error) {
-      winstonTelemetryLogger.warn(`Circuit breaker operation failed for ${operation}`, {
-        operation,
-        error: error instanceof Error ? error.message : "Unknown error",
-        component: "circuit_breaker",
-        action: "operation_failed",
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CB_FAILURE,
+        `Circuit breaker operation failed for ${operation}`,
+        {
+          operation,
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "circuit_breaker",
+          action: "operation_failed",
+        }
+      );
 
       if (breaker.opened) {
         return this.handleOpenCircuit(operation, fallbackData);
@@ -313,14 +341,18 @@ export class KongCircuitBreakerService {
 
       if (result) {
         if (result.consumer && result.consumer.id !== consumerId) {
-          winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
-            operation,
-            requestedConsumerId: consumerId,
-            responseConsumerId: result.consumer.id,
-            cacheKey,
-            component: "circuit_breaker",
-            action: "consumer_id_mismatch",
-          });
+          telemetryEmitter.error(
+            SpanEvents.KONG_CONSUMER_MISMATCH,
+            `Consumer ID mismatch in Kong response, not caching`,
+            {
+              operation,
+              requested_consumer_id: consumerId,
+              response_consumer_id: result.consumer.id,
+              cache_key: cacheKey,
+              component: "circuit_breaker",
+              action: "consumer_id_mismatch",
+            }
+          );
           return null;
         }
         this.updateStaleCache(cacheKey, result);
@@ -330,13 +362,17 @@ export class KongCircuitBreakerService {
 
       return result;
     } catch (error) {
-      winstonTelemetryLogger.warn(`Circuit breaker consumer operation failed for ${operation}`, {
-        operation,
-        consumerId,
-        error: error instanceof Error ? error.message : "Unknown error",
-        component: "circuit_breaker",
-        action: "consumer_operation_failed",
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CB_FAILURE,
+        `Circuit breaker consumer operation failed for ${operation}`,
+        {
+          operation,
+          consumer_id: consumerId,
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "circuit_breaker",
+          action: "consumer_operation_failed",
+        }
+      );
 
       if (breaker.opened) {
         return await this.handleOpenCircuitWithStaleData(operation, cacheKey, consumerId);
@@ -357,31 +393,39 @@ export class KongCircuitBreakerService {
       case "graceful_degradation":
         return this.handleGracefulDegradation(operation) as T;
       case "deny":
-        winstonTelemetryLogger.warn(`Circuit breaker open, denying request for ${operation}`, {
-          operation,
-          component: "circuit_breaker",
-          action: "deny_fallback",
-          fallbackStrategy: "deny",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CB_REQUEST_REJECTED,
+          `Circuit breaker open, denying request for ${operation}`,
+          {
+            operation,
+            component: "circuit_breaker",
+            action: "deny_fallback",
+            fallback_strategy: "deny",
+          }
+        );
         recordCircuitBreakerRequest(operation, "open");
         return null;
       default:
         if (fallbackData !== undefined) {
-          winstonTelemetryLogger.info(`Using fallback data for ${operation}`, {
-            operation,
-            component: "circuit_breaker",
-            action: "fallback_data",
-            fallbackStrategy: "cache",
-          });
+          telemetryEmitter.info(
+            SpanEvents.CB_FALLBACK_USED,
+            `Using fallback data for ${operation}`,
+            {
+              operation,
+              component: "circuit_breaker",
+              action: "fallback_data",
+              fallback_strategy: "cache",
+            }
+          );
           recordCircuitBreakerRequest(operation, "half_open");
           return fallbackData;
         }
 
-        winstonTelemetryLogger.warn(`No fallback available for ${operation}`, {
+        telemetryEmitter.warn(SpanEvents.CB_FAILURE, `No fallback available for ${operation}`, {
           operation,
           component: "circuit_breaker",
           action: "no_fallback",
-          fallbackStrategy: fallbackStrategy,
+          fallback_strategy: fallbackStrategy,
         });
         recordCircuitBreakerRequest(operation, "open");
         return null;
@@ -389,12 +433,16 @@ export class KongCircuitBreakerService {
   }
 
   private handleGracefulDegradation(operation: string): GracefulDegradationResponse {
-    winstonTelemetryLogger.info(`Using graceful degradation for ${operation}`, {
-      operation,
-      component: "circuit_breaker",
-      action: "graceful_degradation",
-      fallbackStrategy: "graceful_degradation",
-    });
+    telemetryEmitter.info(
+      SpanEvents.CB_FALLBACK_USED,
+      `Using graceful degradation for ${operation}`,
+      {
+        operation,
+        component: "circuit_breaker",
+        action: "graceful_degradation",
+        fallback_strategy: "graceful_degradation",
+      }
+    );
 
     recordCircuitBreakerRequest(operation, "half_open");
 
@@ -424,14 +472,15 @@ export class KongCircuitBreakerService {
     const fallbackStrategy = operationConfig?.fallbackStrategy || "deny";
 
     if (fallbackStrategy === "deny") {
-      winstonTelemetryLogger.warn(
+      telemetryEmitter.warn(
+        SpanEvents.CB_REQUEST_REJECTED,
         `Circuit breaker open, denying consumer operation for ${operation}`,
         {
           operation,
-          consumerId,
+          consumer_id: consumerId,
           component: "circuit_breaker",
           action: "deny_consumer_operation",
-          fallbackStrategy: "deny",
+          fallback_strategy: "deny",
         }
       );
       recordCircuitBreakerRequest(operation, "open");
@@ -439,13 +488,17 @@ export class KongCircuitBreakerService {
     }
 
     if (fallbackStrategy === "graceful_degradation") {
-      winstonTelemetryLogger.info(`Circuit breaker open, graceful degradation for ${operation}`, {
-        operation,
-        consumerId,
-        component: "circuit_breaker",
-        action: "graceful_degradation_consumer_operation",
-        fallbackStrategy: "graceful_degradation",
-      });
+      telemetryEmitter.info(
+        SpanEvents.CB_FALLBACK_USED,
+        `Circuit breaker open, graceful degradation for ${operation}`,
+        {
+          operation,
+          consumer_id: consumerId,
+          component: "circuit_breaker",
+          action: "graceful_degradation_consumer_operation",
+          fallback_strategy: "graceful_degradation",
+        }
+      );
       recordCircuitBreakerRequest(operation, "half_open");
       return null;
     }
@@ -459,16 +512,20 @@ export class KongCircuitBreakerService {
 
         if (redisStale) {
           if (redisStale.consumer && redisStale.consumer.id !== consumerId) {
-            winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
-              operation,
-              requestedConsumerId: consumerId,
-              cachedConsumerId: redisStale.consumer.id,
-              cacheKey,
-              extractedKey,
-              component: "circuit_breaker",
-              action: "cache_pollution_detected",
-              tier: "redis-stale",
-            });
+            telemetryEmitter.error(
+              SpanEvents.KONG_CONSUMER_MISMATCH,
+              `Cache pollution detected: cached consumer ID mismatch`,
+              {
+                operation,
+                requested_consumer_id: consumerId,
+                cached_consumer_id: redisStale.consumer.id,
+                cache_key: cacheKey,
+                extracted_key: extractedKey,
+                component: "circuit_breaker",
+                action: "cache_pollution_detected",
+                tier: "redis-stale",
+              }
+            );
             recordCacheTierError("redis-stale", operation, "cache_pollution");
             return null;
           }
@@ -477,16 +534,20 @@ export class KongCircuitBreakerService {
           recordCacheTierUsage("redis-stale", operation);
           recordCacheTierLatency("redis-stale", operation, latency);
 
-          winstonTelemetryLogger.info(`Using Redis stale cache data for ${operation}`, {
-            operation,
-            cacheKey,
-            consumerId,
-            cachedConsumerId: redisStale.consumer?.id,
-            latencyMs: latency,
-            component: "circuit_breaker",
-            action: "redis_stale_fallback",
-            tier: "redis-stale",
-          });
+          telemetryEmitter.info(
+            SpanEvents.CB_FALLBACK_USED,
+            `Using Redis stale cache data for ${operation}`,
+            {
+              operation,
+              cache_key: cacheKey,
+              consumer_id: consumerId,
+              cached_consumer_id: redisStale.consumer?.id,
+              latency_ms: latency,
+              component: "circuit_breaker",
+              action: "redis_stale_fallback",
+              tier: "redis-stale",
+            }
+          );
 
           recordCircuitBreakerFallback(operation, "redis_stale_cache");
           recordCircuitBreakerRequest(operation, "half_open");
@@ -497,16 +558,20 @@ export class KongCircuitBreakerService {
         recordCacheTierError("redis-stale", operation, "access_error");
         recordCacheTierLatency("redis-stale", operation, latency);
 
-        winstonTelemetryLogger.warn(`Redis stale cache access failed for ${operation}`, {
-          operation,
-          cacheKey,
-          consumerId,
-          error: error instanceof Error ? error.message : "Unknown error",
-          latencyMs: latency,
-          component: "circuit_breaker",
-          action: "redis_stale_error",
-          tier: "redis-stale",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CACHE_OPERATION_FAILED,
+          `Redis stale cache access failed for ${operation}`,
+          {
+            operation,
+            cache_key: cacheKey,
+            consumer_id: consumerId,
+            error: error instanceof Error ? error.message : "Unknown error",
+            latency_ms: latency,
+            component: "circuit_breaker",
+            action: "redis_stale_error",
+            tier: "redis-stale",
+          }
+        );
       }
     }
 
@@ -514,15 +579,19 @@ export class KongCircuitBreakerService {
     const inMemoryStale = this.getStaleData(cacheKey);
     if (inMemoryStale) {
       if (inMemoryStale.data.consumer && inMemoryStale.data.consumer.id !== consumerId) {
-        winstonTelemetryLogger.error(`Cache pollution detected: cached consumer ID mismatch`, {
-          operation,
-          requestedConsumerId: consumerId,
-          cachedConsumerId: inMemoryStale.data.consumer.id,
-          cacheKey,
-          component: "circuit_breaker",
-          action: "cache_pollution_detected",
-          tier: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
-        });
+        telemetryEmitter.error(
+          SpanEvents.KONG_CONSUMER_MISMATCH,
+          `Cache pollution detected: cached consumer ID mismatch`,
+          {
+            operation,
+            requested_consumer_id: consumerId,
+            cached_consumer_id: inMemoryStale.data.consumer.id,
+            cache_key: cacheKey,
+            component: "circuit_breaker",
+            action: "cache_pollution_detected",
+            tier: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
+          }
+        );
         recordCacheTierError(
           this.config.highAvailability ? "in-memory-fallback" : "in-memory",
           operation,
@@ -537,21 +606,22 @@ export class KongCircuitBreakerService {
       recordCacheTierUsage(tierName, operation);
       recordCacheTierLatency(tierName, operation, latency);
 
-      winstonTelemetryLogger.info(
+      telemetryEmitter.info(
+        SpanEvents.CB_FALLBACK_USED,
         `Using in-memory stale cache data for ${operation}${this.config.highAvailability ? " (HA fallback)" : ""}`,
         {
           operation,
-          cacheKey,
-          consumerId,
-          cachedConsumerId: inMemoryStale.data.consumer?.id,
-          staleAgeMinutes: Math.floor((Date.now() - inMemoryStale.timestamp) / 60000),
-          latencyMs: latency,
+          cache_key: cacheKey,
+          consumer_id: consumerId,
+          cached_consumer_id: inMemoryStale.data.consumer?.id,
+          stale_age_minutes: Math.floor((Date.now() - inMemoryStale.timestamp) / 60000),
+          latency_ms: latency,
           component: "circuit_breaker",
           action: this.config.highAvailability
             ? "in_memory_ha_fallback"
             : "in_memory_stale_fallback",
           tier: tierName,
-          haMode: this.config.highAvailability,
+          ha_mode: this.config.highAvailability,
         }
       );
 
@@ -563,13 +633,17 @@ export class KongCircuitBreakerService {
       return inMemoryStale.data;
     }
 
-    winstonTelemetryLogger.warn(`Circuit breaker open, no cache fallback available`, {
-      operation,
-      originalConsumerId: consumerId,
-      component: "circuit_breaker",
-      action: "no_fallback_available",
-      haMode: this.config.highAvailability,
-    });
+    telemetryEmitter.warn(
+      SpanEvents.CB_FAILURE,
+      `Circuit breaker open, no cache fallback available`,
+      {
+        operation,
+        original_consumer_id: consumerId,
+        component: "circuit_breaker",
+        action: "no_fallback_available",
+        ha_mode: this.config.highAvailability,
+      }
+    );
 
     recordCircuitBreakerRequest(operation, "open");
     return null;
@@ -607,13 +681,13 @@ export class KongCircuitBreakerService {
     }
 
     if (toRemove.length > 0) {
-      winstonTelemetryLogger.debug("Evicted stale cache entries (LRU)", {
+      telemetryEmitter.debug(SpanEvents.CB_CACHE_CLEARED, "Evicted stale cache entries (LRU)", {
         component: "circuit_breaker",
         action: "stale_cache_eviction",
-        evictedCount: toRemove.length,
-        currentSize: this.staleCache.size,
-        maxEntries: this.maxStaleEntries,
-        haMode: this.config.highAvailability,
+        evicted_count: toRemove.length,
+        current_size: this.staleCache.size,
+        max_entries: this.maxStaleEntries,
+        ha_mode: this.config.highAvailability,
       });
     }
   }
@@ -661,11 +735,11 @@ export class KongCircuitBreakerService {
   clearStaleCache(): void {
     if (this.staleCache) {
       this.staleCache.clear();
-      winstonTelemetryLogger.info("Cleared circuit breaker stale cache", {
+      telemetryEmitter.info(SpanEvents.CB_CACHE_CLEARED, "Cleared circuit breaker stale cache", {
         component: "circuit_breaker",
         action: "cache_cleared",
-        cacheMode: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
-        haMode: this.config.highAvailability,
+        cache_mode: this.config.highAvailability ? "in-memory-fallback" : "in-memory",
+        ha_mode: this.config.highAvailability,
       });
     }
   }

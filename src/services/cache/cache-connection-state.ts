@@ -1,6 +1,6 @@
 // src/services/cache/cache-connection-state.ts
 
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 import type { CircuitBreakerStateEnum } from "../../types/circuit-breaker.types";
 import {
   CacheReconnectManager,
@@ -80,15 +80,17 @@ export class CacheConnectionStateManager {
     this.circuitBreaker = new CacheCircuitBreaker(config.circuitBreaker);
     this.reconnectManager = new CacheReconnectManager(config.reconnect);
 
-    winstonTelemetryLogger.debug("Cache connection state manager initialized", {
-      component: "cache_connection_state",
-      operation: "init",
-      config: {
+    telemetryEmitter.debug(
+      SpanEvents.CACHE_FACTORY_INITIALIZING,
+      "Cache connection state manager initialized",
+      {
+        component: "cache_connection_state",
+        operation: "init",
         enabled: config.enabled,
-        circuitBreakerEnabled: config.circuitBreaker.enabled,
-        healthMonitorEnabled: config.healthMonitor.enabled,
-      },
-    });
+        circuit_breaker_enabled: config.circuitBreaker.enabled,
+        health_monitor_enabled: config.healthMonitor.enabled,
+      }
+    );
   }
 
   setConnectFunction(fn: () => Promise<void>): void {
@@ -149,11 +151,11 @@ export class CacheConnectionStateManager {
       this.logStateTransition(previousStatus, "error");
     }
 
-    winstonTelemetryLogger.error("Cache connection error", {
+    telemetryEmitter.error(SpanEvents.CACHE_OPERATION_FAILED, "Cache connection error", {
       component: "cache_connection_state",
       operation: "connection_error",
       error: this.lastError,
-      previousStatus,
+      previous_status: previousStatus,
     });
   }
 
@@ -278,14 +280,18 @@ export class CacheConnectionStateManager {
   private logStateTransition(from: CacheConnectionStatus, to: CacheConnectionStatus): void {
     const logMethod = to === "error" ? "error" : to === "reconnecting" ? "warn" : "info";
 
-    winstonTelemetryLogger[logMethod]("Cache connection state transition", {
-      component: "cache_connection_state",
-      operation: "state_transition",
-      fromState: from,
-      toState: to,
-      circuitBreakerState: this.circuitBreaker.getState(),
-      lastError: this.lastError,
-    });
+    telemetryEmitter[logMethod](
+      SpanEvents.CACHE_STATE_CHANGED,
+      "Cache connection state transition",
+      {
+        component: "cache_connection_state",
+        operation: "state_transition",
+        from_state: from,
+        to_state: to,
+        circuit_breaker_state: this.circuitBreaker.getState(),
+        last_error: this.lastError ?? "none",
+      }
+    );
   }
 
   getCircuitBreaker(): CacheCircuitBreaker {
@@ -330,7 +336,7 @@ export class CacheConnectionStateManager {
     this.reconnectManager.reset();
     this.healthMonitor?.reset();
 
-    winstonTelemetryLogger.info("Cache connection state manager reset", {
+    telemetryEmitter.info(SpanEvents.CACHE_STATE_RESET, "Cache connection state manager reset", {
       component: "cache_connection_state",
       operation: "reset",
     });
@@ -340,11 +346,20 @@ export class CacheConnectionStateManager {
     this.healthMonitor?.stop();
     this.markDisconnected();
 
-    winstonTelemetryLogger.info("Cache connection state manager shutdown", {
-      component: "cache_connection_state",
-      operation: "shutdown",
-      stats: this.getStats(),
-    });
+    const stats = this.getStats();
+    telemetryEmitter.info(
+      SpanEvents.CACHE_STATE_SHUTDOWN,
+      "Cache connection state manager shutdown",
+      {
+        component: "cache_connection_state",
+        operation: "shutdown",
+        total_operations: stats.totalOperations,
+        successful_operations: stats.successfulOperations,
+        failed_operations: stats.failedOperations,
+        uptime_percent: stats.uptimePercent,
+        current_state: stats.currentState,
+      }
+    );
   }
 
   getOperationTimeouts(): CacheOperationTimeouts {

@@ -1,6 +1,6 @@
 // src/adapters/kong-mode-strategies.ts
 
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 import { safeRegexGroup } from "../utils/null-safety";
 import type { IKongModeStrategy } from "./api-gateway-adapter.interface";
 import { createStandardHeaders } from "./kong-utils";
@@ -124,26 +124,38 @@ export class KongKonnectStrategy implements IKongModeStrategy {
             }
           }
         } else {
-          winstonTelemetryLogger.warn("Failed to search consumers by username", {
-            consumerId,
-            status: response.status,
-            operation: "resolve_consumer_id_search",
-          });
+          telemetryEmitter.warn(
+            SpanEvents.KONG_REQUEST_FAILED,
+            "Failed to search consumers by username",
+            {
+              consumer_id: consumerId,
+              status: response.status,
+              operation: "resolve_consumer_id_search",
+            }
+          );
         }
 
-        winstonTelemetryLogger.warn("Consumer not found in Kong Konnect", {
-          consumerId,
-          message: "Consumer must be created in Kong before JWT credentials can be provisioned",
-          operation: "resolve_consumer_id",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.KONG_CONSUMER_NOT_FOUND,
+          "Consumer not found in Kong Konnect",
+          {
+            consumer_id: consumerId,
+            message: "Consumer must be created in Kong before JWT credentials can be provisioned",
+            operation: "resolve_consumer_id",
+          }
+        );
         return null;
       }
 
-      winstonTelemetryLogger.error("Unexpected error resolving consumer ID", {
-        consumerId,
-        status: response.status,
-        operation: "resolve_consumer_id",
-      });
+      telemetryEmitter.error(
+        SpanEvents.KONG_REQUEST_FAILED,
+        "Unexpected error resolving consumer ID",
+        {
+          consumer_id: consumerId,
+          status: response.status,
+          operation: "resolve_consumer_id",
+        }
+      );
       throw new Error(`Unexpected error resolving consumer: ${response.status}`);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -197,9 +209,9 @@ export class KongKonnectStrategy implements IKongModeStrategy {
       });
 
       if (createResponse.ok) {
-        winstonTelemetryLogger.info("Created Kong Konnect realm", {
-          realmId: this.realmId,
-          controlPlaneId: this.controlPlaneId,
+        telemetryEmitter.info(SpanEvents.KONG_REALM_CREATED, "Created Kong Konnect realm", {
+          realm_id: this.realmId,
+          control_plane_id: this.controlPlaneId,
           operation: "create_realm",
         });
         return;

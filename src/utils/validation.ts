@@ -9,7 +9,7 @@
  */
 
 import type { z } from "zod";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 
 /**
  * Result of external data validation.
@@ -86,16 +86,16 @@ export function validateExternalData<T>(
   }));
 
   // Log validation warning
-  winstonTelemetryLogger.warn("External data validation failed", {
+  telemetryEmitter.warn(SpanEvents.VALIDATION_FAILED, "External data validation failed", {
     component: "validation",
     source: context.source,
     operation: context.operation,
-    consumerId: context.consumerId,
-    requestId: context.requestId,
-    issueCount: issues.length,
-    issues: issues.slice(0, 5), // Limit to first 5 issues for log size
-    dataType: typeof data,
-    hasData: data !== null && data !== undefined,
+    consumer_id: context.consumerId,
+    request_id: context.requestId,
+    issue_count: issues.length,
+    first_issue: issues[0]?.message ?? "unknown",
+    data_type: typeof data,
+    has_data: data !== null && data !== undefined,
   });
 
   // Attempt passthrough parsing for partial data recovery
@@ -144,16 +144,20 @@ export function validateExternalDataStrict<T>(
   }));
 
   // Log validation error (more severe than warn)
-  winstonTelemetryLogger.error("External data validation failed (strict mode)", {
-    component: "validation",
-    source: context.source,
-    operation: context.operation,
-    consumerId: context.consumerId,
-    requestId: context.requestId,
-    issueCount: issues.length,
-    issues: issues.slice(0, 5),
-    dataType: typeof data,
-  });
+  telemetryEmitter.error(
+    SpanEvents.VALIDATION_FAILED_STRICT,
+    "External data validation failed (strict mode)",
+    {
+      component: "validation",
+      source: context.source,
+      operation: context.operation,
+      consumer_id: context.consumerId,
+      request_id: context.requestId,
+      issue_count: issues.length,
+      first_issue: issues[0]?.message ?? "unknown",
+      data_type: typeof data,
+    }
+  );
 
   return null;
 }
@@ -183,13 +187,17 @@ export function validateJsonData<T>(
   try {
     parsed = JSON.parse(jsonString);
   } catch (parseError) {
-    winstonTelemetryLogger.warn("JSON parsing failed during validation", {
-      component: "validation",
-      source: context.source,
-      operation: context.operation,
-      consumerId: context.consumerId,
-      error: parseError instanceof Error ? parseError.message : "Unknown parse error",
-    });
+    telemetryEmitter.warn(
+      SpanEvents.VALIDATION_JSON_PARSE_FAILED,
+      "JSON parsing failed during validation",
+      {
+        component: "validation",
+        source: context.source,
+        operation: context.operation,
+        consumer_id: context.consumerId,
+        error: parseError instanceof Error ? parseError.message : "Unknown parse error",
+      }
+    );
 
     return {
       success: false,
@@ -260,14 +268,18 @@ export function validateArrayItems<T>(
   }
 
   if (invalidCount.count > 0) {
-    winstonTelemetryLogger.warn("Array validation filtered invalid items", {
-      component: "validation",
-      source: context.source,
-      operation: context.operation,
-      totalItems: items.length,
-      validItems: validItems.length,
-      invalidItems: invalidCount.count,
-    });
+    telemetryEmitter.warn(
+      SpanEvents.VALIDATION_ARRAY_FILTERED,
+      "Array validation filtered invalid items",
+      {
+        component: "validation",
+        source: context.source,
+        operation: context.operation,
+        total_items: items.length,
+        valid_items: validItems.length,
+        invalid_items: invalidCount.count,
+      }
+    );
   }
 
   return validItems;

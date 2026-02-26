@@ -13,7 +13,7 @@ import {
   instrumentRedisOperation,
   type RedisOperationContext,
 } from "../../telemetry/redis-instrumentation";
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 import { detectCacheError, isConnectionError } from "../../utils/cache-error-detector";
 import {
   CacheReconnectManager,
@@ -69,12 +69,16 @@ export class SharedRedisCache implements IKongCacheService {
 
     this.operationTimeouts = resilienceConfig?.operationTimeouts ?? DEFAULT_OPERATION_TIMEOUTS;
 
-    winstonTelemetryLogger.debug("SharedRedisCache initialized with resilience components", {
-      component: "shared_redis_cache",
-      operation: "init",
-      circuitBreakerEnabled: this.circuitBreaker !== null,
-      reconnectManagerEnabled: this.reconnectManager !== null,
-    });
+    telemetryEmitter.debug(
+      SpanEvents.CACHE_FACTORY_INITIALIZING,
+      "SharedRedisCache initialized with resilience components",
+      {
+        component: "shared_redis_cache",
+        operation: "init",
+        circuit_breaker_enabled: this.circuitBreaker !== null,
+        reconnect_manager_enabled: this.reconnectManager !== null,
+      }
+    );
   }
 
   /**
@@ -125,11 +129,11 @@ export class SharedRedisCache implements IKongCacheService {
           this.healthMonitor.markHealthy();
         }
 
-        winstonTelemetryLogger.info("Redis reconnection successful", {
+        telemetryEmitter.info(SpanEvents.CACHE_RECONNECT_SUCCESS, "Redis reconnection successful", {
           component: "cache",
           operation: "reconnect_success",
           attempts: result.attempts,
-          durationMs: result.durationMs,
+          duration_ms: result.durationMs,
           client: "bun-native",
         });
       } else {
@@ -160,12 +164,12 @@ export class SharedRedisCache implements IKongCacheService {
         this.circuitBreaker.recordFailure(error instanceof Error ? error : new Error(error));
       }
 
-      winstonTelemetryLogger.debug("Connection marked as broken", {
+      telemetryEmitter.debug(SpanEvents.CACHE_CONNECTION_BROKEN, "Connection marked as broken", {
         component: "shared_redis_cache",
         operation: "mark_connection_broken",
-        errorCategory: errorInfo.category,
-        isRecoverable: errorInfo.isRecoverable,
-        shouldReconnect: errorInfo.shouldReconnect,
+        error_category: errorInfo.category,
+        is_recoverable: errorInfo.isRecoverable,
+        should_reconnect: errorInfo.shouldReconnect,
       });
     }
   }
@@ -239,38 +243,50 @@ export class SharedRedisCache implements IKongCacheService {
         }
       );
 
-      winstonTelemetryLogger.info("Connected to Redis using Bun native client", {
-        redisUrl: this.config.url,
-        redisDb: this.config.db,
-        component: "cache",
-        operation: "connection",
-        strategy: "shared-redis",
-        client: "bun-native",
-        healthMonitorEnabled: this.healthMonitor !== null,
-        circuitBreakerEnabled: true,
-      });
+      telemetryEmitter.info(
+        SpanEvents.CACHE_CONNECTED,
+        "Connected to Redis using Bun native client",
+        {
+          redis_url: this.config.url,
+          redis_db: this.config.db,
+          component: "cache",
+          operation: "connection",
+          strategy: "shared-redis",
+          client: "bun-native",
+          health_monitor_enabled: this.healthMonitor !== null,
+          circuit_breaker_enabled: true,
+        }
+      );
     }).catch((error) => {
       this.isConnected = false;
       this.circuitBreaker.recordFailure(error instanceof Error ? error : new Error(String(error)));
-      winstonTelemetryLogger.warn("Failed to connect to Redis, will use graceful fallback", {
-        error: error instanceof Error ? error.message : "Unknown error",
-        component: "cache",
-        operation: "connection_failed",
-        strategy: "shared-redis",
-        client: "bun-native",
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CACHE_RECONNECT_FAILED,
+        "Failed to connect to Redis, will use graceful fallback",
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "cache",
+          operation: "connection_failed",
+          strategy: "shared-redis",
+          client: "bun-native",
+        }
+      );
       throw error;
     });
   }
 
   async get<T = ConsumerSecret>(key: string): Promise<T | null> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("GET operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "get_blocked",
-        key,
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "GET operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "get_blocked",
+          key,
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return null;
     }
 
@@ -315,14 +331,18 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(error);
       }
 
-      winstonTelemetryLogger.warn("Redis get operation failed, falling back to null", {
-        error: errorMessage,
-        component: "cache",
-        operation: "get_failed",
-        key,
-        client: "bun-native",
-        errorCategory: detectCacheError(error).category,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CACHE_OPERATION_FAILED,
+        "Redis get operation failed, falling back to null",
+        {
+          error: errorMessage,
+          component: "cache",
+          operation: "get_failed",
+          key,
+          client: "bun-native",
+          error_category: detectCacheError(error).category,
+        }
+      );
       this.recordMiss(performance.now() - start);
       return null;
     });
@@ -330,12 +350,16 @@ export class SharedRedisCache implements IKongCacheService {
 
   async set<T = ConsumerSecret>(key: string, value: T, ttlSeconds?: number): Promise<void> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("SET operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "set_blocked",
-        key,
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "SET operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "set_blocked",
+          key,
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return;
     }
 
@@ -350,12 +374,13 @@ export class SharedRedisCache implements IKongCacheService {
       if (consumer.id) {
         const expectedConsumerId = key.replace("consumer_secret:", "");
         if (consumer.id !== expectedConsumerId) {
-          winstonTelemetryLogger.error(
+          telemetryEmitter.error(
+            SpanEvents.KONG_CONSUMER_MISMATCH,
             `Cache key and consumer ID mismatch detected, preventing cache pollution`,
             {
-              cacheKey: key,
-              expectedConsumerId,
-              actualConsumerId: consumer.id,
+              cache_key: key,
+              expected_consumer_id: expectedConsumerId,
+              actual_consumer_id: consumer.id,
               component: "shared_redis_cache",
               action: "cache_pollution_prevention",
             }
@@ -401,25 +426,29 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(err);
       }
 
-      winstonTelemetryLogger.warn("Redis set operation failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Redis set operation failed", {
         error: errorMessage,
         component: "cache",
         operation: "set_failed",
         key,
         client: "bun-native",
-        errorCategory: detectCacheError(err).category,
+        error_category: detectCacheError(err).category,
       });
     });
   }
 
   async delete(key: string): Promise<void> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("DELETE operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "delete_blocked",
-        key,
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "DELETE operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "delete_blocked",
+          key,
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return;
     }
 
@@ -444,24 +473,28 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(error);
       }
 
-      winstonTelemetryLogger.warn("Redis delete operation failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Redis delete operation failed", {
         error: errorMessage,
         component: "cache",
         operation: "delete_failed",
         key,
         client: "bun-native",
-        errorCategory: detectCacheError(error).category,
+        error_category: detectCacheError(error).category,
       });
     });
   }
 
   async clear(): Promise<void> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("CLEAR operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "clear_blocked",
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "CLEAR operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "clear_blocked",
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return;
     }
 
@@ -486,12 +519,12 @@ export class SharedRedisCache implements IKongCacheService {
 
         this.circuitBreaker.recordSuccess();
 
-        winstonTelemetryLogger.debug("Clear operation completed", {
+        telemetryEmitter.debug(SpanEvents.CACHE_DELETE, "Clear operation completed", {
           component: "shared_redis_cache",
           operation: "clear_complete",
-          keysDeleted: keys.length,
-          scanIterations: stats.iterations,
-          durationMs: stats.durationMs,
+          keys_deleted: keys.length,
+          scan_iterations: stats.iterations,
+          duration_ms: stats.durationMs,
         });
       } else {
         // Fallback to direct SCAN if iterator not available
@@ -522,12 +555,12 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(err);
       }
 
-      winstonTelemetryLogger.warn("Redis clear operation failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Redis clear operation failed", {
         error: errorMessage,
         component: "cache",
         operation: "clear_failed",
         client: "bun-native",
-        errorCategory: detectCacheError(err).category,
+        error_category: detectCacheError(err).category,
       });
     }
   }
@@ -582,12 +615,16 @@ export class SharedRedisCache implements IKongCacheService {
         }
       }
       if (ttlCheckErrors > 0) {
-        winstonTelemetryLogger.debug("Some TTL checks failed during stats collection", {
-          component: "shared_redis_cache",
-          operation: "getStats",
-          ttlCheckErrors,
-          sampleSize,
-        });
+        telemetryEmitter.debug(
+          SpanEvents.CACHE_OPERATION_FAILED,
+          "Some TTL checks failed during stats collection",
+          {
+            component: "shared_redis_cache",
+            operation: "getStats",
+            ttl_check_errors: ttlCheckErrors,
+            sample_size: sampleSize,
+          }
+        );
       }
 
       const activeRatio = totalPrimaryEntries > 0 ? activeCount / sampleSize : 0;
@@ -615,7 +652,7 @@ export class SharedRedisCache implements IKongCacheService {
         serverType,
       };
     } catch (error) {
-      winstonTelemetryLogger.warn("Failed to get Redis stats", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Failed to get Redis stats", {
         error: error instanceof Error ? error.message : "Unknown error",
         component: "cache",
         operation: "stats_failed",
@@ -651,7 +688,7 @@ export class SharedRedisCache implements IKongCacheService {
       try {
         await client.close();
       } catch (error) {
-        winstonTelemetryLogger.warn("Error during Redis disconnect", {
+        telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Error during Redis disconnect", {
           error: error instanceof Error ? error.message : "Unknown error",
           component: "cache",
           operation: "disconnect_error",
@@ -665,12 +702,11 @@ export class SharedRedisCache implements IKongCacheService {
 
       this.reconnectManager.reset();
 
-      winstonTelemetryLogger.info("Disconnected from Redis", {
+      telemetryEmitter.info(SpanEvents.CACHE_DISCONNECTED, "Disconnected from Redis", {
         component: "cache",
         operation: "disconnection",
         strategy: "shared-redis",
         client: "bun-native",
-        circuitBreakerStats: this.circuitBreaker.getStats(),
       });
     }
   }
@@ -719,12 +755,16 @@ export class SharedRedisCache implements IKongCacheService {
 
   async getStale(key: string): Promise<ConsumerSecret | null> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("GET_STALE operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "get_stale_blocked",
-        key,
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "GET_STALE operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "get_stale_blocked",
+          key,
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return null;
     }
 
@@ -750,7 +790,7 @@ export class SharedRedisCache implements IKongCacheService {
       if (cached) {
         this.recordHit(performance.now() - start);
         this.circuitBreaker.recordSuccess();
-        winstonTelemetryLogger.info("Retrieved stale cache data", {
+        telemetryEmitter.info(SpanEvents.CACHE_STALE_RETRIEVED, "Retrieved stale cache data", {
           key,
           component: "cache",
           operation: "get_stale_success",
@@ -775,13 +815,13 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(error);
       }
 
-      winstonTelemetryLogger.warn("Redis get stale operation failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Redis get stale operation failed", {
         error: errorMessage,
         component: "cache",
         operation: "get_stale_failed",
         key,
         client: "bun-native",
-        errorCategory: detectCacheError(error).category,
+        error_category: detectCacheError(error).category,
       });
       this.recordMiss(performance.now() - start);
       return null;
@@ -790,12 +830,16 @@ export class SharedRedisCache implements IKongCacheService {
 
   async setStale(key: string, value: ConsumerSecret, _ttlSeconds?: number): Promise<void> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("SET_STALE operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "set_stale_blocked",
-        key,
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "SET_STALE operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "set_stale_blocked",
+          key,
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return;
     }
 
@@ -830,24 +874,28 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(err);
       }
 
-      winstonTelemetryLogger.warn("Redis set stale operation failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Redis set stale operation failed", {
         error: errorMessage,
         component: "cache",
         operation: "set_stale_failed",
         key,
         client: "bun-native",
-        errorCategory: detectCacheError(err).category,
+        error_category: detectCacheError(err).category,
       });
     });
   }
 
   async clearStale(): Promise<void> {
     if (!this.circuitBreaker.canExecute()) {
-      winstonTelemetryLogger.debug("CLEAR_STALE operation blocked by circuit breaker", {
-        component: "shared_redis_cache",
-        operation: "clear_stale_blocked",
-        circuitBreakerState: this.circuitBreaker.getState(),
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "CLEAR_STALE operation blocked by circuit breaker",
+        {
+          component: "shared_redis_cache",
+          operation: "clear_stale_blocked",
+          circuit_breaker_state: this.circuitBreaker.getState(),
+        }
+      );
       return;
     }
 
@@ -871,13 +919,13 @@ export class SharedRedisCache implements IKongCacheService {
 
         this.circuitBreaker.recordSuccess();
 
-        winstonTelemetryLogger.info("Cleared stale cache", {
+        telemetryEmitter.info(SpanEvents.CACHE_DELETE, "Cleared stale cache", {
           component: "cache",
           operation: "clear_stale_success",
           client: "bun-native",
-          keysDeleted: keys.length,
-          scanIterations: stats.iterations,
-          durationMs: stats.durationMs,
+          keys_deleted: keys.length,
+          scan_iterations: stats.iterations,
+          duration_ms: stats.durationMs,
         });
       } else {
         // Fallback to direct SCAN
@@ -900,7 +948,7 @@ export class SharedRedisCache implements IKongCacheService {
 
         this.circuitBreaker.recordSuccess();
 
-        winstonTelemetryLogger.info("Cleared stale cache", {
+        telemetryEmitter.info(SpanEvents.CACHE_DELETE, "Cleared stale cache", {
           component: "cache",
           operation: "clear_stale_success",
           client: "bun-native",
@@ -914,13 +962,17 @@ export class SharedRedisCache implements IKongCacheService {
         this.markConnectionBroken(err);
       }
 
-      winstonTelemetryLogger.warn("Redis clear stale operation failed", {
-        error: errorMessage,
-        component: "cache",
-        operation: "clear_stale_failed",
-        client: "bun-native",
-        errorCategory: detectCacheError(err).category,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CACHE_OPERATION_FAILED,
+        "Redis clear stale operation failed",
+        {
+          error: errorMessage,
+          component: "cache",
+          operation: "clear_stale_failed",
+          client: "bun-native",
+          error_category: detectCacheError(err).category,
+        }
+      );
     }
   }
   getResilienceStats(): {
@@ -936,7 +988,7 @@ export class SharedRedisCache implements IKongCacheService {
   }
   resetCircuitBreaker(): void {
     this.circuitBreaker.reset();
-    winstonTelemetryLogger.info("Circuit breaker manually reset", {
+    telemetryEmitter.info(SpanEvents.CACHE_CB_RECOVERED, "Circuit breaker manually reset", {
       component: "shared_redis_cache",
       operation: "circuit_breaker_reset",
     });

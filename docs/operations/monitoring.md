@@ -192,8 +192,8 @@ The service automatically maps custom application fields to ECS (Elastic Common 
 
 | Custom Field | ECS Field | Type | Description |
 |--------------|-----------|------|-------------|
-| `consumerId` | `user.id` | string | Consumer identifier from Kong |
-| `username` | `user.name` | string | Consumer username |
+| `consumerId` | `consumer.id` | string | Consumer identifier from Kong |
+| `username` | `consumer.name` | string | Consumer username |
 | `requestId` | `event.id` | string | Unique request identifier |
 | `totalDuration` | `event.duration` | number | Duration in nanoseconds |
 
@@ -201,7 +201,7 @@ The service automatically maps custom application fields to ECS (Elastic Common 
 
 1. **Top-Level Fields**: ECS fields appear at root level in Elasticsearch, not nested under `labels.*`
 2. **Kibana Auto-Complete**: Standard ECS fields are recognized by Kibana for auto-completion
-3. **Simpler Queries**: Direct field access (`user.id` instead of `labels.consumerId`)
+3. **Simpler Queries**: Direct field access (`consumer.id` instead of `labels.consumerId`)
 4. **Standard Compliance**: Follows Elastic Common Schema conventions
 5. **No Duplication**: Fields mapped once, not duplicated between top-level and labels
 
@@ -228,35 +228,14 @@ The service automatically maps custom application fields to ECS (Elastic Common 
   "@timestamp": "2026-01-20T12:00:00.000Z",
   "message": "Token generated successfully",
   "log.level": "info",
-  "user.id": "consumer-123",
-  "user.name": "user@example.com",
+  "consumer.id": "consumer-123",
+  "consumer.name": "user@example.com",
   "event.id": "req-456",
   "event.duration": 1500000,
   "trace.id": "trace-789",
   "span.id": "span-012"
 }
 ```
-
-#### Consumer Field Mapping
-
-Kong consumer fields are mapped to `labels.consumer_*` for better OTLP transport compatibility:
-
-| Source Field | OTLP Field | Description |
-|--------------|------------|-------------|
-| `consumerId` | `labels.consumer_id` | Consumer identifier from Kong |
-| `username` | `labels.consumer_name` | Consumer username |
-
-**Example Log Output:**
-```json
-{
-  "@timestamp": "2026-02-13T12:00:00.000Z",
-  "message": "Token generated",
-  "labels.consumer_id": "98765432-9876-5432-1098-765432109876",
-  "labels.consumer_name": "user@example.com"
-}
-```
-
-**Reference:** Commit c08c233 (2026-02-13) - Map Kong consumer fields to labels.consumer_* in logs
 
 #### Non-ECS Fields
 
@@ -268,21 +247,21 @@ Fields not mapped to ECS standards automatically appear under `labels.*`:
 **Example:**
 ```json
 {
-  "user.id": "consumer-123",        // ECS mapped
-  "user.name": "user@example.com",  // ECS mapped
-  "labels.operationType": "create", // Non-ECS field
-  "labels.cacheHit": true           // Non-ECS field
+  "consumer.id": "consumer-123",        // Mapped field
+  "consumer.name": "user@example.com",  // Mapped field
+  "labels.operationType": "create",     // Non-mapped field
+  "labels.cacheHit": true               // Non-mapped field
 }
 ```
 
 #### Elasticsearch Query Examples
 
-**ECS Fields (Direct Access):**
+**Consumer Fields (Direct Access):**
 ```json
 GET /logs-*/_search
 {
   "query": {
-    "term": { "user.id": "consumer-123" }
+    "term": { "consumer.id": "consumer-123" }
   }
 }
 ```
@@ -409,6 +388,361 @@ const spanId = telemetryTracer.getCurrentSpanId();
 | `cache.<backend>.<operation>` | Cache operations | `cache.redis.get` |
 | `api_versioning.<operation>` | Version routing | `api_versioning.route_selection` |
 | `<method> <path>` | HTTP server spans | `GET /tokens` |
+
+### Span Events for Critical Correlation Points
+
+Span events are timestamped annotations attached directly to spans, providing a way to capture discrete moments within a span's lifetime. Unlike logs, **span events are ALWAYS captured regardless of LOG_LEVEL**, making them the ideal choice for critical correlation points that must never be filtered out.
+
+#### LOG_LEVEL vs Span Events: Understanding the Trade-off
+
+When you set `LOG_LEVEL=warn` to reduce log verbosity in production:
+- **Logs**: Only `warn` and `error` level logs are sent to OTLP (and console)
+- **Traces**: ALL spans are still captured (unaffected by LOG_LEVEL)
+- **Metrics**: ALL metrics are still captured (unaffected by LOG_LEVEL)
+- **Span Events**: ALL events are captured (part of traces, unaffected by LOG_LEVEL)
+
+**The Problem:**
+```typescript
+// With LOG_LEVEL=warn, this info log is DROPPED
+info('Consumer lookup successful', { consumerId, cacheHit: true });
+
+// You lose visibility into successful operations when filtering logs
+```
+
+**The Solution: Span Events**
+```typescript
+// Span events are ALWAYS captured, regardless of LOG_LEVEL
+telemetryTracer.addEvent('consumer.lookup.success', {
+  'consumer.id': consumerId,
+  'cache.hit': true,
+});
+```
+
+#### When to Use Span Events vs Logs
+
+| Scenario | Use Span Event | Use Log |
+|----------|----------------|---------|
+| Critical correlation points (e.g., cache hit/miss) | Yes | No |
+| Debug information for development | No | Yes |
+| Error conditions | Both | Yes |
+| Business logic milestones | Yes | Optional |
+| Verbose diagnostic output | No | Yes (debug level) |
+| Data that MUST appear in traces | Yes | No |
+| High-volume repetitive messages | No | Yes (can be filtered) |
+
+#### Tracer API for Span Events
+
+**Implementation:** `src/telemetry/tracer.ts`
+
+```typescript
+import { telemetryTracer } from '../telemetry/tracer';
+
+// Basic event - always captured regardless of LOG_LEVEL
+telemetryTracer.addEvent('cache.hit', {
+  'cache.tier': 'l1',
+  'cache.key': 'consumer:abc123',
+});
+
+// Timed event - automatically calculates duration
+const startTime = performance.now();
+await doExpensiveOperation();
+telemetryTracer.addTimedEvent('expensive.operation.complete', startTime, {
+  'operation.type': 'validation',
+  'items.processed': 150,
+});
+```
+
+#### Critical Correlation Points to Capture
+
+These operations should use span events for guaranteed visibility:
+
+**1. Cache Operations**
+```typescript
+// Cache hit - critical for performance analysis
+telemetryTracer.addEvent('cache.hit', {
+  'cache.tier': tier,           // 'l1' | 'l2'
+  'cache.backend': 'redis',
+  'cache.key_prefix': 'consumer',
+  'cache.ttl_remaining_ms': ttl,
+});
+
+// Cache miss - triggers downstream lookup
+telemetryTracer.addEvent('cache.miss', {
+  'cache.tier': tier,
+  'cache.backend': 'redis',
+  'fallback.action': 'kong_lookup',
+});
+```
+
+**2. Kong Consumer Lookup**
+```typescript
+// Consumer found
+telemetryTracer.addEvent('kong.consumer.found', {
+  'consumer.id': consumerId,
+  'consumer.username': username,
+  'lookup.duration_ms': durationMs,
+});
+
+// Consumer validation
+telemetryTracer.addEvent('consumer.validation.complete', {
+  'validation.result': 'valid',
+  'consumer.is_anonymous': false,
+});
+```
+
+**3. JWT Operations**
+```typescript
+// Token generation milestones
+telemetryTracer.addEvent('jwt.claims.prepared', {
+  'claims.count': Object.keys(claims).length,
+  'audience.count': Array.isArray(aud) ? aud.length : 1,
+});
+
+telemetryTracer.addEvent('jwt.signed', {
+  'algorithm': 'HS256',
+  'token.length': token.length,
+});
+```
+
+**4. Circuit Breaker State Changes**
+```typescript
+// State transitions (critical for understanding failures)
+telemetryTracer.addEvent('circuit_breaker.state_change', {
+  'cb.name': 'kong',
+  'cb.previous_state': 'closed',
+  'cb.new_state': 'open',
+  'cb.failure_count': failureCount,
+});
+
+// Stale cache fallback (important for resilience visibility)
+telemetryTracer.addEvent('circuit_breaker.stale_cache_used', {
+  'cb.name': 'kong',
+  'cache.age_seconds': cacheAge,
+  'cache.key': cacheKey,
+});
+```
+
+#### Event Naming Conventions
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| `<component>.<action>` | General events | `cache.hit`, `jwt.signed` |
+| `<component>.<entity>.<action>` | Entity operations | `kong.consumer.found` |
+| `<component>.<action>.<result>` | Result-based | `validation.complete.success` |
+| `circuit_breaker.<event>` | CB state changes | `circuit_breaker.state_change` |
+
+#### Viewing Span Events in Observability Tools
+
+**Elastic APM:**
+1. Open the trace/transaction view
+2. Expand the span of interest
+3. Events appear in the "Events" tab with timestamps
+4. Click event to see all attributes
+
+**Jaeger:**
+1. View trace details
+2. Expand span
+3. Events listed under "Logs" section (Jaeger terminology)
+4. Each event shows timestamp and attributes
+
+**Datadog:**
+1. Open trace view
+2. Click on span
+3. Events appear in "Span Events" section
+4. Attributes displayed as key-value pairs
+
+#### TelemetryEmitter: Unified Span Events + Logs API
+
+The `TelemetryEmitter` provides a unified API that emits BOTH span events AND logs in a single call. This is the recommended approach for critical correlation points.
+
+**Implementation:** `src/telemetry/telemetry-emitter.ts`
+
+**Key Benefits:**
+- **Single API**: One call emits both span event and log
+- **Span events ALWAYS captured**: Regardless of LOG_LEVEL setting
+- **Logs filtered by LOG_LEVEL**: Reduces noise in production
+- **Type-safe event names**: Use `SpanEvents` constants for compile-time checking
+- **Consistent attributes**: Same data appears in both traces and logs
+
+**Basic Usage:**
+```typescript
+import { telemetryEmitter, SpanEvents } from '../telemetry/tracer';
+
+// Info level - emits span event + info log
+telemetryEmitter.info(SpanEvents.CACHE_HIT, 'Cache hit', {
+  key: 'consumer:123',
+  tier: 'l1',
+});
+
+// Warning level - emits span event + warn log
+telemetryEmitter.warn(SpanEvents.CB_FAILURE, 'Circuit breaker failure', {
+  operation: 'getConsumerSecret',
+  error: 'Connection timeout',
+  failure_count: 3,
+});
+
+// Error level - emits span event + error log
+telemetryEmitter.error(SpanEvents.CB_STATE_OPEN, 'Circuit breaker opened', {
+  operation: 'kong_health_check',
+  failure_count: 5,
+  reset_timeout_ms: 30000,
+});
+
+// Debug level (filtered in production with LOG_LEVEL=warn)
+telemetryEmitter.debug(SpanEvents.CACHE_OPERATION_STARTED, 'Starting cache operation', {
+  key: 'consumer:456',
+});
+```
+
+**Timed Operations:**
+```typescript
+const startTime = performance.now();
+await doExpensiveOperation();
+
+// Automatically calculates duration_ms
+telemetryEmitter.timed(SpanEvents.CACHE_SET, 'Cache set completed', startTime, {
+  key: 'consumer:123',
+  ttl_seconds: 300,
+});
+
+// With explicit log level
+telemetryEmitter.timedWithLevel(
+  SpanEvents.CB_TIMEOUT,
+  'Operation timed out',
+  'warn',
+  startTime,
+  { operation: 'kong_lookup' }
+);
+```
+
+**Full Options API:**
+```typescript
+telemetryEmitter.emit({
+  event: SpanEvents.CB_STATE_OPEN,
+  message: 'Circuit breaker opened',
+  level: 'error',  // 'debug' | 'info' | 'warn' | 'error'
+  attributes: {
+    operation: 'getConsumerSecret',
+    failure_count: 5,
+  },
+  startTime: operationStartTime,  // Optional: auto-calculates duration
+});
+```
+
+#### SpanEvents Constants
+
+Type-safe event name constants following the `<component>.<sub_component>.<action>` naming convention:
+
+```typescript
+import { SpanEvents } from '../telemetry/tracer';
+
+// Circuit Breaker Events
+SpanEvents.CB_STATE_OPEN           // "circuit_breaker.state.open"
+SpanEvents.CB_STATE_HALF_OPEN      // "circuit_breaker.state.half_open"
+SpanEvents.CB_STATE_CLOSED         // "circuit_breaker.state.closed"
+SpanEvents.CB_FAILURE              // "circuit_breaker.failure"
+SpanEvents.CB_FALLBACK_USED        // "circuit_breaker.fallback.used"
+SpanEvents.CB_REQUEST_REJECTED     // "circuit_breaker.request.rejected"
+
+// Cache Events
+SpanEvents.CACHE_HIT               // "cache.hit"
+SpanEvents.CACHE_MISS              // "cache.miss"
+SpanEvents.CACHE_SET               // "cache.set"
+SpanEvents.CACHE_DELETE            // "cache.delete"
+SpanEvents.CACHE_CONNECTED         // "cache.connection.established"
+SpanEvents.CACHE_DISCONNECTED      // "cache.connection.lost"
+SpanEvents.CACHE_OPERATION_STARTED // "cache.operation.started"
+SpanEvents.CACHE_OPERATION_COMPLETED // "cache.operation.completed"
+SpanEvents.CACHE_OPERATION_FAILED  // "cache.operation.failed"
+
+// Kong Events
+SpanEvents.KONG_CONSUMER_FOUND     // "kong.consumer.found"
+SpanEvents.KONG_CONSUMER_NOT_FOUND // "kong.consumer.not_found"
+SpanEvents.KONG_CACHE_HIT          // "kong.cache.hit"
+SpanEvents.KONG_REQUEST_SUCCESS    // "kong.request.success"
+SpanEvents.KONG_REQUEST_FAILED     // "kong.request.failed"
+SpanEvents.KONG_REALM_CREATED      // "kong.realm.created"
+
+// Validation Events
+SpanEvents.VALIDATION_FAILED       // "validation.failed"
+SpanEvents.VALIDATION_FAILED_STRICT // "validation.failed.strict"
+SpanEvents.VALIDATION_JSON_PARSE_FAILED // "validation.json.parse_failed"
+
+// Health Check Events
+SpanEvents.HEALTH_CHECK_SUCCESS    // "health.check.success"
+SpanEvents.HEALTH_CHECK_DEGRADED   // "health.check.degraded"
+SpanEvents.HEALTH_CHECK_FAILED     // "health.check.failed"
+```
+
+#### Migration Strategy: Logs to TelemetryEmitter
+
+When converting existing logs to use the unified TelemetryEmitter:
+
+**Before (log-based):**
+```typescript
+import { winstonTelemetryLogger } from '../telemetry/winston-logger';
+
+// These get filtered when LOG_LEVEL=warn
+winstonTelemetryLogger.info('Cache lookup completed', {
+  cacheHit: true,
+  tier: 'l1',
+  duration: 2.5,
+});
+```
+
+**After (TelemetryEmitter):**
+```typescript
+import { telemetryEmitter, SpanEvents } from '../telemetry/tracer';
+
+// Span event is ALWAYS captured, log is filtered by LOG_LEVEL
+telemetryEmitter.info(SpanEvents.CACHE_HIT, 'Cache lookup completed', {
+  cache_hit: true,       // Note: snake_case for attributes
+  tier: 'l1',
+  duration_ms: 2.5,
+});
+```
+
+**Key Migration Steps:**
+1. Replace `winstonTelemetryLogger` import with `import { telemetryEmitter, SpanEvents } from "../telemetry/tracer";`
+2. Add appropriate `SpanEvents` constant as first argument
+3. Convert attribute names from camelCase to snake_case
+4. Flatten any nested objects (TelemetryEmitter expects flat key-value pairs)
+5. Handle null values with `?? "default"` (undefined is allowed)
+
+#### Best Practices
+
+1. **Event names should be dot-separated lowercase**: `cache.hit`, not `CacheHit` or `cache-hit`
+2. **Keep attribute count reasonable**: 3-7 attributes per event
+3. **Use semantic attribute names**: Prefix with component (`cache.`, `kong.`, `jwt.`)
+4. **Include timing for async operations**: Use `addTimedEvent()` for duration tracking
+5. **Don't duplicate information**: If it's in span attributes, don't repeat in events
+6. **Reserve logs for verbosity**: Use debug/info logs for detailed diagnostics that can be filtered
+
+#### Performance Considerations
+
+Span events have minimal overhead:
+- Events are stored in memory with the span until export
+- Export happens in batches via `BatchSpanProcessor`
+- Event attributes are limited to primitive types (string, number, boolean)
+- No network I/O until batch export
+
+For high-throughput paths, prefer a single event with multiple attributes over multiple events:
+
+```typescript
+// Better: Single event with multiple attributes
+telemetryTracer.addEvent('request.processed', {
+  'cache.hit': true,
+  'cache.tier': 'l1',
+  'kong.called': false,
+  'jwt.generated': true,
+  'total_duration_ms': totalMs,
+});
+
+// Worse: Multiple events for same logical operation
+telemetryTracer.addEvent('cache.hit');
+telemetryTracer.addEvent('kong.skipped');
+telemetryTracer.addEvent('jwt.generated');
+```
 
 ### Telemetry Circuit Breakers
 

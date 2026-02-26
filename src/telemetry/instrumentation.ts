@@ -100,28 +100,37 @@ export async function initializeTelemetry(): Promise<void> {
     }),
   });
 
+  // Memory optimization: Use shorter timeouts to prevent buffer accumulation
+  // during backpressure. Default 30s is too long and causes Uint8Array retention.
+  const exportTimeout = Math.min(telemetryConfig.exportTimeout, 10000);
+
   const baseOtlpTraceExporter = new OTLPTraceExporter({
     url: telemetryConfig.tracesEndpoint,
-    timeoutMillis: telemetryConfig.exportTimeout,
+    timeoutMillis: exportTimeout,
   });
   const trackingTraceExporter = wrapSpanExporter(baseOtlpTraceExporter, traceExportStats);
 
   const baseOtlpMetricExporter = new OTLPMetricExporter({
     url: telemetryConfig.metricsEndpoint,
-    timeoutMillis: telemetryConfig.exportTimeout,
+    timeoutMillis: exportTimeout,
   });
   const trackingMetricExporter = wrapMetricExporter(baseOtlpMetricExporter, metricExportStats);
   metricExporter = trackingMetricExporter;
 
   const baseOtlpLogExporter = new OTLPLogExporter({
     url: telemetryConfig.logsEndpoint,
-    timeoutMillis: telemetryConfig.exportTimeout,
+    timeoutMillis: exportTimeout,
   });
   const trackingLogExporter = wrapLogRecordExporter(baseOtlpLogExporter, logExportStats);
 
+  // Memory optimization: Configure batch processor with bounded queue to prevent
+  // Uint8Array/protobuf buffer accumulation. The maxQueueSize limits memory usage
+  // by dropping spans when the queue is full rather than accumulating indefinitely.
   const traceProcessor = new BatchSpanProcessor(trackingTraceExporter, {
-    maxExportBatchSize: 10,
+    maxExportBatchSize: telemetryConfig.batchSize,
+    maxQueueSize: telemetryConfig.maxQueueSize,
     scheduledDelayMillis: 1000,
+    exportTimeoutMillis: exportTimeout,
   });
 
   if (!metricExporter) {
@@ -130,13 +139,23 @@ export async function initializeTelemetry(): Promise<void> {
     );
   }
 
+  // Memory optimization: Configure metric reader with timeout to prevent
+  // buffer accumulation during slow exports.
   const periodicReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
     exportIntervalMillis: 10000,
+    exportTimeoutMillis: exportTimeout,
   });
   metricReader = periodicReader;
 
-  const logProcessor = new BatchLogRecordProcessor(trackingLogExporter);
+  // Memory optimization: Configure log processor with bounded queue to prevent
+  // buffer accumulation. Matches trace processor settings for consistency.
+  const logProcessor = new BatchLogRecordProcessor(trackingLogExporter, {
+    maxExportBatchSize: telemetryConfig.batchSize,
+    maxQueueSize: telemetryConfig.maxQueueSize,
+    scheduledDelayMillis: 1000,
+    exportTimeoutMillis: exportTimeout,
+  });
 
   // OTel SDK 0.212.0 breaking change: LoggerProvider must be explicitly registered
   // as the global provider for OpenTelemetryTransportV3 (Winston) to work.

@@ -197,19 +197,19 @@ describe("Default Configuration", () => {
     });
 
     it("should have correct default exportTimeout", () => {
-      expect(defaultConfig.telemetry.exportTimeout).toBe(30000);
+      expect(defaultConfig.telemetry.exportTimeout).toBe(10000);
       expect(typeof defaultConfig.telemetry.exportTimeout).toBe("number");
       expect(defaultConfig.telemetry.exportTimeout).toBeGreaterThan(0);
     });
 
     it("should have correct default batchSize", () => {
-      expect(defaultConfig.telemetry.batchSize).toBe(2048);
+      expect(defaultConfig.telemetry.batchSize).toBe(512);
       expect(typeof defaultConfig.telemetry.batchSize).toBe("number");
       expect(defaultConfig.telemetry.batchSize).toBeGreaterThan(0);
     });
 
     it("should have correct default maxQueueSize", () => {
-      expect(defaultConfig.telemetry.maxQueueSize).toBe(10000);
+      expect(defaultConfig.telemetry.maxQueueSize).toBe(2048);
       expect(typeof defaultConfig.telemetry.maxQueueSize).toBe("number");
       expect(defaultConfig.telemetry.maxQueueSize).toBeGreaterThan(0);
     });

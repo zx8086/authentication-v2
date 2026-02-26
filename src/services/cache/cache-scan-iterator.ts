@@ -1,6 +1,6 @@
 // src/services/cache/cache-scan-iterator.ts
 
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 import { isConnectionError } from "../../utils/cache-error-detector";
 import { CacheOperationTimeoutError, withOperationTimeout } from "./cache-operation-timeout";
 
@@ -49,15 +49,13 @@ export class CacheScanIterator {
     let cursor = 0;
     let iterations = 0;
 
-    winstonTelemetryLogger.debug("Starting cache SCAN iteration", {
+    telemetryEmitter.debug(SpanEvents.CACHE_OPERATION_STARTED, "Starting cache SCAN iteration", {
       component: "cache_scan_iterator",
       operation: "iterate_start",
       pattern,
-      config: {
-        count: this.config.count,
-        timeoutMs: this.config.timeoutMs,
-        maxIterations: this.config.maxIterations,
-      },
+      count: this.config.count,
+      timeout_ms: this.config.timeoutMs,
+      max_iterations: this.config.maxIterations,
     });
 
     do {
@@ -69,7 +67,7 @@ export class CacheScanIterator {
             `Pattern: ${pattern}, Last cursor: ${cursor}`
         );
 
-        winstonTelemetryLogger.error("SCAN max iterations exceeded", {
+        telemetryEmitter.error(SpanEvents.CACHE_OPERATION_FAILED, "SCAN max iterations exceeded", {
           component: "cache_scan_iterator",
           operation: "max_iterations_exceeded",
           pattern,
@@ -89,7 +87,7 @@ export class CacheScanIterator {
       }
     } while (cursor !== 0);
 
-    winstonTelemetryLogger.debug("Cache SCAN iteration complete", {
+    telemetryEmitter.debug(SpanEvents.CACHE_OPERATION_COMPLETED, "Cache SCAN iteration complete", {
       component: "cache_scan_iterator",
       operation: "iterate_complete",
       pattern,
@@ -117,12 +115,20 @@ export class CacheScanIterator {
         completed: true,
       };
 
-      winstonTelemetryLogger.debug("Cache SCAN collectAll complete", {
-        component: "cache_scan_iterator",
-        operation: "collect_all_complete",
-        pattern,
-        stats,
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_OPERATION_COMPLETED,
+        "Cache SCAN collectAll complete",
+        {
+          component: "cache_scan_iterator",
+          operation: "collect_all_complete",
+          pattern,
+          total_keys: stats.totalKeys,
+          iterations: stats.iterations,
+          duration_ms: stats.durationMs,
+          retries: stats.retries,
+          completed: stats.completed,
+        }
+      );
 
       return { keys: allKeys, stats };
     } catch (error) {
@@ -137,11 +143,15 @@ export class CacheScanIterator {
         error: errorMessage,
       };
 
-      winstonTelemetryLogger.warn("Cache SCAN collectAll failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "Cache SCAN collectAll failed", {
         component: "cache_scan_iterator",
         operation: "collect_all_failed",
         pattern,
-        stats,
+        total_keys: stats.totalKeys,
+        iterations: stats.iterations,
+        duration_ms: stats.durationMs,
+        retries: stats.retries,
+        completed: stats.completed,
         error: errorMessage,
       });
 
@@ -172,36 +182,40 @@ export class CacheScanIterator {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (isConnectionError(lastError)) {
-          winstonTelemetryLogger.warn("SCAN connection error, will retry", {
-            component: "cache_scan_iterator",
-            operation: "scan_connection_error",
-            cursor,
-            pattern,
-            iteration,
-            attempt,
-            maxRetries: this.config.retriesPerScan,
-            error: lastError.message,
-          });
+          telemetryEmitter.warn(
+            SpanEvents.CACHE_CONNECTION_BROKEN,
+            "SCAN connection error, will retry",
+            {
+              component: "cache_scan_iterator",
+              operation: "scan_connection_error",
+              cursor,
+              pattern,
+              iteration,
+              attempt,
+              max_retries: this.config.retriesPerScan,
+              error: lastError.message,
+            }
+          );
         } else if (lastError instanceof CacheOperationTimeoutError) {
-          winstonTelemetryLogger.warn("SCAN timeout, will retry", {
+          telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "SCAN timeout, will retry", {
             component: "cache_scan_iterator",
             operation: "scan_timeout",
             cursor,
             pattern,
             iteration,
             attempt,
-            maxRetries: this.config.retriesPerScan,
-            timeoutMs: this.config.timeoutMs,
+            max_retries: this.config.retriesPerScan,
+            timeout_ms: this.config.timeoutMs,
           });
         } else {
-          winstonTelemetryLogger.warn("SCAN error, will retry", {
+          telemetryEmitter.warn(SpanEvents.CACHE_OPERATION_FAILED, "SCAN error, will retry", {
             component: "cache_scan_iterator",
             operation: "scan_error",
             cursor,
             pattern,
             iteration,
             attempt,
-            maxRetries: this.config.retriesPerScan,
+            max_retries: this.config.retriesPerScan,
             error: lastError.message,
           });
         }
@@ -212,14 +226,14 @@ export class CacheScanIterator {
       }
     }
 
-    winstonTelemetryLogger.error("SCAN failed after all retries", {
+    telemetryEmitter.error(SpanEvents.CACHE_OPERATION_FAILED, "SCAN failed after all retries", {
       component: "cache_scan_iterator",
       operation: "scan_all_retries_failed",
       cursor,
       pattern,
       iteration,
-      retriesAttempted: this.config.retriesPerScan + 1,
-      error: lastError?.message,
+      retries_attempted: this.config.retriesPerScan + 1,
+      error: lastError?.message ?? "unknown",
     });
 
     throw lastError || new Error("SCAN failed with unknown error");

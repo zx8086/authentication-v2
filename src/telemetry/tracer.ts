@@ -176,6 +176,50 @@ class BunTelemetryTracer {
     }
   }
 
+  /**
+   * Add an event to the active span. Events are timestamped annotations that
+   * capture discrete moments within a span's lifetime. Unlike logs, events are
+   * ALWAYS captured regardless of LOG_LEVEL, making them ideal for critical
+   * correlation points.
+   *
+   * Use span events instead of logs when:
+   * - You need guaranteed capture regardless of log level settings
+   * - The information is directly related to the current operation's span
+   * - You want the data to appear in trace views alongside the span
+   *
+   * @param name - Event name (e.g., 'cache.hit', 'validation.complete')
+   * @param attributes - Optional event attributes
+   */
+  public addEvent(name: string, attributes?: Record<string, string | number | boolean>): void {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      activeSpan.addEvent(name, attributes);
+    }
+  }
+
+  /**
+   * Add an event with timing information to the active span.
+   * Automatically calculates duration from a start time.
+   *
+   * @param name - Event name
+   * @param startTime - Start time in milliseconds (from performance.now() or Date.now())
+   * @param attributes - Optional additional attributes
+   */
+  public addTimedEvent(
+    name: string,
+    startTime: number,
+    attributes?: Record<string, string | number | boolean>
+  ): void {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      const durationMs = performance.now() - startTime;
+      activeSpan.addEvent(name, {
+        ...attributes,
+        "event.duration_ms": durationMs,
+      });
+    }
+  }
+
   public getCurrentTraceId(): string | undefined {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
@@ -238,3 +282,7 @@ export function createSpan<T>(
 ): T | Promise<T> {
   return telemetryTracer.createSpan(spanContext, operation);
 }
+
+// Re-export TelemetryEmitter and SpanEvents for convenient access
+export { telemetryEmitter } from "./telemetry-emitter";
+export { SpanEvents, type SpanEventName } from "./span-event-names";

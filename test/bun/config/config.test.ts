@@ -120,9 +120,9 @@ describe("Configuration System", () => {
         environment: "development",
         mode: "console",
         logLevel: "info",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,
@@ -141,9 +141,9 @@ describe("Configuration System", () => {
         expect(result.data.environment).toBe("development");
         expect(result.data.mode).toBe("console");
         expect(result.data.logLevel).toBe("info");
-        expect(result.data.exportTimeout).toBe(30000);
-        expect(result.data.batchSize).toBe(2048);
-        expect(result.data.maxQueueSize).toBe(10000);
+        expect(result.data.exportTimeout).toBe(10000);
+        expect(result.data.batchSize).toBe(512);
+        expect(result.data.maxQueueSize).toBe(2048);
         expect(result.data.infrastructure.isKubernetes).toBe(false);
         expect(result.data.infrastructure.isEcs).toBe(false);
       }
@@ -216,9 +216,9 @@ describe("Configuration System", () => {
         mode: "otlp",
         logLevel: "info",
         tracesEndpoint: "http://insecure.example.com/traces",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
       };
 
       const result = SchemaRegistry.Telemetry.safeParse(prodTelemetryConfig);
@@ -233,9 +233,9 @@ describe("Configuration System", () => {
         mode: "otlp",
         logLevel: "info",
         tracesEndpoint: "https://secure.example.com/traces",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,
@@ -263,9 +263,9 @@ describe("Configuration System", () => {
         environment: "production",
         mode: "otlp",
         logLevel: "info",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,
@@ -286,9 +286,9 @@ describe("Configuration System", () => {
         environment: "production",
         mode: "otlp",
         logLevel: "info",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,
@@ -309,9 +309,9 @@ describe("Configuration System", () => {
         environment: "production",
         mode: "otlp",
         logLevel: "info",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,
@@ -553,9 +553,9 @@ describe("Configuration System", () => {
         environment: "invalid-env",
         mode: "console",
         logLevel: "info",
-        exportTimeout: 30000,
-        batchSize: 2048,
-        maxQueueSize: 10000,
+        exportTimeout: 10000,
+        batchSize: 512,
+        maxQueueSize: 2048,
         infrastructure: {
           isKubernetes: false,
           isEcs: false,

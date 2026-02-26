@@ -1,6 +1,6 @@
 // src/cache/cache-manager.ts
 import type { IKongCacheService, KongCacheStats } from "../config/schemas";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 import { LocalMemoryBackend } from "./backends/local-memory-backend";
 import { SharedRedisBackend } from "./backends/shared-redis-backend";
 import type {
@@ -70,11 +70,15 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
   async getStale<T>(key: string): Promise<T | null> {
     await this.ensureInitialized();
     if (!this.backend?.getStale) {
-      winstonTelemetryLogger.debug("Cache backend does not support stale data access", {
-        strategy: this.backend?.strategy,
-        component: "cache_manager",
-        operation: "get_stale_unsupported",
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_STALE_RETRIEVED,
+        "Cache backend does not support stale data access",
+        {
+          strategy: this.backend?.strategy ?? "unknown",
+          component: "cache_manager",
+          operation: "get_stale_unsupported",
+        }
+      );
       return null;
     }
     return await this.backend.getStale<T>(key);
@@ -135,21 +139,29 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
     const newStrategy = this.selectStrategy(newConfig);
 
     if (oldStrategy === newStrategy && this.backend) {
-      winstonTelemetryLogger.debug("Cache configuration unchanged, keeping existing backend", {
-        strategy: newStrategy,
-        component: "cache_manager",
-        operation: "reconfigure_skipped",
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_MANAGER_RECONFIGURED,
+        "Cache configuration unchanged, keeping existing backend",
+        {
+          strategy: newStrategy,
+          component: "cache_manager",
+          operation: "reconfigure_skipped",
+        }
+      );
       this.config = newConfig;
       return;
     }
 
-    winstonTelemetryLogger.info("Reconfiguring cache manager with new strategy", {
-      oldStrategy,
-      newStrategy,
-      component: "cache_manager",
-      operation: "reconfigure",
-    });
+    telemetryEmitter.info(
+      SpanEvents.CACHE_MANAGER_RECONFIGURED,
+      "Reconfiguring cache manager with new strategy",
+      {
+        old_strategy: oldStrategy ?? "none",
+        new_strategy: newStrategy,
+        component: "cache_manager",
+        operation: "reconfigure",
+      }
+    );
 
     await this.shutdown();
     this.config = newConfig;
@@ -162,18 +174,22 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
     if (this.backend?.disconnect) {
       try {
         await this.backend.disconnect();
-        winstonTelemetryLogger.info("Cache backend disconnected", {
+        telemetryEmitter.info(SpanEvents.CACHE_MANAGER_SHUTDOWN, "Cache backend disconnected", {
           strategy: this.backend.strategy,
           component: "cache_manager",
           operation: "shutdown",
         });
       } catch (error) {
-        winstonTelemetryLogger.warn("Error during cache backend shutdown", {
-          strategy: this.backend.strategy,
-          error: error instanceof Error ? error.message : "Unknown error",
-          component: "cache_manager",
-          operation: "shutdown_error",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CACHE_MANAGER_SHUTDOWN,
+          "Error during cache backend shutdown",
+          {
+            strategy: this.backend.strategy,
+            error: error instanceof Error ? error.message : "Unknown error",
+            component: "cache_manager",
+            operation: "shutdown_error",
+          }
+        );
       }
     }
     this.backend = null;
@@ -198,9 +214,9 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
   private async initialize(): Promise<void> {
     const strategy = this.selectStrategy(this.config);
 
-    winstonTelemetryLogger.info("Initializing cache manager", {
+    telemetryEmitter.info(SpanEvents.CACHE_MANAGER_INITIALIZING, "Initializing cache manager", {
       strategy,
-      highAvailability: this.config.highAvailability,
+      high_availability: this.config.highAvailability,
       component: "cache_manager",
       operation: "initialization",
     });
@@ -212,22 +228,30 @@ export class UnifiedCacheManager implements ICacheService, IKongCacheService {
         await this.backend.connect();
       }
 
-      winstonTelemetryLogger.info("Cache manager initialized successfully", {
-        strategy: this.backend.strategy,
-        name: this.backend.name,
-        component: "cache_manager",
-        operation: "initialization_success",
-      });
+      telemetryEmitter.info(
+        SpanEvents.CACHE_MANAGER_INITIALIZED,
+        "Cache manager initialized successfully",
+        {
+          strategy: this.backend.strategy,
+          name: this.backend.name,
+          component: "cache_manager",
+          operation: "initialization_success",
+        }
+      );
     } catch (error) {
-      winstonTelemetryLogger.error("Failed to initialize cache manager", {
-        strategy,
-        error: error instanceof Error ? error.message : "Unknown error",
-        component: "cache_manager",
-        operation: "initialization_failed",
-      });
+      telemetryEmitter.error(
+        SpanEvents.CACHE_OPERATION_FAILED,
+        "Failed to initialize cache manager",
+        {
+          strategy,
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "cache_manager",
+          operation: "initialization_failed",
+        }
+      );
 
       if (strategy === "shared-redis") {
-        winstonTelemetryLogger.warn("Falling back to local memory cache", {
+        telemetryEmitter.warn(SpanEvents.CB_FALLBACK_USED, "Falling back to local memory cache", {
           component: "cache_manager",
           operation: "fallback_to_memory",
         });

@@ -1,7 +1,7 @@
 // src/services/cache/cache-circuit-breaker.ts
 
 import { recordCircuitBreakerOperation, recordCircuitBreakerState } from "../../telemetry/metrics";
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 import { CircuitBreakerStateEnum } from "../../types/circuit-breaker.types";
 import { isConnectionError } from "../../utils/cache-error-detector";
 
@@ -47,16 +47,18 @@ export class CacheCircuitBreaker {
   constructor(
     private readonly config: CacheCircuitBreakerConfig = DEFAULT_CACHE_CIRCUIT_BREAKER_CONFIG
   ) {
-    winstonTelemetryLogger.debug("Cache circuit breaker initialized", {
-      component: "cache_circuit_breaker",
-      operation: "init",
-      config: {
+    telemetryEmitter.debug(
+      SpanEvents.CACHE_FACTORY_INITIALIZING,
+      "Cache circuit breaker initialized",
+      {
+        component: "cache_circuit_breaker",
+        operation: "init",
         enabled: config.enabled,
-        failureThreshold: config.failureThreshold,
-        resetTimeout: config.resetTimeout,
-        successThreshold: config.successThreshold,
-      },
-    });
+        failure_threshold: config.failureThreshold,
+        reset_timeout: config.resetTimeout,
+        success_threshold: config.successThreshold,
+      }
+    );
   }
 
   canExecute(): boolean {
@@ -80,12 +82,16 @@ export class CacheCircuitBreaker {
         this.rejectedRequests++;
         recordCircuitBreakerOperation(CacheCircuitBreaker.OPERATION_NAME, this.state, "rejected");
 
-        winstonTelemetryLogger.debug("Cache circuit breaker rejecting request", {
-          component: "cache_circuit_breaker",
-          operation: "reject",
-          state: this.state,
-          timeUntilReset: this.config.resetTimeout - (now - this.lastFailureTime),
-        });
+        telemetryEmitter.debug(
+          SpanEvents.CACHE_CB_FAILURE,
+          "Cache circuit breaker rejecting request",
+          {
+            component: "cache_circuit_breaker",
+            operation: "reject",
+            state: this.state,
+            time_until_reset: this.config.resetTimeout - (now - this.lastFailureTime),
+          }
+        );
 
         return false;
       }
@@ -122,11 +128,15 @@ export class CacheCircuitBreaker {
 
     const errorMessage = error instanceof Error ? error.message : error;
     if (!isConnectionError(error)) {
-      winstonTelemetryLogger.debug("Non-connection error, not counting toward circuit breaker", {
-        component: "cache_circuit_breaker",
-        operation: "ignore_error",
-        error: errorMessage,
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_CB_FAILURE,
+        "Non-connection error, not counting toward circuit breaker",
+        {
+          component: "cache_circuit_breaker",
+          operation: "ignore_error",
+          error: errorMessage,
+        }
+      );
       return;
     }
 
@@ -145,12 +155,12 @@ export class CacheCircuitBreaker {
 
     recordCircuitBreakerOperation(CacheCircuitBreaker.OPERATION_NAME, this.state, "request");
 
-    winstonTelemetryLogger.warn("Cache circuit breaker recorded failure", {
+    telemetryEmitter.warn(SpanEvents.CACHE_CB_FAILURE, "Cache circuit breaker recorded failure", {
       component: "cache_circuit_breaker",
       operation: "record_failure",
       state: this.state,
-      failureCount: this.failureCount,
-      failureThreshold: this.config.failureThreshold,
+      failure_count: this.failureCount,
+      failure_threshold: this.config.failureThreshold,
       error: errorMessage,
     });
   }
@@ -163,25 +173,30 @@ export class CacheCircuitBreaker {
     recordCircuitBreakerState(CacheCircuitBreaker.OPERATION_NAME, newState);
     recordCircuitBreakerOperation(CacheCircuitBreaker.OPERATION_NAME, newState, "state_transition");
 
-    winstonTelemetryLogger.info("Cache circuit breaker state transition", {
-      component: "cache_circuit_breaker",
-      operation: "state_transition",
-      previousState,
-      newState,
-      failureCount: this.failureCount,
-      successCount: this.successCount,
-      totalRequests: this.totalRequests,
-    });
+    telemetryEmitter.info(
+      SpanEvents.CACHE_CB_STATE_CHANGE,
+      "Cache circuit breaker state transition",
+      {
+        component: "cache_circuit_breaker",
+        operation: "state_transition",
+        previous_state: previousState,
+        new_state: newState,
+        failure_count: this.failureCount,
+        success_count: this.successCount,
+        total_requests: this.totalRequests,
+      }
+    );
 
     if (newState === CircuitBreakerStateEnum.OPEN) {
-      winstonTelemetryLogger.error(
+      telemetryEmitter.error(
+        SpanEvents.CACHE_CB_STATE_CHANGE,
         "Cache circuit breaker OPENED - cache operations will fail fast",
         {
           component: "cache_circuit_breaker",
           operation: "circuit_open",
-          failureThreshold: this.config.failureThreshold,
-          failureCount: this.failureCount,
-          resetTimeout: this.config.resetTimeout,
+          failure_threshold: this.config.failureThreshold,
+          failure_count: this.failureCount,
+          reset_timeout: this.config.resetTimeout,
           impact: "Cache operations will return null immediately. Kong CB handles fallback.",
         }
       );
@@ -189,12 +204,16 @@ export class CacheCircuitBreaker {
       newState === CircuitBreakerStateEnum.CLOSED &&
       previousState === CircuitBreakerStateEnum.HALF_OPEN
     ) {
-      winstonTelemetryLogger.info("Cache circuit breaker RECOVERED - cache operations healthy", {
-        component: "cache_circuit_breaker",
-        operation: "circuit_recovered",
-        successThreshold: this.config.successThreshold,
-        recoveryTimeMs: Date.now() - this.lastStateChange,
-      });
+      telemetryEmitter.info(
+        SpanEvents.CACHE_CB_RECOVERED,
+        "Cache circuit breaker RECOVERED - cache operations healthy",
+        {
+          component: "cache_circuit_breaker",
+          operation: "circuit_recovered",
+          success_threshold: this.config.successThreshold,
+          recovery_time_ms: Date.now() - this.lastStateChange,
+        }
+      );
     }
   }
 
@@ -239,10 +258,10 @@ export class CacheCircuitBreaker {
     this.rejectedRequests = 0;
     this.lastStateChange = Date.now();
 
-    winstonTelemetryLogger.info("Cache circuit breaker manually reset", {
+    telemetryEmitter.info(SpanEvents.CACHE_CB_RECOVERED, "Cache circuit breaker manually reset", {
       component: "cache_circuit_breaker",
       operation: "manual_reset",
-      previousState,
+      previous_state: previousState,
     });
   }
 

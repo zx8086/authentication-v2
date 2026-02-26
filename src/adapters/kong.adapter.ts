@@ -17,7 +17,7 @@ import {
 import { CacheFactory } from "../services/cache/cache-factory";
 import { KongCircuitBreakerService } from "../services/circuit-breaker.service";
 import { recordError, recordKongOperation } from "../telemetry/metrics";
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 import type { OpossumCircuitBreakerStats } from "../types/circuit-breaker.types";
 import { fetchWithFallback } from "../utils/bun-fetch-fallback";
 import { withRetry } from "../utils/retry";
@@ -82,11 +82,15 @@ export class KongAdapter implements IAPIGatewayAdapter {
         );
       }
     } catch (error) {
-      winstonTelemetryLogger.error("Failed to initialize Kong adapter cache", {
-        error: error instanceof Error ? error.message : "Unknown error",
-        mode: this.mode,
-        operation: "cache_initialization",
-      });
+      telemetryEmitter.error(
+        SpanEvents.CACHE_FACTORY_FAILED,
+        "Failed to initialize Kong adapter cache",
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+          mode: this.mode,
+          operation: "cache_initialization",
+        }
+      );
     }
   }
 
@@ -152,15 +156,19 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
         // Prevent cache pollution - validate consumer ID matches before caching
         if (secret.consumer && secret.consumer.id !== consumerId) {
-          winstonTelemetryLogger.error(`Consumer ID mismatch in Kong response, not caching`, {
-            operation: "getConsumerSecret",
-            requestedConsumerId: consumerId,
-            responseConsumerId: secret.consumer.id,
-            cacheKey,
-            component: "kong_adapter",
-            action: "consumer_id_mismatch",
-            mode: this.mode,
-          });
+          telemetryEmitter.error(
+            SpanEvents.KONG_CONSUMER_MISMATCH,
+            "Consumer ID mismatch in Kong response, not caching",
+            {
+              operation: "getConsumerSecret",
+              requested_consumer_id: consumerId,
+              response_consumer_id: secret.consumer.id,
+              cache_key: cacheKey,
+              component: "kong_adapter",
+              action: "consumer_id_mismatch",
+              mode: this.mode,
+            }
+          );
           return secret;
         }
 
@@ -220,23 +228,28 @@ export class KongAdapter implements IAPIGatewayAdapter {
             const createdSecret = createValidationResult.data as ConsumerSecret | undefined;
 
             if (!createdSecret) {
-              winstonTelemetryLogger.error("Failed to validate created secret from Kong", {
-                operation: "createConsumerSecret",
-                consumerId,
-                component: "kong_adapter",
-                mode: this.mode,
-              });
+              telemetryEmitter.error(
+                SpanEvents.KONG_CONSUMER_NOT_FOUND,
+                "Failed to validate created secret from Kong",
+                {
+                  operation: "createConsumerSecret",
+                  consumer_id: consumerId,
+                  component: "kong_adapter",
+                  mode: this.mode,
+                }
+              );
               return null;
             }
 
             // Prevent cache pollution - validate consumer ID matches before caching
             if (createdSecret.consumer && createdSecret.consumer.id !== consumerId) {
-              winstonTelemetryLogger.error(
-                `Consumer ID mismatch in Kong create response, not caching`,
+              telemetryEmitter.error(
+                SpanEvents.KONG_CONSUMER_MISMATCH,
+                "Consumer ID mismatch in Kong create response, not caching",
                 {
                   operation: "createConsumerSecret",
-                  requestedConsumerId: consumerId,
-                  responseConsumerId: createdSecret.consumer.id,
+                  requested_consumer_id: consumerId,
+                  response_consumer_id: createdSecret.consumer.id,
                   component: "kong_adapter",
                   action: "consumer_id_mismatch",
                   mode: this.mode,
@@ -253,25 +266,34 @@ export class KongAdapter implements IAPIGatewayAdapter {
           }
 
           if (isConsumerNotFound(response)) {
-            winstonTelemetryLogger.warn("Consumer not found when creating JWT credentials", {
-              consumerId,
-              message: "Consumer must be created in Kong before JWT credentials can be provisioned",
-              operation: "create_consumer_secret",
-              mode: this.mode,
-            });
+            telemetryEmitter.warn(
+              SpanEvents.KONG_CONSUMER_NOT_FOUND,
+              "Consumer not found when creating JWT credentials",
+              {
+                consumer_id: consumerId,
+                message:
+                  "Consumer must be created in Kong before JWT credentials can be provisioned",
+                operation: "create_consumer_secret",
+                mode: this.mode,
+              }
+            );
             return null;
           }
 
           // Handle 409 Conflict (unique constraint violation) - retry with new key
           if (response.status === 409) {
-            winstonTelemetryLogger.warn("JWT key collision detected, retrying with new key", {
-              consumerId,
-              attempt,
-              maxRetries,
-              status: response.status,
-              operation: "create_consumer_secret",
-              mode: this.mode,
-            });
+            telemetryEmitter.warn(
+              SpanEvents.KONG_REQUEST_RETRIED,
+              "JWT key collision detected, retrying with new key",
+              {
+                consumer_id: consumerId,
+                attempt,
+                max_retries: maxRetries,
+                status: response.status,
+                operation: "create_consumer_secret",
+                mode: this.mode,
+              }
+            );
 
             if (attempt < maxRetries) {
               continue; // Retry with new key
@@ -279,10 +301,11 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
             // Max retries exhausted
             const kongError = await createKongApiError(response);
-            winstonTelemetryLogger.error(
+            telemetryEmitter.error(
+              SpanEvents.KONG_REQUEST_FAILED,
               "Failed to create JWT credentials after max retries due to key collisions",
               {
-                consumerId,
+                consumer_id: consumerId,
                 error: kongError.message,
                 status: kongError.status,
                 attempts: maxRetries,
@@ -295,13 +318,17 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
           // Other errors - fail immediately
           const kongError = await createKongApiError(response);
-          winstonTelemetryLogger.error("Failed to create JWT credentials in Kong", {
-            consumerId,
-            error: kongError.message,
-            status: kongError.status,
-            operation: "create_jwt_credentials",
-            mode: this.mode,
-          });
+          telemetryEmitter.error(
+            SpanEvents.KONG_REQUEST_FAILED,
+            "Failed to create JWT credentials in Kong",
+            {
+              consumer_id: consumerId,
+              error: kongError.message,
+              status: kongError.status,
+              operation: "create_jwt_credentials",
+              mode: this.mode,
+            }
+          );
           throw kongError;
         }
 
@@ -334,11 +361,15 @@ export class KongAdapter implements IAPIGatewayAdapter {
 
           if (isSuccessResponse(response)) {
             recordKongOperation("health_check", responseTime, true);
-            winstonTelemetryLogger.debug("Kong health check successful", {
-              responseTime,
-              operation: "health_check",
-              mode: this.mode,
-            });
+            telemetryEmitter.debug(
+              SpanEvents.KONG_REQUEST_SUCCESS,
+              "Kong health check successful",
+              {
+                response_time_ms: responseTime,
+                operation: "health_check",
+                mode: this.mode,
+              }
+            );
             return { healthy: true, responseTime };
           } else {
             const kongError = await createKongApiError(response);
@@ -350,9 +381,9 @@ export class KongAdapter implements IAPIGatewayAdapter {
               mode: this.mode,
             });
 
-            winstonTelemetryLogger.error("Kong health check failed", {
+            telemetryEmitter.error(SpanEvents.KONG_REQUEST_FAILED, "Kong health check failed", {
               status: kongError.status,
-              statusText: kongError.statusText,
+              status_text: kongError.statusText,
               error: kongError.message,
               operation: "health_check",
               mode: this.mode,

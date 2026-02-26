@@ -1,6 +1,6 @@
 // src/utils/cache-reconnect-manager.ts
 
-import { winstonTelemetryLogger } from "../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 
 export interface ReconnectManagerConfig {
   maxAttempts: number;
@@ -42,23 +42,31 @@ export class CacheReconnectManager {
 
   async executeReconnect(reconnectFn: () => Promise<void>): Promise<ReconnectResult> {
     if (this.reconnectPromise) {
-      winstonTelemetryLogger.debug("Reconnection already in progress, waiting", {
-        component: "cache_reconnect",
-        operation: "mutex_wait",
-        currentAttempts: this.reconnectAttempts,
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_RECONNECT_STARTED,
+        "Reconnection already in progress, waiting",
+        {
+          component: "cache_reconnect",
+          operation: "mutex_wait",
+          current_attempts: this.reconnectAttempts,
+        }
+      );
       return this.reconnectPromise;
     }
 
     const now = Date.now();
     if (this.lastAttemptTime > 0 && now - this.lastAttemptTime > this.config.cooldownMs) {
-      winstonTelemetryLogger.debug("Cooldown period elapsed, resetting attempt counter", {
-        component: "cache_reconnect",
-        operation: "cooldown_reset",
-        previousAttempts: this.reconnectAttempts,
-        elapsedMs: now - this.lastAttemptTime,
-        cooldownMs: this.config.cooldownMs,
-      });
+      telemetryEmitter.debug(
+        SpanEvents.CACHE_RECONNECT_STARTED,
+        "Cooldown period elapsed, resetting attempt counter",
+        {
+          component: "cache_reconnect",
+          operation: "cooldown_reset",
+          previous_attempts: this.reconnectAttempts,
+          elapsed_ms: now - this.lastAttemptTime,
+          cooldown_ms: this.config.cooldownMs,
+        }
+      );
       this.reconnectAttempts = 0;
     }
 
@@ -68,13 +76,17 @@ export class CacheReconnectManager {
           `Cooldown resets in ${Math.max(0, this.config.cooldownMs - (now - this.lastAttemptTime))}ms`
       );
 
-      winstonTelemetryLogger.warn("Max reconnection attempts exceeded", {
-        component: "cache_reconnect",
-        operation: "max_attempts_exceeded",
-        maxAttempts: this.config.maxAttempts,
-        lastAttemptTime: this.lastAttemptTime,
-        cooldownMs: this.config.cooldownMs,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CACHE_RECONNECT_EXHAUSTED,
+        "Max reconnection attempts exceeded",
+        {
+          component: "cache_reconnect",
+          operation: "max_attempts_exceeded",
+          max_attempts: this.config.maxAttempts,
+          last_attempt_time: this.lastAttemptTime,
+          cooldown_ms: this.config.cooldownMs,
+        }
+      );
 
       return {
         success: false,
@@ -103,14 +115,18 @@ export class CacheReconnectManager {
       this.config.maxDelayMs
     );
 
-    winstonTelemetryLogger.info("Starting cache reconnection attempt", {
-      component: "cache_reconnect",
-      operation: "reconnect_start",
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.config.maxAttempts,
-      delayMs,
-      backoffFormula: `min(${this.config.baseDelayMs} * 2^${this.reconnectAttempts - 1}, ${this.config.maxDelayMs})`,
-    });
+    telemetryEmitter.info(
+      SpanEvents.CACHE_RECONNECT_STARTED,
+      "Starting cache reconnection attempt",
+      {
+        component: "cache_reconnect",
+        operation: "reconnect_start",
+        attempt: this.reconnectAttempts,
+        max_attempts: this.config.maxAttempts,
+        delay_ms: delayMs,
+        backoff_formula: `min(${this.config.baseDelayMs} * 2^${this.reconnectAttempts - 1}, ${this.config.maxDelayMs})`,
+      }
+    );
 
     if (this.reconnectAttempts > 1) {
       await this.delay(delayMs);
@@ -124,11 +140,11 @@ export class CacheReconnectManager {
 
       this.reconnectAttempts = 0;
 
-      winstonTelemetryLogger.info("Cache reconnection successful", {
+      telemetryEmitter.info(SpanEvents.CACHE_RECONNECT_SUCCESS, "Cache reconnection successful", {
         component: "cache_reconnect",
         operation: "reconnect_success",
-        durationMs,
-        totalSuccesses: this.totalSuccesses,
+        duration_ms: durationMs,
+        total_successes: this.totalSuccesses,
       });
 
       return {
@@ -142,16 +158,20 @@ export class CacheReconnectManager {
 
       const errorObj = error instanceof Error ? error : new Error(String(error));
 
-      winstonTelemetryLogger.warn("Cache reconnection attempt failed", {
-        component: "cache_reconnect",
-        operation: "reconnect_failed",
-        attempt: this.reconnectAttempts,
-        maxAttempts: this.config.maxAttempts,
-        durationMs,
-        error: errorObj.message,
-        totalFailures: this.totalFailures,
-        willRetry: this.reconnectAttempts < this.config.maxAttempts,
-      });
+      telemetryEmitter.warn(
+        SpanEvents.CACHE_RECONNECT_FAILED,
+        "Cache reconnection attempt failed",
+        {
+          component: "cache_reconnect",
+          operation: "reconnect_failed",
+          attempt: this.reconnectAttempts,
+          max_attempts: this.config.maxAttempts,
+          duration_ms: durationMs,
+          error: errorObj.message,
+          total_failures: this.totalFailures,
+          will_retry: this.reconnectAttempts < this.config.maxAttempts,
+        }
+      );
 
       return {
         success: false,
@@ -185,7 +205,7 @@ export class CacheReconnectManager {
     this.lastAttemptTime = 0;
     this.reconnectPromise = null;
 
-    winstonTelemetryLogger.debug("Reconnect manager reset", {
+    telemetryEmitter.debug(SpanEvents.CACHE_STATE_RESET, "Reconnect manager reset", {
       component: "cache_reconnect",
       operation: "reset",
     });
@@ -195,10 +215,10 @@ export class CacheReconnectManager {
     const previousAttempts = this.reconnectAttempts;
     this.reconnectAttempts = 0;
 
-    winstonTelemetryLogger.info("Reconnect attempts force reset", {
+    telemetryEmitter.info(SpanEvents.CACHE_STATE_RESET, "Reconnect attempts force reset", {
       component: "cache_reconnect",
       operation: "force_reset",
-      previousAttempts,
+      previous_attempts: previousAttempts,
     });
   }
 

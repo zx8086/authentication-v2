@@ -90,9 +90,12 @@ export const defaultConfig: AppConfig = {
     logsEndpoint: "",
     tracesEndpoint: "",
     metricsEndpoint: "",
-    exportTimeout: 30000,
-    batchSize: 2048,
-    maxQueueSize: 10000,
+    // Memory optimization: 10s timeout prevents buffer accumulation during backpressure
+    exportTimeout: 10000,
+    // Memory optimization: Smaller batch size reduces protobuf buffer retention
+    batchSize: 512,
+    // Memory optimization: Bounded queue prevents unbounded Uint8Array accumulation
+    maxQueueSize: 2048,
     enableOpenTelemetry: true,
     enabled: true,
     infrastructure: {

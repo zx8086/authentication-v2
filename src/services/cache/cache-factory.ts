@@ -4,7 +4,7 @@ import type { CacheManagerConfig } from "../../cache/cache.interface";
 import { UnifiedCacheManager } from "../../cache/cache-manager";
 import { getCachingConfig } from "../../config";
 import type { IKongCacheService } from "../../config/schemas";
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 
 export class CacheFactory {
   private static instance: IKongCacheService | null = null;
@@ -33,7 +33,8 @@ export class CacheFactory {
         CacheFactory.currentConfig = configKey;
         return CacheFactory.instance;
       } catch (error) {
-        winstonTelemetryLogger.warn(
+        telemetryEmitter.warn(
+          SpanEvents.CACHE_FACTORY_RECONFIGURE_FAILED,
           "Failed to reconfigure existing cache manager, creating new instance",
           {
             error: error instanceof Error ? error.message : "Unknown error",
@@ -58,14 +59,18 @@ export class CacheFactory {
     config: CacheManagerConfig,
     configKey: string
   ): Promise<void> {
-    winstonTelemetryLogger.info("Initializing Unified Cache Manager", {
-      strategy: config.highAvailability ? "shared-redis" : "local-memory",
-      redisUrl: config.redisUrl || "redis://localhost:6379",
-      redisDb: config.redisDb,
-      ttlSeconds: config.ttlSeconds,
-      component: "cache_factory",
-      operation: "initialization",
-    });
+    telemetryEmitter.info(
+      SpanEvents.CACHE_FACTORY_INITIALIZING,
+      "Initializing Unified Cache Manager",
+      {
+        strategy: config.highAvailability ? "shared-redis" : "local-memory",
+        redis_url: config.redisUrl || "redis://localhost:6379",
+        redis_db: config.redisDb,
+        ttl_seconds: config.ttlSeconds,
+        component: "cache_factory",
+        operation: "initialization",
+      }
+    );
 
     try {
       const managerConfig = CacheFactory.createManagerConfig(config);
@@ -76,18 +81,26 @@ export class CacheFactory {
       CacheFactory.instance = cacheManager;
       CacheFactory.currentConfig = configKey;
 
-      winstonTelemetryLogger.info("Unified Cache Manager initialized successfully", {
-        strategy: cacheManager.getStrategy(),
-        backend: cacheManager.getBackendName(),
-        component: "cache_factory",
-        operation: "initialization_success",
-      });
+      telemetryEmitter.info(
+        SpanEvents.CACHE_FACTORY_CREATED,
+        "Unified Cache Manager initialized successfully",
+        {
+          strategy: cacheManager.getStrategy() ?? "unknown",
+          backend: cacheManager.getBackendName() ?? "unknown",
+          component: "cache_factory",
+          operation: "initialization_success",
+        }
+      );
     } catch (error) {
-      winstonTelemetryLogger.error("Failed to initialize Unified Cache Manager", {
-        error: error instanceof Error ? error.message : "Unknown error",
-        component: "cache_factory",
-        operation: "initialization_failed",
-      });
+      telemetryEmitter.error(
+        SpanEvents.CACHE_FACTORY_FAILED,
+        "Failed to initialize Unified Cache Manager",
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+          component: "cache_factory",
+          operation: "initialization_failed",
+        }
+      );
       throw error;
     }
   }
@@ -109,11 +122,15 @@ export class CacheFactory {
       try {
         await CacheFactory.instance.shutdown();
       } catch (error) {
-        winstonTelemetryLogger.warn("Error during cache shutdown in reset", {
-          error: error instanceof Error ? error.message : "Unknown error",
-          component: "cache_factory",
-          operation: "reset_shutdown_error",
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CACHE_FACTORY_SHUTDOWN,
+          "Error during cache shutdown in reset",
+          {
+            error: error instanceof Error ? error.message : "Unknown error",
+            component: "cache_factory",
+            operation: "reset_shutdown_error",
+          }
+        );
       }
     }
     CacheFactory.instance = null;

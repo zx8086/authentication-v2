@@ -1,6 +1,6 @@
 // src/services/cache/cache-health-monitor.ts
 
-import { winstonTelemetryLogger } from "../../telemetry/winston-logger";
+import { SpanEvents, telemetryEmitter } from "../../telemetry/tracer";
 import type { CacheCircuitBreaker, CacheCircuitBreakerStats } from "./cache-circuit-breaker";
 import { withOperationTimeout } from "./cache-operation-timeout";
 
@@ -56,21 +56,19 @@ export class CacheHealthMonitor {
     private readonly circuitBreaker: CacheCircuitBreaker | null = null,
     private readonly config: CacheHealthMonitorConfig = DEFAULT_HEALTH_MONITOR_CONFIG
   ) {
-    winstonTelemetryLogger.debug("Cache health monitor initialized", {
+    telemetryEmitter.debug(SpanEvents.CACHE_HEALTH_STARTED, "Cache health monitor initialized", {
       component: "cache_health_monitor",
       operation: "init",
-      config: {
-        enabled: config.enabled,
-        intervalMs: config.intervalMs,
-        unhealthyThreshold: config.unhealthyThreshold,
-        healthyThreshold: config.healthyThreshold,
-      },
+      enabled: config.enabled,
+      interval_ms: config.intervalMs,
+      unhealthy_threshold: config.unhealthyThreshold,
+      healthy_threshold: config.healthyThreshold,
     });
   }
 
   start(): boolean {
     if (!this.config.enabled) {
-      winstonTelemetryLogger.debug("Health monitoring disabled", {
+      telemetryEmitter.debug(SpanEvents.CACHE_HEALTH_STOPPED, "Health monitoring disabled", {
         component: "cache_health_monitor",
         operation: "start_skipped",
       });
@@ -78,7 +76,7 @@ export class CacheHealthMonitor {
     }
 
     if (this.isRunning) {
-      winstonTelemetryLogger.debug("Health monitoring already running", {
+      telemetryEmitter.debug(SpanEvents.CACHE_HEALTH_STARTED, "Health monitoring already running", {
         component: "cache_health_monitor",
         operation: "start_skipped",
       });
@@ -88,7 +86,7 @@ export class CacheHealthMonitor {
     this.isRunning = true;
 
     this.performHealthCheck().catch((error) => {
-      winstonTelemetryLogger.warn("Initial health check failed", {
+      telemetryEmitter.warn(SpanEvents.CACHE_HEALTH_CHECK_FAILED, "Initial health check failed", {
         component: "cache_health_monitor",
         operation: "initial_check",
         error: error instanceof Error ? error.message : String(error),
@@ -97,11 +95,15 @@ export class CacheHealthMonitor {
 
     this.intervalId = setInterval(() => {
       this.performHealthCheck().catch((error) => {
-        winstonTelemetryLogger.warn("Periodic health check failed", {
-          component: "cache_health_monitor",
-          operation: "periodic_check",
-          error: error instanceof Error ? error.message : String(error),
-        });
+        telemetryEmitter.warn(
+          SpanEvents.CACHE_HEALTH_CHECK_FAILED,
+          "Periodic health check failed",
+          {
+            component: "cache_health_monitor",
+            operation: "periodic_check",
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
       });
     }, this.config.intervalMs);
 
@@ -109,10 +111,10 @@ export class CacheHealthMonitor {
       (this.intervalId as { unref: () => void }).unref();
     }
 
-    winstonTelemetryLogger.info("Cache health monitoring started", {
+    telemetryEmitter.info(SpanEvents.CACHE_HEALTH_STARTED, "Cache health monitoring started", {
       component: "cache_health_monitor",
       operation: "start",
-      intervalMs: this.config.intervalMs,
+      interval_ms: this.config.intervalMs,
     });
 
     return true;
@@ -126,10 +128,10 @@ export class CacheHealthMonitor {
 
     this.isRunning = false;
 
-    winstonTelemetryLogger.info("Cache health monitoring stopped", {
+    telemetryEmitter.info(SpanEvents.CACHE_HEALTH_STOPPED, "Cache health monitoring stopped", {
       component: "cache_health_monitor",
       operation: "stop",
-      lastStatus: this.status,
+      last_status: this.status,
     });
   }
 
@@ -189,11 +191,11 @@ export class CacheHealthMonitor {
       this.circuitBreaker.recordSuccess();
     }
 
-    winstonTelemetryLogger.debug("Health check succeeded", {
+    telemetryEmitter.debug(SpanEvents.CACHE_HEALTH_CHECK_SUCCESS, "Health check succeeded", {
       component: "cache_health_monitor",
       operation: "health_check_success",
-      responseTimeMs: result.responseTimeMs,
-      consecutiveSuccesses: this.consecutiveSuccesses,
+      response_time_ms: result.responseTimeMs,
+      consecutive_successes: this.consecutiveSuccesses,
       status: this.status,
     });
   }
@@ -219,12 +221,12 @@ export class CacheHealthMonitor {
       this.circuitBreaker.recordFailure(error);
     }
 
-    winstonTelemetryLogger.warn("Health check failed", {
+    telemetryEmitter.warn(SpanEvents.CACHE_HEALTH_CHECK_FAILED, "Health check failed", {
       component: "cache_health_monitor",
       operation: "health_check_failed",
       error: result.error,
-      consecutiveFailures: this.consecutiveFailures,
-      unhealthyThreshold: this.config.unhealthyThreshold,
+      consecutive_failures: this.consecutiveFailures,
+      unhealthy_threshold: this.config.unhealthyThreshold,
       status: this.status,
     });
   }
@@ -232,13 +234,13 @@ export class CacheHealthMonitor {
   private logStatusTransition(from: CacheHealthStatus, to: CacheHealthStatus): void {
     const logMethod = to === "unhealthy" ? "error" : to === "degraded" ? "warn" : "info";
 
-    winstonTelemetryLogger[logMethod]("Cache health status changed", {
+    telemetryEmitter[logMethod](SpanEvents.CACHE_HEALTH_CHANGED, "Cache health status changed", {
       component: "cache_health_monitor",
       operation: "status_transition",
-      fromStatus: from,
-      toStatus: to,
-      consecutiveSuccesses: this.consecutiveSuccesses,
-      consecutiveFailures: this.consecutiveFailures,
+      from_status: from,
+      to_status: to,
+      consecutive_successes: this.consecutiveSuccesses,
+      consecutive_failures: this.consecutiveFailures,
     });
   }
 
@@ -287,7 +289,7 @@ export class CacheHealthMonitor {
     this.lastStatusChange = Date.now();
     this.recentResponseTimes = [];
 
-    winstonTelemetryLogger.debug("Health monitor reset", {
+    telemetryEmitter.debug(SpanEvents.CACHE_HEALTH_RESET, "Health monitor reset", {
       component: "cache_health_monitor",
       operation: "reset",
     });
