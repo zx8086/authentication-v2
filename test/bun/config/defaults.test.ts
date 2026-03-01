@@ -203,13 +203,15 @@ describe("Default Configuration", () => {
     });
 
     it("should have correct default batchSize", () => {
-      expect(defaultConfig.telemetry.batchSize).toBe(512);
+      // Memory optimization: Reduced from 512 to 128 to prevent Uint8Array buffer accumulation
+      expect(defaultConfig.telemetry.batchSize).toBe(128);
       expect(typeof defaultConfig.telemetry.batchSize).toBe("number");
       expect(defaultConfig.telemetry.batchSize).toBeGreaterThan(0);
     });
 
     it("should have correct default maxQueueSize", () => {
-      expect(defaultConfig.telemetry.maxQueueSize).toBe(2048);
+      // Memory optimization: Reduced from 2048 to 512 to bound memory to ~32MB per processor
+      expect(defaultConfig.telemetry.maxQueueSize).toBe(512);
       expect(typeof defaultConfig.telemetry.maxQueueSize).toBe("number");
       expect(defaultConfig.telemetry.maxQueueSize).toBeGreaterThan(0);
     });

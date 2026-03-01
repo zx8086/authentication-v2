@@ -53,13 +53,13 @@ bun install
 bun run dev
 
 # Start with specific environments
-bun run dev:development    # Development environment
-bun run dev:staging        # Staging environment
-bun run dev:production     # Production environment
+bun run dev:env:development    # Development environment
+bun run dev:env:staging        # Staging environment
+bun run dev:env:production     # Production environment
 
 # Clean development restart
 bun run dev:clean          # Kill existing processes and start fresh
-bun run kill-server        # Kill processes on port 3000
+bun run server:kill        # Kill processes on port 3000
 
 # Run with specific telemetry mode
 TELEMETRY_MODE=both bun run dev
@@ -108,22 +108,22 @@ The project uses **16 hierarchical script categories**:
 
 | Category | Purpose | Example Commands |
 |----------|---------|------------------|
-| **dev** | Development servers | `dev`, `dev:clean`, `dev:development` |
+| **dev** | Development servers | `dev`, `dev:clean`, `dev:env:development` |
 | **test** | All testing | `test:bun`, `test:e2e`, `test:k6:*` |
 | **docker** | Container operations | `docker:build`, `docker:local`, `docker:security:*` |
-| **redis** | Redis operations | `redis:start`, `redis:stop`, `redis:flush` |
-| **profile** | Performance profiling | `profile:start`, `profile:stop`, `profile:report` |
-| **kong** | Kong operations | `kong:health`, `kong:consumers`, `kong:secrets` |
+| **redis** | Redis operations | `redis:start`, `redis:stop`, `redis:restart` |
+| **profile** | Performance profiling | `profile:scenario:tokens`, `profile:k6:smoke` |
+| **kong** | Kong operations | `kong:simulator`, `kong:test` |
 | **quality** | Code quality | `quality:check`, `quality:fix` |
-| **biome** | Biome linting | `biome:check`, `biome:fix` |
+| **biome** | Biome linting | `biome:check`, `biome:check:write` |
 | **typecheck** | TypeScript validation | `typecheck` |
-| **health** | Service health | `health-check` |
-| **kill** | Process management | `kill-server` |
-| **openapi** | API docs | `openapi:generate`, `openapi:validate` |
-| **mutation** | Mutation testing | `test:mutation`, `test:mutation:incremental` |
-| **ci** | CI/CD utilities | `ci:install`, `ci:validate` |
+| **health** | Service health | `server:health-check` |
+| **server** | Process management | `server:kill` |
+| **docs** | API documentation | `docs:generate` |
+| **mutation** | Mutation testing | `test:mutation`, `test:mutation:fresh` |
+| **ci** | CI/CD utilities | `ci:smoke`, `ci:validate` |
 | **fix** | Quick fixes | `fix:bun-symlink`, `fix:bun-full` |
-| **db** | Database operations | `db:migrate`, `db:seed` |
+| **devcontainer** | DevContainer | `devcontainer:up`, `devcontainer:down` |
 
 **Example Workflows:**
 ```bash
@@ -296,7 +296,7 @@ For comprehensive troubleshooting including error codes, diagnostics, and runboo
 #### Port Already in Use
 ```bash
 # Kill existing processes
-bun run kill-server
+bun run server:kill
 # Or manually
 lsof -ti:3000 | xargs kill -9
 ```

@@ -193,7 +193,13 @@ class BunTelemetryTracer {
   public addEvent(name: string, attributes?: Record<string, string | number | boolean>): void {
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
-      activeSpan.addEvent(name, attributes);
+      activeSpan.addEvent(name, {
+        // OTEL SeverityNumber: 9 = INFO (range 9-12)
+        severity_number: 9,
+        // ECS text severity for Elasticsearch compatibility
+        "log.level": "info",
+        ...attributes,
+      });
     }
   }
 
@@ -214,6 +220,10 @@ class BunTelemetryTracer {
     if (activeSpan) {
       const durationMs = performance.now() - startTime;
       activeSpan.addEvent(name, {
+        // OTEL SeverityNumber: 9 = INFO (range 9-12)
+        severity_number: 9,
+        // ECS text severity for Elasticsearch compatibility
+        "log.level": "info",
         ...attributes,
         "event.duration_ms": durationMs,
       });
@@ -283,6 +293,6 @@ export function createSpan<T>(
   return telemetryTracer.createSpan(spanContext, operation);
 }
 
+export { type SpanEventName, SpanEvents } from "./span-event-names";
 // Re-export TelemetryEmitter and SpanEvents for convenient access
 export { telemetryEmitter } from "./telemetry-emitter";
-export { SpanEvents, type SpanEventName } from "./span-event-names";

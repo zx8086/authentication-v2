@@ -1,9 +1,17 @@
 /* src/server.ts */
 
+import { dns } from "bun";
 import pkg from "../package.json" with { type: "json" };
 import { KongAdapter } from "./adapters/kong.adapter";
 import type { IKongService } from "./config";
 import { loadConfig } from "./config/index";
+import {
+  logServiceReady,
+  logServiceShutdownCompleted,
+  logServiceShutdownError,
+  logServiceShutdownInitiated,
+  logServiceStartup,
+} from "./logging/critical-lifecycle";
 import { handleServerError } from "./middleware/error-handler";
 import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutes } from "./routes/router";
@@ -31,6 +39,73 @@ import { error, log, warn } from "./utils/logger";
 const config = loadConfig();
 
 getApiDocGenerator().registerAllRoutes();
+
+// DNS Prefetching: Warm the DNS cache for external services before first request
+// Bun caches DNS entries for 30 seconds (configurable via BUN_CONFIG_DNS_TIME_TO_LIVE_SECONDS)
+const prefetchDns = (): void => {
+  try {
+    // Prefetch Kong Admin API
+    const kongUrl = new URL(config.kong.adminUrl);
+    const kongPort = kongUrl.port
+      ? Number.parseInt(kongUrl.port, 10)
+      : kongUrl.protocol === "https:"
+        ? 443
+        : 80;
+    dns.prefetch(kongUrl.hostname, kongPort);
+    log("DNS prefetch initiated", {
+      component: "dns",
+      event: "prefetch",
+      host: kongUrl.hostname,
+      port: kongPort,
+      service: "kong",
+    });
+
+    // Prefetch Redis/Valkey if configured
+    if (config.caching.redisUrl) {
+      const redisUrl = new URL(config.caching.redisUrl);
+      const redisPort = redisUrl.port ? Number.parseInt(redisUrl.port, 10) : 6379;
+      dns.prefetch(redisUrl.hostname, redisPort);
+      log("DNS prefetch initiated", {
+        component: "dns",
+        event: "prefetch",
+        host: redisUrl.hostname,
+        port: redisPort,
+        service: "redis",
+      });
+    }
+
+    // Prefetch OTEL endpoint if configured
+    if (config.telemetry.endpoint) {
+      const otelUrl = new URL(config.telemetry.endpoint);
+      const otelPort = otelUrl.port
+        ? Number.parseInt(otelUrl.port, 10)
+        : otelUrl.protocol === "https:"
+          ? 443
+          : 80;
+      dns.prefetch(otelUrl.hostname, otelPort);
+      log("DNS prefetch initiated", {
+        component: "dns",
+        event: "prefetch",
+        host: otelUrl.hostname,
+        port: otelPort,
+        service: "otel",
+      });
+    }
+  } catch (prefetchError) {
+    warn("DNS prefetch failed - service will continue normally", {
+      component: "dns",
+      event: "prefetch_error",
+      error: prefetchError instanceof Error ? prefetchError.message : "Unknown error",
+    });
+  }
+};
+
+// Get DNS cache statistics for observability
+export const getDnsCacheStats = (): ReturnType<typeof dns.getCacheStats> => {
+  return dns.getCacheStats();
+};
+
+prefetchDns();
 
 const kongService: IKongService = new KongAdapter(
   config.kong.mode,
@@ -79,6 +154,9 @@ try {
     recovery: "Service continues operating normally, telemetry data will be lost",
   });
 }
+
+// Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
+logServiceStartup(config.server.port, config.server.nodeEnv);
 
 log("Authentication Service starting up", {
   component: "server",
@@ -278,6 +356,9 @@ log("Profiling service status", {
     : ["Profiling disabled for this environment"],
 });
 
+// Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
+logServiceReady(config.server.port);
+
 log("Server ready to serve requests", {
   component: "server",
   event: "ready",
@@ -297,6 +378,9 @@ const gracefulShutdown = async (signal: string) => {
   }
 
   isShuttingDown = true;
+
+  // Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
+  logServiceShutdownInitiated(signal);
 
   // Set environment variable for lifecycle logger
   process.env.SHUTDOWN_SIGNAL = signal;
@@ -334,9 +418,15 @@ const gracefulShutdown = async (signal: string) => {
 
     await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
 
+    // Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
+    logServiceShutdownCompleted();
+
     clearTimeout(shutdownTimeout);
     process.exit(0);
   } catch (err) {
+    // Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
+    logServiceShutdownError(err instanceof Error ? err : new Error(String(err)));
+
     error("Error during graceful shutdown", {
       component: "server",
       event: "shutdown_error",

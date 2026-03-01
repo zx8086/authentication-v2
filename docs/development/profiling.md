@@ -63,6 +63,387 @@ Shows memory allocation patterns:
 
 ---
 
+## Bun Native Profiling
+
+Bun provides built-in profiling capabilities that generate profiles compatible with Chrome DevTools and grep-friendly markdown formats.
+
+### Quick Start (package.json scripts)
+
+```bash
+# CPU Profiling
+bun run profile:cpu         # .cpuprofile for Chrome DevTools
+bun run profile:cpu:md      # Markdown format (LLM/grep-friendly)
+bun run profile:cpu:both    # Both formats
+
+# Heap Profiling
+bun run profile:heap        # .heapsnapshot for Chrome DevTools
+bun run profile:heap:md     # Markdown format
+
+# Combined Profiling
+bun run profile:full        # CPU + Heap, all formats
+
+# Profile Tests
+bun run profile:test        # CPU profile test suite
+bun run profile:test:heap   # Heap profile test suite
+```
+
+### CPU Profiling (Manual)
+
+```bash
+# Generate .cpuprofile for Chrome DevTools
+bun --cpu-prof src/index.ts
+
+# Generate markdown CPU profile (LLM/grep-friendly)
+bun --cpu-prof-md src/index.ts
+
+# Generate both formats
+bun --cpu-prof --cpu-prof-md src/index.ts
+
+# Custom output location
+bun --cpu-prof --cpu-prof-dir ./profiles --cpu-prof-name my-profile.cpuprofile src/index.ts
+```
+
+**Viewing CPU Profiles:**
+1. **Chrome DevTools**: Open DevTools > Performance tab > Load profile > Select `.cpuprofile`
+2. **Markdown**: `cat profiles/*.cpuprofile.md | grep -E "(self|total)"`
+
+### Heap Profiling (Manual)
+
+```bash
+# Generate .heapsnapshot for Chrome DevTools
+bun --heap-prof src/index.ts
+
+# Generate markdown heap profile
+bun --heap-prof-md src/index.ts
+
+# Custom output location
+bun --heap-prof --heap-prof-dir ./profiles --heap-prof-name my-heap.heapsnapshot src/index.ts
+```
+
+**Viewing Heap Profiles:**
+1. **Chrome DevTools**: Open DevTools > Memory tab > Load > Select `.heapsnapshot`
+2. **Safari DevTools**: Timeline > JavaScript Allocations > Import
+
+### Safari WebKit Heap Snapshots
+
+Generate JSON heap snapshots compatible with Safari WebKit Developer Tools:
+
+```bash
+# Basic heap snapshot of current process
+bun run profile:heap:safari
+
+# Snapshot after running tokens scenario
+bun run profile:heap:safari:tokens
+
+# Snapshot after running health scenario
+bun run profile:heap:safari:health
+
+# With scenario profiling (generates both markdown + Safari JSON)
+bun run profile:scenario:tokens:safari
+
+# Custom output and wait time
+bun scripts/profiling/heap-snapshot-safari.ts --output-dir=profiles/safari --wait=10
+```
+
+**Viewing in Safari:**
+1. Open Safari Developer Tools (`Cmd + Option + I`)
+2. Go to Timeline tab
+3. Click on JavaScript Allocations
+4. Click Import and select the `.json` file
+
+Or use the WebKit Inspector standalone app.
+
+### Combined Profiling (Manual)
+
+```bash
+# Full profiling (CPU + Heap, both formats)
+bun --cpu-prof --cpu-prof-md --heap-prof-md --cpu-prof-dir ./profiles --heap-prof-dir ./profiles src/index.ts
+```
+
+### Profiling Flags Reference
+
+| Flag | Description |
+|------|-------------|
+| `--cpu-prof` | Generate `.cpuprofile` JSON (Chrome DevTools format) |
+| `--cpu-prof-md` | Generate markdown CPU profile (grep/LLM-friendly) |
+| `--cpu-prof-name <file>` | Set CPU profile output filename |
+| `--cpu-prof-dir <dir>` | Set CPU profile output directory |
+| `--heap-prof` | Generate V8 `.heapsnapshot` on exit |
+| `--heap-prof-md` | Generate markdown heap profile on exit |
+| `--heap-prof-name <file>` | Set heap profile output filename |
+| `--heap-prof-dir <dir>` | Set heap profile output directory |
+
+### Package.json Scripts Reference
+
+| Script | Description |
+|--------|-------------|
+| `profile:cpu` | CPU profile to Chrome DevTools format |
+| `profile:cpu:md` | CPU profile to markdown |
+| `profile:cpu:both` | CPU profile to both formats |
+| `profile:heap` | Heap profile to Chrome DevTools format |
+| `profile:heap:md` | Heap profile to markdown |
+| `profile:heap:safari` | Safari WebKit JSON heap snapshot |
+| `profile:heap:safari:tokens` | Safari snapshot after tokens scenario |
+| `profile:heap:safari:health` | Safari snapshot after health scenario |
+| `profile:full` | Full profiling (CPU + Heap, all formats) |
+| `profile:test` | CPU profile the test suite |
+| `profile:test:heap` | Heap profile the test suite |
+| `profile:scenario:tokens:safari` | Tokens scenario with Safari snapshot |
+
+### Environment Variable Alternative
+
+```bash
+# Profile via BUN_OPTIONS environment variable
+BUN_OPTIONS="--cpu-prof-md" bun src/index.ts
+```
+
+---
+
+## Bun Memory Analysis
+
+### JavaScript Heap Stats
+
+Use the `bun:jsc` module to inspect JavaScript heap usage:
+
+```typescript
+import { heapStats } from "bun:jsc";
+
+// Get detailed heap statistics
+const stats = heapStats();
+console.log(JSON.stringify(stats, null, 2));
+
+// Key metrics:
+// - heapSize: Current JS heap size in bytes
+// - heapCapacity: Total allocated heap capacity
+// - objectCount: Number of JS objects
+// - objectTypeCounts: Breakdown by object type
+```
+
+### Force Garbage Collection
+
+```typescript
+// Synchronous GC (blocks execution)
+Bun.gc(true);
+
+// Asynchronous GC (non-blocking)
+Bun.gc(false);
+
+// Memory usage before/after GC
+console.log("Before:", process.memoryUsage());
+Bun.gc(true);
+console.log("After:", process.memoryUsage());
+```
+
+### Generate Heap Snapshot (Programmatic)
+
+```typescript
+import { generateHeapSnapshot } from "bun";
+
+// Generate snapshot for Safari/WebKit DevTools
+const snapshot = generateHeapSnapshot();
+await Bun.write("heap.json", JSON.stringify(snapshot, null, 2));
+
+// View in Safari: Developer Tools > Timeline > JavaScript Allocations > Import
+```
+
+### Native Heap Stats (mimalloc)
+
+Bun uses mimalloc for non-JavaScript memory. To see native heap statistics:
+
+```bash
+# Stats print on process exit
+MIMALLOC_SHOW_STATS=1 bun src/index.ts
+```
+
+Output includes:
+- `reserved`: Total reserved memory
+- `committed`: Actually committed memory
+- `segments`: Number of memory segments
+- `pages`: Page allocation stats
+
+---
+
+## Bun Benchmarking
+
+### Time Measurement APIs
+
+```typescript
+// High-resolution timing
+const startNano = Bun.nanoseconds();
+await someOperation();
+const elapsedNano = Bun.nanoseconds() - startNano;
+console.log(`Elapsed: ${elapsedNano / 1e6}ms`);
+
+// Web-standard performance API
+const startPerf = performance.now();
+await someOperation();
+const elapsedPerf = performance.now() - startPerf;
+console.log(`Elapsed: ${elapsedPerf}ms`);
+
+// Convert nanoseconds to Unix timestamp
+const unixMs = performance.timeOrigin + (Bun.nanoseconds() / 1e6);
+```
+
+### Recommended Benchmarking Tools
+
+**For HTTP Load Testing:**
+
+Bun's `Bun.serve()` is extremely fast (100k+ req/sec). Use tools that can keep up:
+
+| Tool | Install | Usage |
+|------|---------|-------|
+| [bombardier](https://github.com/codesenberg/bombardier) | `brew install bombardier` | `bombardier -c 100 -n 10000 http://localhost:3000/health` |
+| [oha](https://github.com/hatoo/oha) | `brew install oha` | `oha -c 100 -n 10000 http://localhost:3000/health` |
+| [k6](https://k6.io/) | `brew install k6` | `k6 run test/k6/smoke/health-smoke.ts` |
+
+**Avoid** Node.js-based tools like `autocannon` - they're not fast enough to properly benchmark Bun.
+
+**For Script/CLI Benchmarking:**
+
+| Tool | Install | Usage |
+|------|---------|-------|
+| [hyperfine](https://github.com/sharkdp/hyperfine) | `brew install hyperfine` | `hyperfine --warmup 3 'bun src/index.ts --help'` |
+
+**For Microbenchmarks:**
+
+Use [mitata](https://github.com/evanwashere/mitata) for precise function-level benchmarking:
+
+```typescript
+import { bench, run } from "mitata";
+
+bench("JSON.parse", () => {
+  JSON.parse('{"hello": "world"}');
+});
+
+bench("Bun.hash", () => {
+  Bun.hash("hello world");
+});
+
+await run();
+```
+
+### Load Testing Workflow
+
+```bash
+# 1. Start server
+bun run dev &
+
+# 2. Warm up
+curl http://localhost:3000/health
+
+# 3. Run load test with bombardier
+bombardier -c 100 -d 30s http://localhost:3000/health
+
+# 4. Run with profiling enabled
+bun --cpu-prof-md --cpu-prof-dir ./profiles src/index.ts &
+bombardier -c 100 -d 30s http://localhost:3000/health
+kill %1  # Stop server, profile saved
+
+# 5. Analyze profile
+cat profiles/*.cpuprofile.md
+```
+
+---
+
+## Zed IDE Tasks
+
+The following Zed tasks are available for profiling (press `Cmd+Shift+P` > "task: spawn"):
+
+### Bun Native Profiling (via package.json)
+
+| Task | Description | Script |
+|------|-------------|--------|
+| `bun-prof: cpu (Chrome DevTools)` | Generate `.cpuprofile` for Chrome DevTools | `profile:cpu` |
+| `bun-prof: cpu-md (Markdown/LLM)` | Generate markdown CPU profile | `profile:cpu:md` |
+| `bun-prof: cpu-both (JSON + Markdown)` | Generate both formats | `profile:cpu:both` |
+| `bun-prof: heap (Chrome DevTools)` | Generate `.heapsnapshot` for Chrome DevTools | `profile:heap` |
+| `bun-prof: heap-md (Markdown/LLM)` | Generate markdown heap profile | `profile:heap:md` |
+| `bun-prof: full (CPU + Heap)` | Combined CPU + heap profiling | `profile:full` |
+| `bun-prof: test with cpu profile` | Run tests with CPU profiling | `profile:test` |
+| `bun-prof: test with heap profile` | Run tests with heap profiling | `profile:test:heap` |
+
+### Bun Memory Analysis (observation tasks)
+
+| Task | Description |
+|------|-------------|
+| `bun-mem: heap stats (runtime)` | Show JS heap stats via `bun:jsc` |
+| `bun-mem: gc (force sync)` | Force garbage collection |
+| `bun-mem: native heap stats (mimalloc)` | Show native heap stats on exit |
+| `bun-mem: snapshot (generate heap.json)` | Generate heap snapshot for Safari DevTools |
+| `bun-mem: object type counts` | Show top 20 object types by count |
+
+### Benchmarking (observation tasks)
+
+| Task | Description |
+|------|-------------|
+| `bench: time precision test` | Test `Bun.nanoseconds()` and `performance.now()` |
+| `bench: server with bombardier` | HTTP load test with bombardier |
+| `bench: server with oha` | HTTP load test with oha |
+| `bench: script with hyperfine` | Benchmark CLI with hyperfine |
+| `bench: bun version info` | Show Bun version and revision |
+
+### Existing Service Profiling
+
+| Task | Description |
+|------|-------------|
+| `profile: tokens` | Profile token generation scenario |
+| `profile: health` | Profile health endpoint |
+| `profile: list` | List profile files |
+| `profile: cleanup (dry run)` | Preview profile cleanup |
+
+### Profile Management Tasks
+
+| Task | Description |
+|------|-------------|
+| `bun-prof: list root profiles` | List all `.cpuprofile`, `.md`, `.json` files in root `profiles/` |
+| `bun-prof: archive all (to dated folder)` | Move root profiles to `profiles/archive/YYYYMMDD_HHMMSS/` |
+| `bun-prof: clear root profiles` | Delete all root-level profile files (no backup) |
+| `bun-prof: clean start (archive + ready)` | Archive existing profiles, ready for new clean run |
+| `bun-prof: show archive folders` | List the 10 most recent archive folders |
+
+**Clean Start Workflow:**
+1. Run `bun-prof: clean start (archive + ready)` to archive existing profiles
+2. Run your profiling task (e.g., `bun-prof: cpu-md` or `bun-prof: full`)
+3. Your new profiles will be the only ones in `profiles/`
+
+---
+
+## Profile Directory Structure
+
+The `profiles/` directory has a structured layout for organizing different types of profile data:
+
+```
+profiles/
+├── *.cpuprofile           # Root: Raw Bun CPU profiles (Chrome DevTools format)
+├── *.md                   # Root: Bun markdown profiles (CPU/Heap)
+├── heap-safari-*.json     # Root: Safari WebKit heap snapshots (JSON format)
+├── current/               # Active profiles from scenario scripts
+│   └── tokens-*.md
+├── archive/               # Date-organized archived profiles
+│   ├── 20260226_143022/   # Archived batch (YYYYMMDD_HHMMSS)
+│   │   ├── CPU.*.cpuprofile
+│   │   └── Heap.*.md
+│   └── 20260225_091500/
+├── baselines/             # Permanent baseline profiles for comparison
+│   └── v1.0-baseline.md
+└── auto/                  # Auto-triggered profiles from SLA violations
+    └── tokens-sla-violation-*.md
+```
+
+| Directory | Purpose | Retention |
+|-----------|---------|-----------|
+| `profiles/` (root) | Raw Bun profiler output | Manual cleanup via tasks |
+| `profiles/current/` | Active scenario profiles | 24 hours |
+| `profiles/archive/` | Archived profiles | 7 days |
+| `profiles/baselines/` | Permanent baselines | Never deleted |
+| `profiles/auto/` | SLA violation auto-profiles | 7 days |
+
+**Configuration:**
+- Auto-profile output directory: `CONTINUOUS_PROFILING_OUTPUT_DIR` (default: `profiles/auto`)
+- See `src/config/defaults.ts` for SLA thresholds that trigger auto-profiling
+
+---
+
 ## Analysis Reports
 
 After profiling, you'll see an enhanced analysis report with:
@@ -263,8 +644,8 @@ data:
 
 | Endpoint | P95 Target | P99 Target |
 |----------|-----------|------------|
-| POST /tokens | <100ms | <200ms |
-| POST /tokens/validate | <50ms | <100ms |
+| GET /tokens | <100ms | <200ms |
+| GET /tokens/validate | <50ms | <100ms |
 | GET /health | <400ms | <500ms |
 
 ### CPU Budget

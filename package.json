@@ -1,6 +1,6 @@
 {
   "name": "authentication-service",
-  "version": "2.6.5",
+  "version": "2.6.6",
   "type": "module",
   "description": "High-performance JWT authentication service built with Bun",
   "main": "build/dist/server.js",
@@ -66,8 +66,9 @@
     "test:k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
     "test:k6:stress": "test/k6/run-k6.sh test/k6/stress/system-stress.ts test/results/k6/stress-system-results.json true",
     "test:k6:soak": "test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-results.json true",
-    "test:k6:soak:full": "K6_SOAK_DURATION=4h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
-    "test:k6:soak:quick": "K6_SOAK_DURATION=30m test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-quick-results.json true",
+    "test:k6:soak:full": "K6_SOAK_DURATION=6h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
+    "test:k6:soak:1h": "K6_SOAK_DURATION=1h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
+    "test:k6:soak:quick": "K6_SOAK_DURATION=10m test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-quick-results.json true",
     "test:k6:pressure:memory": "test/k6/run-k6.sh test/k6/soak/memory-pressure-extended.ts test/results/k6/memory-pressure-results.json false",
     "test:k6:pressure:memory:demo": "K6_THRESHOLDS_NON_BLOCKING=true K6_SOAK_TOTAL_DURATION=3m K6_SOAK_WARMUP_DURATION=30s K6_SOAK_RAMPUP_DURATION=30s K6_SOAK_PEAK_DURATION=1m K6_SOAK_SUSTAINED_DURATION=30s test/k6/run-k6.sh test/k6/soak/memory-pressure-extended.ts test/results/k6/memory-pressure-demo-results.json false",
     "test:k6:pressure:memory:quick": "K6_THRESHOLDS_NON_BLOCKING=true K6_SOAK_TOTAL_DURATION=5m K6_SOAK_WARMUP_VUS=1 K6_SOAK_TARGET_VUS=3 K6_SOAK_PEAK_VUS=5 K6_SOAK_PRESSURE_VUS=8 test/k6/run-k6.sh test/k6/soak/memory-pressure-extended.ts test/results/k6/memory-pressure-quick-results.json false",
@@ -143,6 +144,15 @@
     "redis:scan:auth": "docker exec -it auth-redis redis-cli --scan --pattern '*auth_service*'",
     "profile:start": "PROFILING_ENABLED=true bun --inspect src/server.ts",
     "profile:dev": "NODE_ENV=development PROFILING_ENABLED=true bun --inspect src/server.ts",
+    "profile:cpu": "mkdir -p profiles && bun --cpu-prof --cpu-prof-dir ./profiles src/index.ts",
+    "profile:cpu:md": "mkdir -p profiles && bun --cpu-prof-md --cpu-prof-dir ./profiles src/index.ts",
+    "profile:cpu:both": "mkdir -p profiles && bun --cpu-prof --cpu-prof-md --cpu-prof-dir ./profiles src/index.ts",
+    "profile:heap": "mkdir -p profiles && bun --heap-prof --heap-prof-dir ./profiles src/index.ts",
+    "profile:heap:md": "mkdir -p profiles && bun --heap-prof-md --heap-prof-dir ./profiles src/index.ts",
+    "profile:full": "mkdir -p profiles && bun --cpu-prof --cpu-prof-md --heap-prof-md --cpu-prof-dir ./profiles --heap-prof-dir ./profiles src/index.ts",
+    "profile:full:safari": "bun scripts/profiling/profile-full-safari.ts",
+    "profile:test": "mkdir -p profiles && bun --cpu-prof-md --cpu-prof-dir ./profiles test",
+    "profile:test:heap": "mkdir -p profiles && bun --heap-prof-md --heap-prof-dir ./profiles test",
     "profile:status": "curl -s http://localhost:3000/debug/profiling/status",
     "profile:start-session": "curl -X POST http://localhost:3000/debug/profiling/start",
     "profile:stop-session": "curl -X POST http://localhost:3000/debug/profiling/stop",
@@ -153,6 +163,10 @@
     "profile:scenario:health": "bun scripts/profiling/profile-scenario.ts --scenario=health",
     "profile:scenario:validate": "bun scripts/profiling/profile-scenario.ts --scenario=validate",
     "profile:scenario:mixed": "bun scripts/profiling/profile-scenario.ts --scenario=mixed",
+    "profile:scenario:tokens:safari": "bun scripts/profiling/profile-scenario.ts --scenario=tokens --safari-snapshot",
+    "profile:heap:safari": "bun scripts/profiling/heap-snapshot-safari.ts",
+    "profile:heap:safari:tokens": "bun scripts/profiling/heap-snapshot-safari.ts --scenario=tokens",
+    "profile:heap:safari:health": "bun scripts/profiling/heap-snapshot-safari.ts --scenario=health",
     "profile:analyze": "bun scripts/profiling/analyze-profile.ts",
     "profile:list": "ls -lh profiles/current/*.md 2>/dev/null || echo 'No profiles found'",
     "profile:k6:smoke": "ENABLE_PROFILING=true bun run test:k6:smoke:tokens",
@@ -182,7 +196,8 @@
     "server:kill": "lsof -ti :3000 | xargs kill -9 2>/dev/null || echo 'No processes found on port 3000'",
     "fix:bun-symlink": "rm -f node_modules/.bin/bun && echo 'Removed broken bun symlink'",
     "fix:bun-full": "rm -rf ~/.bun/install/cache node_modules bun.lockb && bun install && rm -f node_modules/.bin/bun",
-    "postinstall": "rm -f node_modules/.bin/bun || true"
+    "patch:otel-esm": "bun scripts/patch-otel-esm.ts",
+    "postinstall": "rm -f node_modules/.bin/bun || true; bun scripts/patch-otel-esm.ts"
   },
   "keywords": [
     "authentication",
@@ -232,18 +247,20 @@
     "minimatch": ">=10.2.1"
   },
   "dependencies": {
+    "@elastic/ecs-pino-format": "^1.5.0",
     "@elastic/ecs-winston-format": "^1.5.3",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.212.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.70.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.70.1",
     "@opentelemetry/core": "^2.5.1",
     "@opentelemetry/exporter-logs-otlp-http": "^0.212.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.212.0",
     "@opentelemetry/exporter-otlp-http": "^0.26.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
-    "@opentelemetry/host-metrics": "^0.38.2",
+    "@opentelemetry/host-metrics": "^0.38.3",
     "@opentelemetry/instrumentation-fetch": "^0.212.0",
     "@opentelemetry/instrumentation-http": "^0.212.0",
+    "@opentelemetry/instrumentation-pino": "^0.58.0",
     "@opentelemetry/instrumentation-redis": "^0.60.0",
     "@opentelemetry/instrumentation-winston": "^0.56.0",
     "@opentelemetry/resources": "^2.5.1",
@@ -251,9 +268,10 @@
     "@opentelemetry/sdk-metrics": "^2.5.1",
     "@opentelemetry/sdk-node": "^0.212.0",
     "@opentelemetry/sdk-trace-base": "^2.5.1",
-    "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
     "@opentelemetry/winston-transport": "^0.22.0",
     "opossum": "^9.0.0",
+    "pino": "^10.3.1",
     "redis": "^5.11.0",
     "winston": "^3.19.0",
     "winston-transport": "^4.9.0",
@@ -261,5 +279,8 @@
   },
   "trustedDependencies": [
     "protobufjs"
-  ]
+  ],
+  "patchedDependencies": {
+    "@opentelemetry/sdk-node@0.212.0": "patches/@opentelemetry%2Fsdk-node@0.212.0.patch"
+  }
 }

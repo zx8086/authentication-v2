@@ -6,7 +6,7 @@ The service includes enterprise-grade CI/CD automation with comprehensive securi
 
 ### Pipeline Features
 - **Optimized Caching Strategy**: Enhanced Playwright browser caching and Bun dependency caching with hierarchical fallback
-- **Consistent Build Pipeline**: All steps run on every build (PRs and main branch) for complete consistency
+- **Consistent Build Pipeline**: All steps run on every build (PRs and master branch) for complete consistency
 - **Automated Testing**: 460+ tests (100% pass rate) executed in CI with live server validation
 - **Docker Cloud Builders**: Enhanced build infrastructure with dedicated cloud resources
 - **Multi-platform Builds**: Linux AMD64 and ARM64 with optimized cloud-native compilation
@@ -24,9 +24,10 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master, develop ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]
+    branches: [ master, develop ]
 
 jobs:
   build-and-push:
@@ -351,7 +352,7 @@ Provenance is generated natively by BuildKit using SLSA v0.2 format for DHI comp
     docker push example/authentication-service:staging
 
 - name: Deploy to Production
-  if: github.ref == 'refs/heads/main'
+  if: github.ref == 'refs/heads/master'
   run: |
     docker tag example/authentication-service:latest \
       example/authentication-service:production

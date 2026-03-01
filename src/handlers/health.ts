@@ -1,5 +1,6 @@
 /* src/handlers/health.ts */
 
+import { dns } from "bun";
 import pkg from "../../package.json" with { type: "json" };
 import { loadConfig } from "../config/index";
 import { CacheFactory } from "../services/cache/cache-factory";
@@ -287,6 +288,16 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       healthStatus = "unhealthy";
     }
 
+    // Get DNS cache stats for observability
+    const dnsStats = dns.getCacheStats();
+    const dnsCacheHitRate =
+      dnsStats.totalCount > 0
+        ? Math.round(
+            ((dnsStats.cacheHitsCompleted + dnsStats.cacheHitsInflight) / dnsStats.totalCount) *
+              10000
+          ) / 100
+        : 0;
+
     const healthData = {
       status: healthStatus,
       timestamp: new Date().toISOString(),
@@ -295,6 +306,14 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       uptime: formatUptime(Math.floor(process.uptime())),
       highAvailability: config.caching.highAvailability,
       circuitBreakerState: circuitBreakerState,
+      dns: {
+        cacheSize: dnsStats.size,
+        hitRate: `${dnsCacheHitRate}%`,
+        hits: dnsStats.cacheHitsCompleted + dnsStats.cacheHitsInflight,
+        misses: dnsStats.cacheMisses,
+        errors: dnsStats.errors,
+        totalLookups: dnsStats.totalCount,
+      },
       dependencies: {
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",

@@ -4,30 +4,33 @@ This document describes the Zed IDE tasks available in `.zed/tasks.json` for man
 
 ## Overview
 
-The project includes **137 pre-configured Zed tasks** organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
+The project includes **144 pre-configured Zed tasks** organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
 
 ## Task Categories
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| Service / Server | 7 | Service info, health checks, server management |
-| Development | 5 | Dev server and workflow tasks |
-| Infrastructure | 10 | DevContainer and dependency management |
-| Dependencies (NPM/Bun) | 4 | Package management and auditing |
-| Kong | 15 | API Gateway management |
-| Redis | 16 | Redis cache operations |
-| Valkey | 16 | Valkey cache operations |
-| Postgres | 5 | Kong database queries |
-| Docker | 12 | Container and image management |
-| Testing | 9 | Unit, E2E, performance, and mutation tests |
-| Quality | 2 | Linting and formatting |
-| Profiling | 4 | CPU/memory profiling workflows |
-| Git | 6 | Version control operations |
-| GitHub | 15 | PRs, issues, workflows, security alerts |
-| OpenTelemetry | 11 | OTEL endpoints and configuration |
-| Code Analysis | 3 | TODOs, line count, exports |
-| Environment | 3 | Config validation and env diff |
-| Documentation | 1 | OpenAPI generation |
+| `redis:` | 16 | Redis cache operations |
+| `valkey:` | 16 | Valkey cache operations |
+| `github:` | 16 | PRs, issues, workflows, security alerts |
+| `kong:` | 14 | API Gateway management |
+| `docker:` | 12 | Container and image management |
+| `otel:` | 11 | OTEL endpoints and configuration |
+| `test:` | 9 | Unit, E2E, performance, and mutation tests |
+| `deps:` | 8 | Dependencies and infrastructure (up/down) |
+| `git:` | 6 | Version control operations |
+| `postgres:` | 5 | Kong database queries |
+| `devcontainer:` | 5 | DevContainer management |
+| `dev:` | 5 | Dev server and workflow tasks |
+| `service:` | 4 | Service info (version, endpoints, metrics) |
+| `profile:` | 4 | CPU/memory profiling workflows |
+| `server:` | 3 | Health checks, server management |
+| `code:` | 3 | TODOs, line count, exports |
+| `quality:` | 2 | Linting and formatting |
+| `env:` | 2 | Environment diff and validation |
+| `infra:` | 1 | Infrastructure status check |
+| `docs:` | 1 | OpenAPI generation |
+| `config:` | 1 | Configuration validation |
 
 ---
 

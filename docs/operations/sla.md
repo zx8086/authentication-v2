@@ -82,14 +82,16 @@ The service supports degraded mode when Kong is unavailable:
 
 ## Circuit Breaker SLAs
 
-The service implements circuit breaker patterns for Kong API calls:
+The service implements circuit breaker patterns for Kong API calls (via Opossum):
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| Failure Threshold | 5 | Failures before opening |
-| Failure Window | 30s | Time window for failure count |
-| Recovery Timeout | 30s | Time before half-open state |
-| Half-Open Requests | 1 | Test requests in half-open |
+| Request Timeout | 5s | Timeout for Kong API calls |
+| Error Threshold | 50% | Error percentage to trip circuit |
+| Volume Threshold | 3 | Minimum requests before tripping |
+| Rolling Window | 10s | Time window for error calculation |
+| Reset Timeout | 60s | Time before half-open state |
+| Rolling Buckets | 10 | Buckets for rolling window |
 
 ### Circuit Breaker States
 

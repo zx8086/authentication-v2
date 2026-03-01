@@ -3,6 +3,8 @@
 // Stryker disable all: Performance measurement utilities with timing/instrumentation code.
 // Tested via timing assertions in integration tests.
 
+import { log } from "./logger";
+
 const isBun = () => typeof Bun !== "undefined";
 
 // REQUIRED: Standardized performance measurement pattern
@@ -11,7 +13,12 @@ export async function measure<T>(name: string, op: () => Promise<T>) {
   const result = await op();
   const ms = (isBun() ? Bun.nanoseconds() : performance.now() * 1_000_000 - start) / 1_000_000;
 
-  console.log(`[PERF] ${name}: ${ms.toFixed(2)}ms`);
+  log("Performance measurement", {
+    component: "performance",
+    operation: name,
+    duration_ms: Number.parseFloat(ms.toFixed(2)),
+    "event.duration": Math.round(ms * 1_000_000), // nanoseconds for ECS
+  });
   return { result, ms };
 }
 
@@ -20,7 +27,12 @@ export function measureSync<T>(name: string, op: () => T) {
   const result = op();
   const ms = (isBun() ? Bun.nanoseconds() : performance.now() * 1_000_000 - start) / 1_000_000;
 
-  console.log(`[PERF] ${name}: ${ms.toFixed(2)}ms`);
+  log("Performance measurement", {
+    component: "performance",
+    operation: name,
+    duration_ms: Number.parseFloat(ms.toFixed(2)),
+    "event.duration": Math.round(ms * 1_000_000), // nanoseconds for ECS
+  });
   return { result, ms };
 }
 

@@ -572,6 +572,12 @@ export const TelemetryConfigSchema = z
     maxQueueSize: z.int32().min(1).max(50000),
     enabled: z.boolean().optional(),
     enableOpenTelemetry: z.boolean().optional(),
+    runtimeMetricsEnabled: z
+      .boolean()
+      .optional()
+      .describe(
+        "Enable runtime metrics instrumentation (event loop, memory). Disabled by default to save ~10% CPU."
+      ),
     infrastructure: z.object({
       isKubernetes: z.boolean(),
       isEcs: z.boolean(),

@@ -27,13 +27,15 @@ describe("Logger Fallback Behavior", () => {
   });
 
   describe("Winston Logger Load Failure", () => {
-    it("should fallback to console.error when winston logger cannot be loaded", async () => {
+    it("should fallback to console.error when logger cannot be loaded", async () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Updated to block both container and winston-logger
+      // With new architecture, we first try container, then winston, then console
       Module.prototype.require = function (id: string) {
-        if (id.includes("winston-logger")) {
-          throw new Error("Cannot find module winston-logger");
+        if (id.includes("logging/container") || id.includes("winston-logger")) {
+          throw new Error("Cannot find module");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
@@ -46,7 +48,7 @@ describe("Logger Fallback Behavior", () => {
 
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       const errorCall = consoleErrorSpy.mock.calls[0][0];
-      expect(errorCall).toContain("Could not load winston logger");
+      expect(errorCall).toContain("Could not load logger");
 
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const logCall = JSON.parse(consoleLogSpy.mock.calls[0][0]);
@@ -59,13 +61,14 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
     });
 
-    it("should use fallback console.warn when winston is not available", async () => {
+    it("should use fallback console.warn when logger is not available", async () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Block both container and winston-logger
       Module.prototype.require = function (id: string) {
-        if (id.includes("winston-logger")) {
-          throw new Error("Winston unavailable");
+        if (id.includes("logging/container") || id.includes("winston-logger")) {
+          throw new Error("Logger unavailable");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
@@ -86,13 +89,14 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
     });
 
-    it("should use fallback console.error for error logs when winston is not available", async () => {
+    it("should use fallback console.error for error logs when logger is not available", async () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Block both container and winston-logger
       Module.prototype.require = function (id: string) {
-        if (id.includes("winston-logger")) {
-          throw new Error("Winston unavailable");
+        if (id.includes("logging/container") || id.includes("winston-logger")) {
+          throw new Error("Logger unavailable");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
@@ -127,8 +131,13 @@ describe("Logger Fallback Behavior", () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Block container, winston-logger, AND config
       Module.prototype.require = function (id: string) {
-        if (id.includes("config/index") || id.includes("winston-logger")) {
+        if (
+          id.includes("config/index") ||
+          id.includes("logging/container") ||
+          id.includes("winston-logger")
+        ) {
           throw new Error("Cannot load config");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
@@ -164,9 +173,10 @@ describe("Logger Fallback Behavior", () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Block both container and winston-logger
       Module.prototype.require = function (id: string) {
-        if (id.includes("winston-logger")) {
-          throw new Error("Winston unavailable");
+        if (id.includes("logging/container") || id.includes("winston-logger")) {
+          throw new Error("Logger unavailable");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);
@@ -202,9 +212,10 @@ describe("Logger Fallback Behavior", () => {
       const Module = require("node:module");
       const originalRequire = Module.prototype.require;
 
+      // SIO-447: Block both container and winston-logger
       Module.prototype.require = function (id: string) {
-        if (id.includes("winston-logger")) {
-          throw new Error("Winston unavailable");
+        if (id.includes("logging/container") || id.includes("winston-logger")) {
+          throw new Error("Logger unavailable");
         }
         // biome-ignore lint/complexity/noArguments: Testing legacy require mechanism
         return originalRequire.apply(this, arguments);

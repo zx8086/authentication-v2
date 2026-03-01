@@ -5,8 +5,8 @@
 This document describes the implementation of parallel security scanning services in the CI/CD pipeline, resulting in a **60-70% improvement** in scan completion time.
 
 **Security Scanning Stack:**
-- 5 parallel scanners in main workflow (Snyk, Trivy, Docker Scout, License)
-- CodeQL analysis for GitHub Security Overview compliance (separate workflow)
+- 6 parallel scanners in main workflow (Snyk Code, Snyk Container, Trivy, Docker Scout, License, Secrets Detection)
+- CodeQL analysis for GitHub Security Overview compliance (embedded job in build-and-deploy.yml)
 - DHI CVE monitoring with 6-hour scan frequency
 - Comprehensive security audit (scheduled daily)
 
@@ -25,7 +25,8 @@ strategy:
       - trivy-container
       - docker-scout
       - license-compliance
-  max-parallel: 5
+      - secrets-detection
+  max-parallel: 6
   fail-fast: false
 ```
 
@@ -42,7 +43,7 @@ strategy:
 | Metric | Before (Sequential/Hybrid) | After (Parallel Matrix) | Improvement |
 |--------|---------------------------|-------------------------|-------------|
 | **Total Scan Time** | 12-17 minutes | 5-7 minutes | **60-70% reduction** |
-| **Resource Utilization** | Single runner | 5 parallel runners | **5x parallelization** |
+| **Resource Utilization** | Single runner | 6 parallel runners | **6x parallelization** |
 | **Error Isolation** | Complex bash process management | Individual job failures | **Improved reliability** |
 | **Monitoring** | Single job metrics | Per-scan job metrics | **Better observability** |
 
@@ -78,9 +79,15 @@ strategy:
 - **Duration**: <1 minute
 - **Output**: `license-report.json`
 
-### 6. CodeQL Analysis (Separate Workflow)
+### 6. Secrets Detection (TruffleHog)
+- **Type**: Secrets and credential scanning
+- **Resources**: ~200-500MB memory, low CPU
+- **Duration**: 1-2 minutes
+- **Output**: `trufflehog-results.sarif`
+
+### 7. CodeQL Analysis (Embedded Job)
 - **Type**: Semantic code analysis for security vulnerabilities
-- **Workflow**: `.github/workflows/codeql-analysis.yml`
+- **Workflow**: Embedded as parallel job in `.github/workflows/build-and-deploy.yml`
 - **Languages**: JavaScript/TypeScript
 - **Duration**: 5-10 minutes
 - **Output**: GitHub Security tab integration
@@ -98,6 +105,7 @@ graph TD
     B --> B3[trivy-container]
     B --> B4[docker-scout]
     B --> B5[license-compliance]
+    B --> B6[secrets-detection]
     B1 --> C[security-scan-summary]
     B2 --> C
     B3 --> C

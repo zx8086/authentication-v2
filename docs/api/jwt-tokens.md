@@ -21,7 +21,7 @@ The Authentication Service generates JWT tokens using the HS256 algorithm with s
   "iat": 1634567890,
   "nbf": 1634567890,
   "name": "consumer-username",
-  "unique_name": "example.com#consumer-username",
+  "unique_name": "pvhcorp.com#consumer-username",
   "exp": 1634568790,
   "iss": "https://sts-api.example.com/",
   "aud": "http://api.example.com/"
@@ -46,7 +46,7 @@ The Authentication Service generates JWT tokens using the HS256 algorithm with s
 |-------|------|-------------|---------|
 | `key` | String | Kong consumer JWT key | `"abc123def456"` |
 | `name` | String | Consumer display name | `"example-consumer"` |
-| `unique_name` | String | Globally unique consumer identifier | `"example.com#example-consumer"` |
+| `unique_name` | String | Globally unique consumer identifier | `"pvhcorp.com#example-consumer"` |
 
 ## RFC 7519 Compliance
 
@@ -124,7 +124,7 @@ const payload = {
   iat: now,
   nbf: now,  // RFC 7519 compliance: Not Before claim
   name: username,
-  unique_name: `${domain}#${username}`,
+  unique_name: `pvhcorp.com#${username}`,  // Domain is fixed for PVH ecosystem
   exp: now + (15 * 60), // 15 minutes
   iss: config.kong.jwt.authority,
   aud: config.kong.jwt.audience,

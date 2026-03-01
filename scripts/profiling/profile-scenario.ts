@@ -14,6 +14,7 @@ interface CliOptions {
   outputDir?: string;
   noCpu?: boolean;
   noHeap?: boolean;
+  safariSnapshot?: boolean;
 }
 
 /**
@@ -47,12 +48,19 @@ Options:
   --output-dir <path>  Output directory for profiles (default: profiles/current)
   --no-cpu             Disable CPU profiling
   --no-heap            Disable heap profiling
+  --safari-snapshot    Generate Safari WebKit-compatible JSON heap snapshot
   --help               Show this help message
+
+Output Formats:
+  - CPU.*.md           Bun markdown CPU profile
+  - Heap.*.md          Bun markdown heap profile
+  - heap-safari-*.json Safari WebKit JSON snapshot (when --safari-snapshot is used)
 
 Examples:
   bun scripts/profiling/profile-scenario.ts --scenario=tokens
   bun scripts/profiling/profile-scenario.ts --scenario=health --duration=15
   bun scripts/profiling/profile-scenario.ts --scenario=mixed --no-heap
+  bun scripts/profiling/profile-scenario.ts --scenario=tokens --safari-snapshot
 `);
 }
 
@@ -66,6 +74,7 @@ async function main() {
         "output-dir": { type: "string" },
         "no-cpu": { type: "boolean" },
         "no-heap": { type: "boolean" },
+        "safari-snapshot": { type: "boolean" },
         help: { type: "boolean" },
       },
       strict: true,
@@ -102,6 +111,7 @@ async function main() {
       outputDir: values["output-dir"] || "profiles/current",
       noCpu: values["no-cpu"] || false,
       noHeap: values["no-heap"] || false,
+      safariSnapshot: values["safari-snapshot"] || false,
     };
 
     console.log(`
@@ -114,6 +124,7 @@ async function main() {
     const runner = new ProfileRunner({
       cpuProf: !options.noCpu,
       heapProf: !options.noHeap,
+      safariHeapSnapshot: options.safariSnapshot,
       outputDir: options.outputDir,
       serverScript: "src/index.ts",
       duration: options.duration || 30,
@@ -170,6 +181,13 @@ async function main() {
         } catch (error) {
           console.error("Failed to parse heap profile:", error);
         }
+      }
+
+      if (profileResult.safariHeapSnapshotPath) {
+        console.log(`\nSafari WebKit Heap Snapshot: ${profileResult.safariHeapSnapshotPath}`);
+        console.log(
+          "  To view: Safari Developer Tools -> Timeline -> JavaScript Allocations -> Import"
+        );
       }
 
       console.log("\n=========================================");

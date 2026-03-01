@@ -76,6 +76,7 @@ export const envVarMapping = {
     environment: "NODE_ENV",
     mode: "TELEMETRY_MODE",
     logLevel: "LOG_LEVEL",
+    loggingBackend: "LOGGING_BACKEND",
     endpoint: "OTEL_EXPORTER_OTLP_ENDPOINT",
     logsEndpoint: "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
     tracesEndpoint: "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
@@ -87,6 +88,7 @@ export const envVarMapping = {
     circuitBreakerRecoveryTimeout: "TELEMETRY_CB_RECOVERY_TIMEOUT",
     circuitBreakerSuccessThreshold: "TELEMETRY_CB_SUCCESS_THRESHOLD",
     circuitBreakerMonitoringInterval: "TELEMETRY_CB_MONITORING_INTERVAL",
+    runtimeMetricsEnabled: "OTEL_RUNTIME_METRICS_ENABLED",
   },
   profiling: {
     enabled: "PROFILING_ENABLED",

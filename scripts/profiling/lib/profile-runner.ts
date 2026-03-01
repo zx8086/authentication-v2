@@ -7,6 +7,7 @@ import { type Subprocess, spawn } from "bun";
 export interface ProfileRunnerOptions {
   cpuProf: boolean;
   heapProf: boolean;
+  safariHeapSnapshot?: boolean; // Generate Safari WebKit-compatible JSON heap snapshot
   outputDir: string;
   serverScript: string;
   duration: number; // seconds
@@ -16,6 +17,7 @@ export interface ProfileResult {
   success: boolean;
   cpuProfilePath?: string;
   heapProfilePath?: string;
+  safariHeapSnapshotPath?: string; // Safari WebKit JSON snapshot path
   duration: number;
   error?: string;
 }
@@ -104,6 +106,7 @@ export class ProfileRunner {
   async findProfileFiles(): Promise<{
     cpuProfile?: string;
     heapProfile?: string;
+    safariHeapSnapshot?: string;
   }> {
     const { readdirSync } = await import("node:fs");
 
@@ -121,13 +124,73 @@ export class ProfileRunner {
         .sort()
         .reverse()[0];
 
+      // Find Safari heap snapshot (heap-safari-*.json)
+      const safariHeapSnapshot = files
+        .filter((f) => f.startsWith("heap-safari-") && f.endsWith(".json"))
+        .sort()
+        .reverse()[0];
+
       return {
         cpuProfile: cpuProfile ? join(this.options.outputDir, cpuProfile) : undefined,
         heapProfile: heapProfile ? join(this.options.outputDir, heapProfile) : undefined,
+        safariHeapSnapshot: safariHeapSnapshot
+          ? join(this.options.outputDir, safariHeapSnapshot)
+          : undefined,
       };
     } catch (error) {
       console.error("Error finding profile files:", error);
       return {};
+    }
+  }
+
+  /**
+   * Generate Safari WebKit-compatible JSON heap snapshot using Bun's native API.
+   * Safari Timeline requires a specific wrapper format around the raw heap snapshot.
+   * Reference: https://github.com/oven-sh/bun/issues/13345
+   */
+  async generateSafariHeapSnapshot(): Promise<string | undefined> {
+    if (!this.options.safariHeapSnapshot) {
+      return undefined;
+    }
+
+    try {
+      const { generateHeapSnapshot } = await import("bun");
+      const timestamp = Date.now();
+      const filename = `heap-safari-${timestamp}.json`;
+      const outputPath = join(this.options.outputDir, filename);
+
+      console.log("Generating Safari WebKit heap snapshot...");
+      const snapshot = generateHeapSnapshot();
+
+      // Wrap in Safari Timeline-compatible format
+      const safariFormat = {
+        version: 1,
+        recording: {
+          displayName: "Bun Heap Snapshot",
+          discontinuities: [],
+          instrumentTypes: ["timeline-record-type-heap-allocations"],
+          records: [
+            {
+              type: "timeline-record-type-heap-allocations",
+              title: `Snapshot ${new Date().toISOString()}`,
+              snapshotStringData: JSON.stringify(snapshot),
+            },
+          ],
+          markers: [],
+          memoryPressureEvents: [],
+          sampleStackTraces: [],
+          sampleDurations: [],
+        },
+        overview: {},
+      };
+
+      await Bun.write(outputPath, JSON.stringify(safariFormat, null, 2));
+      console.log(`Safari heap snapshot saved: ${outputPath}`);
+
+      return outputPath;
+    } catch (error) {
+      console.error("Failed to generate Safari heap snapshot:", error);
+      return undefined;
     }
   }
 
@@ -146,7 +209,7 @@ export class ProfileRunner {
       await this.stopServer();
 
       // Find generated profile files
-      const { cpuProfile, heapProfile } = await this.findProfileFiles();
+      const { cpuProfile, heapProfile, safariHeapSnapshot } = await this.findProfileFiles();
 
       const duration = (Date.now() - startTime) / 1000;
 
@@ -154,6 +217,7 @@ export class ProfileRunner {
         success: true,
         cpuProfilePath: cpuProfile,
         heapProfilePath: heapProfile,
+        safariHeapSnapshotPath: safariHeapSnapshot,
         duration,
       };
     } catch (error) {

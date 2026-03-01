@@ -93,11 +93,17 @@ export const defaultConfig: AppConfig = {
     // Memory optimization: 10s timeout prevents buffer accumulation during backpressure
     exportTimeout: 10000,
     // Memory optimization: Smaller batch size reduces protobuf buffer retention
-    batchSize: 512,
+    // At 128 items per batch with 500ms delay, we export 256 items/sec max
+    batchSize: 128,
     // Memory optimization: Bounded queue prevents unbounded Uint8Array accumulation
-    maxQueueSize: 2048,
+    // At 512 items max and ~64KB per serialized batch, worst case is ~32MB per processor
+    // Trade-off: May drop old telemetry during traffic spikes (acceptable for memory safety)
+    maxQueueSize: 512,
     enableOpenTelemetry: true,
     enabled: true,
+    // Memory optimization: Runtime metrics disabled by default to save ~10% CPU
+    // Enable via OTEL_RUNTIME_METRICS_ENABLED=true if event loop delay metrics are needed
+    runtimeMetricsEnabled: false,
     infrastructure: {
       isKubernetes: false,
       isEcs: false,

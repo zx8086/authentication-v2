@@ -144,24 +144,21 @@ HTTP/1.1 400 Bad Request
 
 ### 5. Rate Limit Headers (RFC 6585)
 
-**Implementation:** `src/utils/response.ts`
+**Implementation:** Kong API Gateway handles rate limiting upstream.
 
-Infrastructure ready for rate limiting with standard headers.
+> **Note:** Rate limiting is NOT implemented in this service. It is handled by Kong API Gateway as an external dependency. The service provides utility functions (`src/utils/response.ts`) for generating rate limit error responses if needed in future implementations.
 
-**Response Headers:**
-```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 42
-X-RateLimit-Reset: 1768915398
-X-RateLimit-Window: 3600
-```
+**Kong Rate Limiting:** Configured via Kong's `rate-limiting` plugin at the gateway level, providing:
+- Per-consumer rate limiting
+- Per-route rate limiting
+- Response headers (`X-RateLimit-*`)
 
-**Example 429 Response:**
+**Service Support (Error Responses Only):**
+
+The service includes an `AUTH_006` error code for rate limit scenarios, used when Kong's rate limiting triggers:
+
 ```http
 HTTP/1.1 429 Too Many Requests
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1768915398
 Retry-After: 30
 
 {

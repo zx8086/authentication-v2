@@ -79,7 +79,7 @@ Or use the Zed tasks via `Cmd+Shift+P` -> "task: spawn".
 
 ## Zed Tasks
 
-Access via `Cmd+Shift+P` -> "task: spawn". **137 tasks** organized by category.
+Access via `Cmd+Shift+P` -> "task: spawn". **144 tasks** organized by category.
 
 For the complete task reference, see **[Zed Tasks Reference](zed-tasks.md)**.
 

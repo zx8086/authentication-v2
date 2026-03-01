@@ -7,6 +7,7 @@ import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { HostMetrics } from "@opentelemetry/host-metrics";
+import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { RedisInstrumentation } from "@opentelemetry/instrumentation-redis";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
@@ -27,6 +28,7 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
 import { loadConfig } from "../config/index";
+import { loggerContainer } from "../logging/container";
 import {
   createExportStatsTracker,
   type ExportStats,
@@ -35,6 +37,7 @@ import {
   wrapMetricExporter,
   wrapSpanExporter,
 } from "./export-stats-tracker";
+import { getMemoryGuardian, type QueueHealth, shutdownMemoryGuardian } from "./memory-guardian";
 import { initializeMetrics } from "./metrics";
 import { winstonTelemetryLogger } from "./winston-logger";
 
@@ -126,10 +129,14 @@ export async function initializeTelemetry(): Promise<void> {
   // Memory optimization: Configure batch processor with bounded queue to prevent
   // Uint8Array/protobuf buffer accumulation. The maxQueueSize limits memory usage
   // by dropping spans when the queue is full rather than accumulating indefinitely.
+  // Key settings:
+  // - maxQueueSize: 512 (default) limits worst-case memory to ~32MB per processor
+  // - scheduledDelayMillis: 500ms exports frequently to prevent queue buildup
+  // - Trade-off: More network calls but prevents memory accumulation during backpressure
   const traceProcessor = new BatchSpanProcessor(trackingTraceExporter, {
     maxExportBatchSize: telemetryConfig.batchSize,
     maxQueueSize: telemetryConfig.maxQueueSize,
-    scheduledDelayMillis: 1000,
+    scheduledDelayMillis: 500, // Export every 500ms to prevent queue buildup
     exportTimeoutMillis: exportTimeout,
   });
 
@@ -141,19 +148,23 @@ export async function initializeTelemetry(): Promise<void> {
 
   // Memory optimization: Configure metric reader with timeout to prevent
   // buffer accumulation during slow exports.
+  // exportIntervalMillis must be >= exportTimeoutMillis (OTEL SDK constraint)
+  // We use exportTimeout as both to maximize export frequency while respecting the constraint
+  const metricExportInterval = Math.max(exportTimeout, 5000);
   const periodicReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
-    exportIntervalMillis: 10000,
+    exportIntervalMillis: metricExportInterval, // Must be >= exportTimeoutMillis
     exportTimeoutMillis: exportTimeout,
   });
   metricReader = periodicReader;
 
   // Memory optimization: Configure log processor with bounded queue to prevent
   // buffer accumulation. Matches trace processor settings for consistency.
+  // Uses same aggressive export settings as trace processor.
   const logProcessor = new BatchLogRecordProcessor(trackingLogExporter, {
     maxExportBatchSize: telemetryConfig.batchSize,
     maxQueueSize: telemetryConfig.maxQueueSize,
-    scheduledDelayMillis: 1000,
+    scheduledDelayMillis: 500, // Export every 500ms to prevent queue buildup
     exportTimeoutMillis: exportTimeout,
   });
 
@@ -196,6 +207,12 @@ export async function initializeTelemetry(): Promise<void> {
     "@opentelemetry/instrumentation-grpc": {
       enabled: false,
     },
+    // Memory optimization: RuntimeNodeInstrumentation disabled by default to save ~10% CPU
+    // The event loop delay collector (monitorEventLoopDelay) consumes significant CPU
+    // due to 10ms polling interval. Enable via OTEL_RUNTIME_METRICS_ENABLED=true if needed.
+    "@opentelemetry/instrumentation-runtime-node": {
+      enabled: telemetryConfig.runtimeMetricsEnabled ?? false,
+    },
   });
 
   const redisInstrumentation = new RedisInstrumentation({
@@ -215,14 +232,25 @@ export async function initializeTelemetry(): Promise<void> {
     },
   });
 
-  const instrumentations = [...baseInstrumentations, redisInstrumentation];
+  // PinoInstrumentation injects trace_id/span_id from active OTEL span into Pino logs.
+  // This enables log correlation with traces when LOGGING_BACKEND=pino.
+  // Works alongside @elastic/ecs-pino-format (which must set apmIntegration: false).
+  const pinoInstrumentation = new PinoInstrumentation({
+    enabled: true,
+  });
+
+  const instrumentations = [...baseInstrumentations, redisInstrumentation, pinoInstrumentation];
 
   sdk = new NodeSDK({
     resource,
     spanProcessors: [traceProcessor],
     metricReaders: [periodicReader],
-    // LoggerProvider is managed separately and registered globally above
-    // to ensure OpenTelemetryTransportV3 (Winston) can access it
+    // CRITICAL: Pass empty array to disable NodeSDK's automatic LoggerProvider creation.
+    // Without this, NodeSDK calls configureLoggerProviderFromEnv() which defaults to
+    // http/protobuf protocol, loading @opentelemetry/exporter-logs-otlp-proto and
+    // protobufjs, causing ~70MB of Uint8Array allocations from buffer pooling.
+    // We manage our own LoggerProvider (lines 179-183) with http/json exporter instead.
+    logRecordProcessors: [],
     instrumentations: [instrumentations],
   });
 
@@ -237,9 +265,21 @@ export async function initializeTelemetry(): Promise<void> {
   // so any transports created before logs.setGlobalLoggerProvider() will not send logs.
   // See: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/packages/winston-transport/README.md
   winstonTelemetryLogger.reinitialize();
+
+  // SIO-447: Pino logger also needs reinitialization to pick up global LoggerProvider.
+  // PinoAdapter.emitOtelLog() uses logs.getLogger() which requires the global provider.
+  loggerContainer.getLogger().reinitialize();
+
+  // Layer 3: Start memory guardian for adaptive backpressure monitoring
+  const memoryGuardian = getMemoryGuardian();
+  memoryGuardian.registerTrackers(traceExportStats, metricExportStats, logExportStats);
+  memoryGuardian.start();
 }
 
 export async function shutdownTelemetry(): Promise<void> {
+  // Shutdown memory guardian first to stop monitoring
+  shutdownMemoryGuardian();
+
   if (hostMetrics) {
     // HostMetrics cleanup happens through OTel SDK shutdown (no explicit stop method)
     // Setting to undefined allows garbage collection of internal meter references
@@ -264,6 +304,7 @@ export async function shutdownTelemetry(): Promise<void> {
 }
 
 export function getTelemetryStatus() {
+  const memoryGuardian = getMemoryGuardian();
   return {
     initialized: !!sdk,
     config: telemetryConfig,
@@ -273,6 +314,32 @@ export function getTelemetryStatus() {
       logs: logExportStats.getStats(),
     },
     metricsExportStats: metricExportStats,
+    memoryHealth: memoryGuardian.getHealth(),
+  };
+}
+
+/**
+ * Get current memory and queue health status
+ */
+export function getMemoryHealth(): QueueHealth {
+  return getMemoryGuardian().getHealth();
+}
+
+/**
+ * Check if telemetry system is under memory pressure
+ */
+export function isTelemetryUnderPressure(): boolean {
+  return getMemoryGuardian().isUnderPressure();
+}
+
+/**
+ * Get raw export stats trackers for advanced monitoring
+ */
+export function getExportStatsTrackers() {
+  return {
+    traces: traceExportStats,
+    metrics: metricExportStats,
+    logs: logExportStats,
   };
 }
 

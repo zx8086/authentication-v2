@@ -65,11 +65,11 @@ spec:
               key: traces-endpoint
         resources:
           requests:
-            cpu: 100m
-            memory: 512Mi
+            cpu: 50m
+            memory: 64Mi
           limits:
-            cpu: "1.0"
-            memory: 1Gi
+            cpu: 500m
+            memory: 256Mi
         livenessProbe:
           httpGet:
             path: /health
@@ -80,12 +80,12 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health/ready
+            path: /health
             port: 3000
           initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         securityContext:
           runAsNonRoot: true
           runAsUser: 65532

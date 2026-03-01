@@ -41,7 +41,7 @@ curl -s http://localhost:3000/debug/info | jq .
 **HTTP Status**: 500
 
 **Symptoms**:
-- POST `/tokens` returns 500 error
+- GET `/tokens` returns 500 error
 - Logs show "Failed to create JWT token"
 
 **Diagnosis**:
@@ -552,12 +552,12 @@ test.skip("winston logger environment tests", () => {
 **Cause**:
 The service implements Elastic Common Schema (ECS) field mapping to transform custom application fields to Elasticsearch-standard field names. If logging or indexing is not configured to recognize these mappings, fields may be stored under non-standard paths.
 
-**Expected ECS Field Structure**:
+**Expected Field Structure**:
 
-| Custom Field | ECS Field | Description |
-|--------------|-----------|-------------|
-| `consumerId` | `user.id` | Consumer identifier from Kong |
-| `username` | `user.name` | Consumer username |
+| Custom Field | Mapped Field | Description |
+|--------------|--------------|-------------|
+| `consumerId` | `consumer.id` | Consumer identifier from Kong |
+| `username` | `consumer.name` | Consumer username |
 | `requestId` | `event.id` | Unique request identifier |
 | `totalDuration` | `event.duration` | Duration in nanoseconds |
 
@@ -568,32 +568,32 @@ The service implements Elastic Common Schema (ECS) field mapping to transform cu
 
 **Verification**:
 ```bash
-# Check if ECS mapping is working
+# Check if field mapping is working
 curl -X GET "http://elasticsearch:9200/logs-*/_search?pretty" -H 'Content-Type: application/json' -d'
 {
   "query": {
     "bool": {
       "must": [
-        { "exists": { "field": "user.id" }},
-        { "exists": { "field": "user.name" }},
+        { "exists": { "field": "consumer.id" }},
+        { "exists": { "field": "consumer.name" }},
         { "exists": { "field": "event.id" }}
       ]
     }
   },
-  "_source": ["user.id", "user.name", "event.id", "event.duration"],
+  "_source": ["consumer.id", "consumer.name", "event.id", "event.duration"],
   "size": 10
 }
 '
 ```
 
 **Resolution**:
-1. **Verify Winston logger configuration**: Ensure ECS formatter is enabled (`src/telemetry/winston-logger.ts:108-135`)
-2. **Check Elasticsearch index template**: Verify ECS field mappings are defined
-3. **Review log shipper configuration**: Ensure Filebeat/Fluentd is configured to preserve ECS structure
-4. **Query optimization**: Use ECS fields in queries:
+1. **Verify Winston logger configuration**: Ensure field mapping is enabled (`src/telemetry/winston-logger.ts:39-56`)
+2. **Check Elasticsearch index template**: Verify field mappings are defined
+3. **Review log shipper configuration**: Ensure Filebeat/Fluentd is configured to preserve field structure
+4. **Query optimization**: Use mapped fields in queries:
    ```javascript
-   // Good: ECS field query
-   { "term": { "user.id": "consumer-uuid" }}
+   // Good: Mapped field query
+   { "term": { "consumer.id": "consumer-uuid" }}
 
    // Avoid: Custom field query
    { "term": { "consumerId": "consumer-uuid" }}
@@ -1067,7 +1067,7 @@ cat .stryker-tmp/stryker.log
 3. **Test Trace Continuity:**
    ```bash
    # Generate token and verify full trace
-   curl -X POST http://localhost:3000/tokens \
+   curl http://localhost:3000/tokens \
      -H "X-Consumer-ID: 98765432-9876-5432-1098-765432109876" \
      -H "X-Consumer-Username: test-consumer"
 
