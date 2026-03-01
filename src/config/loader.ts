@@ -64,6 +64,8 @@ const envSchema = z
     TELEMETRY_CB_RECOVERY_TIMEOUT: z.coerce.number().int().min(1000).max(600000).optional(),
     TELEMETRY_CB_SUCCESS_THRESHOLD: z.coerce.number().int().min(1).max(20).optional(),
     TELEMETRY_CB_MONITORING_INTERVAL: z.coerce.number().int().min(1000).max(60000).optional(),
+    OTEL_RUNTIME_METRICS_ENABLED: z.string().optional(),
+    MEMORY_GUARDIAN_HEAP_LIMIT_MB: z.coerce.number().int().min(64).max(32768).optional(),
 
     HIGH_AVAILABILITY: z
       .string()
@@ -433,6 +435,8 @@ export function initializeConfig(): AppConfig {
           exportTimeout: envConfig.OTEL_EXPORTER_OTLP_TIMEOUT,
           batchSize: envConfig.OTEL_BSP_MAX_EXPORT_BATCH_SIZE,
           maxQueueSize: envConfig.OTEL_BSP_MAX_QUEUE_SIZE,
+          runtimeMetricsEnabled: toBool(envConfig.OTEL_RUNTIME_METRICS_ENABLED, undefined),
+          memoryGuardianHeapLimitMB: envConfig.MEMORY_GUARDIAN_HEAP_LIMIT_MB,
         }).filter(([, value]) => value !== undefined)
       ),
       infrastructure: detectInfrastructure(),

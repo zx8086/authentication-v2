@@ -50,22 +50,25 @@ export interface MemoryGuardianConfig {
 
   // Enable automatic remediation actions
   enableAutoRemediation: boolean; // Default: false (log-only mode)
+
+  // Heap limit in MB for percentage calculations (4-pillar config)
+  // Bun doesn't expose v8.getHeapStatistics().heap_size_limit
+  heapLimitMB: number; // Default: 512
 }
 
+// CPU optimization: Increase monitoring interval from 5s to 30s
+// Profile analysis showed checkHealth() consuming 4.2% CPU with getHealth() at 1.4%.
+// 30s interval provides adequate memory visibility while reducing overhead by 83%.
 const DEFAULT_CONFIG: MemoryGuardianConfig = {
   elevatedThreshold: 60,
   highThreshold: 75,
   criticalThreshold: 85,
   failureRateWarning: 10,
   failureRateCritical: 25,
-  monitoringIntervalMs: 5000,
+  monitoringIntervalMs: 30000, // Reduced from 5000ms to 30000ms
   enableAutoRemediation: false,
+  heapLimitMB: 512, // Override via telemetry.memoryGuardianHeapLimitMB in 4-pillar config
 };
-
-// Default heap limit assumption for percentage calculations
-// Bun doesn't expose v8.getHeapStatistics().heap_size_limit, so we use a reasonable default
-// This can be overridden via MEMORY_GUARDIAN_HEAP_LIMIT_MB env var
-const DEFAULT_HEAP_LIMIT_MB = Number(process.env.MEMORY_GUARDIAN_HEAP_LIMIT_MB) || 512;
 
 // Startup warmup period - suppress warnings during initial heap growth
 const STARTUP_WARMUP_MS = 30_000; // 30 seconds
@@ -89,7 +92,7 @@ export class TelemetryMemoryGuardian {
   private monitoringInterval: ReturnType<typeof setInterval> | null = null;
   private lastHealth: QueueHealth | null = null;
   private healthHistory: QueueHealth[] = [];
-  private maxHistorySize = 60; // Keep 5 minutes of history at 5s intervals
+  private maxHistorySize = 10; // Keep 5 minutes of history at 30s intervals
   private startTime: number = Date.now(); // Track startup time for warmup period
 
   constructor(config: Partial<MemoryGuardianConfig> = {}) {
@@ -153,7 +156,7 @@ export class TelemetryMemoryGuardian {
     const heapTotalMB = Math.round(heapStats.heapTotal / 1024 / 1024);
     // Use configured heap limit instead of dynamic heapTotal to avoid false positives
     // during startup when heapTotal is small and growing
-    const heapUsagePercent = Math.round((heapUsedMB / DEFAULT_HEAP_LIMIT_MB) * 100);
+    const heapUsagePercent = Math.round((heapUsedMB / this.config.heapLimitMB) * 100);
 
     const traceStatsData = this.traceStats?.getStats();
     const metricStatsData = this.metricStats?.getStats();
@@ -260,7 +263,7 @@ export class TelemetryMemoryGuardian {
         pressure_level: "critical",
         heap_usage_percent: health.heapUsagePercent,
         heap_used_mb: health.heapUsedMB,
-        heap_limit_mb: DEFAULT_HEAP_LIMIT_MB,
+        heap_limit_mb: this.config.heapLimitMB,
         export_backlog_traces: health.exportBacklog.traces,
         export_backlog_metrics: health.exportBacklog.metrics,
         export_backlog_logs: health.exportBacklog.logs,
@@ -273,7 +276,7 @@ export class TelemetryMemoryGuardian {
         pressure_level: "high",
         heap_usage_percent: health.heapUsagePercent,
         heap_used_mb: health.heapUsedMB,
-        heap_limit_mb: DEFAULT_HEAP_LIMIT_MB,
+        heap_limit_mb: this.config.heapLimitMB,
         export_failure_rate_traces: health.exportFailureRate.traces,
         export_failure_rate_metrics: health.exportFailureRate.metrics,
         export_failure_rate_logs: health.exportFailureRate.logs,

@@ -61,6 +61,11 @@ export class KongCircuitBreakerService {
   private staleCacheCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
   // Flag to prevent cleanup race conditions during shutdown
   private isShuttingDown = false;
+  // CPU optimization: Cache circuit breaker stats to reduce opossum status.js overhead
+  // Profile analysis showed status.js consuming 1.6% CPU via frequent stats calculations
+  private cachedStats: Record<string, OpossumCircuitBreakerStats> | null = null;
+  private cachedStatsTimestamp = 0;
+  private readonly statsCacheTtlMs = 5000; // Cache stats for 5 seconds
 
   constructor(
     config: CircuitBreakerConfig & { highAvailability?: boolean },
@@ -218,6 +223,8 @@ export class KongCircuitBreakerService {
       const breaker = new CircuitBreaker(actionWrapper, circuitBreakerOptions);
 
       breaker.on("open", () => {
+        // Invalidate stats cache on state change so getStats() returns fresh state
+        this.cachedStats = null;
         telemetryEmitter.warn(SpanEvents.CB_STATE_OPEN, `Circuit breaker opened for ${operation}`, {
           operation,
           component: "circuit_breaker",
@@ -228,6 +235,8 @@ export class KongCircuitBreakerService {
       });
 
       breaker.on("halfOpen", () => {
+        // Invalidate stats cache on state change so getStats() returns fresh state
+        this.cachedStats = null;
         telemetryEmitter.info(
           SpanEvents.CB_STATE_HALF_OPEN,
           `Circuit breaker half-open for ${operation}`,
@@ -242,6 +251,8 @@ export class KongCircuitBreakerService {
       });
 
       breaker.on("close", () => {
+        // Invalidate stats cache on state change so getStats() returns fresh state
+        this.cachedStats = null;
         telemetryEmitter.info(
           SpanEvents.CB_STATE_CLOSED,
           `Circuit breaker closed for ${operation}`,
@@ -279,6 +290,8 @@ export class KongCircuitBreakerService {
       });
 
       this.breakers.set(operation, breaker);
+      // Invalidate stats cache when new breaker is created so getStats() includes it
+      this.cachedStats = null;
     }
     const breaker = this.breakers.get(operation);
     if (!breaker) {
@@ -708,6 +721,14 @@ export class KongCircuitBreakerService {
   }
 
   getStats(): Record<string, OpossumCircuitBreakerStats> {
+    const now = Date.now();
+
+    // Return cached stats if still valid (within TTL)
+    if (this.cachedStats && now - this.cachedStatsTimestamp < this.statsCacheTtlMs) {
+      return this.cachedStats;
+    }
+
+    // Rebuild stats from all breakers
     const stats: Record<string, OpossumCircuitBreakerStats> = {};
 
     for (const [operation, breaker] of this.breakers) {
@@ -728,6 +749,10 @@ export class KongCircuitBreakerService {
         },
       };
     }
+
+    // Update cache
+    this.cachedStats = stats;
+    this.cachedStatsTimestamp = now;
 
     return stats;
   }

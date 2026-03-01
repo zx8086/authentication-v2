@@ -578,6 +578,15 @@ export const TelemetryConfigSchema = z
       .describe(
         "Enable runtime metrics instrumentation (event loop, memory). Disabled by default to save ~10% CPU."
       ),
+    memoryGuardianHeapLimitMB: z
+      .number()
+      .int()
+      .min(64)
+      .max(32768)
+      .optional()
+      .describe(
+        "Heap limit in MB for memory pressure calculations. Bun doesn't expose v8 heap_size_limit."
+      ),
     infrastructure: z.object({
       isKubernetes: z.boolean(),
       isEcs: z.boolean(),

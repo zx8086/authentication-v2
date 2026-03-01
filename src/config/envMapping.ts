@@ -89,6 +89,7 @@ export const envVarMapping = {
     circuitBreakerSuccessThreshold: "TELEMETRY_CB_SUCCESS_THRESHOLD",
     circuitBreakerMonitoringInterval: "TELEMETRY_CB_MONITORING_INTERVAL",
     runtimeMetricsEnabled: "OTEL_RUNTIME_METRICS_ENABLED",
+    memoryGuardianHeapLimitMB: "MEMORY_GUARDIAN_HEAP_LIMIT_MB",
   },
   profiling: {
     enabled: "PROFILING_ENABLED",

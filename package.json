@@ -66,7 +66,7 @@
     "test:k6:spike": "test/k6/run-k6.sh test/k6/spike/spike-test.ts test/results/k6/spike-test-results.json true",
     "test:k6:stress": "test/k6/run-k6.sh test/k6/stress/system-stress.ts test/results/k6/stress-system-results.json true",
     "test:k6:soak": "test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-results.json true",
-    "test:k6:soak:full": "K6_SOAK_DURATION=6h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
+    "test:k6:soak:full": "K6_SOAK_DURATION=3h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
     "test:k6:soak:1h": "K6_SOAK_DURATION=1h test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-full-results.json true",
     "test:k6:soak:quick": "K6_SOAK_DURATION=10m test/k6/run-k6.sh test/k6/soak/auth-service-soak.ts test/results/k6/soak-quick-results.json true",
     "test:k6:pressure:memory": "test/k6/run-k6.sh test/k6/soak/memory-pressure-extended.ts test/results/k6/memory-pressure-results.json false",

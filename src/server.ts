@@ -134,11 +134,14 @@ try {
     );
   };
 
-  initializeGCMetrics(gcMetricsCallback, 30000);
+  // CPU optimization: Increase GC metrics interval from 30s to 60s
+  // Profile analysis showed collectGCMetrics consuming 10.5% CPU due to heapStats() calls.
+  // 60s interval provides adequate GC visibility while reducing overhead by 50%.
+  initializeGCMetrics(gcMetricsCallback, 60000);
   log("GC metrics collection started", {
     component: "gc_metrics",
     event: "initialization_success",
-    intervalMs: 30000,
+    intervalMs: 60000,
   });
 } catch (initError) {
   error("Failed to initialize OpenTelemetry - service will continue without telemetry export", {

@@ -104,6 +104,9 @@ export const defaultConfig: AppConfig = {
     // Memory optimization: Runtime metrics disabled by default to save ~10% CPU
     // Enable via OTEL_RUNTIME_METRICS_ENABLED=true if event loop delay metrics are needed
     runtimeMetricsEnabled: false,
+    // Memory Guardian heap limit for percentage calculations (Bun doesn't expose v8 heap_size_limit)
+    // Override if your container has a different memory limit
+    memoryGuardianHeapLimitMB: 512,
     infrastructure: {
       isKubernetes: false,
       isEcs: false,

@@ -37,6 +37,7 @@ src/telemetry/
 ├── telemetry-circuit-breaker.ts # Per-signal circuit breakers
 ├── telemetry-health-monitor.ts  # Export health tracking
 ├── export-stats-tracker.ts      # Export success/failure stats
+├── memory-guardian.ts          # Telemetry backpressure monitoring
 ├── gc-metrics.ts               # Garbage collection monitoring
 ├── sla-monitor.ts              # SLA violation detection
 ├── profiling-metrics.ts        # Profiling integration
@@ -129,6 +130,78 @@ This workaround can be removed if:
 References:
 - Commit 5a42d2f (SIO-446) - Complete span events migration for tokens handler
 - Heap profiles `Heap.393129709695.69364.md` (startup) and `Heap.397287268637.70440.md` (under load)
+
+### Memory Guardian: Telemetry Backpressure Monitoring
+
+The `TelemetryMemoryGuardian` (`src/telemetry/memory-guardian.ts`) monitors heap memory usage and telemetry export health to detect backpressure issues that could lead to Uint8Array buffer accumulation.
+
+#### How It Works
+
+Memory Guardian periodically checks:
+1. **Heap Usage**: Compared against configured heap limit (default: 512MB)
+2. **Export Failure Rates**: Per-signal (traces, metrics, logs) failure percentages
+3. **Export Backlog**: Failed exports that may be accumulating buffers
+
+Based on these metrics, it calculates a **pressure level**:
+
+| Level | Heap Usage | Condition |
+|-------|-----------|-----------|
+| `normal` | < 60% | No action needed |
+| `elevated` | >= 60% | Monitor closely |
+| `high` | >= 75% | Consider reducing batch sizes |
+| `critical` | >= 85% | Immediate attention required |
+
+#### Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `MEMORY_GUARDIAN_HEAP_LIMIT_MB` | `512` | Heap limit for percentage calculations |
+
+The heap limit setting is important because Bun doesn't expose `v8.getHeapStatistics().heap_size_limit`. Set this to match your container's memory limit for accurate pressure detection.
+
+#### Monitoring Interval
+
+The guardian runs health checks every **30 seconds** (reduced from 5s to minimize CPU overhead). Profile analysis showed the previous 5s interval consumed 4.2% CPU.
+
+#### Log Output
+
+When pressure is detected, warnings are logged with context:
+
+```json
+{
+  "message": "Memory pressure detected",
+  "component": "memory-guardian",
+  "pressure_level": "high",
+  "heap_usage_percent": 78,
+  "heap_used_mb": 400,
+  "heap_limit_mb": 512,
+  "export_failure_rate_traces": 15,
+  "export_failure_rate_metrics": 0,
+  "export_failure_rate_logs": 5
+}
+```
+
+#### Recommendations
+
+At elevated or higher pressure, the guardian provides actionable recommendations:
+- Reduce `OTEL_BSP_MAX_QUEUE_SIZE` to limit buffer accumulation
+- Check OTLP endpoint connectivity if failure rates are high
+- Reduce batch sizes via `OTEL_BSP_MAX_EXPORT_BATCH_SIZE`
+
+### Runtime Metrics Optimization
+
+Runtime metrics collection (event loop delay, detailed memory stats) is **disabled by default** to reduce CPU overhead.
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `OTEL_RUNTIME_METRICS_ENABLED` | `false` | Enable detailed runtime metrics |
+
+**When to Enable:**
+- Debugging event loop blocking issues
+- Investigating memory growth patterns
+- Performance profiling sessions
+
+**CPU Impact:** Enabling runtime metrics adds approximately 10% CPU overhead due to frequent sampling of event loop and memory statistics.
 
 **Initialization Flow:**
 

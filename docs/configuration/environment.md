@@ -91,6 +91,17 @@ The authentication service implements a robust configuration pattern with compre
 | `TELEMETRY_CB_SUCCESS_THRESHOLD` | Successes to close | `3` | 1-20 |
 | `TELEMETRY_CB_MONITORING_INTERVAL` | Monitoring interval (ms) | `10000` | 1000-60000 |
 
+### Telemetry Performance Optimization
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `OTEL_RUNTIME_METRICS_ENABLED` | Enable runtime metrics (event loop, memory) | `false` | boolean |
+| `MEMORY_GUARDIAN_HEAP_LIMIT_MB` | Heap limit for memory pressure calculations | `512` | 64-32768 |
+
+**Performance Notes:**
+- **Runtime Metrics**: Disabled by default to save ~10% CPU overhead. Enable if you need event loop delay or detailed memory metrics.
+- **Memory Guardian**: Monitors telemetry backpressure and heap usage. The heap limit is used for percentage calculations since Bun doesn't expose v8's `heap_size_limit`. Override this value to match your container's memory limit for accurate pressure detection.
+
 #### Per-Operation Overrides
 
 Circuit breaker supports operation-specific settings:
