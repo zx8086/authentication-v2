@@ -1403,7 +1403,7 @@ A: Possible causes:
 ### Performance
 
 **Q: What is the expected response time?**
-A: See [Performance SLA](SLA.md) for detailed thresholds:
+A: See [Performance SLA](sla.md) for detailed thresholds:
 - Health checks: <50ms (P95)
 - Token generation: <100ms (P95)
 - Token validation: <50ms (P95)
@@ -1533,7 +1533,7 @@ curl -X POST http://localhost:3000/tokens \
 
 ## Related Documentation
 
-- [Performance SLA](SLA.md) - SLA definitions and thresholds
+- [Performance SLA](sla.md) - SLA definitions and thresholds
 - [Monitoring Guide](monitoring.md) - Observability setup
 - [API Endpoints](../api/endpoints.md) - Complete API reference
-- [Environment Setup](../configuration/environment-setup.md) - Configuration options
+- [Environment Setup](../configuration/environment.md) - Configuration options

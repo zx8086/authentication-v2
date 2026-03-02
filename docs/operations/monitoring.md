@@ -1563,7 +1563,7 @@ OTLP connectivity checks add network latency to health endpoint response times:
 - **Without OTLP checks**: p95 ~50ms, p99 ~100ms
 - **With OTLP checks**: p95 ~400ms, p99 ~500ms
 
-**SLA Thresholds** have been adjusted to account for OTLP validation latency. See [SLA.md](SLA.md) for updated thresholds.
+**SLA Thresholds** have been adjusted to account for OTLP validation latency. See [sla.md](sla.md) for updated thresholds.
 
 #### Use Cases
 
@@ -2188,8 +2188,8 @@ The service implements a cardinality guard to prevent metric explosion:
 
 ### Related Documentation
 
-- [Performance SLA](SLA.md) - SLA definitions and monitoring thresholds
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and resolutions
+- [Performance SLA](sla.md) - SLA definitions and monitoring thresholds
+- [Troubleshooting Guide](troubleshooting.md) - Common issues and resolutions
 
 ---
 

@@ -312,5 +312,5 @@ export const tokenThresholds = {
 ## Related Documentation
 
 - [Monitoring Guide](monitoring.md) - Detailed observability setup
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and resolutions
+- [Troubleshooting Guide](troubleshooting.md) - Common issues and resolutions
 - [API Endpoints](../api/endpoints.md) - Complete API reference

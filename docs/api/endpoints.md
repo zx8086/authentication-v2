@@ -508,7 +508,7 @@ OTLP validation adds network latency to health check response times:
 - **Without OTLP checks**: p95 ~50ms, p99 ~100ms
 - **With OTLP checks**: p95 ~400ms, p99 ~500ms
 
-**SLA Thresholds**: Health endpoint thresholds have been adjusted to account for OTLP validation latency. See [SLA.md](../operations/SLA.md) for updated performance targets.
+**SLA Thresholds**: Health endpoint thresholds have been adjusted to account for OTLP validation latency. See [sla.md](../operations/sla.md) for updated performance targets.
 
 **Cache Object Location**: For detailed cache statistics including hit rates, tier usage, and operations by backend, use the `/metrics` endpoint. The `/health` endpoint provides basic cache health only.
 
@@ -1121,7 +1121,7 @@ The service uses standardized error codes for programmatic error handling:
 | `AUTH_011` | 400 | Invalid Token | JWT token is invalid or malformed |
 | `AUTH_012` | 400 | Missing Authorization | Bearer token required but not provided |
 
-For detailed troubleshooting of each error code, see the [Troubleshooting Guide](../operations/TROUBLESHOOTING.md).
+For detailed troubleshooting of each error code, see the [Troubleshooting Guide](../operations/troubleshooting.md).
 
 ### Common Error Scenarios
 ```typescript
