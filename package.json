@@ -244,7 +244,7 @@
     "js-yaml": "^4.1.1",
     "@isaacs/brace-expansion": "^5.0.1",
     "systeminformation": ">=5.31.0",
-    "minimatch": ">=10.2.1"
+    "minimatch": ">=10.2.3"
   },
   "dependencies": {
     "@elastic/ecs-pino-format": "^1.5.0",
@@ -270,6 +270,7 @@
     "@opentelemetry/sdk-trace-base": "^2.5.1",
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "@opentelemetry/winston-transport": "^0.22.0",
+    "minimatch": "^10.2.2",
     "opossum": "^9.0.0",
     "pino": "^10.3.1",
     "redis": "^5.11.0",

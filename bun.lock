@@ -28,6 +28,7 @@
         "@opentelemetry/sdk-trace-base": "^2.5.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
         "@opentelemetry/winston-transport": "^0.22.0",
+        "minimatch": "^10.2.2",
         "opossum": "^9.0.0",
         "pino": "^10.3.1",
         "redis": "^5.11.0",
@@ -60,7 +61,7 @@
   "overrides": {
     "@isaacs/brace-expansion": "^5.0.1",
     "js-yaml": "^4.1.1",
-    "minimatch": ">=10.2.1",
+    "minimatch": ">=10.2.3",
     "systeminformation": ">=5.31.0",
   },
   "packages": {
@@ -716,7 +717,7 @@
 
     "minimalistic-assert": ["minimalistic-assert@1.0.1", "", {}, "sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A=="],
 
-    "minimatch": ["minimatch@10.2.2", "", { "dependencies": { "brace-expansion": "^5.0.2" } }, "sha512-+G4CpNBxa5MprY+04MbgOw1v7So6n5JY166pFi9KfYwT78fxScCeSNQSNzp6dpPSW2rONOps6Ocam1wFhCgoVw=="],
+    "minimatch": ["minimatch@10.2.4", "", { "dependencies": { "brace-expansion": "^5.0.2" } }, "sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg=="],
 
     "minipass": ["minipass@7.1.2", "", {}, "sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw=="],
 
