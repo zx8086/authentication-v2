@@ -168,6 +168,7 @@ old/
 # -------------------------------
 scripts/
 !scripts/generate-openapi.ts
+!scripts/patch-otel-esm.ts
 
 # Additional build optimization exclusions
 # ----------------------------------------
