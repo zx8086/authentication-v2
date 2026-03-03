@@ -6,6 +6,12 @@ import { KongAdapter } from "./adapters/kong.adapter";
 import type { IKongService } from "./config";
 import { loadConfig } from "./config/index";
 import {
+  inflightTracker,
+  LifecycleState,
+  lifecycleCoordinator,
+  lifecycleStateMachine,
+} from "./lifecycle";
+import {
   logServiceReady,
   logServiceShutdownCompleted,
   logServiceShutdownError,
@@ -15,7 +21,6 @@ import {
 import { handleServerError } from "./middleware/error-handler";
 import { getApiDocGenerator } from "./openapi-generator";
 import { createRoutes } from "./routes/router";
-import { CacheFactory } from "./services/cache/cache-factory";
 import { profilingService } from "./services/profiling.service";
 import { shutdownCardinalityGuard } from "./telemetry/cardinality-guard";
 import { shutdownConsumerVolume } from "./telemetry/consumer-volume";
@@ -220,6 +225,9 @@ try {
 const { routes, fallbackFetch } = createRoutes(kongService);
 let server: ReturnType<typeof Bun.serve>;
 
+// SIO-452: Transition to STARTING state before server initialization
+lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+
 try {
   server = Bun.serve({
     port: config.server.port,
@@ -362,20 +370,37 @@ log("Profiling service status", {
 // Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
 logServiceReady(config.server.port);
 
+// SIO-452: Transition to READY state - now accepting requests
+lifecycleStateMachine.transitionTo(LifecycleState.READY);
+
 log("Server ready to serve requests", {
   component: "server",
   event: "ready",
   status: "ready",
+  lifecycle_state: lifecycleStateMachine.getState(),
 });
 
 let isShuttingDown = false;
 
+/**
+ * Graceful shutdown with lifecycle state machine coordination.
+ *
+ * Shutdown sequence (SIO-452):
+ * 1. Transition to DRAINING - stop accepting new requests
+ * 2. Wait for in-flight requests to complete
+ * 3. Transition to STOPPING - close connections
+ * 4. Shutdown all lifecycle-aware components in priority order
+ * 5. Cleanup remaining resources
+ * 6. Transition to STOPPED and exit
+ */
 const gracefulShutdown = async (signal: string) => {
-  if (isShuttingDown) {
+  // SIO-452: Use lifecycle state machine for duplicate check
+  if (isShuttingDown || lifecycleStateMachine.getState() !== LifecycleState.READY) {
     log("Shutdown already in progress, ignoring duplicate signal", {
       component: "server",
       event: "shutdown_duplicate",
       signal,
+      lifecycle_state: lifecycleStateMachine.getState(),
     });
     return;
   }
@@ -388,14 +413,16 @@ const gracefulShutdown = async (signal: string) => {
   // Set environment variable for lifecycle logger
   process.env.SHUTDOWN_SIGNAL = signal;
 
+  // SIO-452: Increased timeout to allow proper draining (15s vs 10s)
   const shutdownTimeout = setTimeout(() => {
     error("Graceful shutdown timeout - forcing exit", {
       component: "server",
       event: "shutdown_timeout",
       pid: process.pid,
+      inflight_requests: inflightTracker.getActiveCount(),
     });
     process.exit(1);
-  }, 10000);
+  }, 15000);
 
   try {
     // Phase 1: Log complete shutdown sequence (batch approach)
@@ -405,21 +432,51 @@ const gracefulShutdown = async (signal: string) => {
     // Phase 2: Flush all shutdown messages to OTLP
     await lifecycleLogger.flushShutdownMessages();
 
-    // Phase 3: Actual system shutdown (no more logging after this point)
+    // SIO-452 Phase 3: Transition to DRAINING - stop accepting NEW requests
+    lifecycleStateMachine.transitionTo(LifecycleState.DRAINING);
+
+    // SIO-452 Phase 4: Stop server from accepting new connections
     if (server) {
       server.stop();
     }
 
-    // Close cache connections (Redis/Valkey) to prevent connection leaks
-    await CacheFactory.reset();
+    // SIO-452 Phase 5: Wait for in-flight requests to complete (max 5 seconds)
+    const drainResult = await inflightTracker.waitForCompletion({ timeoutMs: 5000 });
+    if (!drainResult.drained) {
+      warn("Request drain timeout - forcing shutdown with remaining requests", {
+        component: "server",
+        event: "drain_timeout",
+        remaining_requests: drainResult.remaining,
+        completed_requests: drainResult.completedCount,
+        drain_duration_ms: drainResult.durationMs,
+      });
+    }
 
-    // Clear all intervals to prevent memory leaks
+    // SIO-452 Phase 6: Transition to STOPPING - close connections
+    lifecycleStateMachine.transitionTo(LifecycleState.STOPPING);
+
+    // SIO-452 Phase 7: Shutdown all lifecycle-aware components in priority order
+    const shutdownResult = await lifecycleCoordinator.shutdownAll({ componentTimeoutMs: 3000 });
+    if (!shutdownResult.success) {
+      warn("Some components failed to shutdown gracefully", {
+        component: "server",
+        event: "component_shutdown_partial",
+        failed_components: shutdownResult.failedComponents,
+        total_duration_ms: shutdownResult.totalDurationMs,
+      });
+    }
+
+    // Phase 8: Clear all intervals to prevent memory leaks
     shutdownGCMetrics();
     shutdownConsumerVolume();
     shutdownCardinalityGuard();
     shutdownTelemetryCircuitBreakers();
 
+    // Phase 9: Final cleanup - telemetry, metrics, profiling
     await Promise.all([shutdownMetrics(), shutdownSimpleTelemetry(), profilingService.shutdown()]);
+
+    // SIO-452 Phase 10: Transition to STOPPED
+    lifecycleStateMachine.transitionTo(LifecycleState.STOPPED);
 
     // Critical lifecycle log - ALWAYS visible regardless of LOG_LEVEL
     logServiceShutdownCompleted();
@@ -434,6 +491,7 @@ const gracefulShutdown = async (signal: string) => {
       component: "server",
       event: "shutdown_error",
       error: err instanceof Error ? err.message : "Unknown error",
+      lifecycle_state: lifecycleStateMachine.getState(),
     });
 
     clearTimeout(shutdownTimeout);

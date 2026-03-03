@@ -9,6 +9,7 @@ import {
   handleReadinessCheck,
   handleTelemetryHealth,
 } from "../../../src/handlers/health";
+import { LifecycleState, lifecycleStateMachine } from "../../../src/lifecycle";
 import { APIGatewayService } from "../../../src/services/api-gateway.service";
 import { disableFetchPolyfill, enableFetchPolyfill } from "../../integration/setup";
 import {
@@ -24,6 +25,11 @@ describe("Health Handlers", () => {
 
   beforeAll(async () => {
     enableFetchPolyfill();
+    // SIO-452: Set lifecycle to READY for health handler tests
+    lifecycleStateMachine.reset();
+    lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+    lifecycleStateMachine.transitionTo(LifecycleState.READY);
+
     const context = await setupKongTestContext();
     kongAvailable = context.available;
     kongAdapter = context.adapter;
@@ -35,6 +41,7 @@ describe("Health Handlers", () => {
   afterAll(() => {
     disableFetchPolyfill();
     resetKongAvailabilityCache();
+    lifecycleStateMachine.reset();
   });
 
   describe("handleHealthCheck", () => {

@@ -110,6 +110,11 @@ export class LocalMemoryCache implements IKongCacheService {
     };
   }
 
+  async isHealthy(): Promise<boolean> {
+    // Local memory cache is always healthy
+    return true;
+  }
+
   private recordHit(latency: number): void {
     this.stats.hits++;
     this.stats.totalLatency += latency;

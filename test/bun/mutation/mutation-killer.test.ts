@@ -3,7 +3,7 @@
 // Comprehensive mutation-killing tests with strict assertions
 // Strategy: Test exact values, use input-sensitive mocks, verify all branches
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { IKongService } from "../../../src/config";
 import { ErrorCodes } from "../../../src/errors/error-codes";
 import {
@@ -13,6 +13,7 @@ import {
   handleTelemetryHealth,
 } from "../../../src/handlers/health";
 import { handleTokenRequest, handleTokenValidation } from "../../../src/handlers/tokens";
+import { LifecycleState, lifecycleStateMachine } from "../../../src/lifecycle";
 import { NativeBunJWT } from "../../../src/services/jwt.service";
 import { WRONG_SECRET_LONG } from "../../shared/test-constants";
 import { TestConsumerSecretFactory } from "../../shared/test-consumer-secrets";
@@ -26,6 +27,16 @@ let testSecret: string;
 let testKey: string;
 
 describe("Mutation Killer Tests - Strict Assertions", () => {
+  // SIO-452: Set lifecycle to READY for health handler tests
+  beforeAll(() => {
+    lifecycleStateMachine.reset();
+    lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+    lifecycleStateMachine.transitionTo(LifecycleState.READY);
+  });
+
+  afterAll(() => {
+    lifecycleStateMachine.reset();
+  });
   describe("Token Handler - ObjectLiteral Mutations", () => {
     let mockKongService: IKongService;
     let getConsumerSecretCalls: string[];

@@ -124,6 +124,27 @@ export const SpanEvents = {
   VALIDATION_FAILED_STRICT: "validation.failed.strict",
   VALIDATION_JSON_PARSE_FAILED: "validation.json.parse_failed",
   VALIDATION_ARRAY_FILTERED: "validation.array.filtered",
+
+  // Lifecycle State Machine Events
+  LIFECYCLE_STATE_CHANGED: "lifecycle.state.changed",
+  LIFECYCLE_DRAIN_STARTED: "lifecycle.drain.started",
+  LIFECYCLE_DRAIN_COMPLETED: "lifecycle.drain.completed",
+  LIFECYCLE_DRAIN_TIMEOUT: "lifecycle.drain.timeout",
+  LIFECYCLE_COMPONENT_REGISTERED: "lifecycle.component.registered",
+  LIFECYCLE_COMPONENT_SHUTDOWN: "lifecycle.component.shutdown",
+  LIFECYCLE_SHUTDOWN_STARTED: "lifecycle.shutdown.started",
+  LIFECYCLE_SHUTDOWN_COMPLETED: "lifecycle.shutdown.completed",
+
+  // Request Tracking Events
+  REQUEST_INFLIGHT_STARTED: "request.inflight.started",
+  REQUEST_INFLIGHT_COMPLETED: "request.inflight.completed",
+  REQUEST_REJECTED_DRAINING: "request.rejected.draining",
+  REQUEST_REJECTED_NOT_READY: "request.rejected.not_ready",
+
+  // Redis Operation Tracking Events
+  REDIS_OPERATION_STARTED: "redis.operation.started",
+  REDIS_OPERATION_COMPLETED: "redis.operation.completed",
+  REDIS_OPERATION_DRAIN_WAIT: "redis.operation.drain_wait",
 } as const;
 
 /**

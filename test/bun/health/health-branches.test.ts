@@ -1,7 +1,8 @@
 // test/bun/health/health-branches.test.ts
 
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { IKongService, KongHealthCheckResult } from "../../../src/config";
+import { LifecycleState, lifecycleStateMachine } from "../../../src/lifecycle";
 import type { CircuitBreakerStats } from "../../../src/services/circuit-breaker.service";
 
 // Mock Kong service for controlled testing
@@ -41,6 +42,17 @@ function createMockKongService(options: {
 }
 
 describe("Health Handler Branch Coverage - Mutation Testing", () => {
+  // SIO-452: Set lifecycle to READY for health handler tests
+  beforeAll(() => {
+    lifecycleStateMachine.reset();
+    lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+    lifecycleStateMachine.transitionTo(LifecycleState.READY);
+  });
+
+  afterAll(() => {
+    lifecycleStateMachine.reset();
+  });
+
   // Use .env as-is - no env manipulation needed
 
   describe("handleHealthCheck status codes", () => {

@@ -3,6 +3,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { KongAdapter } from "../../../src/adapters/kong.adapter";
 import type { IKongService } from "../../../src/config";
+import { LifecycleState, lifecycleStateMachine } from "../../../src/lifecycle";
 import { APIGatewayService } from "../../../src/services/api-gateway.service";
 import {
   getSkipMessage,
@@ -18,6 +19,11 @@ describe("Health Handler Fetch Behavior - Real HTTP", () => {
   let kongService: IKongService | null = null;
 
   beforeAll(async () => {
+    // SIO-452: Set lifecycle to READY for health handler tests
+    lifecycleStateMachine.reset();
+    lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+    lifecycleStateMachine.transitionTo(LifecycleState.READY);
+
     const context = await setupKongTestContext();
     kongAvailable = context.available;
     kongAdapter = context.adapter;
@@ -28,6 +34,7 @@ describe("Health Handler Fetch Behavior - Real HTTP", () => {
 
   afterAll(() => {
     resetKongAvailabilityCache();
+    lifecycleStateMachine.reset();
   });
 
   beforeEach(async () => {

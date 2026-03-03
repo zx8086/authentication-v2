@@ -8,6 +8,7 @@ import {
   type IKongCacheService,
   type KongCacheStats,
 } from "../../config/schemas";
+import { lifecycleStateMachine } from "../../lifecycle";
 import { recordCacheOperation, recordRedisConnection } from "../../telemetry/metrics";
 import {
   instrumentRedisOperation,
@@ -28,6 +29,7 @@ import {
   withOperationTimeout,
 } from "./cache-operation-timeout";
 import { CacheScanIterator, DEFAULT_SCAN_CONFIG } from "./cache-scan-iterator";
+import { redisOperationTracker } from "./redis-operation-tracker";
 
 export class SharedRedisCache implements IKongCacheService {
   private client: RedisClient | null = null;
@@ -84,9 +86,15 @@ export class SharedRedisCache implements IKongCacheService {
   /**
    * Ensures the Redis client is connected before operations.
    * Uses circuit breaker and reconnection manager for resilience.
+   * Checks lifecycle state to prevent operations during shutdown.
    * @throws Error if the client is not connected and reconnection fails
    */
   private async ensureConnected(): Promise<RedisClient> {
+    // Check lifecycle state first - reject operations during shutdown (SIO-452)
+    if (lifecycleStateMachine.isShuttingDown()) {
+      throw new Error("Cache is shutting down - operation rejected");
+    }
+
     if (!this.client) {
       throw new Error("Redis client not connected. Call connect() first.");
     }
@@ -677,6 +685,16 @@ export class SharedRedisCache implements IKongCacheService {
     }
   }
 
+  async isHealthy(): Promise<boolean> {
+    try {
+      const client = await this.ensureConnected();
+      const response = await client.send("PING", []);
+      return response === "PONG";
+    } catch {
+      return false;
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.healthMonitor) {
       this.healthMonitor.stop();
@@ -685,6 +703,38 @@ export class SharedRedisCache implements IKongCacheService {
 
     const client = this.client;
     if (client) {
+      // SIO-452: Wait for pending Redis operations before closing connection
+      const pendingCount = redisOperationTracker.getPendingCount();
+      if (pendingCount > 0) {
+        telemetryEmitter.info(
+          SpanEvents.REDIS_OPERATION_DRAIN_WAIT,
+          "Waiting for pending Redis operations before disconnect",
+          {
+            component: "cache",
+            operation: "disconnect_drain_start",
+            pending_count: pendingCount,
+            client: "bun-native",
+          }
+        );
+
+        // Stop accepting new operations
+        redisOperationTracker.stopAcceptingOperations();
+
+        // Wait up to 3 seconds for pending operations to complete
+        const drained = await redisOperationTracker.waitForCompletion(3000);
+
+        telemetryEmitter.info(
+          SpanEvents.REDIS_OPERATION_DRAIN_WAIT,
+          `Redis operation drain ${drained ? "completed" : "timeout"}`,
+          {
+            component: "cache",
+            operation: drained ? "disconnect_drain_completed" : "disconnect_drain_timeout",
+            remaining_count: redisOperationTracker.getPendingCount(),
+            client: "bun-native",
+          }
+        );
+      }
+
       try {
         await client.close();
       } catch (error) {

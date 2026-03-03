@@ -3,7 +3,7 @@
 // Focused mutation testing for health.ts handlers
 // Tests specifically designed to kill surviving mutants
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { IKongService, KongCacheStats } from "../../../src/config";
 import {
   handleHealthCheck,
@@ -11,6 +11,7 @@ import {
   handleReadinessCheck,
   handleTelemetryHealth,
 } from "../../../src/handlers/health";
+import { LifecycleState, lifecycleStateMachine } from "../../../src/lifecycle";
 import type { CircuitBreakerStats } from "../../../src/services/circuit-breaker.service";
 
 describe("Health Handler Mutation Tests", () => {
@@ -25,6 +26,17 @@ describe("Health Handler Mutation Tests", () => {
   };
 
   let mockKongService: IKongService;
+
+  beforeAll(() => {
+    // SIO-452: Set lifecycle to READY for health handler tests
+    lifecycleStateMachine.reset();
+    lifecycleStateMachine.transitionTo(LifecycleState.STARTING);
+    lifecycleStateMachine.transitionTo(LifecycleState.READY);
+  });
+
+  afterAll(() => {
+    lifecycleStateMachine.reset();
+  });
 
   beforeEach(() => {
     mockKongService = {

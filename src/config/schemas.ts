@@ -544,6 +544,58 @@ export const CorsConfigSchema = z.strictObject({
   maxAge: z.number().int().min(0).max(86400).describe("Preflight cache duration in seconds"),
 });
 
+/**
+ * Lifecycle drain configuration for graceful shutdown.
+ * @see SIO-452: Fix ERR_REDIS_CONNECTION_CLOSED During Container Lifecycle
+ */
+export const LifecycleDrainConfigSchema = z.strictObject({
+  enabled: z.boolean().default(true).describe("Enable request draining during shutdown"),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(1000)
+    .max(30000)
+    .default(5000)
+    .describe("Maximum time to wait for in-flight requests to complete"),
+  checkIntervalMs: z
+    .number()
+    .int()
+    .min(50)
+    .max(1000)
+    .default(100)
+    .describe("Interval between drain progress checks"),
+});
+
+/**
+ * Lifecycle shutdown configuration.
+ * @see SIO-452: Fix ERR_REDIS_CONNECTION_CLOSED During Container Lifecycle
+ */
+export const LifecycleShutdownConfigSchema = z.strictObject({
+  timeoutMs: z
+    .number()
+    .int()
+    .min(5000)
+    .max(60000)
+    .default(15000)
+    .describe("Maximum total shutdown time before forced exit"),
+  componentTimeoutMs: z
+    .number()
+    .int()
+    .min(1000)
+    .max(10000)
+    .default(3000)
+    .describe("Maximum time for each component to shutdown"),
+});
+
+/**
+ * Combined lifecycle configuration.
+ * @see SIO-452: Fix ERR_REDIS_CONNECTION_CLOSED During Container Lifecycle
+ */
+export const LifecycleConfigSchema = z.strictObject({
+  drain: LifecycleDrainConfigSchema,
+  shutdown: LifecycleShutdownConfigSchema,
+});
+
 export const ApiInfoConfigSchema = z.strictObject({
   title: NonEmptyString.describe("API title"),
   description: NonEmptyString.describe("API description"),
@@ -724,6 +776,7 @@ export interface IKongCacheService {
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
   getStats(): Promise<KongCacheStats>;
+  isHealthy(): Promise<boolean>;
   connect?(): Promise<void>;
   disconnect?(): Promise<void>;
   getStale?(key: string): Promise<ConsumerSecret | null>;

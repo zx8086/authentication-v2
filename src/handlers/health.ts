@@ -3,6 +3,7 @@
 import { dns } from "bun";
 import pkg from "../../package.json" with { type: "json" };
 import { loadConfig } from "../config/index";
+import { lifecycleStateMachine } from "../lifecycle";
 import { CacheFactory } from "../services/cache/cache-factory";
 import { CacheHealthService } from "../services/cache-health.service";
 import type { IKongService } from "../services/kong.service";
@@ -495,6 +496,16 @@ export function handleTelemetryHealth(): Response {
   }
 }
 
+/**
+ * Readiness check handler.
+ *
+ * Checks:
+ * - Lifecycle state (must be READY to accept requests)
+ * - Kong connectivity
+ * - Redis/cache health (if high availability enabled)
+ *
+ * @see SIO-452: Added lifecycle and Redis checks
+ */
 export async function handleReadinessCheck(kongService: IKongService): Promise<Response> {
   const requestId = generateRequestId();
   const startTime = getHighResTime();
@@ -507,6 +518,34 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
   });
 
   try {
+    // SIO-452: Check lifecycle state first - must be READY to accept requests
+    const lifecycleState = lifecycleStateMachine.getState();
+    if (!lifecycleStateMachine.canAcceptRequests()) {
+      log("Readiness check failed - service not accepting requests", {
+        component: "health",
+        operation: "readiness_lifecycle_check",
+        lifecycle_state: lifecycleState,
+        requestId,
+      });
+
+      return createHealthResponse(
+        {
+          ready: false,
+          timestamp: new Date().toISOString(),
+          reason: `Service is ${lifecycleState}`,
+          checks: {
+            lifecycle: {
+              status: "not_ready",
+              state: lifecycleState,
+            },
+          },
+          requestId,
+        },
+        503,
+        requestId
+      );
+    }
+
     // Readiness probe specifically checks Kong connectivity
     // Service is "ready" when it can perform authentication operations
     const kongHealthStartTime = getHighResTime();
@@ -529,15 +568,44 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
     }
 
     const kongHealthDuration = calculateDuration(kongHealthStartTime);
+
+    // SIO-452: Check Redis/cache health if high availability is enabled
+    let cacheHealthy = true;
+    let cacheStatus = "healthy";
+    let cacheError: string | undefined;
+
+    if (config.caching.highAvailability) {
+      try {
+        const cacheService = await CacheFactory.createKongCache();
+        cacheHealthy = await cacheService.isHealthy();
+        cacheStatus = cacheHealthy ? "healthy" : "unhealthy";
+      } catch (cacheErr) {
+        cacheHealthy = false;
+        cacheStatus = "unhealthy";
+        cacheError = cacheErr instanceof Error ? cacheErr.message : "Cache check failed";
+        log("Cache health check failed during readiness probe", {
+          component: "health",
+          operation: "readiness_cache_check",
+          error: cacheError,
+          requestId,
+        });
+      }
+    }
+
     const totalDuration = calculateDuration(startTime);
 
-    const isReady = kongHealth.healthy;
+    // SIO-452: Service is ready when lifecycle is READY AND Kong is healthy AND cache is healthy
+    const isReady = kongHealth.healthy && cacheHealthy;
     const statusCode = isReady ? 200 : 503;
 
     const readinessData = {
       ready: isReady,
       timestamp: new Date().toISOString(),
       checks: {
+        lifecycle: {
+          status: "ready",
+          state: lifecycleState,
+        },
         kong: {
           status: kongHealth.healthy ? "healthy" : "unhealthy",
           responseTime: formatResponseTime(kongHealthDuration),
@@ -547,6 +615,13 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
             ...(kongHealth.error && { error: kongHealth.error }),
           },
         },
+        ...(config.caching.highAvailability && {
+          cache: {
+            status: cacheStatus,
+            type: "redis",
+            ...(cacheError && { error: cacheError }),
+          },
+        }),
       },
       responseTime: formatResponseTime(totalDuration),
       requestId,
@@ -557,6 +632,8 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
       operation: "readiness_check_complete",
       ready: isReady,
       kongHealthy: kongHealth.healthy,
+      cacheHealthy,
+      lifecycle_state: lifecycleState,
       duration: totalDuration,
       requestId,
     });

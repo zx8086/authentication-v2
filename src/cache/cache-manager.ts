@@ -1,5 +1,10 @@
 // src/cache/cache-manager.ts
 import type { IKongCacheService, KongCacheStats } from "../config/schemas";
+import {
+  type ComponentHealthStatus,
+  type LifecycleAwareComponent,
+  lifecycleCoordinator,
+} from "../lifecycle";
 import { SpanEvents, telemetryEmitter } from "../telemetry/tracer";
 import { LocalMemoryBackend } from "./backends/local-memory-backend";
 import { SharedRedisBackend } from "./backends/shared-redis-backend";
@@ -10,13 +15,71 @@ import type {
   ICacheService,
 } from "./cache.interface";
 
-export class UnifiedCacheManager implements ICacheService, IKongCacheService {
+/**
+ * Unified Cache Manager
+ *
+ * Manages cache operations with support for multiple backends (Redis, local memory).
+ * Implements LifecycleAwareComponent for graceful shutdown coordination.
+ *
+ * @see SIO-452: Fix ERR_REDIS_CONNECTION_CLOSED During Container Lifecycle
+ */
+export class UnifiedCacheManager
+  implements ICacheService, IKongCacheService, LifecycleAwareComponent
+{
+  /** Component name for lifecycle coordination */
+  readonly name = "cache_manager";
+
+  /**
+   * Shutdown priority (60 = mid-priority).
+   * - Higher than telemetry (40) and logging (10)
+   * - Lower than HTTP server (100) and Kong operations (80)
+   */
+  readonly priority = 60;
+
   private backend: ICacheBackend | null = null;
   private config: CacheManagerConfig;
   private initializationPromise: Promise<void> | null = null;
 
+  /** Flag to prevent new operations during shutdown */
+  private shuttingDown = false;
+
   constructor(config: CacheManagerConfig) {
     this.config = config;
+
+    // Register with lifecycle coordinator for coordinated shutdown (SIO-452)
+    lifecycleCoordinator.register(this);
+  }
+
+  /**
+   * Prepare for shutdown - stop accepting new operations.
+   * Called when entering DRAINING state.
+   */
+  async prepareForShutdown(): Promise<void> {
+    this.shuttingDown = true;
+    telemetryEmitter.info(
+      SpanEvents.CACHE_MANAGER_SHUTDOWN,
+      "Cache manager preparing for shutdown",
+      {
+        component: "cache_manager",
+        operation: "prepare_shutdown",
+        strategy: this.backend?.strategy ?? "none",
+      }
+    );
+  }
+
+  /**
+   * Get component health status for lifecycle coordinator.
+   */
+  getHealthStatus(): ComponentHealthStatus {
+    return {
+      name: this.name,
+      healthy: !this.shuttingDown && this.backend !== null,
+      details: {
+        strategy: this.backend?.strategy ?? "none",
+        shuttingDown: this.shuttingDown,
+        initialized: this.backend !== null,
+      },
+    };
   }
 
   async get<T>(key: string): Promise<T | null> {
