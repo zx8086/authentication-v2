@@ -29,7 +29,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [overview.md](architecture/overview.md) | System design, authentication flow, and technology stack |
+| [overview.md](architecture/overview.md) | System design, authentication flow, lifecycle management, and technology stack |
 
 ### Configuration
 
@@ -94,6 +94,7 @@
 | **Security** | Zero client-side secrets, centralized token management |
 | **Error Handling** | RFC 7807 Problem Details with structured error codes |
 | **Resilience** | Circuit breaker with stale cache fallback |
+| **Graceful Shutdown** | 7-state lifecycle with request draining and component coordination |
 | **Caching** | Redis/Valkey support with auto-detection |
 | **Observability** | Comprehensive OpenTelemetry instrumentation |
 | **Container** | DHI distroless builds (0 CVEs, 12/12 security score, attestation verification) |

@@ -95,6 +95,7 @@ The client never sees, stores, or transmits the JWT signing secret. They only ha
 
 - **Native Performance**: Built on Bun runtime with `crypto.subtle` Web API, delivering 100,000+ req/sec with <10ms p99 latency
 - **Resilient Operation**: Circuit breaker with stale cache fallback ensures token generation continues even during Kong Admin API outages
+- **Graceful Shutdown**: 7-state lifecycle management with request draining and coordinated component shutdown
 - **Full Observability**: W3C Trace Context propagation and OpenTelemetry instrumentation for end-to-end distributed tracing
 - **Kong Flexibility**: Unified adapter supporting both self-hosted Kong API Gateway and Kong Konnect SaaS
 - **RFC Compliance**: 8 RFC standards implemented (JWT 7519, Problem Details 7807, Sunset 8594, HTTP Semantics 9110, Conditional Requests 7232, and more)
@@ -134,7 +135,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
-| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (2994 tests) |
+| Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (3191 tests) |
 | Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry observability |
 | SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Operational runbook and diagnostics |
@@ -159,7 +160,7 @@ bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 
 ### Testing
 ```bash
-bun run test:bun              # Unit + integration tests (2994 tests)
+bun run test:bun              # Unit + integration tests (3191 tests)
 bun run test:e2e              # E2E tests (3 suites)
 bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
 bun run test:suite            # Full test suite with parallel execution

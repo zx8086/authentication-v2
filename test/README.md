@@ -2,11 +2,12 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 2994 tests across 116 files (100% pass rate)
+**Current Test Suite**: 3191 tests across 121 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
 | Unit Tests | 105 | 3000+ | Bun |
+| Lifecycle Tests | 5 | 197 | Bun |
 | Chaos Tests | 4 | 57 | Bun |
 | Integration Tests | 4 | 50+ | Bun |
 | E2E Tests | 3 | 32 | Playwright |
@@ -55,6 +56,7 @@ test/
 │   ├── types/        # Type definition tests (1 file)
 │   └── utils/        # Utility functions (15 files)
 ├── chaos/            # Chaos Engineering Tests (57 tests across 4 files)
+├── lifecycle/        # Lifecycle Management Tests (197 tests across 5 files)
 ├── integration/      # Integration Tests (6 test files)
 ├── k6/               # Performance Tests (19 test files)
 │   ├── smoke/        # Quick validation tests
@@ -219,7 +221,33 @@ bun test --coverage                        # With coverage
 - **Better Maintainability**: Related tests are grouped together
 - **Git History Preserved**: All files moved with `git mv` to maintain history
 
-### 2. Integration Tests
+### 2. Lifecycle Tests - Graceful Shutdown Testing
+**Purpose**: Validate 7-state lifecycle management and graceful shutdown
+**Framework**: Bun native test runner
+**When to run**: After unit tests, validates shutdown behavior
+
+**Test Files** (5 files, 197 tests):
+- `lifecycle-state-machine.test.ts` - State transitions, validation, edge cases (197 tests)
+- `lifecycle-coordinator.test.ts` - Component orchestration and priority ordering
+- `inflight-request-tracker.test.ts` - Request draining and timeout handling
+- `redis-operation-tracker.test.ts` - Redis operation completion tracking
+- `graceful-shutdown.test.ts` - End-to-end shutdown scenarios
+
+**Commands**:
+```bash
+bun test test/bun/lifecycle/              # All lifecycle tests
+bun test test/bun/lifecycle/lifecycle-state-machine.test.ts  # State machine tests
+```
+
+**What Lifecycle Tests Cover**:
+- State machine transitions (INITIALIZING -> STARTING -> READY -> DRAINING -> STOPPING -> STOPPED)
+- Invalid transition rejection and error state handling
+- Component registration, priority ordering, and shutdown coordination
+- Request tracking during drain with configurable timeouts
+- Redis operation completion before disconnect
+- Concurrent operations and edge cases
+
+### 3. Integration Tests
 **Purpose**: Service-to-service integration validation, real dependency testing
 **Framework**: Bun native test runner
 **When to run**: After unit tests pass, before E2E tests
@@ -236,7 +264,7 @@ bun test test/integration/           # All integration tests
 bun test test/integration/kong*.ts   # Kong-specific integration
 ```
 
-### 3. Playwright Tests - E2E Scenarios
+### 5. Playwright Tests - E2E Scenarios
 **Purpose**: End-to-end business logic validation, real API testing
 **Framework**: Playwright for API testing
 **When to run**: Pre-deployment, staging validation, comprehensive testing
@@ -276,7 +304,7 @@ bun run test:e2e:ui                       # Interactive test UI
 - Request/response timing headers - Not implemented by service
 - Custom error formatting - Service uses simple error responses
 
-### 4. K6 Tests - Performance Testing
+### 6. K6 Tests - Performance Testing
 **Purpose**: Load testing, stress testing, performance validation
 **Framework**: K6 performance testing tool
 **When to run**: Performance validation, capacity planning, pre-production

@@ -310,11 +310,73 @@ Auth Service
 - `kong.adapter.ts` - Unified Kong adapter (API Gateway + Konnect)
 - Redis client with automatic failover
 
+### Lifecycle Management (`src/lifecycle/`)
+- `lifecycle-state-machine.ts` - 7-state machine (INITIALIZING, STARTING, READY, DRAINING, STOPPING, STOPPED, ERROR)
+- `lifecycle-coordinator.ts` - Component shutdown orchestration with priority ordering
+- `inflight-request-tracker.ts` - Active request tracking for graceful draining
+- `redis-operation-tracker.ts` - Redis operation completion tracking
+
 ### Key Features
 - **Response Builders**: Standardized response patterns
 - **Stale Cache Resilience**: Up to 2 hours during Kong outages
 - **4-Pillar Configuration**: Enterprise-grade configuration management
 - **Profiling Service**: Chrome DevTools integration for performance analysis
+- **Graceful Shutdown**: 7-state lifecycle with request draining and component coordination
+
+---
+
+## Graceful Shutdown
+
+The service implements a comprehensive lifecycle management system for graceful shutdown.
+
+### Lifecycle States
+
+```
+INITIALIZING -> STARTING -> READY -> DRAINING -> STOPPING -> STOPPED
+                              |                      |
+                              +-----> ERROR <--------+
+```
+
+| State | Description | Health Response |
+|-------|-------------|-----------------|
+| **INITIALIZING** | Service starting up | 503 Service Unavailable |
+| **STARTING** | Dependencies connecting | 503 Service Unavailable |
+| **READY** | Accepting requests | 200 OK |
+| **DRAINING** | Completing in-flight requests, rejecting new | 503 Service Unavailable |
+| **STOPPING** | Components shutting down | 503 Service Unavailable |
+| **STOPPED** | Shutdown complete | N/A |
+| **ERROR** | Unrecoverable error state | 503 Service Unavailable |
+
+### Shutdown Sequence
+
+1. **SIGTERM/SIGINT received** - Transition to DRAINING state
+2. **Request draining** - New requests rejected with 503, in-flight requests complete
+3. **Component coordination** - Components shutdown in priority order (high to low)
+4. **Redis operation tracking** - Wait for pending Redis operations (3s timeout)
+5. **Resource cleanup** - Close connections, flush telemetry, clear intervals
+6. **Exit** - Process terminates cleanly
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Drain Timeout | 30 seconds | Max time to wait for in-flight requests |
+| Component Timeout | 5 seconds | Per-component shutdown timeout |
+| Redis Drain Timeout | 3 seconds | Wait for pending Redis operations |
+
+### Request Rejection During Shutdown
+
+During DRAINING state, new requests receive:
+
+```json
+{
+  "type": "urn:problem-type:auth-service:service-unavailable",
+  "title": "Service Shutting Down",
+  "status": 503,
+  "detail": "Service is shutting down. Please retry with another instance.",
+  "code": "SERVICE_DRAINING"
+}
+```
 
 ---
 
