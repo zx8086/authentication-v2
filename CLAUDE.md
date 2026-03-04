@@ -39,7 +39,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Category | Document | Description |
 |----------|----------|-------------|
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup, commands, and workflow |
-| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (17 endpoints) |
 | Architecture | [overview.md](docs/architecture/overview.md) | System design and authentication flow |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3191 tests, mutation testing) |
@@ -383,7 +383,7 @@ For troubleshooting each error, see [troubleshooting.md](docs/operations/trouble
 | Documentation | OpenAPI spec, RFC 8594 Sunset headers, RTO/RPO targets |
 | Docker | DHI distroless base (0 CVEs, 12/12 security score, SLSA Level 3) |
 | CI/CD | Parallel security scanning (5 scanners + CodeQL) |
-| Kubernetes | PDB, HPA, 22 Prometheus AlertManager rules, External Secrets options |
+| Kubernetes | PDB, HPA, 20 Prometheus AlertManager rules, External Secrets options |
 
 For detailed production considerations, see [sla.md](docs/operations/sla.md) and [monitoring.md](docs/operations/monitoring.md).
 

@@ -10,8 +10,8 @@ Comprehensive testing for the Bun-based authentication service with four-tier te
 | Lifecycle Tests | 5 | 197 | Bun |
 | Chaos Tests | 4 | 57 | Bun |
 | Integration Tests | 4 | 50+ | Bun |
-| E2E Tests | 3 | 32 | Playwright |
-| Performance Tests | 19 | - | K6 |
+| E2E Tests | 4 | 58 | Playwright |
+| Performance Tests | 21 | - | K6 |
 
 ## Live Backend Testing Strategy
 
@@ -58,14 +58,14 @@ test/
 ├── chaos/            # Chaos Engineering Tests (57 tests across 4 files)
 ├── lifecycle/        # Lifecycle Management Tests (197 tests across 5 files)
 ├── integration/      # Integration Tests (6 test files)
-├── k6/               # Performance Tests (19 test files)
+├── k6/               # Performance Tests (21 test files)
 │   ├── smoke/        # Quick validation tests
 │   ├── load/         # Production load simulation
 │   ├── stress/       # Breaking point analysis
 │   ├── spike/        # Traffic burst testing
 │   ├── soak/         # Extended endurance testing
 │   └── utils/        # Shared utilities and configurations
-├── playwright/       # E2E Scenarios (3 test suites)
+├── playwright/       # E2E Scenarios (4 test suites)
 ├── kong-simulator/   # Kong proxy simulator for testing
 ├── shared/           # Shared test utilities and consumer setup
 ├── results/          # Test execution results and reports (gitignored)
@@ -199,7 +199,7 @@ test/
 
 **Commands**:
 ```bash
-bun run test:bun                           # All Bun tests (2994 tests)
+bun run test:bun                           # All Bun tests (3191 tests)
 bun test test/bun/jwt.service.test.ts      # Specific test file
 bun test test/bun/cache/                   # All cache tests (selective testing)
 bun test test/bun/kong/                    # All Kong integration tests (live backends)
@@ -605,7 +605,7 @@ Authorization: Bearer <jwt-token>
 
 ### Comprehensive Testing Strategy
 ```bash
-# 1. Unit & Integration (fastest) - ~25 seconds, 2994 tests
+# 1. Unit & Integration (fastest) - ~25 seconds, 3191 tests
 bun run test:bun
 
 # 2. E2E Scenarios (thorough) - 2-3 minutes

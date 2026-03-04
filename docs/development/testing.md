@@ -6,8 +6,8 @@ This document consolidates all testing documentation for the authentication serv
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Count** | 2994 tests (100% pass rate) |
-| **Bun Unit/Integration Tests** | 2994 tests across 116 files |
+| **Total Test Count** | 3191 tests (100% pass rate) |
+| **Bun Unit/Integration Tests** | 3191 tests across 121 files |
 | **Chaos Engineering Tests** | 57 tests across 4 suites |
 | **Playwright E2E Tests** | 58 tests across 4 files |
 | **Mutation Score** | 100% (all mutants killed) |
@@ -15,7 +15,7 @@ This document consolidates all testing documentation for the authentication serv
 
 ### Test Organization
 
-105 test files organized into logical subdirectories by domain:
+121 test files organized into logical subdirectories by domain:
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|

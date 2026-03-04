@@ -706,7 +706,7 @@ roleRef:
 
 ## Prometheus AlertManager Rules
 
-The project includes 22 AlertManager rules based on SLA thresholds (see `k8s/prometheus-rules.yaml`):
+The project includes 20 AlertManager rules based on SLA thresholds (see `k8s/prometheus-rules.yaml`):
 
 | Alert Group | Description |
 |-------------|-------------|

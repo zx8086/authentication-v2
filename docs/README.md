@@ -22,7 +22,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [endpoints.md](api/endpoints.md) | All 16 API endpoints with request/response formats |
+| [endpoints.md](api/endpoints.md) | All 17 API endpoints with request/response formats |
 | [jwt-tokens.md](api/jwt-tokens.md) | JWT token structure, claims, and validation |
 
 ### Architecture

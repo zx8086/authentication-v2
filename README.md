@@ -132,7 +132,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 | Category | Document | Description |
 |----------|----------|-------------|
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup and workflow |
-| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
+| API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (17 endpoints) |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Deployment | [docker.md](docs/deployment/docker.md) | Container builds and deployment |
 | Testing | [test/README.md](test/README.md) | Comprehensive testing documentation (3191 tests) |
@@ -188,7 +188,7 @@ curl http://localhost:3000/metrics   # Operational metrics
 | `/health/metrics` | GET | Metrics system health |
 | `/metrics` | GET | Operational metrics |
 
-**Additional Endpoints**: Debug endpoints for profiling and metrics testing. See [endpoints.md](docs/api/endpoints.md) for complete API documentation (16 endpoints total).
+**Additional Endpoints**: Debug endpoints for profiling and metrics testing. See [endpoints.md](docs/api/endpoints.md) for complete API documentation (17 endpoints total).
 
 ## Environment Configuration
 
