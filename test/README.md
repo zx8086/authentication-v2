@@ -2,16 +2,16 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 3191 tests across 121 files (100% pass rate)
+**Current Test Suite**: 3191 tests across 143 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
-| Unit Tests | 105 | 3000+ | Bun |
+| Unit Tests | 107 | 3000+ | Bun |
 | Lifecycle Tests | 5 | 197 | Bun |
 | Chaos Tests | 4 | 57 | Bun |
-| Integration Tests | 4 | 50+ | Bun |
+| Integration Tests | 5 | 50+ | Bun |
 | E2E Tests | 4 | 58 | Playwright |
-| Performance Tests | 21 | - | K6 |
+| Performance Tests | 18 | - | K6 |
 
 ## Live Backend Testing Strategy
 
@@ -38,7 +38,7 @@ This project follows a **live environment testing strategy**:
 
 ```
 test/
-├── bun/              # Unit Tests (106 test files in 16 subdirectories)
+├── bun/              # Unit Tests (112 test files in 16 subdirectories)
 │   ├── adapters/     # Kong adapter tests (5 files)
 │   ├── cache/        # Caching functionality (12 files)
 │   ├── circuit-breaker/  # Circuit breaker patterns (5 files)
@@ -57,8 +57,8 @@ test/
 │   └── utils/        # Utility functions (15 files)
 ├── chaos/            # Chaos Engineering Tests (57 tests across 4 files)
 ├── lifecycle/        # Lifecycle Management Tests (197 tests across 5 files)
-├── integration/      # Integration Tests (6 test files)
-├── k6/               # Performance Tests (21 test files)
+├── integration/      # Integration Tests (5 test files)
+├── k6/               # Performance Tests (18 test files)
 │   ├── smoke/        # Quick validation tests
 │   ├── load/         # Production load simulation
 │   ├── stress/       # Breaking point analysis
@@ -80,7 +80,7 @@ test/
 **When to run**: During development, pre-commit, CI/CD
 **Testing Strategy**: Live backends (Kong, Redis, Bun.serve()) - no mocks unless explicitly required
 
-**Test Files** (97 files organized by subdirectory):
+**Test Files** (107 files organized by subdirectory):
 
 **cache/ (14 files)** - Caching functionality:
 - `cache-factory.test.ts` - Cache factory infrastructure
@@ -252,11 +252,12 @@ bun test test/bun/lifecycle/lifecycle-state-machine.test.ts  # State machine tes
 **Framework**: Bun native test runner
 **When to run**: After unit tests pass, before E2E tests
 
-**Test Files** (4 files):
+**Test Files** (5 files):
 - `kong-adapter.integration.test.ts` - Kong adapter integration with real API calls
 - `kong-service.integration.test.ts` - Kong service layer integration
 - `circuit-breaker.integration.test.ts` - Circuit breaker behavior with real failures
 - `redis-cache.integration.test.ts` - Redis cache integration patterns
+- `otlp-export.integration.test.ts` - OpenTelemetry export integration testing
 
 **Commands**:
 ```bash
@@ -269,10 +270,11 @@ bun test test/integration/kong*.ts   # Kong-specific integration
 **Framework**: Playwright for API testing
 **When to run**: Pre-deployment, staging validation, comprehensive testing
 
-**Test Files** (3 suites):
+**Test Files** (4 suites):
 - `consolidated-business.e2e.ts` - Core business logic and JWT token flows
 - `ci-safe.e2e.ts` - CI-safe subset of E2E tests
 - `profiling.e2e.ts` - Performance profiling endpoint testing
+- `api-best-practices.e2e.ts` - API best practices and standards validation
 
 **Commands**:
 ```bash
