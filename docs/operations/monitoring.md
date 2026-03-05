@@ -9,10 +9,19 @@ The service implements cost-optimized observability using vendor-neutral OpenTel
 The telemetry system consists of three pillars (traces, metrics, logs) with supporting infrastructure for resilience and cardinality management.
 
 ```
+src/logging/                   # Logging subsystem (SIO-447)
+├── container.ts               # DI container for backend selection (Pino/Winston)
+├── ports/logger.port.ts       # ILogger / ITelemetryLogger interfaces
+├── adapters/pino.adapter.ts   # Default Pino backend (ECS, OTLP, trace context)
+├── adapters/winston.adapter.ts # Legacy Winston wrapper
+└── critical-lifecycle.ts      # Always-visible lifecycle messages (bypass LOG_LEVEL)
+
 src/telemetry/
 ├── instrumentation.ts      # NodeSDK initialization, exporters, processors
 ├── tracer.ts               # Custom span creation API
-├── winston-logger.ts       # Structured logging with OTLP transport
+├── telemetry-emitter.ts    # Unified span events + logs API
+├── span-event-names.ts     # Type-safe span event constants (148 events)
+├── winston-logger.ts       # Legacy Winston logging with OTLP transport
 ├── metrics.ts              # Legacy metrics entry point
 ├── metrics/                # Modular metrics system
 │   ├── index.ts            # Public API exports
@@ -338,9 +347,12 @@ In observability backends (Elastic APM, Datadog, Jaeger):
 
 #### Structured Logging
 - ECS (Elastic Common Schema) format
-- Winston transport with OpenTelemetry correlation
+- Pino (default) or Winston backend via `LOGGING_BACKEND` env var
+- OpenTelemetry trace context correlation
 - Request context propagation
 - Error tracking with stack traces
+
+> For the complete logging architecture, public API, backend comparison, and developer quick start, see **[Logging Guide](../development/logging.md)**.
 
 ### ECS Field Mapping
 
@@ -1038,6 +1050,8 @@ The cardinality stats are exposed in the `/metrics?view=full` endpoint:
 ```
 
 ### Winston Logger API
+
+> **Note:** The default logging backend is now Pino (SIO-447). Winston remains available via `LOGGING_BACKEND=winston`. For the full logging architecture, backend comparison, and developer guide, see **[Logging Guide](../development/logging.md)**.
 
 Structured logging with ECS format and OTLP transport integration.
 

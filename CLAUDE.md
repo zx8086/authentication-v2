@@ -42,6 +42,7 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Architecture | [overview.md](docs/architecture/overview.md) | System design and authentication flow |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
+| Logging | [logging.md](docs/development/logging.md) | Logging architecture, public API, backends, and patterns |
 | Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3191 tests, mutation testing) |
 | Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
 | Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |

@@ -9,6 +9,7 @@
 | Start developing | [Getting Started](development/getting-started.md) |
 | Understand the API | [API Reference](api/endpoints.md) |
 | Configure the service | [Configuration Guide](configuration/environment.md) |
+| Add logging to code | [Logging Guide](development/logging.md) |
 | Run tests | [Testing Guide](development/testing.md) |
 | Deploy to production | [Container Security](deployment/container-security.md) |
 | Debug issues | [Troubleshooting](operations/troubleshooting.md) |
@@ -42,6 +43,7 @@
 | Document | Description |
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
+| [logging.md](development/logging.md) | Logging architecture, public API, configuration, and patterns |
 | [devcontainer.md](development/devcontainer.md) | Zed IDE DevContainer setup for local Docker development |
 | [zed-tasks.md](development/zed-tasks.md) | Complete Zed IDE task reference (172 tasks) |
 | [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation, chaos) |
