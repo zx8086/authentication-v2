@@ -326,7 +326,7 @@ bun run server:kill && bun run dev                      # Clean restart
 - **NEVER apply artificial timeouts to tests**
 - **MANDATORY**: Fix all test failures immediately
 
-For mutation testing guidelines, see [testing.md](docs/development/testing.md#4-mutation-testing-with-strykerjs).
+For mutation testing guidelines, see [testing.md](docs/development/testing.md#5-mutation-testing-with-strykerjs).
 
 **Mutation Testing Commands:**
 ```bash
