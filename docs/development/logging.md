@@ -56,6 +56,16 @@ try {
 audit("token_issued", { consumerId: "abc-123", tokenType: "jwt" });
 ```
 
+**Debug-level logging:** The `src/utils/logger.ts` convenience API does not export a `debug()` function. Use the logger instance directly:
+
+```typescript
+import { getLogger } from "../logging/container";
+
+getLogger().debug("Consumer secret lookup details", { consumerId: "abc-123", cacheHit: false });
+```
+
+Debug messages are only output when `LOG_LEVEL=debug`. They are filtered out at the default `info` level.
+
 ### Using Child Loggers
 
 Child loggers bind context to every subsequent log call, useful for request-scoped logging:
