@@ -185,26 +185,42 @@ bun run typecheck          # Validates TypeScript
 src/
 ├── adapters/              # External service adapters
 │   └── kong.adapter.ts    # Kong Admin API integration
-├── config/                # Configuration management
-│   ├── config.ts          # 4-pillar configuration
-│   └── schemas.ts         # Zod validation schemas
+├── cache/                 # Cache backends (Redis, memory)
+│   └── backends/          # Cache implementations
+├── config/                # Configuration management (4-pillar pattern)
+│   ├── config.ts          # Configuration getters and cache
+│   ├── defaults.ts        # Default values (Pillar 1)
+│   ├── envMapping.ts      # Environment variable mappings (Pillar 2)
+│   ├── loader.ts          # Configuration loading and merging (Pillar 3)
+│   └── schemas.ts         # Zod schema validation (Pillar 4)
+├── errors/                # Error definitions and codes
+│   └── error-codes.ts     # Structured error codes (AUTH_001-012)
 ├── handlers/              # HTTP request handlers
 │   ├── health.ts          # Health check endpoints
 │   ├── metrics.ts         # Metrics and monitoring
 │   ├── openapi.ts         # API documentation
 │   ├── profiling.ts       # Performance profiling
 │   └── tokens.ts          # JWT token generation
+├── lifecycle/             # Application lifecycle management
+├── logging/               # Structured logging system
+│   ├── adapters/          # Logger adapters (Winston, console)
+│   ├── formatters/        # Log formatters
+│   ├── ports/             # Logger interfaces
+│   └── transports/        # Log transports
 ├── middleware/            # HTTP middleware
 │   ├── cors.ts            # CORS handling
 │   └── error-handler.ts   # Error handling
+├── openapi/               # OpenAPI specification
+│   └── schemas/           # API schemas
 ├── routes/                # HTTP routing
 │   └── router.ts          # Bun Routes API integration
 ├── services/              # Business logic services
-│   ├── cache/             # Caching implementations
-│   ├── circuit-breaker/   # Circuit breaker services
-│   ├── jwt/               # JWT generation
-│   ├── legacy/            # Legacy Kong services
-│   └── telemetry/         # OpenTelemetry services
+│   ├── cache/             # Cache service implementations
+│   └── profiling/         # Performance profiling utilities
+├── telemetry/             # OpenTelemetry instrumentation
+│   └── metrics/           # Metrics instruments (65 metrics)
+├── types/                 # TypeScript type definitions
+├── utils/                 # Utility functions
 └── index.ts               # Application entry point
 ```
 

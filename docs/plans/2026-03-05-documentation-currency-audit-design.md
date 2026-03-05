@@ -63,7 +63,7 @@ Run each command with timeout, check exit code or expected output pattern.
 |---------------|------------------------|
 | src/routes/router.ts endpoints | docs/api/endpoints.md |
 | src/config/schemas.ts variables | docs/configuration/environment.md |
-| src/utils/error-codes.ts | docs/operations/troubleshooting.md |
+| src/errors/error-codes.ts | docs/operations/troubleshooting.md |
 
 ### Fix Strategy
 

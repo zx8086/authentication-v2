@@ -309,7 +309,7 @@ grep -E "process\.env\.|z\." src/config/schemas.ts src/config/envMapping.ts | gr
 ### Task 3.3: Verify Error Codes Documented
 
 **Files:**
-- Source: `src/utils/error-codes.ts` or similar
+- Source: `src/errors/error-codes.ts`
 - Docs: `docs/operations/troubleshooting.md`
 - Docs: `CLAUDE.md` (error codes table)
 
