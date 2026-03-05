@@ -279,7 +279,7 @@ bun test test/integration/kong*.ts   # Kong-specific integration
 **Commands**:
 ```bash
 bun run test:e2e                          # All E2E tests (headless)
-bun run test:e2e:headed                   # Run in headed mode (visible browser)
+bun run test:e2e:kong                     # E2E via Kong (captures http-log)
 bun run test:e2e:ui                       # Interactive test UI
 ```
 
