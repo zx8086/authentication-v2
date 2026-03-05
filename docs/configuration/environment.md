@@ -32,6 +32,7 @@ The authentication service implements a robust configuration pattern with compre
 | `KONG_ADMIN_TOKEN` | Admin API token | `Bearer xyz789...` | KONNECT only |
 | `KONG_JWT_AUTHORITY` | JWT token issuer | `https://sts.example.com/` | Yes |
 | `KONG_JWT_AUDIENCE` | JWT token audience | `http://api.example.com/` | Yes |
+| `KONG_JWT_ISSUER` | JWT issuer (overrides authority) | `http://sts.pvhcorp.com/` | No (defaults to authority) |
 | `KONG_JWT_KEY_CLAIM_NAME` | Claim name for consumer key | `key` | No (default: `key`) |
 | `JWT_EXPIRATION_MINUTES` | Token expiration | `15` | No (default: `15`) |
 
@@ -49,10 +50,16 @@ The authentication service implements a robust configuration pattern with compre
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `TELEMETRY_MODE` | Telemetry mode | `console`, `otlp`, `both` | No (default: `both`) |
+| `LOG_LEVEL` | Winston log level | `error`, `warn`, `info`, `debug`, `silent` | No (default: `info`) |
+| `LOGGING_BACKEND` | Logging backend | `pino`, `winston` | No (default: `pino`) |
 | `OTEL_SERVICE_NAME` | Service name | `authentication-service` | No |
 | `OTEL_SERVICE_VERSION` | Service version override | `1.0.0` | No |
 
 **Version Sourcing:** The service version is automatically read from `package.json` at runtime. The `OTEL_SERVICE_VERSION` environment variable can override this for special deployments. This ensures version consistency between `telemetry.serviceVersion` and `apiInfo.version`.
+
+**Logging Backend:**
+- **pino** (default): High-performance structured logging (5-10x faster) with OTEL trace correlation
+- **winston**: Traditional logging with Elastic ECS formatting
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint | `http://otel-collector:4318` | No |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces endpoint | `https://otel.example.com/v1/traces` | No |
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics endpoint | `https://otel.example.com/v1/metrics` | No |
@@ -205,12 +212,31 @@ In HA mode, each service instance lazily populates an in-memory cache on success
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `API_CORS` | CORS origin | No (default: `*`) |
 | `API_TITLE` | OpenAPI title | No |
 | `API_DESCRIPTION` | API description | No |
 | `API_VERSION` | API version | No |
 | `API_CONTACT_NAME` | Contact name | No |
 | `API_CONTACT_EMAIL` | Contact email | No |
+| `API_LICENSE_NAME` | License name | No (default: `Proprietary`) |
+| `API_LICENSE_IDENTIFIER` | License identifier | No (default: `UNLICENSED`) |
+
+### CORS Configuration
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `API_CORS_ORIGIN` | CORS origin | No (default: `*`) |
+| `API_CORS_ALLOW_HEADERS` | Allowed request headers (comma-separated) | No (default: see below) |
+| `API_CORS_ALLOW_METHODS` | Allowed HTTP methods (comma-separated) | No (default: `GET, POST, OPTIONS`) |
+| `API_CORS_MAX_AGE` | Preflight cache duration in seconds | No (default: `86400`) |
+| `API_CORS` | Legacy CORS origin (deprecated) | No (use `API_CORS_ORIGIN` instead) |
+
+**Default Allowed Headers:**
+- `Content-Type`
+- `Authorization`
+- `Accept-Version`
+- `X-Consumer-Id`
+- `X-Consumer-Username`
+- `X-Anonymous-Consumer`
 
 ### Request Validation (API Best Practices)
 
@@ -270,12 +296,15 @@ KONG_JWT_AUDIENCE=http://api.example.com/
 PORT=3000
 NODE_ENV=production
 TELEMETRY_MODE=otlp
+LOG_LEVEL=warn
+LOGGING_BACKEND=pino
 
 KONG_MODE=KONNECT
 KONG_ADMIN_URL=https://us.api.konghq.com/v2/control-planes/abc123
 KONG_ADMIN_TOKEN=kpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 KONG_JWT_AUTHORITY=https://sts.example.com/
 KONG_JWT_AUDIENCE=https://api.example.com/
+KONG_JWT_ISSUER=https://sts.example.com/
 
 # High Availability (Redis or Valkey)
 HIGH_AVAILABILITY=true
@@ -284,25 +313,10 @@ STALE_DATA_TOLERANCE_MINUTES=120
 
 # OpenTelemetry
 OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example.com
+
+# API Configuration
+API_CORS_ORIGIN=https://app.example.com
 ```
-
----
-
-## CORS Configuration
-
-CORS headers are configurable via `API_CORS`:
-
-```typescript
-const corsHeaders = {
-  "Access-Control-Allow-Origin": config.apiInfo.cors,  // API_CORS value
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username",
-  "Access-Control-Max-Age": "86400"
-};
-```
-
-- **Default**: `*` (allows all origins)
-- **Production**: Use specific origins (e.g., `https://app.example.com`)
 
 ---
 
