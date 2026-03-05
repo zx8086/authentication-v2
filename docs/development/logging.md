@@ -264,15 +264,34 @@ When `convertErr: true` and an Error is logged, these additional fields appear:
 
 #### Development Console Format
 
-In development mode (`NODE_ENV` is not `production`/`staging`), the adapter formats output as:
+In development mode (`NODE_ENV` is not `production`/`staging`), the adapter intercepts Pino's NDJSON output via a custom sync destination and reformats it as a human-readable line:
 
 ```
 h:MM:ss TT <color>level</color>: message {context}
 ```
 
-- **Time**: 12-hour format with AM/PM (e.g., `4:25:58 PM`)
-- **Level colors**: trace=gray, debug=cyan, info=green, warn=yellow, error=red, fatal=magenta
-- **Context**: JSON object with ECS metadata fields stripped out
+Example: `4:25:58 PM info: Token generated {"consumer.id":"abc-123","trace.id":"550e8400..."}`
+
+**Format details:**
+- **Time**: 12-hour format with AM/PM, derived from the ECS `@timestamp` field (falls back to Pino's `time` epoch)
+- **Level**: Extracted from ECS `log.level` string (falls back to Pino's numeric `level`)
+- **Message**: From ECS `message` field (falls back to Pino's `msg`)
+- **Context**: Remaining fields serialized as JSON
+
+**ANSI color codes per level:**
+
+| Level | ANSI Code | Color |
+|-------|-----------|-------|
+| trace | `\x1b[90m` | Gray |
+| debug | `\x1b[36m` | Cyan |
+| info | `\x1b[32m` | Green |
+| warn | `\x1b[33m` | Yellow |
+| error | `\x1b[31m` | Red |
+| fatal | `\x1b[35m` | Magenta |
+
+Reset code: `\x1b[0m` (applied after the level name)
+
+The output line is built as: `${timeStr} ${colorCode}${level}${reset}: ${message}${contextJson}\n`
 
 **Stripped ECS metadata fields** (hidden in console, present in NDJSON):
 `@timestamp`, `ecs.version`, `log.level`, `log.logger`, `process.pid`, `host.hostname`, `service.name`, `service.version`, `service.environment`, `event.dataset`
@@ -280,6 +299,76 @@ h:MM:ss TT <color>level</color>: message {context}
 **Also stripped** (Pino internal fields): `level`, `time`, `msg`, `message`, `pid`, `hostname`
 
 What remains visible in `{context}` are your application fields (e.g., `consumer.id`, `trace.id`, `span.id`, `component`, custom fields).
+
+**Complete formatter implementation** (for replicating in another application):
+
+```typescript
+// ECS fields to exclude from console context display
+const ECS_METADATA_FIELDS = new Set([
+  "@timestamp", "ecs.version", "log.level", "log.logger",
+  "process.pid", "host.hostname", "service.name", "service.version",
+  "service.environment", "event.dataset",
+]);
+
+function formatLogLine(obj: Record<string, unknown>): string {
+  // Level: ECS "log.level" string or Pino numeric "level"
+  const ecsLevel = obj["log.level"] as string | undefined;
+  const pinoLevel = obj.level as number | undefined;
+  const levelName = ecsLevel?.toLowerCase() ||
+    (pinoLevel === 10 ? "trace" : pinoLevel === 20 ? "debug" :
+     pinoLevel === 30 ? "info" : pinoLevel === 40 ? "warn" :
+     pinoLevel === 50 ? "error" : pinoLevel === 60 ? "fatal" : "info");
+
+  // Message: ECS "message" or Pino "msg"
+  const msg = (obj.message as string) || (obj.msg as string) || "";
+
+  // Timestamp: ECS "@timestamp" ISO string or Pino "time" epoch
+  const timestamp = obj["@timestamp"] as string | undefined;
+  const pinoTime = obj.time as number | undefined;
+  const date = timestamp ? new Date(timestamp) : new Date(pinoTime || Date.now());
+
+  // ANSI colors
+  const colors: Record<string, string> = {
+    trace: "\x1b[90m", debug: "\x1b[36m", info: "\x1b[32m",
+    warn: "\x1b[33m", error: "\x1b[31m", fatal: "\x1b[35m",
+  };
+  const reset = "\x1b[0m";
+
+  // 12-hour time format: "h:MM:ss TT"
+  const hours = date.getHours();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  const timeStr = `${hour12}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")} ${ampm}`;
+
+  // Extract context: exclude ECS metadata and Pino internal fields
+  const context: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (["level", "time", "msg", "message", "pid", "hostname"].includes(key)) continue;
+    if (ECS_METADATA_FIELDS.has(key)) continue;
+    context[key] = value;
+  }
+
+  const contextStr = Object.keys(context).length > 0 ? ` ${JSON.stringify(context)}` : "";
+  return `${timeStr} ${colors[levelName]}${levelName}${reset}: ${msg}${contextStr}\n`;
+}
+```
+
+This function is used as the development-mode Pino destination:
+
+```typescript
+const formattedDestination = {
+  write: (data: string) => {
+    try {
+      const obj = JSON.parse(data);
+      process.stdout.write(formatLogLine(obj));
+    } catch {
+      process.stdout.write(data); // Fallback for non-JSON
+    }
+  },
+};
+
+const logger = pino(pinoOptions, formattedDestination);
+```
 
 #### Service Metadata Configuration
 
@@ -293,6 +382,78 @@ The `service.*` fields come from `LoggerConfig.service`, loaded by `src/logging/
     version: telemetry.serviceVersion || pkg.version || "1.0.0", // package.json version
     environment: telemetry.environment || "development",         // TELEMETRY_ENVIRONMENT
   }
+}
+```
+
+#### Complete Logger Assembly
+
+This is the full `createLogger()` implementation tying together `ecsFormat`, the trace mixin, and the dual-mode destination. Copy this to replicate the exact logging output in another application:
+
+```typescript
+import { ecsFormat } from "@elastic/ecs-pino-format";
+import { isSpanContextValid, trace } from "@opentelemetry/api";
+import pino from "pino";
+
+function isProductionOutput(): boolean {
+  const env = process.env.NODE_ENV;
+  return env === "production" || env === "staging";
+}
+
+function createLogger(config: {
+  level: string;
+  service: { name: string; version: string; environment: string };
+}): pino.Logger {
+  const { level, service } = config;
+
+  // 1. ECS format options
+  const ecsOptions = ecsFormat({
+    apmIntegration: false,
+    serviceName: service.name,
+    serviceVersion: service.version,
+    serviceEnvironment: service.environment,
+    convertErr: true,
+    convertReqRes: true,
+  });
+
+  // 2. Trace context mixin (ECS dot-notation)
+  const traceMixin = (): Record<string, string> => {
+    const span = trace.getActiveSpan();
+    if (!span) return {};
+    const ctx = span.spanContext();
+    if (!isSpanContextValid(ctx)) return {};
+    return {
+      "trace.id": ctx.traceId,
+      "span.id": ctx.spanId,
+      "transaction.id": ctx.traceId,
+    };
+  };
+
+  // 3. Pino options: ECS format + trace mixin
+  const pinoOptions: pino.LoggerOptions = {
+    level,
+    ...ecsOptions,
+    mixin: traceMixin,
+  };
+
+  // 4. Dual-mode destination
+  if (isProductionOutput()) {
+    // Production: raw ECS NDJSON to stdout
+    return pino(pinoOptions, {
+      write: (data: string) => { process.stdout.write(data); },
+    });
+  }
+
+  // Development: human-readable formatted output
+  return pino(pinoOptions, {
+    write: (data: string) => {
+      try {
+        const obj = JSON.parse(data);
+        process.stdout.write(formatLogLine(obj)); // See "Development Console Format" above
+      } catch {
+        process.stdout.write(data);
+      }
+    },
+  });
 }
 ```
 
@@ -354,6 +515,28 @@ The Pino adapter uses a Pino `mixin` function to inject OpenTelemetry trace cont
 | `transaction.id` | OTEL `spanContext().traceId` | Elastic APM transaction correlation |
 
 **Why a custom mixin?** PinoInstrumentation's built-in mixin uses underscore format (`trace_id`, `span_id`) which conflicts with ECS dot-notation. We disable PinoInstrumentation's log correlation (`disableLogCorrelation: true`) and use our own mixin instead.
+
+**Mixin implementation:**
+
+```typescript
+import { isSpanContextValid, trace } from "@opentelemetry/api";
+
+const traceMixin = (): Record<string, string> => {
+  const span = trace.getActiveSpan();
+  if (!span) return {};
+
+  const ctx = span.spanContext();
+  if (!isSpanContextValid(ctx)) return {};
+
+  return {
+    "trace.id": ctx.traceId,
+    "span.id": ctx.spanId,
+    "transaction.id": ctx.traceId,
+  };
+};
+```
+
+The mixin is passed to Pino via the `mixin` option (see [Complete Logger Assembly](#complete-logger-assembly) below). It runs on every log call and returns an empty object when no OTEL span is active.
 
 This enables click-through navigation from logs to traces in Elastic APM, Jaeger, or Datadog.
 
