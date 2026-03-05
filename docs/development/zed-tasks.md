@@ -4,7 +4,7 @@ This document describes the Zed IDE tasks available in `.zed/tasks.json` for man
 
 ## Overview
 
-The project includes **144 pre-configured Zed tasks** organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
+The project includes **172 pre-configured Zed tasks** organized by category. Tasks can be run from Zed's command palette (`Cmd+Shift+P` > "task: spawn").
 
 ## Task Categories
 

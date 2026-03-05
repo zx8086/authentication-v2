@@ -85,6 +85,12 @@ bun run biome:fix          # Auto-fix Biome issues
 bun run test:bun           # All Bun tests (unit + integration)
 bun run test:bun:watch     # Watch mode
 
+# Integration tests (live backend)
+bun run test:integration          # All integration tests
+bun run test:integration:kong     # Kong-specific integration
+bun run test:integration:circuit  # Circuit breaker integration
+bun run test:integration:full     # Full integration with Docker
+
 # End-to-end tests
 bun run test:e2e           # All Playwright E2E tests (direct mode)
 bun run test:e2e:kong      # E2E tests via Kong (captures http-log)
@@ -96,6 +102,9 @@ bun run test:k6:smoke:tokens    # Token endpoint smoke test
 bun run test:k6:smoke:openapi   # OpenAPI endpoint smoke test
 bun run test:k6:load            # Load testing suite
 bun run test:k6:stress          # Stress testing suite
+bun run test:k6:spike           # Traffic burst testing
+bun run test:k6:soak            # Extended endurance testing
+bun run test:k6:pressure:memory # Memory pressure testing
 
 # Test suites
 bun run test:suite         # Run all tests (Bun + Playwright + K6)
@@ -142,6 +151,27 @@ bun run test:e2e               # Full E2E tests
 bun run docker:build           # Build container
 bun run docker:security:full   # Security validation
 bun run docker:local           # Test locally
+```
+
+### Redis Operations
+```bash
+# Lifecycle
+bun run redis:start        # Start Redis server
+bun run redis:stop         # Stop Redis server
+bun run redis:restart      # Restart Redis server
+bun run redis:remove       # Remove Redis container
+
+# Monitoring
+bun run redis:status       # Check Redis status
+bun run redis:stats        # Redis statistics
+bun run redis:cli          # Open Redis CLI
+bun run redis:logs         # View Redis logs
+
+# Analysis
+bun run redis:scan         # Scan all keys
+bun run redis:scan:auth    # Scan auth-related keys
+bun run redis:bigkeys      # Find large keys
+bun run redis:memkeys      # Memory analysis by key
 ```
 
 ### Health and Debugging
@@ -218,7 +248,7 @@ src/
 │   ├── cache/             # Cache service implementations
 │   └── profiling/         # Performance profiling utilities
 ├── telemetry/             # OpenTelemetry instrumentation
-│   └── metrics/           # Metrics instruments (65 metrics)
+│   └── metrics/           # Metrics instruments (77 metrics)
 ├── types/                 # TypeScript type definitions
 ├── utils/                 # Utility functions
 └── index.ts               # Application entry point

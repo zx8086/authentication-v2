@@ -43,7 +43,7 @@
 |----------|-------------|
 | [getting-started.md](development/getting-started.md) | Development setup, commands, and workflow |
 | [devcontainer.md](development/devcontainer.md) | Zed IDE DevContainer setup for local Docker development |
-| [zed-tasks.md](development/zed-tasks.md) | Complete Zed IDE task reference (144 tasks) |
+| [zed-tasks.md](development/zed-tasks.md) | Complete Zed IDE task reference (172 tasks) |
 | [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation, chaos) |
 | [api-best-practices.md](development/api-best-practices.md) | API standards: method validation, ETag, rate limiting |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong integration, dual-mode E2E testing, http-log setup, test consumers |
@@ -114,11 +114,21 @@
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | OpenAPI specification |
+| `/` | GET | OpenAPI specification (JSON/YAML) |
 | `/tokens` | GET | Issue JWT token |
 | `/tokens/validate` | GET | Validate JWT token |
-| `/health` | GET | Service health |
-| `/health/ready` | GET | Readiness probe |
-| `/metrics` | GET | Performance metrics |
+| `/health` | GET | Service health with dependency status |
+| `/health/ready` | GET | Kubernetes readiness probe |
+| `/health/telemetry` | GET | Telemetry subsystem health |
+| `/health/metrics` | GET | Metrics health with circuit breaker status |
+| `/metrics` | GET | Unified performance metrics |
+| `/debug/metrics/test` | POST | Record test metrics |
+| `/debug/metrics/export` | POST | Force metrics export |
+| `/debug/profiling/start` | POST | Start CPU/heap profiling session |
+| `/debug/profiling/stop` | POST | Stop active profiling session |
+| `/debug/profiling/status` | GET | Profiling subsystem status |
+| `/debug/profiling/reports` | GET | List profiling reports |
+| `/debug/profiling/report` | GET | Get specific profiling report |
+| `/debug/profiling/cleanup` | POST | Clean profiling artifacts |
 
 See [endpoints.md](api/endpoints.md) for complete API documentation.

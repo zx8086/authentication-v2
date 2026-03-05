@@ -303,8 +303,19 @@ Auth Service
 
 ### Service Layer (`src/services/`)
 - `jwt.service.ts` - Token generation using crypto.subtle
-- `cache-manager.ts` - Unified cache with Redis/memory backends
 - `circuit-breaker.service.ts` - Centralized circuit breaker management
+
+### Cache Layer (`src/cache/`)
+- `cache-manager.ts` - Unified cache with Redis/memory backends
+
+### Cache Services (`src/services/cache/`)
+- `cache-circuit-breaker.ts` - Cache-specific circuit breaker for Redis resilience
+- `cache-connection-state.ts` - Redis connection state tracking
+- `cache-health-monitor.ts` - Background health monitoring with ping checks
+- `cache-operation-timeout.ts` - Per-operation timeout management
+- `cache-scan-iterator.ts` - Redis SCAN-based key iteration
+- `local-memory-cache.ts` - LRU in-memory cache backend
+- `shared-redis-cache.ts` - Redis cache backend with stale fallback
 
 ### Adapter Layer
 - `kong.adapter.ts` - Unified Kong adapter (API Gateway + Konnect)
@@ -315,6 +326,21 @@ Auth Service
 - `lifecycle-coordinator.ts` - Component shutdown orchestration with priority ordering
 - `inflight-request-tracker.ts` - Active request tracking for graceful draining
 - `redis-operation-tracker.ts` - Redis operation completion tracking
+
+### Logging Subsystem (`src/logging/`)
+- `adapters/` - Logger adapters (Winston, console)
+- `formatters/` - Log formatters for structured output
+- `ports/` - Logger interfaces (port/adapter pattern)
+- `transports/` - Log transports (OTLP, console)
+- `critical-lifecycle.ts` - Critical lifecycle event logging
+- `logging-container.ts` - Container-based logging infrastructure
+
+### Advanced Telemetry (`src/telemetry/`)
+- `sla-monitor.ts` - SLA violation detection and auto-profiling triggers
+- `memory-guardian.ts` - Heap memory monitoring with configurable limits
+- `cardinality-guard.ts` - Metric cardinality protection to prevent label explosion
+- `consumer-volume.ts` - Per-consumer request volume tracking
+- `gc-metrics.ts` - Garbage collection metrics collection
 
 ### Key Features
 - **Response Builders**: Standardized response patterns

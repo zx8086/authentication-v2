@@ -15,7 +15,7 @@ This document consolidates all testing documentation for the authentication serv
 
 ### Test Organization
 
-121 test files organized into logical subdirectories by domain:
+112 Bun test files organized into logical subdirectories by domain (121 total files including chaos and integration when run via `bun test`):
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|
@@ -26,12 +26,13 @@ This document consolidates all testing documentation for the authentication serv
 | `handlers/` | 6 | HTTP request handlers (tokens, OpenAPI) |
 | `health/` | 6 | Health check endpoints, telemetry |
 | `kong/` | 4 | Kong API Gateway integration |
-| `logging/` | 4 | Winston integration |
+| `lifecycle/` | 5 | Lifecycle management, graceful shutdown |
+| `logging/` | 5 | Winston integration, logging container |
 | `middleware/` | 1 | Request validation middleware |
 | `mutation/` | 2 | Mutation-resistant test patterns |
 | `services/` | 8 | Service layer (JWT, caching, cache health) |
 | `shared/` | 2 | Test utilities, consumer secrets |
-| `telemetry/` | 18 | Observability, metrics, instrumentation |
+| `telemetry/` | 20 | Observability, metrics, instrumentation |
 | `types/` | 1 | Type definitions and validation |
 | `utils/` | 19 | Utility functions (error codes, validation, fetch fallback) |
 
@@ -102,6 +103,25 @@ bun --inspect test specific.test.ts
 ---
 
 ## 2. Integration Tests
+
+### Running Integration Tests
+
+```bash
+# Run all integration tests
+bun run test:integration
+
+# Kong-specific integration tests
+bun run test:integration:kong
+
+# Circuit breaker integration tests
+bun run test:integration:circuit
+
+# Full integration with Docker setup
+bun run test:integration:full
+
+# Seed test consumers in Kong
+bun run test:integration:seed
+```
 
 ### Network Configuration (Curl Fallback)
 

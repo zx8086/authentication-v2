@@ -17,7 +17,7 @@ src/telemetry/
 ├── metrics/                # Modular metrics system
 │   ├── index.ts            # Public API exports
 │   ├── initialization.ts   # Meter and instrument creation
-│   ├── instruments.ts      # 65 metric instrument definitions
+│   ├── instruments.ts      # 77 metric instrument definitions
 │   ├── types.ts            # TypeScript attribute types
 │   ├── http-metrics.ts     # HTTP request/response metrics
 │   ├── auth-metrics.ts     # JWT and authentication metrics

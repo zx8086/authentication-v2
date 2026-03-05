@@ -2,11 +2,11 @@
 
 Comprehensive testing for the Bun-based authentication service with four-tier testing strategy: unit tests (Bun), integration tests, end-to-end scenarios (Playwright), and performance validation (K6).
 
-**Current Test Suite**: 3191 tests across 143 files (100% pass rate)
+**Current Test Suite**: 3191 tests across 121 files (100% pass rate)
 
 | Category | Files | Tests | Framework |
 |----------|-------|-------|-----------|
-| Unit Tests | 107 | 3000+ | Bun |
+| Unit Tests | 112 | 2937+ | Bun |
 | Lifecycle Tests | 5 | 197 | Bun |
 | Chaos Tests | 4 | 57 | Bun |
 | Integration Tests | 5 | 50+ | Bun |
@@ -39,22 +39,22 @@ This project follows a **live environment testing strategy**:
 ```
 test/
 ├── bun/              # Unit Tests (112 test files in 16 subdirectories)
-│   ├── adapters/     # Kong adapter tests (5 files)
-│   ├── cache/        # Caching functionality (12 files)
+│   ├── adapters/     # Kong adapter tests (4 files)
+│   ├── cache/        # Caching functionality (15 files)
 │   ├── circuit-breaker/  # Circuit breaker patterns (5 files)
-│   ├── config/       # Configuration management (12 files)
-│   ├── handlers/     # HTTP request handlers (10 files)
+│   ├── config/       # Configuration management (9 files)
+│   ├── handlers/     # HTTP request handlers (6 files)
 │   ├── health/       # Health check endpoints (6 files)
 │   ├── kong/         # Kong API Gateway integration (4 files)
-│   ├── logging/      # Logging functionality (4 files)
+│   ├── lifecycle/    # Lifecycle management (5 files)
+│   ├── logging/      # Logging functionality (5 files)
 │   ├── middleware/   # Middleware tests (1 file)
 │   ├── mutation/     # Mutation-specific tests (2 files)
-│   ├── openapi/      # OpenAPI specification tests (1 file)
-│   ├── services/     # Service layer tests (5 files)
+│   ├── services/     # Service layer tests (8 files)
 │   ├── shared/       # Tests for shared utilities (2 files)
 │   ├── telemetry/    # Observability (20 files)
 │   ├── types/        # Type definition tests (1 file)
-│   └── utils/        # Utility functions (15 files)
+│   └── utils/        # Utility functions (19 files)
 ├── chaos/            # Chaos Engineering Tests (57 tests across 4 files)
 ├── lifecycle/        # Lifecycle Management Tests (197 tests across 5 files)
 ├── integration/      # Integration Tests (5 test files)
@@ -80,23 +80,24 @@ test/
 **When to run**: During development, pre-commit, CI/CD
 **Testing Strategy**: Live backends (Kong, Redis, Bun.serve()) - no mocks unless explicitly required
 
-**Test Files** (107 files organized by subdirectory):
+**Test Files** (112 files organized by subdirectory):
 
-**cache/ (14 files)** - Caching functionality:
+**cache/ (15 files)** - Caching functionality:
 - `cache-factory.test.ts` - Cache factory infrastructure
 - `cache-factory-errors.test.ts` - Cache factory error handling
+- `cache-ha-fallback-chain.test.ts` - HA fallback chain behavior
+- `cache-health-edge-cases.test.ts` - Cache health edge cases
 - `cache-manager.test.ts` - Cache manager operations
 - `cache-manager-integration.test.ts` - Cache manager integration with live Redis
-- `cache-health-edge-cases.test.ts` - Cache health edge cases
+- `cache-manager-mutation-killers.test.ts` - Mutation-resistant cache tests
 - `cache-stale-operations.test.ts` - Stale data handling
+- `local-memory-backend.test.ts` - Local memory backend
 - `local-memory-cache.test.ts` - In-memory cache implementation
 - `local-memory-cache-maxentries.test.ts` - Cache size limits
-- `shared-redis-cache.test.ts` - Redis cache with live backend
+- `shared-redis-backend.test.ts` - Redis backend
 - `shared-redis-cache-errors.test.ts` - Redis error handling (uses mocks for error simulation)
-- `shared-redis-cache-operations.test.ts` - Redis operations with live backend
-- `shared-redis-cache-stale.test.ts` - Redis stale data handling
-- `unified-cache-manager.test.ts` - Unified cache manager
-- `unified-cache-manager-integration.test.ts` - Integration testing with live backends
+- `shared-redis-cache-metrics.test.ts` - Redis cache metrics
+- `shared-redis-cache-resilience.test.ts` - Redis cache resilience
 
 **circuit-breaker/ (5 files)** - Circuit breaker patterns:
 - `circuit-breaker-per-operation.test.ts` - Per-operation circuit breakers
@@ -105,73 +106,88 @@ test/
 - `circuit-breaker.mutation.test.ts` - Mutation-resistant tests
 - `telemetry-circuit-breaker.test.ts` - Telemetry integration
 
-**config/ (5 files)** - Configuration management:
+**config/ (9 files)** - Configuration management:
 - `config.test.ts` - Core configuration validation
 - `config-getters.test.ts` - Configuration getter methods
 - `config-helpers.test.ts` - Configuration helper functions
 - `config-schemas.test.ts` - Schema validation
 - `defaults.test.ts` - Default value handling
+- `env-mapping.test.ts` - Environment variable mapping
+- `helpers-mutation-killers.test.ts` - Mutation-resistant helpers
+- `loader.test.ts` - Configuration loading
+- `schema-validation-new-props.test.ts` - Schema validation for new properties
 
-**handlers/ (5 files)** - HTTP request handlers:
+**handlers/ (6 files)** - HTTP request handlers:
 - `tokens-handler.test.ts` - Token endpoint handling
 - `tokens.mutation.test.ts` - Token mutation tests
+- `metrics-mutation-killers.test.ts` - Metrics mutation killers
 - `openapi-handler.test.ts` - OpenAPI specification serving
 - `openapi-generator.test.ts` - OpenAPI spec generation
 - `openapi-yaml-converter.test.ts` - YAML conversion
 
-**health/ (9 files)** - Health check endpoints:
+**health/ (6 files)** - Health check endpoints:
 - `health-handlers.test.ts` - Health endpoint logic
 - `health-branches.test.ts` - Branch coverage
 - `health-fetch-spy.test.ts` - Live Kong integration testing (converted from mocks)
 - `health-telemetry-branches.test.ts` - Telemetry branches with live services (converted from mocks)
-- `health-mutation-killers.test.ts` - Mutation killers
+- `health-url-validation.test.ts` - URL validation
 - `health.mutation.test.ts` - Mutation-resistant tests
-- `health-cache-checks.test.ts` - Cache health checks
-- `health-redis-checks.test.ts` - Redis health validation
-- `health-endpoint-coverage.test.ts` - Endpoint coverage tests
 
-**integration/ (2 files)** - Integration tests:
-- `api-versioning.test.ts` - API versioning (v1/v2)
-- `shutdown-cleanup.test.ts` - Graceful shutdown
-
-**kong/ (7 files)** - Kong API Gateway integration:
+**kong/ (4 files)** - Kong API Gateway integration:
 - `kong.adapter.test.ts` - Kong adapter with mocking
 - `kong-adapter-fetch.test.ts` - Fetch-specific tests
 - `kong-mode-strategies.test.ts` - Live Kong integration (converted from mocks)
 - `kong-utils.test.ts` - Kong utility functions
-- `kong-consumer-operations.test.ts` - Consumer operations with live Kong
-- `kong-circuit-breaker.test.ts` - Circuit breaker with live Kong
-- `kong-cache-integration.test.ts` - Cache integration with live Kong
 
-**logging/ (4 files)** - Logging functionality:
+**lifecycle/ (5 files)** - Lifecycle management:
+- `graceful-shutdown.test.ts` - Graceful shutdown scenarios
+- `inflight-request-tracker.test.ts` - Request tracking during drain
+- `lifecycle-coordinator.test.ts` - Component shutdown orchestration
+- `lifecycle-state-machine.test.ts` - 7-state machine transitions
+- `redis-operation-tracker.test.ts` - Redis operation completion tracking
+
+**logging/ (5 files)** - Logging functionality:
 - `logger.test.ts` - Core logger functionality
 - `logger-output.test.ts` - Logger output validation
 - `logger-fallback.test.ts` - Fallback behavior
+- `logging-container.test.ts` - Logging container infrastructure
 - `winston-logger-methods.test.ts` - Winston integration
 
 **mutation/ (2 files)** - Mutation-specific tests:
 - `jwt.mutation.test.ts` - JWT mutation tests
 - `mutation-killer.test.ts` - Mutation killer patterns
 
-**services/ (7 files)** - Service layer tests:
+**services/ (8 files)** - Service layer tests:
 - `jwt.service.test.ts` - JWT generation/validation
 - `jwt-error-path.test.ts` - JWT error paths
 - `api-gateway.service.test.ts` - Live Kong integration (converted from mocks)
 - `cache-health.service.test.ts` - Cache health service
-- `kong-service-integration.test.ts` - Kong service integration with live backend
-- `circuit-breaker-service.test.ts` - Circuit breaker service patterns
-- `token-service-integration.test.ts` - Token service integration tests
+- `cache/cache-circuit-breaker.test.ts` - Cache circuit breaker
+- `cache/cache-health-monitor.test.ts` - Cache health monitor
+- `cache/cache-operation-timeout.test.ts` - Cache operation timeouts
+- `cache/local-memory-cache-mutation-killers.test.ts` - Local memory cache mutation killers
 
-**telemetry/ (9 files)** - Observability:
+**telemetry/ (20 files)** - Observability:
+- `consumer-volume.test.ts` - Consumer volume tracking
+- `export-stats-tracker.test.ts` - Export statistics tracking
+- `gc-metrics.test.ts` - Garbage collection metrics
+- `gc-metrics-operations.test.ts` - GC metric operations
+- `instrumentation-coverage.test.ts` - Coverage tracking
+- `instrumentation-operations.test.ts` - Instrumentation
+- `instrumentation-otel-integration.test.ts` - OTEL integration
+- `lifecycle-logger-mutation-killers.test.ts` - Lifecycle logger mutations
 - `metrics.test.ts` - Metrics collection
 - `metrics-attributes.test.ts` - Metric attributes
 - `metrics-initialized.test.ts` - Metrics initialization
-- `gc-metrics.test.ts` - Garbage collection metrics
-- `gc-metrics-operations.test.ts` - GC metric operations
+- `metrics-mutation-killers.test.ts` - Metrics mutation killers
+- `metrics-uninitialized-paths.test.ts` - Uninitialized metrics paths
+- `redis-instrumentation-utils.test.ts` - Redis instrumentation
+- `shutdown-cleanup.test.ts` - Shutdown cleanup
+- `telemetry-emitter.test.ts` - Telemetry emitter
+- `tracer-mutation-killers.test.ts` - Tracer mutation killers
 - `tracer-operations.test.ts` - Tracing operations
-- `instrumentation-operations.test.ts` - Instrumentation
-- `instrumentation-coverage.test.ts` - Coverage tracking
-- `redis-instrumentation-utils.test.ts` - Redis instrumentation (16 tests)
+- `tracer-real.test.ts` - Real tracer integration
+- `typed-metrics-poc-mutation-killers.test.ts` - Typed metrics POC mutation killers
   - **What it validates**: Trace context propagation for Redis operations
   - **Span hierarchy**: Redis spans appear as child spans under HTTP requests
   - **Span attributes**: Operation type, cache keys, result types, error tracking
@@ -179,23 +195,26 @@ test/
   - **Implementation**: Tests verify `src/telemetry/redis-instrumentation.ts` behavior
   - **Trace continuity**: HTTP → Kong → JWT → Redis (full distributed tracing)
 
-**utils/ (16 files)** - Utility functions:
+**utils/ (19 files)** - Utility functions:
+- `api-versioning.test.ts` - API versioning (v1/v2)
+- `bun-fetch-fallback-abort.test.ts` - Fetch fallback abort handling
+- `bun-fetch-fallback-internals.test.ts` - Live fetch testing with Bun.serve() (converted from mocks)
+- `bun-fetch-fallback-mutation-killers.test.ts` - Fetch fallback mutation killers
+- `bun-fetch-fallback-real.test.ts` - Real HTTP behavior tests
+- `cache-error-detector.test.ts` - Cache error detection
+- `cache-reconnect-manager.test.ts` - Cache reconnection management
+- `cardinality-guard.test.ts` - Cardinality protection
+- `deprecation-headers.test.ts` - RFC 8594 deprecation headers
 - `error-codes.test.ts` - Structured error codes
-- `type-validation.test.ts` - TypeScript type safety
+- `error-handling.test.ts` - Error handling patterns
 - `header-validation.test.ts` - Request header validation
+- `null-safety.test.ts` - Null safety utilities
+- `response-deprecation.test.ts` - Response deprecation support
+- `response-helpers.test.ts` - Response helper functions
 - `response.mutation.test.ts` - Response mutations
 - `retry.test.ts` - Retry logic
-- `cardinality-guard.test.ts` - Cardinality protection
-- `bun-fetch-fallback.test.ts` - Fetch fallback utility
-- `bun-fetch-fallback-internals.test.ts` - Live fetch testing with Bun.serve() (converted from mocks)
-- `bun-fetch-fallback-real.test.ts` - Real HTTP behavior tests
-- `fetch-timeout.test.ts` - Timeout handling
-- `url-builder.test.ts` - URL construction utilities
-- `cache-key-builder.test.ts` - Cache key generation
-- `metrics-helpers.test.ts` - Metrics helper functions
-- `trace-context.test.ts` - Distributed tracing context
-- `error-serialization.test.ts` - Error serialization
-- `health-check-utils.test.ts` - Health check utilities
+- `type-validation.test.ts` - TypeScript type safety
+- `validation.test.ts` - General validation utilities
 
 **Commands**:
 ```bash
