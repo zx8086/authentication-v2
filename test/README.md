@@ -227,11 +227,11 @@ bun test --coverage                        # With coverage
 **When to run**: After unit tests, validates shutdown behavior
 
 **Test Files** (5 files, 197 tests):
-- `lifecycle-state-machine.test.ts` - State transitions, validation, edge cases (197 tests)
-- `lifecycle-coordinator.test.ts` - Component orchestration and priority ordering
-- `inflight-request-tracker.test.ts` - Request draining and timeout handling
-- `redis-operation-tracker.test.ts` - Redis operation completion tracking
-- `graceful-shutdown.test.ts` - End-to-end shutdown scenarios
+- `lifecycle-state-machine.test.ts` - State transitions, validation, edge cases (74 tests)
+- `lifecycle-coordinator.test.ts` - Component orchestration and priority ordering (31 tests)
+- `inflight-request-tracker.test.ts` - Request draining and timeout handling (31 tests)
+- `redis-operation-tracker.test.ts` - Redis operation completion tracking (44 tests)
+- `graceful-shutdown.test.ts` - End-to-end shutdown scenarios (17 tests)
 
 **Commands**:
 ```bash
