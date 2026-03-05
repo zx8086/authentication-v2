@@ -137,6 +137,7 @@ interface ITelemetryLogger extends ILogger {
 | `LOG_LEVEL` | `silent`, `error`, `warn`, `info`, `debug` | `info` | Minimum log level to output |
 | `LOGGING_BACKEND` | `pino`, `winston` | `pino` | Logging backend selection |
 | `TELEMETRY_MODE` | `console`, `otlp`, `both` | `both` | Where logs are sent |
+| `NODE_ENV` | Any string | (unset) | Controls Pino output mode: `production`/`staging` = raw NDJSON, everything else = human-readable |
 
 ### Log Level Filtering
 
@@ -156,12 +157,13 @@ silent (0) < error (1) < warn (2) < info (3) < debug (4)
 
 ### Recommended Levels by Environment
 
-| Environment | `LOG_LEVEL` | `LOGGING_BACKEND` | `TELEMETRY_MODE` |
-|-------------|-------------|-------------------|------------------|
-| Development | `debug` | `pino` | `console` |
-| Testing | `silent` | `pino` | `console` |
-| Staging | `info` | `pino` | `both` |
-| Production | `warn` | `pino` | `otlp` or `both` |
+| Environment | `NODE_ENV` | `LOG_LEVEL` | `LOGGING_BACKEND` | `TELEMETRY_MODE` | Pino Output |
+|-------------|-----------|-------------|-------------------|------------------|-------------|
+| Local dev | `local` | `debug` | `pino` | `console` | Formatted (color) |
+| Development | `development` | `debug` | `pino` | `console` | Formatted (color) |
+| Testing | `test` | `silent` | `pino` | `console` | Formatted (color) |
+| Staging | `staging` | `info` | `pino` | `both` | Raw NDJSON |
+| Production | `production` | `warn` | `pino` | `otlp` or `both` | Raw NDJSON |
 
 ---
 
@@ -173,17 +175,126 @@ The Pino adapter (`src/logging/adapters/pino.adapter.ts`) is the default backend
 
 **Features:**
 - ECS-compliant formatting via `@elastic/ecs-pino-format`
-- Automatic OpenTelemetry trace context injection (`trace.id`, `span.id`)
-- Sync stdout with custom Winston-compatible console format
-- OTLP export via global `LoggerProvider` (fire-and-forget, non-blocking)
+- Dual-mode output: raw NDJSON (production) or human-readable (development/test)
+- OpenTelemetry trace context via Pino `mixin` (`trace.id`, `span.id`, `transaction.id`)
+- OTLP export via PinoInstrumentation's OTelPinoStream (automatic, non-blocking)
 - Child logger support with bound context
 
-**Console output format:**
-```
-4:25:58 PM info: Token generated {"consumer.id":"abc-123","trace.id":"550e8400..."}
+**Dual-mode output:**
+
+| Mode | `NODE_ENV` | Output Format | Use Case |
+|------|-----------|---------------|----------|
+| Production | `production` or `staging` | Raw ECS NDJSON to stdout | Log aggregators (Elastic, Datadog) |
+| Development | Everything else (`local`, `development`, `test`, unset) | Human-readable formatted | Developer console |
+
+**Production output (NDJSON):**
+```json
+{"@timestamp":"2026-01-20T12:00:00.000Z","log.level":"info","message":"Token generated","ecs.version":"8.10.0","process.pid":1234,"host.hostname":"auth-pod-1","service.name":"authentication-service","service.version":"2.0.0","service.environment":"production","event.dataset":"authentication-service","consumer.id":"abc-123","trace.id":"550e8400e29b41d4a716446655440000","span.id":"550e8400e29b41d4","transaction.id":"550e8400e29b41d4a716446655440000"}
 ```
 
-**Dual output:** When `TELEMETRY_MODE=both`, every log is written to both console (formatted) and OTLP (structured). OTLP failures do not affect console output.
+**Development output (formatted):**
+```
+4:25:58 PM info: Token generated {"consumer.id":"abc-123","trace.id":"550e8400...","span.id":"550e8400e29b"}
+```
+
+**OTLP delivery:** PinoInstrumentation's OTelPinoStream automatically tees every Pino log record to the global `LoggerProvider` via `pino.multistream()`. This replaces the previous manual `emitOtelLog()` approach and ensures a single OTLP delivery path. OTLP failures do not affect console output.
+
+#### Dependencies
+
+To replicate this logging setup in another application, install:
+
+```bash
+bun add pino@^10.3.1 @elastic/ecs-pino-format@^1.5.0
+bun add @opentelemetry/api@^1.9.0 @opentelemetry/instrumentation-pino@^0.58.0
+```
+
+#### `ecsFormat()` Configuration
+
+The Pino adapter calls `ecsFormat()` with these options:
+
+```typescript
+import { ecsFormat } from "@elastic/ecs-pino-format";
+
+const ecsOptions = ecsFormat({
+  apmIntegration: false,       // We use OpenTelemetry, not Elastic APM agent
+  serviceName: "authentication-service",
+  serviceVersion: "2.6.7",     // From package.json
+  serviceEnvironment: "local", // From TELEMETRY_ENVIRONMENT or NODE_ENV
+  convertErr: true,            // Convert Error objects to ECS error.* fields
+  convertReqRes: true,         // Convert req/res to ECS http.* fields
+});
+```
+
+`ecsFormat()` returns a Pino options object that sets:
+- `messageKey: "message"` (ECS uses `message`, not Pino's default `msg`)
+- `timestamp`: produces `"@timestamp":"2026-01-20T12:00:00.000Z"` (ISO 8601)
+- `formatters.level`: converts numeric level to `"log.level": "info"`
+- `formatters.bindings`: maps `pid` to `process.pid`, `hostname` to `host.hostname`
+- `formatters.log`: handles `err`/`req`/`res` conversion and adds static ECS bindings
+
+#### ECS Field Inventory (Production NDJSON)
+
+Every production log line contains these fields:
+
+| ECS Field | Source | Example Value |
+|-----------|--------|---------------|
+| `@timestamp` | `ecsFormat` timestamp function | `"2026-01-20T12:00:00.000Z"` |
+| `log.level` | `ecsFormat` level formatter | `"info"`, `"warn"`, `"error"` |
+| `message` | First argument to `log()` / `info()` etc. | `"Token generated"` |
+| `ecs.version` | `@elastic/ecs-helpers` | `"8.10.0"` |
+| `process.pid` | Pino default binding | `1234` |
+| `host.hostname` | Pino default binding | `"auth-pod-1"` |
+| `service.name` | `ecsFormat({ serviceName })` | `"authentication-service"` |
+| `service.version` | `ecsFormat({ serviceVersion })` | `"2.6.7"` |
+| `service.environment` | `ecsFormat({ serviceEnvironment })` | `"production"` |
+| `event.dataset` | Defaults to `serviceName` | `"authentication-service"` |
+| `trace.id` | Our Pino mixin (from OTEL active span) | `"550e8400e29b41d4a716..."` |
+| `span.id` | Our Pino mixin (from OTEL active span) | `"550e8400e29b41d4"` |
+| `transaction.id` | Our Pino mixin (= traceId for Elastic APM) | `"550e8400e29b41d4a716..."` |
+
+`trace.id`, `span.id`, and `transaction.id` are only present when an OpenTelemetry span is active. Any additional context fields passed to `log("msg", { key: "value" })` appear as top-level fields in the JSON.
+
+When `convertErr: true` and an Error is logged, these additional fields appear:
+
+| ECS Field | Source | Example Value |
+|-----------|--------|---------------|
+| `error.type` | `err.name` | `"KongApiError"` |
+| `error.message` | `err.message` | `"Consumer not found"` |
+| `error.stack_trace` | `err.stack` | `"KongApiError: Consumer not found\n..."` |
+
+#### Development Console Format
+
+In development mode (`NODE_ENV` is not `production`/`staging`), the adapter formats output as:
+
+```
+h:MM:ss TT <color>level</color>: message {context}
+```
+
+- **Time**: 12-hour format with AM/PM (e.g., `4:25:58 PM`)
+- **Level colors**: trace=gray, debug=cyan, info=green, warn=yellow, error=red, fatal=magenta
+- **Context**: JSON object with ECS metadata fields stripped out
+
+**Stripped ECS metadata fields** (hidden in console, present in NDJSON):
+`@timestamp`, `ecs.version`, `log.level`, `log.logger`, `process.pid`, `host.hostname`, `service.name`, `service.version`, `service.environment`, `event.dataset`
+
+**Also stripped** (Pino internal fields): `level`, `time`, `msg`, `message`, `pid`, `hostname`
+
+What remains visible in `{context}` are your application fields (e.g., `consumer.id`, `trace.id`, `span.id`, `component`, custom fields).
+
+#### Service Metadata Configuration
+
+The `service.*` fields come from `LoggerConfig.service`, loaded by `src/logging/container.ts`:
+
+```typescript
+// From loadConfig() -> appConfig.telemetry:
+{
+  service: {
+    name: telemetry.serviceName || "authentication-service",     // TELEMETRY_SERVICE_NAME
+    version: telemetry.serviceVersion || pkg.version || "1.0.0", // package.json version
+    environment: telemetry.environment || "development",         // TELEMETRY_ENVIRONMENT
+  }
+}
+```
 
 ### Winston (Legacy)
 
@@ -222,7 +333,7 @@ Fields that do not map to ECS appear under `labels.*` in Elasticsearch. See [mon
 
 ### Trace Context Correlation
 
-The Pino adapter automatically injects OpenTelemetry trace context into every log entry:
+The Pino adapter uses a Pino `mixin` function to inject OpenTelemetry trace context into every log entry using ECS dot-notation:
 
 ```json
 {
@@ -230,10 +341,19 @@ The Pino adapter automatically injects OpenTelemetry trace context into every lo
   "message": "Token generated",
   "log.level": "info",
   "consumer.id": "abc-123",
-  "trace.id": "550e8400-e29b-41d4-a716-446655440000",
-  "span.id": "550e8400-e29b"
+  "trace.id": "550e8400e29b41d4a716446655440000",
+  "span.id": "550e8400e29b41d4",
+  "transaction.id": "550e8400e29b41d4a716446655440000"
 }
 ```
+
+| ECS Field | Source | Description |
+|-----------|--------|-------------|
+| `trace.id` | OTEL `spanContext().traceId` | Distributed trace identifier |
+| `span.id` | OTEL `spanContext().spanId` | Current span identifier |
+| `transaction.id` | OTEL `spanContext().traceId` | Elastic APM transaction correlation |
+
+**Why a custom mixin?** PinoInstrumentation's built-in mixin uses underscore format (`trace_id`, `span_id`) which conflicts with ECS dot-notation. We disable PinoInstrumentation's log correlation (`disableLogCorrelation: true`) and use our own mixin instead.
 
 This enables click-through navigation from logs to traces in Elastic APM, Jaeger, or Datadog.
 
@@ -395,11 +515,50 @@ Each message includes metadata: signal, PID, sequence position, and total steps.
 
 ## OTLP Log Export
 
-When `TELEMETRY_MODE` is `otlp` or `both`, logs are exported via the OpenTelemetry protocol:
+When `TELEMETRY_MODE` is `otlp` or `both`, logs are exported via the OpenTelemetry protocol.
 
-1. **Pino adapter** emits log records to the global `LoggerProvider` (fire-and-forget)
-2. **`BatchLogRecordProcessor`** batches records for efficient export
-3. **OTLP exporter** sends batches to the configured collector endpoint
+### How It Works
+
+PinoInstrumentation (`@opentelemetry/instrumentation-pino`) monkey-patches `pino()` to wrap the original destination with `pino.multistream()`. This adds an `OTelPinoStream` alongside your original destination, so every log record is automatically teed to two places:
+
+```
+pino.info("Token generated", { consumerId: "abc-123" })
+   |
+   +--> Original destination (stdout)
+   |      - Production: raw NDJSON
+   |      - Development: formatted console output
+   |
+   +--> OTelPinoStream (injected by PinoInstrumentation)
+          |
+          +--> Global LoggerProvider (set by instrumentation.ts)
+                 |
+                 +--> BatchLogRecordProcessor
+                        |
+                        +--> OTLPLogExporter --> Elastic / collector endpoint
+```
+
+This means:
+- **Console output and OTLP export are independent** -- OTLP failures do not affect console logging
+- **No manual OTLP emission code** in the adapter -- PinoInstrumentation handles it
+- **The adapter must reinitialize** after `instrumentation.ts` sets the global `LoggerProvider`, because PinoInstrumentation wraps the logger at construction time
+
+### PinoInstrumentation Configuration
+
+In `src/telemetry/instrumentation.ts`:
+
+```typescript
+const pinoInstrumentation = new PinoInstrumentation({
+  enabled: true,
+  disableLogCorrelation: true,  // We use our own ECS mixin
+  disableLogSending: false,     // Keep OTelPinoStream active
+});
+```
+
+| Setting | Value | Reason |
+|---------|-------|--------|
+| `enabled` | `true` | Activates the instrumentation |
+| `disableLogCorrelation` | `true` | Prevents PinoInstrumentation from injecting `trace_id`/`span_id` (underscore format). Our Pino mixin handles this with ECS dot-notation (`trace.id`, `span.id`) instead. |
+| `disableLogSending` | `false` | Keeps OTelPinoStream active -- this is the OTLP delivery path |
 
 ### Batch Configuration
 
@@ -414,7 +573,16 @@ Set via telemetry config (from `src/telemetry/instrumentation.ts`):
 
 ### Reinitialization
 
-After `instrumentation.ts` sets the global `LoggerProvider`, both Pino and Winston adapters must reinitialize to pick up the provider. This happens automatically during startup. If you need to reinitialize manually:
+PinoInstrumentation wraps the Pino logger with `pino.multistream()` at construction time. If the `PinoAdapter` creates its logger before `instrumentation.ts` runs, the OTelPinoStream won't be attached. To fix this, `instrumentation.ts` calls `reinitialize()` after SDK startup:
+
+```typescript
+// In src/telemetry/instrumentation.ts, after sdk.start():
+loggerContainer.getLogger().reinitialize();
+```
+
+`reinitialize()` flushes the existing logger, discards it, and creates a new one. The new logger gets wrapped by PinoInstrumentation and has OTelPinoStream attached.
+
+If you need to reinitialize manually (e.g., after changing the global `LoggerProvider`):
 
 ```typescript
 import { getLogger } from "../logging/container";

@@ -233,11 +233,17 @@ export async function initializeTelemetry(): Promise<void> {
     },
   });
 
-  // PinoInstrumentation injects trace_id/span_id from active OTEL span into Pino logs.
-  // This enables log correlation with traces when LOGGING_BACKEND=pino.
-  // Works alongside @elastic/ecs-pino-format (which must set apmIntegration: false).
+  // PinoInstrumentation handles two things:
+  // 1. Log correlation (mixin): DISABLED -- our ECS mixin in PinoAdapter.createLogger()
+  //    already injects trace.id, span.id, transaction.id in ECS dot-notation.
+  //    PinoInstrumentation's default mixin uses underscore format (trace_id, span_id)
+  //    which would create duplicate/conflicting trace fields.
+  // 2. Log sending (OTelPinoStream): ENABLED -- automatically tees every Pino log record
+  //    to the global LoggerProvider via pino.multistream(). This is the OTLP delivery path.
   const pinoInstrumentation = new PinoInstrumentation({
     enabled: true,
+    disableLogCorrelation: true,
+    disableLogSending: false,
   });
 
   const instrumentations = [...baseInstrumentations, redisInstrumentation, pinoInstrumentation];
@@ -274,8 +280,8 @@ export async function initializeTelemetry(): Promise<void> {
   // See: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/packages/winston-transport/README.md
   winstonTelemetryLogger.reinitialize();
 
-  // SIO-447: Pino logger also needs reinitialization to pick up global LoggerProvider.
-  // PinoAdapter.emitOtelLog() uses logs.getLogger() which requires the global provider.
+  // SIO-447: Pino logger reinitialized to pick up PinoInstrumentation's OTelPinoStream.
+  // PinoInstrumentation handles OTLP log sending via multistream automatically.
   loggerContainer.getLogger().reinitialize();
 
   // Layer 3: Start memory guardian for adaptive backpressure monitoring

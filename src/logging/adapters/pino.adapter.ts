@@ -2,35 +2,28 @@
 // SIO-447: Pino adapter implementing ILogger interface with ECS compliance
 
 import { ecsFormat } from "@elastic/ecs-pino-format";
-import { trace } from "@opentelemetry/api";
-import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { isSpanContextValid, trace } from "@opentelemetry/api";
 import pino from "pino";
-import type {
-  ILogger,
-  ITelemetryLogger,
-  LogContext,
-  LoggerConfig,
-  TraceContext,
-} from "../ports/logger.port";
+import type { ILogger, ITelemetryLogger, LogContext, LoggerConfig } from "../ports/logger.port";
 
 /**
  * Pino adapter configuration
  */
-export interface PinoAdapterConfig extends LoggerConfig {
-  /** Use worker thread transport (with auto-fallback to sync) */
-  useWorker?: boolean;
-}
+export type PinoAdapterConfig = LoggerConfig;
 
 /**
- * Map log level to OTEL SeverityNumber.
- * See: https://opentelemetry.io/docs/specs/otel/logs/data-model/#severity-fields
+ * Determine whether the logger should output raw ECS NDJSON (production)
+ * or human-readable formatted output (development/local/test).
+ *
+ * Production mode: NODE_ENV is "production" or "staging"
+ * Development mode: everything else (including "local", "development", "test", or unset)
  */
-const SEVERITY_MAP: Record<string, SeverityNumber> = {
-  debug: SeverityNumber.DEBUG,
-  info: SeverityNumber.INFO,
-  warn: SeverityNumber.WARN,
-  error: SeverityNumber.ERROR,
-};
+// IMPORTANT: This reads NODE_ENV at call time (not module load time).
+// Tests rely on this lazy evaluation to switch modes between describe blocks.
+function isProductionOutput(): boolean {
+  const env = process.env.NODE_ENV;
+  return env === "production" || env === "staging";
+}
 
 /**
  * Pino-based logger implementation.
@@ -38,9 +31,10 @@ const SEVERITY_MAP: Record<string, SeverityNumber> = {
  *
  * Features:
  * - ECS-compliant formatting via @elastic/ecs-pino-format
- * - OpenTelemetry trace context injection
+ * - Dual-mode output: raw NDJSON (production) or human-readable (development/test)
+ * - OpenTelemetry trace context injection via Pino mixin
+ * - OTLP export handled by PinoInstrumentation's OTelPinoStream (not manual)
  * - Sync stdout for reliable console output (non-blocking)
- * - OTLP export via global LoggerProvider (set by instrumentation.ts)
  */
 export class PinoAdapter implements ITelemetryLogger {
   private pinoInstance: pino.Logger | null = null;
@@ -58,55 +52,6 @@ export class PinoAdapter implements ITelemetryLogger {
       this.pinoInstance = this.createLogger();
     }
     return this.pinoInstance;
-  }
-
-  /**
-   * Emit a log record to the OTEL LoggerProvider.
-   * Uses the global LoggerProvider set by instrumentation.ts
-   * (logs.setGlobalLoggerProvider).
-   *
-   * This is a fire-and-forget operation - OTLP failures don't affect console logging.
-   */
-  private emitOtelLog(level: string, message: string, context: Record<string, unknown>): void {
-    const { mode } = this.config;
-
-    // Only emit to OTLP when mode is otlp or both
-    if (mode !== "otlp" && mode !== "both") {
-      return;
-    }
-
-    try {
-      // Get logger from global LoggerProvider (set by instrumentation.ts)
-      const otelLogger = logs.getLogger(this.config.service.name, this.config.service.version);
-
-      // Build attributes from context
-      const attributes: Record<string, string | number | boolean> = {};
-      for (const [key, value] of Object.entries(context)) {
-        if (value !== undefined && value !== null) {
-          if (
-            typeof value === "string" ||
-            typeof value === "number" ||
-            typeof value === "boolean"
-          ) {
-            attributes[key] = value;
-          } else {
-            // Serialize complex objects
-            attributes[key] = JSON.stringify(value);
-          }
-        }
-      }
-
-      // Emit log record
-      otelLogger.emit({
-        severityNumber: SEVERITY_MAP[level] ?? SeverityNumber.INFO,
-        severityText: level.toUpperCase(),
-        body: message,
-        attributes,
-      });
-    } catch (_error) {
-      // OTLP failures should not affect console logging
-      // Silently ignore - this is fire-and-forget
-    }
   }
 
   /**
@@ -194,13 +139,70 @@ export class PinoAdapter implements ITelemetryLogger {
   /**
    * Create a new Pino logger instance with ECS-compliant formatting.
    * Uses @elastic/ecs-pino-format for Elastic Common Schema compliance.
+   *
+   * Dual-mode output:
+   * - Production (NODE_ENV === "production" || "staging"): raw ECS NDJSON to stdout
+   * - Development/Test (everything else): human-readable formatted output via custom destination
    */
   private createLogger(): pino.Logger {
     const { level, service } = this.config;
 
-    // Custom sync destination that formats output like Winston for console
-    // Avoids pino.transport() worker threads which have issues with Bun
-    const destination = {
+    // ECS format options - see https://www.elastic.co/docs/reference/ecs/logging/nodejs/pino
+    const ecsOptions = ecsFormat({
+      // Disable Elastic APM integration - we use OpenTelemetry directly
+      apmIntegration: false,
+      // Service metadata for ECS fields
+      serviceName: service.name,
+      serviceVersion: service.version,
+      serviceEnvironment: service.environment,
+      // Enable error conversion to ECS error fields
+      convertErr: true,
+      // Enable req/res conversion to ECS HTTP fields
+      convertReqRes: true,
+    });
+
+    // Pino mixin injects OpenTelemetry trace context into every log record.
+    // Uses ECS dot-notation (trace.id, span.id, transaction.id) for Elastic compatibility.
+    // PinoInstrumentation's built-in mixin is disabled (disableLogCorrelation: true)
+    // because it uses underscore format (trace_id, span_id) which conflicts with ECS.
+    const traceMixin = (): Record<string, string> => {
+      const span = trace.getActiveSpan();
+      if (!span) return {};
+
+      const ctx = span.spanContext();
+      if (!isSpanContextValid(ctx)) return {};
+
+      return {
+        "trace.id": ctx.traceId,
+        "span.id": ctx.spanId,
+        "transaction.id": ctx.traceId,
+      };
+    };
+
+    const pinoOptions: pino.LoggerOptions = {
+      level: level === "silent" ? "silent" : level,
+      // ECS format provides formatters and hooks
+      ...ecsOptions,
+      // Trace context mixin - runs on every log call
+      mixin: traceMixin,
+    };
+
+    if (isProductionOutput()) {
+      // Production: raw ECS NDJSON written directly to stdout.
+      // Uses a simple write destination to ensure process.stdout.write captures output
+      // (pino.destination({ dest: 1 }) bypasses process.stdout.write).
+      const rawDestination = {
+        write: (data: string) => {
+          process.stdout.write(data);
+        },
+      };
+      return pino(pinoOptions, rawDestination);
+    }
+
+    // Development/Test: human-readable formatted output.
+    // Custom sync destination that formats output like Winston for console.
+    // Avoids pino.transport() worker threads which have issues with Bun.
+    const formattedDestination = {
       write: (data: string) => {
         try {
           const obj = JSON.parse(data);
@@ -213,106 +215,37 @@ export class PinoAdapter implements ITelemetryLogger {
       },
     };
 
-    // ECS format options - see https://www.elastic.co/docs/reference/ecs/logging/nodejs/pino
-    const ecsOptions = ecsFormat({
-      // Disable Elastic APM integration - we use OpenTelemetry directly
-      apmIntegration: false,
-      // Service metadata for ECS fields
-      serviceName: service.name,
-      serviceVersion: service.version,
-      serviceEnvironment: service.environment,
-      // Enable error conversion to ECS error fields
-      convertErr: true,
-    });
-
-    const logger = pino(
-      {
-        level: level === "silent" ? "silent" : level,
-        // ECS format provides formatters and hooks
-        ...ecsOptions,
-      },
-      destination
-    );
-
-    return logger;
-  }
-
-  /**
-   * Capture current OpenTelemetry trace context
-   */
-  private captureTraceContext(): TraceContext | undefined {
-    const span = trace.getActiveSpan();
-    if (!span) return undefined;
-
-    const ctx = span.spanContext();
-    return {
-      traceId: ctx.traceId,
-      spanId: ctx.spanId,
-      traceFlags: ctx.traceFlags,
-    };
+    return pino(pinoOptions, formattedDestination);
   }
 
   // ILogger implementation
 
   debug(message: string, context?: LogContext): void {
-    const ctx = context || {};
-    const traceCtx = this.captureTraceContext();
-    if (traceCtx) {
-      ctx["trace.id"] = traceCtx.traceId;
-      ctx["span.id"] = traceCtx.spanId;
-    }
-    this.getLogger().debug(ctx, message);
-    // Also send to OTLP via global LoggerProvider (non-blocking, fire-and-forget)
-    this.emitOtelLog("debug", message, ctx);
+    this.getLogger().debug(context || {}, message);
   }
 
   info(message: string, context?: LogContext): void {
-    const ctx = context || {};
-    const traceCtx = this.captureTraceContext();
-    if (traceCtx) {
-      ctx["trace.id"] = traceCtx.traceId;
-      ctx["span.id"] = traceCtx.spanId;
-    }
-    this.getLogger().info(ctx, message);
-    // Also send to OTLP via global LoggerProvider (non-blocking, fire-and-forget)
-    this.emitOtelLog("info", message, ctx);
+    this.getLogger().info(context || {}, message);
   }
 
   warn(message: string, context?: LogContext): void {
-    const ctx = context || {};
-    const traceCtx = this.captureTraceContext();
-    if (traceCtx) {
-      ctx["trace.id"] = traceCtx.traceId;
-      ctx["span.id"] = traceCtx.spanId;
-    }
-    this.getLogger().warn(ctx, message);
-    // Also send to OTLP via global LoggerProvider (non-blocking, fire-and-forget)
-    this.emitOtelLog("warn", message, ctx);
+    this.getLogger().warn(context || {}, message);
   }
 
   error(message: string, context?: LogContext): void {
-    const ctx = context || {};
-    const traceCtx = this.captureTraceContext();
-    if (traceCtx) {
-      ctx["trace.id"] = traceCtx.traceId;
-      ctx["span.id"] = traceCtx.spanId;
-    }
-    this.getLogger().error(ctx, message);
-    // Also send to OTLP via global LoggerProvider (non-blocking, fire-and-forget)
-    this.emitOtelLog("error", message, ctx);
+    this.getLogger().error(context || {}, message);
   }
 
   child(bindings: LogContext): ILogger {
     // Create a child adapter with bound context
-    const childAdapter = new PinoChildAdapter(this.getLogger().child(bindings), this.config);
-    return childAdapter;
+    return new PinoChildAdapter(this.getLogger().child(bindings));
   }
 
   async flush(): Promise<void> {
     const logger = this.getLogger();
     return new Promise((resolve) => {
       logger.flush();
-      // OTLP logs are batched by the global LoggerProvider's BatchLogRecordProcessor
+      // OTLP logs are batched by PinoInstrumentation's OTelPinoStream
       // which flushes automatically. No explicit flush needed here.
       setTimeout(resolve, 50);
     });
@@ -356,10 +289,7 @@ export class PinoAdapter implements ITelemetryLogger {
  * Child logger adapter for bound context
  */
 class PinoChildAdapter implements ILogger {
-  constructor(
-    private readonly childLogger: pino.Logger,
-    private readonly config: PinoAdapterConfig
-  ) {}
+  constructor(private readonly childLogger: pino.Logger) {}
 
   debug(message: string, context?: LogContext): void {
     this.childLogger.debug(context || {}, message);
@@ -378,13 +308,13 @@ class PinoChildAdapter implements ILogger {
   }
 
   child(bindings: LogContext): ILogger {
-    return new PinoChildAdapter(this.childLogger.child(bindings), this.config);
+    return new PinoChildAdapter(this.childLogger.child(bindings));
   }
 
   async flush(): Promise<void> {
     return new Promise((resolve) => {
       this.childLogger.flush();
-      setTimeout(resolve, 100);
+      setTimeout(resolve, 50);
     });
   }
 
