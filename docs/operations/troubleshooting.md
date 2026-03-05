@@ -455,7 +455,197 @@ curl http://localhost:3000/tokens/validate     # No Authorization header
 
 ---
 
-### 12. Bun Development Server Won't Start
+### 12. Consumer Not Found (AUTH_002)
+
+**Error Code**: `AUTH_002` - Consumer Not Found
+**HTTP Status**: 401
+
+**Symptoms**:
+- Token requests return 401
+- Error message indicates consumer was not found
+- Consumer exists in Kong but has no JWT credentials
+
+**Diagnosis**:
+```bash
+# Check if consumer exists in Kong
+curl -s ${KONG_ADMIN_URL}/consumers/{consumer_id}
+
+# Check consumer's JWT credentials
+curl -s ${KONG_ADMIN_URL}/consumers/{consumer_id}/jwt
+
+# Verify consumer headers are being sent
+curl -v http://localhost:3000/tokens
+```
+
+**Root Causes**:
+1. Consumer doesn't exist in Kong
+2. Consumer has no JWT credentials provisioned
+3. JWT plugin not enabled for consumer
+4. Stale cache with deleted consumer
+
+**Resolution**:
+1. Create consumer in Kong if missing
+2. Provision JWT credentials for consumer:
+   ```bash
+   curl -X POST ${KONG_ADMIN_URL}/consumers/{consumer_id}/jwt \
+     -d "key=consumer_key" \
+     -d "algorithm=HS256" \
+     -d "secret=your_secret"
+   ```
+3. Verify JWT plugin is enabled on the route
+4. Clear cache if consumer was recently added
+
+---
+
+### 13. Rate Limit Exceeded (AUTH_006)
+
+**Error Code**: `AUTH_006` - Rate Limit Exceeded
+**HTTP Status**: 429
+
+**Symptoms**:
+- Requests return 429 status
+- Response includes `Retry-After` header
+- Error message indicates rate limit exceeded
+
+**Diagnosis**:
+```bash
+# Check current rate limit configuration
+curl -s http://localhost:3000/debug/info | jq '.rateLimits'
+
+# Monitor rate limit metrics
+curl -s http://localhost:3000/metrics | jq '.rateLimiter'
+
+# Check if Kong rate limiting is also applied
+curl -s ${KONG_ADMIN_URL}/plugins | jq '.data[] | select(.name=="rate-limiting")'
+```
+
+**Root Causes**:
+1. Client exceeds configured rate limits
+2. Burst traffic from single consumer
+3. Rate limit configuration too restrictive
+4. Multiple services using same consumer
+
+**Resolution**:
+1. Implement exponential backoff in client
+2. Respect `Retry-After` header in responses
+3. Review rate limit configuration in environment variables:
+   - `RATE_LIMIT_TOKENS_PER_MINUTE`
+   - `RATE_LIMIT_VALIDATION_PER_MINUTE`
+4. Consider increasing limits for high-volume consumers
+5. Implement client-side request queuing
+
+**Prevention**:
+- Monitor rate limit metrics regularly
+- Set up alerts for consumers approaching limits
+- Implement gradual backoff strategies
+- Consider tiered rate limits for different consumer types
+
+---
+
+### 14. Internal Server Error (AUTH_008)
+
+**Error Code**: `AUTH_008` - Internal Server Error
+**HTTP Status**: 500
+
+**Symptoms**:
+- Unexpected 500 errors
+- Generic error response without specific cause
+- Error logged but not classified as other AUTH_XXX codes
+
+**Diagnosis**:
+```bash
+# Check service logs
+docker logs auth-service | grep -i "error"
+
+# Review recent errors in metrics
+curl -s http://localhost:3000/metrics | jq '.errors'
+
+# Check health status
+curl -s http://localhost:3000/health
+
+# Review telemetry traces for error spans
+curl -s http://localhost:3000/health/telemetry
+```
+
+**Root Causes**:
+1. Uncaught exceptions in application code
+2. Resource exhaustion (memory, file descriptors)
+3. Unexpected data format or corruption
+4. Dependency failures not covered by specific error codes
+5. Race conditions or concurrency issues
+
+**Resolution**:
+1. Check application logs for stack traces
+2. Review OpenTelemetry traces for error context:
+   - Examine span attributes for error details
+   - Look for exception events in traces
+3. Monitor resource usage:
+   ```bash
+   curl -s http://localhost:3000/metrics | jq '.system'
+   ```
+4. If persistent, restart service and monitor for recurrence
+5. Report to development team with:
+   - Full error message and stack trace
+   - Request that triggered the error
+   - System state at time of error
+
+**Prevention**:
+- Monitor error rates via metrics endpoint
+- Set up alerts for AUTH_008 spikes
+- Review error logs regularly
+- Implement comprehensive error handling
+
+---
+
+### 15. Anonymous Consumer (AUTH_009)
+
+**Error Code**: `AUTH_009` - Anonymous Consumer
+**HTTP Status**: 401
+
+**Symptoms**:
+- Token requests return 401
+- Error indicates anonymous consumer attempted to get token
+- Request includes `X-Anonymous-Consumer: true` header
+
+**Diagnosis**:
+```bash
+# Check if request is being marked as anonymous
+curl -v http://localhost:3000/tokens | grep "X-Anonymous-Consumer"
+
+# Verify Kong authentication plugin configuration
+curl -s ${KONG_ADMIN_URL}/routes/{route_id}/plugins | jq '.data[] | select(.name=="key-auth")'
+
+# Check if anonymous consumer is configured in Kong
+curl -s ${KONG_ADMIN_URL}/consumers | jq '.data[] | select(.username=="anonymous")'
+```
+
+**Root Causes**:
+1. Request bypassed Kong authentication
+2. Kong route allows anonymous access
+3. Authentication plugin configured with `anonymous` consumer fallback
+4. Missing or invalid API key
+
+**Resolution**:
+1. Ensure all requests go through Kong gateway
+2. Verify Kong authentication plugins are properly configured
+3. Remove anonymous consumer fallback from authentication plugins
+4. Require valid authentication credentials:
+   ```bash
+   # Update plugin to disable anonymous access
+   curl -X PATCH ${KONG_ADMIN_URL}/plugins/{plugin_id} \
+     -d "config.anonymous="
+   ```
+5. Verify API key or authentication credentials are provided
+
+**Prevention**:
+- Do not configure anonymous consumers for authentication endpoints
+- Enforce authentication at Kong gateway level
+- Monitor for AUTH_009 errors as they indicate misconfiguration
+- Regular audit of Kong route and plugin configurations
+
+---
+
+### 16. Bun Development Server Won't Start
 
 **Symptoms**:
 - `bun run dev` hangs with no output
@@ -508,7 +698,7 @@ The `postinstall` hook will clean up any broken symlinks automatically.
 
 ---
 
-### 13. Winston Logger Environment Conflicts
+### 17. Winston Logger Environment Conflicts
 
 **Symptoms**:
 - Winston logger tests disabled with `test.skip` in parallel test execution
@@ -542,7 +732,7 @@ test.skip("winston logger environment tests", () => {
 
 ---
 
-### 14. Elasticsearch Field Mapping Issues
+### 18. Elasticsearch Field Mapping Issues
 
 **Symptoms**:
 - Custom application fields not appearing in expected Elasticsearch indexes
@@ -603,7 +793,7 @@ curl -X GET "http://elasticsearch:9200/logs-*/_search?pretty" -H 'Content-Type: 
 
 ---
 
-### 15. Parallel Test Intermittency
+### 19. Parallel Test Intermittency
 
 **Symptoms**:
 - Tests pass individually but fail when run in parallel
