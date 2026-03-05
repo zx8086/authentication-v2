@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-05
 **Status:** Approved
-**Linear Issue:** TBD (to be created before implementation)
+**Linear Issue:** [SIO-455](https://linear.app/siobytes/issue/SIO-455/documentation-currency-audit-comprehensive-evaluation)
 
 ## Problem Statement
 
