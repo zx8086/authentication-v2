@@ -168,7 +168,7 @@ bun run test:suite            # Full test suite with parallel execution
 
 ### Operations
 ```bash
-bun run health-check          # Service health validation
+bun run server:health-check   # Service health validation
 curl http://localhost:3000/health    # Health endpoint
 curl http://localhost:3000/metrics   # Operational metrics
 ```
