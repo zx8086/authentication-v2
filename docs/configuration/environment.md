@@ -338,14 +338,14 @@ API_CORS_ORIGIN=https://app.example.com
 |---------|---------|---------|
 | `@biomejs/biome` | ^2.2.5 | Linting and formatting |
 | `@playwright/test` | ^1.56.0 | E2E testing |
-| `@types/bun` | 1.2.23 | Bun runtime types |
+| `@types/bun` | 1.3.9 | Bun runtime types |
 | `typescript` | ^5.9.3 | TypeScript compiler |
 
 ### Minimum Requirements
 
 | Requirement | Value |
 |-------------|-------|
-| Bun Runtime | >= 1.1.35 (recommended 1.3.9+) |
+| Bun Runtime | >= 1.3.9 |
 | Memory | 512MB min, 1GB recommended |
 | CPU | Single core sufficient |
 | Container Size | 58MB (distroless base) |

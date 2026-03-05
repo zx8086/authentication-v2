@@ -3,7 +3,7 @@
 ## Getting Started
 
 ### Prerequisites
-- **Bun Runtime**: v1.1.35+ (recommended: v1.2.23+)
+- **Bun Runtime**: v1.3.9+
 - **Kong Admin API**: Access to Kong instance for integration testing
 - **Redis** (optional): For high-availability cache testing
 
