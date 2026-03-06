@@ -57,6 +57,8 @@ The authentication service implements a robust configuration pattern with compre
 
 **Version Sourcing:** The service version is automatically read from `package.json` at runtime. The `OTEL_SERVICE_VERSION` environment variable can override this for special deployments. This ensures version consistency between `telemetry.serviceVersion` and `apiInfo.version`.
 
+> For additional standard OTel environment variables (OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_RESOURCE_ATTRIBUTES, OTEL_TRACES_SAMPLER, exporter selectors), configuration examples, and the sampling strategy, see **[Telemetry Architecture - SDK Configuration](../architecture/telemetry.md#sdk-configuration)**.
+
 **Logging Backend:**
 - **pino** (default): High-performance structured logging (5-10x faster) with OTEL trace correlation
 - **winston**: Traditional logging with Elastic ECS formatting

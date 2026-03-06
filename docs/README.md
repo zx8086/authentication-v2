@@ -13,7 +13,8 @@
 | Run tests | [Testing Guide](development/testing.md) |
 | Deploy to production | [Container Security](deployment/container-security.md) |
 | Debug issues | [Troubleshooting](operations/troubleshooting.md) |
-| Monitor the service | [Observability Guide](operations/monitoring.md) |
+| Add instrumentation | [Instrumentation Guide](development/instrumentation.md) |
+| Monitor the service | [Monitoring & Metrics](operations/monitoring.md) |
 
 ---
 
@@ -31,6 +32,7 @@
 | Document | Description |
 |----------|-------------|
 | [overview.md](architecture/overview.md) | System design, authentication flow, lifecycle management, and technology stack |
+| [telemetry.md](architecture/telemetry.md) | Telemetry architecture, SDK config, data flow, sampling strategy |
 
 ### Configuration
 
@@ -49,6 +51,7 @@
 | [testing.md](development/testing.md) | Complete testing guide (unit, E2E, K6, mutation, chaos) |
 | [api-best-practices.md](development/api-best-practices.md) | API standards: method validation, ETag, rate limiting |
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong integration, dual-mode E2E testing, http-log setup, test consumers |
+| [instrumentation.md](development/instrumentation.md) | Adding spans, metrics, testing instrumentation |
 | [profiling.md](development/profiling.md) | CPU/memory profiling and Bun fetch workaround |
 
 ### Deployment
@@ -64,7 +67,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [monitoring.md](operations/monitoring.md) | OpenTelemetry observability and memory monitoring |
+| [monitoring.md](operations/monitoring.md) | Metrics catalog, health endpoints, alerting, troubleshooting |
 | [sla.md](operations/sla.md) | Performance SLAs and availability targets |
 | [troubleshooting.md](operations/troubleshooting.md) | Runbook-style troubleshooting guide |
 

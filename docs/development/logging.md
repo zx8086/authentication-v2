@@ -829,6 +829,8 @@ afterEach(() => {
 
 | Document | What it covers |
 |----------|---------------|
-| [monitoring.md](../operations/monitoring.md) | OTLP setup, ECS field mapping, span events in depth, production monitoring |
+| [instrumentation.md](instrumentation.md) | Tracer API, span events, TelemetryEmitter, testing instrumentation |
+| [telemetry.md](../architecture/telemetry.md) | SDK configuration, data flow, memory optimizations |
+| [monitoring.md](../operations/monitoring.md) | Metrics catalog, ECS field mapping, production monitoring |
 | [environment.md](../configuration/environment.md) | All environment variables including logging config |
 | [troubleshooting.md](../operations/troubleshooting.md) | Winston environment conflicts, Elasticsearch field mapping issues |

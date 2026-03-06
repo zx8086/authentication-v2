@@ -41,12 +41,14 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Getting Started | [getting-started.md](docs/development/getting-started.md) | Development setup, commands, and workflow |
 | API Reference | [endpoints.md](docs/api/endpoints.md) | Complete API documentation (16 endpoints) |
 | Architecture | [overview.md](docs/architecture/overview.md) | System design and authentication flow |
+| Telemetry | [telemetry.md](docs/architecture/telemetry.md) | Data flow, SDK config, sampling, memory optimizations |
+| Instrumentation | [instrumentation.md](docs/development/instrumentation.md) | Adding spans, metrics, testing telemetry |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Logging | [logging.md](docs/development/logging.md) | Logging architecture, public API, backends, and patterns |
 | Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3191 tests, mutation testing) |
 | Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
 | Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |
-| Monitoring | [monitoring.md](docs/operations/monitoring.md) | OpenTelemetry traces/metrics/logs, 77 instruments, tracer API |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | Metrics catalog (65 instruments), health endpoints, alerting |
 | SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Runbook, error codes, and FAQ |
 
