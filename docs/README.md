@@ -87,6 +87,19 @@
 | [security-scanning.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning |
 | [token-revocation.md](security/token-revocation.md) | JWT token revocation strategies |
 
+### Standalone Guides
+
+Reusable guides extracted from project documentation. These are project-agnostic and can be dropped into any Bun application.
+
+| Guide | Description |
+|-------|-------------|
+| [bun-profiling-guide.md](guides/bun-profiling-guide.md) | CPU and heap profiling for Bun servers |
+| [4-pillar-configuration-guide.md](guides/4-pillar-configuration-guide.md) | Type-safe configuration architecture with Zod |
+| [bun-docker-security-guide.md](guides/bun-docker-security-guide.md) | Secure Docker containers with distroless base |
+| [bun-kubernetes-guide.md](guides/bun-kubernetes-guide.md) | Kubernetes deployment with security, scaling, monitoring |
+| [bun-otel-guide.md](guides/bun-otel-guide.md) | OpenTelemetry tracing, metrics, and log export |
+| [bun-logging-guide.md](guides/bun-logging-guide.md) | Structured logging with Pino, ECS, and trace context |
+
 ---
 
 ## Related Documentation
