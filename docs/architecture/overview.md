@@ -111,26 +111,59 @@ The service implements a clean layered architecture for maintainability and test
 ### Token Generation Flow
 
 ```
-1. Client sends API key to Kong Gateway
-   GET /tokens
-   Header: apikey: consumer-api-key-12345
-
-2. Kong validates API key, adds consumer headers
-   X-Consumer-ID: 98765432-...
-   X-Consumer-Username: example-consumer
-   X-Anonymous-Consumer: false
-
-3. Auth Service validates headers, fetches consumer secret from Kong Admin API
-
-4. Auth Service generates JWT token
-   {
-     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-     "expires_in": 900
-   }
-
-5. Client uses JWT for subsequent API calls
-   Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Client              Kong Gateway          Auth Service          Kong Admin API       Cache
+  |                      |                      |                      |               |
+  |  GET /tokens         |                      |                      |               |
+  |  apikey: abc123      |                      |                      |               |
+  |--------------------->|                      |                      |               |
+  |                      |                      |                      |               |
+  |                      |  Validate API key    |                      |               |
+  |                      |  Add consumer headers|                      |               |
+  |                      |  X-Consumer-ID: ...  |                      |               |
+  |                      |  X-Consumer-Username  |                      |               |
+  |                      |--------------------->|                      |               |
+  |                      |                      |                      |               |
+  |                      |                      |  Check cache         |               |
+  |                      |                      |------------------------------------->|
+  |                      |                      |                      |  cache miss   |
+  |                      |                      |<-------------------------------------|
+  |                      |                      |                      |               |
+  |                      |                      |  GET /consumers/{id}/jwt             |
+  |                      |                      |--------------------->|               |
+  |                      |                      |                      |               |
+  |                      |                      |  { key, secret }     |               |
+  |                      |                      |<---------------------|               |
+  |                      |                      |                      |               |
+  |                      |                      |  Store in cache      |               |
+  |                      |                      |------------------------------------->|
+  |                      |                      |                      |               |
+  |                      |                      |  Generate JWT        |               |
+  |                      |                      |  (crypto.subtle      |               |
+  |                      |                      |   HMAC-SHA256)       |               |
+  |                      |                      |                      |               |
+  |                      |  200 OK              |                      |               |
+  |                      |  { access_token,     |                      |               |
+  |                      |    expires_in: 900 } |                      |               |
+  |                      |<---------------------|                      |               |
+  |                      |                      |                      |               |
+  |  200 OK              |                      |                      |               |
+  |  { access_token }    |                      |                      |               |
+  |<---------------------|                      |                      |               |
+  |                      |                      |                      |               |
+  |  Subsequent requests:|                      |                      |               |
+  |  Authorization:      |                      |                      |               |
+  |  Bearer <jwt>        |                      |                      |               |
+  |--------------------->|                      |                      |               |
 ```
+
+**Step-by-step summary:**
+1. Client sends API key to Kong Gateway (`GET /tokens`)
+2. Kong validates API key, adds consumer headers (`X-Consumer-ID`, `X-Consumer-Username`)
+3. Auth Service checks cache for consumer secret
+4. On cache miss: fetches JWT credentials from Kong Admin API
+5. Stores credentials in cache (Redis or in-memory)
+6. Generates JWT token using `crypto.subtle` (HMAC-SHA256)
+7. Returns `{ access_token, expires_in }` to client
 
 ### Kong Mode Support
 
@@ -153,6 +186,51 @@ The service implements circuit breaker protection with stale cache fallback for 
 | Error Threshold | 50% | Failure rate to open circuit |
 | Reset Timeout | 60 seconds | Before testing recovery |
 | Stale Tolerance | 30 minutes | Default stale data window |
+
+### Circuit Breaker State Transitions
+
+```
+                    +------------------+
+                    |                  |
+                    |     CLOSED       |  Normal operation
+                    |  (requests pass  |  All requests routed to Kong
+                    |   to Kong)       |
+                    |                  |
+                    +--------+---------+
+                             |
+                             | Error rate >= 50% over rolling window
+                             | (minimum 3 requests in window)
+                             |
+                             v
+                    +------------------+
+                    |                  |
+                    |      OPEN        |  Protection active
+                    |  (requests use   |  Stale cache fallback (if available)
+                    |   stale cache)   |  New requests get AUTH_005
+                    |                  |
+                    +--------+---------+
+                             |
+                             | Reset timeout expires (60s default)
+                             |
+                             v
+                    +------------------+
+                    |                  |
+                    |   HALF-OPEN      |  Testing recovery
+                    |  (limited probe  |  Single request sent to Kong
+                    |   requests)      |
+                    |                  |
+                    +--------+---------+
+                            / \
+                           /   \
+                   Success/     \Failure
+                         /       \
+                        v         v
+               +----------+   +----------+
+               |  CLOSED   |   |   OPEN   |
+               | (resume   |   | (restart |
+               |  normal)  |   |  timer)  |
+               +----------+   +----------+
+```
 
 ### Failure Scenarios
 
@@ -278,6 +356,54 @@ Auth Service
     |
     |-- Child Span: redis.get (if HA mode)
             |-- trace_id correlated
+```
+
+### Distributed Tracing Span Hierarchy
+
+The complete span hierarchy for a token generation request with all telemetry signals:
+
+```
+Trace ID: abc123def456...
+|
++-- [http.server.request] GET /tokens (root span, 45ms)
+|   |
+|   |   Attributes:
+|   |     http.method = GET
+|   |     http.route = /tokens
+|   |     http.status_code = 200
+|   |     http.request_id = req-550e8400...
+|   |
+|   +-- [kong.getConsumerSecret] (child span, 12ms)
+|   |   |
+|   |   |   Attributes:
+|   |   |     kong.consumer_id = 98765432-...
+|   |   |     kong.operation = getConsumerSecret
+|   |   |     kong.cache_hit = false
+|   |   |
+|   |   +-- [redis.get] cache lookup (child span, 0.4ms)
+|   |   |     db.system = redis
+|   |   |     db.operation = GET
+|   |   |     cache.hit = false
+|   |   |
+|   |   +-- [http.client.request] Kong Admin API (child span, 10ms)
+|   |   |     http.method = GET
+|   |   |     http.url = http://kong-admin:8001/consumers/{id}/jwt
+|   |   |     http.status_code = 200
+|   |   |
+|   |   +-- [redis.set] cache store (child span, 0.8ms)
+|   |         db.system = redis
+|   |         db.operation = SET
+|   |         cache.ttl_seconds = 300
+|   |
+|   +-- [jwt_create] (child span, 0.3ms)
+|       |
+|       |   Attributes:
+|       |     jwt.operation = create
+|       |     jwt.username = example-consumer
+|       |     jwt.token_id = jti-550e8400...
+|       |     jwt.algorithm = HS256
+|       |     jwt.expiration_minutes = 15
+|       |     jwt.duration_ms = 0.342
 ```
 
 ### Key Metrics
@@ -494,3 +620,14 @@ Cache-Control: public, max-age=300
 | Content-Type | application/json | Enforce expected formats |
 
 See [api-best-practices.md](../development/api-best-practices.md) for detailed implementation guidance.
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Telemetry Architecture](telemetry.md) | Data flow, SDK config, memory optimizations |
+| [ADR Index](adr-template.md) | Architectural decision records and rationale |
+| [API Endpoints](../api/endpoints.md) | Complete API reference (16 endpoints) |
+| [Configuration Guide](../configuration/environment.md) | All environment variables and defaults |
+| [Incident Response](../operations/incident-response.md) | Escalation paths and operational procedures |
+| [Capacity Planning](../operations/capacity-planning.md) | Scaling guidance for different load levels |

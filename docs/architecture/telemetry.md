@@ -446,66 +446,7 @@ resetTelemetryCircuitBreakers();
 
 ## SDK Configuration
 
-### Complete Environment Variables Reference
-
-All telemetry-related environment variables in one place for easy copy-paste setup.
-
-#### Core Telemetry Settings
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `TELEMETRY_MODE` | Output mode: `console`, `otlp`, `both` | `both` | No |
-| `LOG_LEVEL` | Logging level: `error`, `warn`, `info`, `debug`, `silent` | `info` | No |
-
-#### OpenTelemetry Service Identity
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `OTEL_SERVICE_NAME` | Service name in traces/metrics | `authentication-service` | No |
-| `OTEL_SERVICE_VERSION` | Service version (overrides package.json) | from `package.json` | No |
-| `NODE_ENV` | Environment name for `deployment.environment` | `development` | No |
-
-#### OTLP Exporter Endpoints
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint (if all signals use same host) | - | No |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces endpoint | `{base}/v1/traces` | No |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics endpoint | `{base}/v1/metrics` | No |
-| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Logs endpoint | `{base}/v1/logs` | No |
-
-#### OTLP Exporter Tuning
-
-| Variable | Description | Default | Range |
-|----------|-------------|---------|-------|
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `30000` | 1000-120000 |
-| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for spans | `512` | 1-4096 |
-| `OTEL_BSP_MAX_QUEUE_SIZE` | Max queued spans | `2048` | 512-16384 |
-| `OTEL_BSP_SCHEDULE_DELAY` | Export interval (ms) | `1000` | 100-60000 |
-
-#### Telemetry Circuit Breaker
-
-| Variable | Description | Default | Range |
-|----------|-------------|---------|-------|
-| `TELEMETRY_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-100 |
-| `TELEMETRY_CB_RECOVERY_TIMEOUT` | Recovery timeout (ms) | `60000` | 1000-600000 |
-| `TELEMETRY_CB_SUCCESS_THRESHOLD` | Successes to close | `3` | 1-20 |
-| `TELEMETRY_CB_MONITORING_INTERVAL` | Monitoring interval (ms) | `10000` | 1000-60000 |
-
-### Additional Standard OTel Variables
-
-These standard OpenTelemetry environment variables are recognized by the SDK but not set by default in this service:
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | Wire protocol for OTLP exports | `http/json` | `http/protobuf`, `grpc` |
-| `OTEL_RESOURCE_ATTRIBUTES` | Comma-separated key=value resource attributes | - | `team=auth,region=eu-west-1` |
-| `OTEL_TRACES_SAMPLER` | Sampler type for traces | `parentbased_always_on` | `parentbased_traceidratio` |
-| `OTEL_TRACES_SAMPLER_ARG` | Argument for the sampler (e.g., ratio) | `1.0` | `0.1` (10% sampling) |
-| `OTEL_METRICS_EXPORTER` | Metrics exporter type | `otlp` | `console`, `none` |
-| `OTEL_TRACES_EXPORTER` | Traces exporter type | `otlp` | `console`, `none` |
-| `OTEL_LOGS_EXPORTER` | Logs exporter type | `otlp` | `console`, `none` |
-| `OTEL_METRIC_EXPORT_INTERVAL` | Metric export interval (ms) | `30000` | `60000` |
+> For the complete environment variable reference covering all telemetry settings (core, OTLP endpoints, exporter tuning, telemetry circuit breaker, and standard OTel variables), see **[Configuration Guide - OpenTelemetry](../configuration/environment.md#opentelemetry)** and **[Configuration Guide - Telemetry Circuit Breaker](../configuration/environment.md#telemetry-circuit-breaker)**.
 
 ### Configuration Examples
 

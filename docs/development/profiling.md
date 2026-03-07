@@ -466,6 +466,71 @@ Example recommendation:
 
 ---
 
+## Heap Profile Comparisons
+
+Historical heap profile comparisons to track memory impact of dependency updates and optimizations.
+
+### Comparison: Dependency Update (2026-03-06/07)
+
+**Context**: Three heap profiles taken to assess memory impact of a dependency update. The first two profiles (before update at 3h, after update at 6h) revealed a duration mismatch, so a third profile was taken at 6.5h to confirm findings.
+
+**Important**: When comparing heap profiles, ensure both ran for a comparable duration under similar load. Process uptime is encoded in the CPU profile `Duration` field -- always check this before drawing conclusions.
+
+#### Summary (Three-Way Comparison)
+
+| Metric | Before Update (3.07h) | After Update (5.96h) | After Update (6.55h) |
+|--------|----------------------:|---------------------:|---------------------:|
+| Total Heap | 21.5 MB | 17.4 MB | 17.5 MB |
+| Total Objects | 318,032 | 232,312 | 231,492 |
+| Total Edges | 1,259,062 | 881,564 | 911,734 |
+| GC Roots | 3,089 | 2,999 | 3,055 |
+
+The two post-update profiles (5.96h and 6.55h) are nearly identical in total heap (17.4 vs 17.5 MB) and object count (232K vs 231K), confirming heap stability. Both are ~4 MB smaller than the pre-update profile despite running 2x longer.
+
+#### Type-Level Changes
+
+| Type | Before (3.07h) | After (5.96h) | After (6.55h) | Verdict |
+|------|---------------:|---------------:|---------------:|---------|
+| `Function` | 110,070 (3.5 MB) | 87,060 (2.7 MB) | 87,060 (2.7 MB) | Stable at -23K (-21%) |
+| `JSLexicalEnvironment` | 47,364 (7.1 MB ret.) | 25,087 (3.4 MB ret.) | 25,087 (3.3 MB ret.) | Stable at -47% |
+| `GetterSetter` | 46,033 (3.1 MB ret.) | 8,636 (776 KB ret.) | 8,636 (772 KB ret.) | Stable at -81% |
+| `string` | 26,513 (7.4 MB ret.) | 25,752 (760 KB ret.) | 25,645 (7.4 MB ret.) | See note below |
+| `Object` | 14,944 (8.6 MB ret.) | 14,357 (6.8 MB ret.) | 13,817 (7.0 MB ret.) | Stable reduction |
+| `_` (Zod) | 1,386 (6.3 MB ret.) | 1,386 (6.3 MB ret.) | 1,386 (6.3 MB ret.) | Static, unchanged |
+| `ModuleRecord` | 201 (1.8 MB ret.) | 201 (1.8 MB ret.) | 201 (1.8 MB ret.) | Static, unchanged |
+| `FunctionCodeBlock` | 1,139 (3.5 MB ret.) | 1,139 (3.1 MB ret.) | 1,057 (2.9 MB ret.) | Slight JIT cleanup |
+
+#### Key Findings
+
+1. **Heap is stable post-update**: 17.4 MB at 6h and 17.5 MB at 6.5h -- no growth over time, confirming no memory leaks.
+2. **Function and closure counts are deterministic**: Exactly 87,060 functions and 25,087 closures in both post-update profiles. These are loaded at startup and do not grow.
+3. **GetterSetter reduction is permanent**: 81% reduction (46K to 8.6K) holds across both post-update runs. A dependency moved away from `defineProperty`-heavy patterns.
+4. **String retained size is variable**: Strings showed 760 KB retained in the 6h profile but 7.4 MB in the 6.5h profile (matching the original). The large ~155 KB strings (source text cached by JSC) appear to be loaded lazily or re-materialized by the engine over time. The string *count* is stable (~25.7K), so this is retained-size accounting by the GC, not a leak.
+5. **OTel instrumentations reduced**: `AwsLambdaInstrumentation` stable at 15.6 KB (was 87 KB pre-update); `UndiciInstrumentation` no longer in top 50.
+6. **FunctionCodeBlock JIT cleanup**: Count dropped from 1,139 to 1,057 in the longest run, showing Bun's JIT compiler reclaiming unused code blocks over time.
+7. **Overall: -4 MB (-19%) heap reduction** from the dependency update, confirmed stable across two independent runs totaling 12+ hours.
+
+#### Static Allocations (Sanity Check)
+
+These types load at startup and should be identical across all profiles:
+
+| Type | Before | After (6h) | After (6.5h) |
+|------|-------:|----------:|-------------:|
+| `_` (Zod) count | 1,386 | 1,386 | 1,386 |
+| `ModuleRecord` count | 201 | 201 | 201 |
+| `InstrumentationNodeModuleDefinition` | 52 | 52 | 52 |
+| `InstrumentationNodeModuleFile` | 48 | 48 | 48 |
+
+#### Profile Files
+
+| Profile | File | Duration |
+|---------|------|----------|
+| Before (pre-update) | `Heap.461551635150.33808.md` | 3.07h (11,066s) |
+| After (post-update, run 1) | `Heap.531728834279.99694.md` | 5.96h (21,470s) |
+| After (post-update, run 2) | `Heap.557052960918.29981.md` | 6.55h (23,569s) |
+
+---
+
 ## Common Workflows
 
 ### Workflow 1: Optimizing Token Generation

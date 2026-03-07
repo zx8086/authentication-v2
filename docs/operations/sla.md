@@ -82,31 +82,20 @@ The service supports degraded mode when Kong is unavailable:
 
 ## Circuit Breaker SLAs
 
-The service implements circuit breaker patterns for Kong API calls (via Opossum):
+The service implements circuit breaker patterns for Kong API calls (via Opossum).
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| Request Timeout | 5s | Timeout for Kong API calls |
-| Error Threshold | 50% | Error percentage to trip circuit |
-| Volume Threshold | 3 | Minimum requests before tripping |
-| Rolling Window | 10s | Time window for error calculation |
-| Reset Timeout | 60s | Time before half-open state |
-| Rolling Buckets | 10 | Buckets for rolling window |
+> For circuit breaker architecture, state transitions, and failure scenario matrix, see **[Architecture Overview - Circuit Breaker](../architecture/overview.md#resilience-circuit-breaker)**.
+>
+> For circuit breaker environment variable configuration, see **[Configuration Guide - Kong Circuit Breaker](../configuration/environment.md#kong-circuit-breaker)**.
 
-### Circuit Breaker States
+**Key SLA-relevant parameters:**
 
-| State | Behavior |
-|-------|----------|
-| Closed | Normal operation, requests flow to Kong |
-| Open | Requests rejected immediately, returns `AUTH_005` |
-| Half-Open | Limited requests to test recovery |
-
-### Stale Cache Fallback
-
-When circuit breaker is open and stale cache is available:
-- Consumer secrets served from cache
-- Cache TTL: Configurable (default 5 minutes)
-- Fallback logged with warning level
+| Parameter | Default | SLA Impact |
+|-----------|---------|------------|
+| Request Timeout | 5s | Determines max token generation latency during Kong issues |
+| Error Threshold | 50% | Lower = faster protection, higher = more tolerance for transient errors |
+| Reset Timeout | 60s | Time before recovery attempt; affects degraded mode duration |
+| Volume Threshold | 3 | Minimum requests before circuit can trip; prevents false positives |
 
 ## Monitoring Thresholds
 

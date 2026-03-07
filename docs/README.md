@@ -15,6 +15,10 @@
 | Debug issues | [Troubleshooting](operations/troubleshooting.md) |
 | Add instrumentation | [Instrumentation Guide](development/instrumentation.md) |
 | Monitor the service | [Monitoring & Metrics](operations/monitoring.md) |
+| Handle an incident | [Incident Response](operations/incident-response.md) |
+| Tune performance | [Performance Tuning](development/performance-tuning.md) |
+| Migrate API versions | [Upgrade Guide](api/upgrade-guide.md) |
+| Contribute to the project | [Contributing Guide](../CONTRIBUTING.md) |
 
 ---
 
@@ -26,6 +30,7 @@
 |----------|-------------|
 | [endpoints.md](api/endpoints.md) | All 16 API endpoints with request/response formats |
 | [jwt-tokens.md](api/jwt-tokens.md) | JWT token structure, claims, and validation |
+| [upgrade-guide.md](api/upgrade-guide.md) | V1-to-V2 migration and sunset timeline |
 
 ### Architecture
 
@@ -33,6 +38,7 @@
 |----------|-------------|
 | [overview.md](architecture/overview.md) | System design, authentication flow, lifecycle management, and technology stack |
 | [telemetry.md](architecture/telemetry.md) | Telemetry architecture, SDK config, data flow, sampling strategy |
+| [adr-template.md](architecture/adr-template.md) | Architecture Decision Records template and index |
 
 ### Configuration
 
@@ -53,6 +59,7 @@
 | [kong-test-setup.md](development/kong-test-setup.md) | Kong integration, dual-mode E2E testing, http-log setup, test consumers |
 | [instrumentation.md](development/instrumentation.md) | Adding spans, metrics, testing instrumentation |
 | [profiling.md](development/profiling.md) | CPU/memory profiling and Bun fetch workaround |
+| [performance-tuning.md](development/performance-tuning.md) | Configuration knobs for different load profiles |
 
 ### Deployment
 
@@ -69,13 +76,16 @@
 |----------|-------------|
 | [monitoring.md](operations/monitoring.md) | Metrics catalog, health endpoints, alerting, troubleshooting |
 | [sla.md](operations/sla.md) | Performance SLAs and availability targets |
-| [troubleshooting.md](operations/troubleshooting.md) | Runbook-style troubleshooting guide |
+| [troubleshooting.md](operations/troubleshooting.md) | Runbook-style troubleshooting guide with FAQ |
+| [incident-response.md](operations/incident-response.md) | Incident response playbook with escalation paths |
+| [capacity-planning.md](operations/capacity-planning.md) | Scaling guidance based on throughput targets |
 
 ### Security
 
 | Document | Description |
 |----------|-------------|
 | [security-scanning.md](security/PARALLEL-SECURITY-SCANNING.md) | CI/CD parallel security scanning |
+| [token-revocation.md](security/token-revocation.md) | JWT token revocation strategies |
 
 ---
 
@@ -86,6 +96,8 @@
 | [README.md](../README.md) | Main project documentation |
 | [CLAUDE.md](../CLAUDE.md) | Claude Code agent instructions |
 | [test/README.md](../test/README.md) | Complete testing documentation |
+| [CHANGELOG.md](../CHANGELOG.md) | Version history and breaking changes |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Development workflow and contribution guide |
 
 ---
 

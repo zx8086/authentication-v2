@@ -1721,9 +1721,64 @@ curl -X POST http://localhost:3000/tokens \
 
 ---
 
+## Frequently Asked Questions
+
+### General
+
+**Q: What runtime does this service use?**
+A: Bun v1.3.9+. This is NOT a Node.js application. Use `bun` for all commands, never `npm` or `node`.
+
+**Q: How do I check if the service is healthy?**
+A: `curl -s http://localhost:3000/health | jq .` - This shows overall status, Kong connectivity, cache health, and telemetry export status.
+
+**Q: What is the difference between `/health` and `/health/ready`?**
+A: `/health` performs comprehensive checks including OTLP connectivity validation (P95 ~400ms). `/health/ready` only validates Kong connectivity (P95 <10ms). Use `/health/ready` for Kubernetes readiness probes and load balancers.
+
+### Tokens
+
+**Q: Why am I getting AUTH_001 (Missing Consumer Headers)?**
+A: The request is missing `X-Consumer-ID` or `X-Consumer-Username` headers. These are normally injected by Kong Gateway after API key validation. If calling directly, you must provide them.
+
+**Q: What is the default token expiration?**
+A: 15 minutes (900 seconds). Configurable via `JWT_EXPIRATION_MINUTES` (range: 1-60).
+
+**Q: Can I revoke a specific JWT token?**
+A: Not directly (JWTs are stateless). Rotate the consumer's secret in Kong to invalidate all tokens, or rely on the short token lifetime. See [Token Revocation Strategy](../security/token-revocation.md).
+
+### Circuit Breaker
+
+**Q: What does AUTH_005 (Circuit Breaker Open) mean?**
+A: The circuit breaker has tripped due to Kong Admin API failures. The service will automatically attempt recovery after the reset timeout (default: 60s). If stale cache is available, tokens may still be served in degraded mode.
+
+**Q: How do I tune the circuit breaker?**
+A: Adjust `CIRCUIT_BREAKER_*` environment variables. See [Configuration Guide](../configuration/environment.md#kong-circuit-breaker) and [Performance Tuning Guide](../development/performance-tuning.md).
+
+### Cache
+
+**Q: What is the cache fallback chain?**
+A: In HA mode: Redis Primary -> Redis Stale -> In-Memory Stale -> null. In non-HA mode: Memory Cache -> Memory Stale -> null. See [Architecture Overview](../architecture/overview.md#3-layer-cache-resilience-ha-mode).
+
+**Q: How do I increase cache hit rate?**
+A: Increase `CACHING_TTL_SECONDS` (default: 300). For high-throughput deployments, 600-1800s is recommended. See [Performance Tuning Guide](../development/performance-tuning.md#cache-tuning).
+
+### Telemetry
+
+**Q: Telemetry export is failing - does it affect the service?**
+A: No. Telemetry is non-blocking. The service continues to function normally. Console logging continues regardless of OTLP status.
+
+**Q: How do I disable telemetry for local development?**
+A: Set `TELEMETRY_MODE=console` to skip OTLP exports and log to console only.
+
+---
+
 ## Related Documentation
 
-- [Performance SLA](sla.md) - SLA definitions and thresholds
-- [Monitoring Guide](monitoring.md) - Observability setup
-- [API Endpoints](../api/endpoints.md) - Complete API reference
-- [Environment Setup](../configuration/environment.md) - Configuration options
+| Document | Description |
+|----------|-------------|
+| [Incident Response](incident-response.md) | Escalation paths and incident procedures |
+| [Performance SLA](sla.md) | SLA definitions and thresholds |
+| [Monitoring Guide](monitoring.md) | Metrics catalog and alerting |
+| [API Endpoints](../api/endpoints.md) | Complete API reference |
+| [Configuration Guide](../configuration/environment.md) | All environment variables |
+| [Performance Tuning](../development/performance-tuning.md) | Optimization knobs for different load profiles |
+| [Token Revocation](../security/token-revocation.md) | JWT revocation strategies |

@@ -1221,24 +1221,25 @@ Clients should:
 
 ## Circuit Breaker Protection
 
-Rate limiting is typically handled at the Kong Gateway level, but the service includes circuit breaker protection to prevent overwhelming the Kong Admin API:
+Rate limiting is typically handled at the Kong Gateway level, but the service includes circuit breaker protection to prevent overwhelming the Kong Admin API.
 
-### Circuit Breaker Configuration (Actual Defaults)
-- **Timeout**: 5000ms (5 seconds) for Kong API calls
-- **Error Threshold**: 50% failure rate over rolling window
-- **Reset Timeout**: 60000ms (60 seconds) for circuit recovery
-- **Rolling Count Timeout**: 10000ms (10 seconds)
-- **Rolling Count Buckets**: 10
-- **Volume Threshold**: 3 requests minimum before circuit can open
-- **Stale Data Tolerance**: 30 minutes (default)
-
-### Circuit Breaker States
-- **closed**: Normal operation, requests pass through
-- **open**: Circuit breaker active, requests use stale cache fallback
-- **half-open**: Testing if service has recovered with limited requests
+> For circuit breaker architecture, state transitions, failure scenarios, and stale cache fallback behavior, see **[Architecture Overview - Circuit Breaker](../architecture/overview.md#resilience-circuit-breaker)**.
+>
+> For circuit breaker environment variable configuration, see **[Configuration Guide - Kong Circuit Breaker](../configuration/environment.md#kong-circuit-breaker)**.
 
 ### Per-Operation Circuit Breakers
+
 The service uses operation-specific circuit breakers:
 - `kong_get_consumer_secret` - Consumer secret lookup
 - `kong_health_check` - Health check operations
 - `kong_list_consumers` - Consumer listing operations
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [JWT Token Specification](jwt-tokens.md) | Token structure, claims, validation examples |
+| [Upgrade Guide](upgrade-guide.md) | V1-to-V2 migration and sunset timeline |
+| [Architecture Overview](../architecture/overview.md) | System design and authentication flow |
+| [Troubleshooting Guide](../operations/troubleshooting.md) | Error code diagnosis and resolution |
+| [Configuration Guide](../configuration/environment.md) | Environment variables for all features |

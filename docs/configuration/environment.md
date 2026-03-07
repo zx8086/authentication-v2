@@ -62,13 +62,41 @@ The authentication service implements a robust configuration pattern with compre
 **Logging Backend:**
 - **pino** (default): High-performance structured logging (5-10x faster) with OTEL trace correlation
 - **winston**: Traditional logging with Elastic ECS formatting
+
+### OTLP Exporter Endpoints
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP endpoint | `http://otel-collector:4318` | No |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces endpoint | `https://otel.example.com/v1/traces` | No |
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics endpoint | `https://otel.example.com/v1/metrics` | No |
 | `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Logs endpoint | `https://otel.example.com/v1/logs` | No |
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `30000` | No |
-| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size | `2048` | No |
-| `OTEL_BSP_MAX_QUEUE_SIZE` | Queue size | `10000` | No |
+
+### OTLP Exporter Tuning
+
+| Variable | Description | Default | Range |
+|----------|-------------|---------|-------|
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `30000` | 1000-120000 |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for spans | `512` | 1-4096 |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | Max queued spans | `2048` | 512-16384 |
+| `OTEL_BSP_SCHEDULE_DELAY` | Export interval (ms) | `1000` | 100-60000 |
+
+### Standard OTel Variables
+
+These standard OpenTelemetry environment variables are recognized by the SDK but not set by default:
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | Wire protocol for OTLP exports | `http/json` | `http/protobuf`, `grpc` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Comma-separated key=value resource attributes | - | `team=auth,region=eu-west-1` |
+| `OTEL_TRACES_SAMPLER` | Sampler type for traces | `parentbased_always_on` | `parentbased_traceidratio` |
+| `OTEL_TRACES_SAMPLER_ARG` | Argument for the sampler (e.g., ratio) | `1.0` | `0.1` (10% sampling) |
+| `OTEL_METRICS_EXPORTER` | Metrics exporter type | `otlp` | `console`, `none` |
+| `OTEL_TRACES_EXPORTER` | Traces exporter type | `otlp` | `console`, `none` |
+| `OTEL_LOGS_EXPORTER` | Logs exporter type | `otlp` | `console`, `none` |
+| `OTEL_METRIC_EXPORT_INTERVAL` | Metric export interval (ms) | `30000` | `60000` |
+
+> For telemetry architecture, data flow, sampling strategy, and SDK initialization details, see **[Telemetry Architecture](../architecture/telemetry.md)**.
 
 ### Kong Circuit Breaker
 
@@ -370,3 +398,13 @@ API_CORS_ORIGIN=https://app.example.com
 | File | Purpose |
 |------|---------|
 | `src/types/circuit-breaker.types.ts` | Circuit breaker types (opossum + telemetry) |
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [4-Pillar Configuration Pattern](4-pillar-pattern.md) | Reusable configuration pattern guide |
+| [Telemetry Architecture](../architecture/telemetry.md) | OTEL data flow, modes, and memory optimization |
+| [Architecture Overview](../architecture/overview.md) | Circuit breaker behavior and failure scenarios |
+| [Performance Tuning](../development/performance-tuning.md) | Tuning configuration for different load profiles |
+| [Getting Started](../development/getting-started.md) | Development setup and .env configuration |

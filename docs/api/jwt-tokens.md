@@ -724,3 +724,13 @@ export async function generateToken(payload: JWTPayload, secret: string): Promis
 | With Telemetry | +0.05ms | +0.1ms | +0.2ms | Instrumentation overhead |
 
 **Telemetry Overhead**: Less than 10% performance impact, essential for production observability.
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [API Endpoints](endpoints.md) | Token generation and validation endpoints |
+| [Token Revocation](../security/token-revocation.md) | JWT revocation strategies |
+| [Upgrade Guide](upgrade-guide.md) | V1/V2 differences and migration |
+| [Architecture Overview](../architecture/overview.md) | Authentication flow and token generation sequence |
+| [Troubleshooting Guide](../operations/troubleshooting.md) | Token-related error diagnosis |
