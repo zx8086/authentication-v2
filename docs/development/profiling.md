@@ -529,6 +529,64 @@ These types load at startup and should be identical across all profiles:
 | After (post-update, run 1) | `Heap.531728834279.99694.md` | 5.96h (21,470s) |
 | After (post-update, run 2) | `Heap.557052960918.29981.md` | 6.55h (23,569s) |
 
+### Comparison: Long-Duration Stability Test (2026-03-08)
+
+**Context**: Two heap profiles comparing a 3.6h run against an 18.7h run to verify no memory leaks under extended operation. Both runs used the same codebase (post-dependency-update). The 5x duration difference makes this an effective long-duration stability test.
+
+#### Summary
+
+| Metric | Previous (3.6h) | Latest (18.7h) | Delta |
+|--------|----------------:|----------------:|------:|
+| Total Heap | 16.4 MB | 17.4 MB | +1.0 MB (+6%) |
+| Total Objects | 223,202 | 226,687 | +3,485 (+1.6%) |
+| Total Edges | 816,762 | 843,242 | +26,480 (+3.2%) |
+| GC Roots | 2,841 | 2,948 | +107 (+3.8%) |
+
+Growth of +1.0 MB over a 5x longer runtime is consistent with normal JIT warmup and GC variability, not a memory leak. A true leak would show proportional growth (~5x).
+
+#### Type-Level Changes
+
+| Type | Previous (3.6h) | Latest (18.7h) | Verdict |
+|------|----------------:|----------------:|---------|
+| `Function` | 87,059 (6.8 MB ret.) | 87,060 (5.3 MB ret.) | Stable (+1 function, retained size decreased) |
+| `Structure` | 17,419 (2.3 MB ret.) | 17,419 (2.4 MB ret.) | Identical count |
+| `FunctionCodeBlock` | 1,097 (2.9 MB ret.) | 1,158 (3.2 MB ret.) | +61, normal JIT compilation over longer runtime |
+| `string` | 25,569 (7.6 MB ret.) | 26,297 (781 KB ret.) | +728 count, retained size variable (JSC lazy caching) |
+| `Uint8Array` | 14 (17.6 KB) | 16 (128.8 KB) | Healthy -- OTLP lazy-loading patches working |
+| `JSLexicalEnvironment` | 25,087 (3.4 MB ret.) | 25,087 (3.4 MB ret.) | Identical |
+| `Object` | 14,197 (7.0 MB ret.) | 14,432 (6.9 MB ret.) | +235, normal GC variability |
+| `_` (Zod) | 1,386 (6.3 MB ret.) | 1,386 (6.3 MB ret.) | Static, unchanged |
+
+#### Static Allocations (Sanity Check)
+
+These types load at startup and must match across profiles to confirm a valid comparison:
+
+| Type | Previous (3.6h) | Latest (18.7h) | Match |
+|------|----------------:|----------------:|------:|
+| `ModuleRecord` | 201 | 201 | Yes |
+| `JSModuleEnvironment` | 201 | 201 | Yes |
+| `GlobalObject` | 1 | 1 | Yes |
+| `NodeSDK` | 1 | 1 | Yes |
+| `_` (Zod) | 1,386 | 1,386 | Yes |
+
+All static allocations match exactly, confirming the same codebase and valid comparison.
+
+#### Key Findings
+
+1. **No memory leak**: +1.0 MB (+6%) over a 5x longer runtime rules out proportional growth. A leak would show ~5x increase.
+2. **Function count is deterministic**: 87,059 vs 87,060 -- effectively identical. Closures (JSLexicalEnvironment) are exactly 25,087 in both.
+3. **FunctionCodeBlock JIT growth is normal**: +61 code blocks over 15 additional hours of runtime reflects Bun's JIT compiling additional hot paths.
+4. **String count growth is normal**: +728 strings over 15 hours is expected from interned string accumulation. The retained size difference (7.6 MB vs 781 KB) is JSC's lazy source text caching, not a real change in live memory.
+5. **Uint8Array is healthy**: 16 instances at 128.8 KB confirms OTLP transformer lazy-loading patches are working correctly. No buffer accumulation.
+6. **Verdict**: Heap is stable under extended operation. No action required.
+
+#### Profile Files
+
+| Profile | File | Duration |
+|---------|------|----------|
+| Previous (3.6h) | `Heap.601340669137.82385.md` | 3.56h (12,817s) |
+| Latest (18.7h) | `Heap.668585628353.96091.md` | 18.67h (67,226s) |
+
 ---
 
 ## Common Workflows
