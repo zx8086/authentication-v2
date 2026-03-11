@@ -270,11 +270,11 @@ Provenance is generated natively by BuildKit using SLSA v0.2 format for DHI comp
 ```yaml
 # Unit and Integration Tests
 - name: Run Bun tests
-  run: bun run test:bun:concurrent --coverage
+  run: bun run test:bun:coverage:ci
 
 # E2E Tests (Kong-independent)
 - name: Run Playwright tests
-  run: bun run playwright:test --project=ci-chromium
+  run: bunx playwright test --project=ci-chromium
 
 # Performance Tests
 - name: Run K6 performance tests

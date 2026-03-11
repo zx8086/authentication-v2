@@ -45,10 +45,10 @@ For detailed information, refer to the **[Documentation Index](docs/README.md)**
 | Instrumentation | [instrumentation.md](docs/development/instrumentation.md) | Adding spans, metrics, testing telemetry |
 | Configuration | [environment.md](docs/configuration/environment.md) | Environment variables and 4-pillar configuration |
 | Logging | [logging.md](docs/development/logging.md) | Logging architecture, public API, backends, and patterns |
-| Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3191 tests, mutation testing) |
+| Testing | [testing.md](docs/development/testing.md) | Complete testing guide (3190+ tests, mutation testing) |
 | Profiling | [profiling.md](docs/development/profiling.md) | Profiling workflows and Bun fetch workaround |
 | Deployment | [container-security.md](docs/deployment/container-security.md) | DHI migration, security, and CVE remediation |
-| Monitoring | [monitoring.md](docs/operations/monitoring.md) | Metrics catalog (65 instruments), health endpoints, alerting |
+| Monitoring | [monitoring.md](docs/operations/monitoring.md) | Metrics catalog (77 instruments), health endpoints, alerting |
 | SLA | [sla.md](docs/operations/sla.md) | Performance SLAs and monitoring thresholds |
 | Troubleshooting | [troubleshooting.md](docs/operations/troubleshooting.md) | Runbook, error codes, and FAQ |
 
@@ -168,7 +168,7 @@ The Bun service generates JWT tokens that are **RFC 7519 compliant** for maximum
 
 ### Key Features
 - Circuit breaker with stale cache fallback
-- Comprehensive testing (3191 tests, 100% pass rate)
+- Comprehensive testing (3190+ tests, 100% pass rate)
 - Chaos engineering tests (57 tests for Kong, Redis, resource, network failures)
 - Structured error codes (AUTH_001-012)
 - Security headers + audit logging (v2 only)
@@ -191,7 +191,7 @@ For detailed architecture, see [overview.md](docs/architecture/overview.md).
 **THIS IS A BUN PROJECT - NOT NPM/NODE**
 - Use `bun` not `npm/node/npx`
 - Commands: `bun install`, `bun run`, `bun src/index.ts` (NOT server.ts)
-- Lockfile: `bun.lockb`
+- Lockfile: `bun.lock`
 - Entry point: `src/index.ts` (uses `import.meta.main` for conditional execution)
 
 ## Essential Commands
@@ -209,11 +209,11 @@ bun run pre-commit           # Run before committing
 bun run pre-commit:fast      # Quick check (parallel biome + typecheck)
 
 # Testing (see test/README.md for complete documentation)
-bun run test:bun             # Unit + integration tests (3191 tests)
-bun run test:e2e             # E2E tests (3 suites)
+bun run test:bun             # Unit + integration tests (3190+ tests)
+bun run test:e2e             # E2E tests (4 suites)
 bun run test:k6:quick        # Performance smoke tests
 bun run test:k6:smoke:basic  # Parallel health, metrics, openapi (40% faster)
-bun run test:suite           # Full suite with parallel E2E + K6 (44% faster)
+bun run test:suite           # Full suite: sequential bun + e2e:kong + k6:quick
 
 # Validation Workflows
 bun run validate:fast    # Quick validation (parallel quality + tests)
@@ -222,7 +222,7 @@ bun run validate:full    # Complete validation including Docker security
 # Docker
 bun run docker:build             # Build container
 bun run docker:local             # Build and run locally
-bun run docker:workflow:local    # Stop, build, run (sequential)
+bun run docker:workflow:production  # Stop, build, security, run (sequential)
 ```
 
 For complete command reference, see [getting-started.md](docs/development/getting-started.md).
@@ -262,8 +262,8 @@ ENABLE_PROFILING=true bun run test:k6:smoke:health
 **Issue**: Kong consumer lookups consuming 23.1% CPU time (target: <15%)
 **Expected Impact**: -10-15ms P95 latency, -20% Kong API calls
 **Action Items**:
-1. Increase CACHING_TTL_SECONDS from 300 to 600
-2. Review cache invalidation logic in src/services/kong/consumer.service.ts
+1. Increase caching.ttlSeconds from 300 to 600 in config
+2. Review cache invalidation logic in src/services/kong.service.ts
 3. Monitor metric: kong_cache_hits_total / kong_operations_total
 ```
 
@@ -352,7 +352,7 @@ bun run test:mutation:with-kong
 ### CI/CD Rules
 - **NEVER add timeouts to critical installation steps**
 - Let operations complete naturally
-- Single consolidated workflow in `build-and-deploy.yml`
+- Primary workflow in `build-and-deploy.yml` (plus `dhi-cve-monitor.yml` and `security-audit.yml`)
 
 ## Structured Error Codes
 
@@ -380,7 +380,7 @@ For troubleshooting each error, see [troubleshooting.md](docs/operations/trouble
 | Category | Status |
 |----------|--------|
 | Security | OWASP headers, audit logging, no hardcoded secrets, 0 CVEs, CodeQL |
-| Testing | 3191 tests (live backend + 57 chaos + 197 lifecycle tests), 100% pass rate |
+| Testing | 3190+ tests (live backend + 57 chaos + 197 lifecycle tests), 100% pass rate |
 | Observability | OpenTelemetry traces, metrics, logs |
 | Error Handling | RFC 7807 Problem Details, structured error codes, circuit breaker |
 | Documentation | OpenAPI spec, RFC 8594 Sunset headers, RTO/RPO targets |

@@ -109,7 +109,7 @@ X-Anonymous-Consumer: false
 The service retrieves or creates JWT credentials in Kong:
 ```typescript
 // Kong API call to get/create consumer JWT credentials
-const secret = await kongService.getOrCreateConsumerSecret(consumerId);
+const secret = await APIGatewayService.getConsumerSecret();
 // Returns: { key: "abc123def456", secret: "super-secret-signing-key" }
 ```
 
@@ -126,11 +126,11 @@ const payload = {
   name: username,
   unique_name: `pvhcorp.com#${username}`,  // Domain is fixed for PVH ecosystem
   exp: now + (15 * 60), // 15 minutes
-  iss: config.kong.jwt.authority,
-  aud: config.kong.jwt.audience,
+  iss: config.jwt.authority,
+  aud: config.jwt.audience,
 };
 
-const token = await jwtService.generateToken(payload, secret.secret);
+const token = await NativeBunJWT.createToken(username, secret.key, secret.secret, config.jwt.authority, config.jwt.audience);
 ```
 
 ### 4. Response Format
@@ -640,8 +640,7 @@ JWT operations are automatically instrumented with OpenTelemetry spans for distr
   "jwt.username": "example-consumer",
   "jwt.token_id": "550e8400-e29b-41d4-a716-446655440000",
   "jwt.duration_ms": 0.342,
-  "jwt.algorithm": "HS256",
-  "jwt.expiration_minutes": 15
+  "jwt.expires_in": 15
 }
 ```
 
@@ -655,8 +654,7 @@ JWT operations are automatically instrumented with OpenTelemetry spans for distr
   "jwt.username": "example-consumer",
   "jwt.token_id": "550e8400-e29b-41d4-a716-446655440000",
   "jwt.duration_ms": 0.128,
-  "jwt.valid": true,
-  "jwt.algorithm": "HS256"
+  "jwt.valid": true
 }
 ```
 
@@ -693,7 +691,7 @@ LIMIT 100;
 ```typescript
 // Lines 46-57: JWT creation with instrumentation
 export async function generateToken(payload: JWTPayload, secret: string): Promise<string> {
-  const span = trace.getTracer('jwt-service').startSpan('jwt_create');
+  const span = trace.getTracer('authentication-service').startSpan('jwt_create');
   const startTime = Bun.nanoseconds();
 
   try {

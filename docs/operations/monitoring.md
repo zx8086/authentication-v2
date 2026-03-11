@@ -318,9 +318,9 @@ LOG_LEVEL=info  # Minimum level to output (default: info)
 
 ## Key Metrics
 
-### Complete Metrics Reference (65 Instruments)
+### Complete Metrics Reference (77 Instruments)
 
-The service exports 65 OpenTelemetry metric instruments organized by category. All metrics are defined in `src/telemetry/metrics/instruments.ts`.
+The service exports 77 OpenTelemetry metric instruments organized by category. All metrics are defined in `src/telemetry/metrics/instruments.ts`.
 
 #### HTTP Metrics (7 instruments)
 

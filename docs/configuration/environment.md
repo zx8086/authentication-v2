@@ -41,7 +41,7 @@ The authentication service implements a robust configuration pattern with compre
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `PORT` | Server port | `3000` | No (default: `3000`) |
-| `NODE_ENV` | Runtime environment | `development`, `production`, `test` | No |
+| `NODE_ENV` | Runtime environment | `local`, `development`, `staging`, `production`, `test` | No |
 
 **Port Notes**: Ports 1-1023 require special permissions. Use port mapping in Docker/K8s.
 
@@ -76,10 +76,9 @@ The authentication service implements a robust configuration pattern with compre
 
 | Variable | Description | Default | Range |
 |----------|-------------|---------|-------|
-| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `30000` | 1000-120000 |
-| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for spans | `512` | 1-4096 |
-| `OTEL_BSP_MAX_QUEUE_SIZE` | Max queued spans | `2048` | 512-16384 |
-| `OTEL_BSP_SCHEDULE_DELAY` | Export interval (ms) | `1000` | 100-60000 |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Export timeout (ms) | `10000` | 1000-60000 |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Batch size for spans | `128` | 1-5000 |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | Max queued spans | `512` | 1-50000 |
 
 ### Standard OTel Variables
 
@@ -106,9 +105,9 @@ These standard OpenTelemetry environment variables are recognized by the SDK but
 | `CIRCUIT_BREAKER_TIMEOUT` | Request timeout (ms) | `5000` | 100-10000 |
 | `CIRCUIT_BREAKER_ERROR_THRESHOLD` | Error threshold (%) | `50` | 1-100 |
 | `CIRCUIT_BREAKER_RESET_TIMEOUT` | Reset timeout (ms) | `60000` | 1000-300000 |
-| `CIRCUIT_BREAKER_VOLUME_THRESHOLD` | Min requests before tripping | `3` | 1-100 |
+| `CIRCUIT_BREAKER_VOLUME_THRESHOLD` | Min requests before tripping | `3` | 1-1000 |
 | `CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT` | Rolling window (ms) | `10000` | 1000-60000 |
-| `CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS` | Rolling window buckets | `10` | 1-20 |
+| `CIRCUIT_BREAKER_ROLLING_COUNT_BUCKETS` | Rolling window buckets | `10` | 2-50 |
 | `STALE_DATA_TOLERANCE_MINUTES` | Stale cache window | `30` | 5-240 |
 | `HIGH_AVAILABILITY` | Enable Redis stale cache | `false` | boolean |
 
@@ -164,7 +163,7 @@ The service supports both Redis and Valkey as cache backends. Server type is aut
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `HIGH_AVAILABILITY` | Enable Redis/Valkey stale cache | `false` | No |
-| `REDIS_URL` | Connection URL | `redis://localhost:6379` | No |
+| `REDIS_URL` | Connection URL | `""` (empty) | No |
 | `REDIS_PASSWORD` | Authentication password | - | No |
 | `REDIS_DB` | Database number | `0` | No |
 | `REDIS_MAX_RETRIES` | Retry attempts | `3` | No |
@@ -187,9 +186,9 @@ The cache layer includes comprehensive resilience features to handle connection 
 | Variable | Description | Default | Range |
 |----------|-------------|---------|-------|
 | `CACHE_CB_ENABLED` | Enable cache circuit breaker | `true` | boolean |
-| `CACHE_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-100 |
+| `CACHE_CB_FAILURE_THRESHOLD` | Failures before opening | `5` | 1-20 |
 | `CACHE_CB_RESET_TIMEOUT` | Time before half-open (ms) | `30000` | 1000-300000 |
-| `CACHE_CB_SUCCESS_THRESHOLD` | Successes to close | `2` | 1-20 |
+| `CACHE_CB_SUCCESS_THRESHOLD` | Successes to close | `2` | 1-10 |
 
 #### Reconnection Manager
 
@@ -198,7 +197,7 @@ The cache layer includes comprehensive resilience features to handle connection 
 | `CACHE_RECONNECT_MAX_ATTEMPTS` | Max reconnection attempts | `5` | 1-20 |
 | `CACHE_RECONNECT_BASE_DELAY_MS` | Base backoff delay (ms) | `100` | 50-5000 |
 | `CACHE_RECONNECT_MAX_DELAY_MS` | Max backoff delay cap (ms) | `5000` | 1000-60000 |
-| `CACHE_RECONNECT_COOLDOWN_MS` | Cooldown before retry (ms) | `60000` | 10000-300000 |
+| `CACHE_RECONNECT_COOLDOWN_MS` | Cooldown before retry (ms) | `60000` | 10000-600000 |
 
 #### Health Monitor
 
@@ -206,8 +205,8 @@ The cache layer includes comprehensive resilience features to handle connection 
 |----------|-------------|---------|-------|
 | `CACHE_HEALTH_MONITOR_ENABLED` | Enable background monitoring | `true` | boolean |
 | `CACHE_HEALTH_MONITOR_INTERVAL_MS` | Check interval (ms) | `10000` | 1000-60000 |
-| `CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD` | Failures to mark unhealthy | `3` | 1-20 |
-| `CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD` | Successes to mark healthy | `2` | 1-20 |
+| `CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD` | Failures to mark unhealthy | `3` | 1-10 |
+| `CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD` | Successes to mark healthy | `2` | 1-10 |
 | `CACHE_HEALTH_MONITOR_PING_TIMEOUT_MS` | PING timeout (ms) | `500` | 100-5000 |
 
 #### Operation Timeouts
@@ -217,8 +216,8 @@ The cache layer includes comprehensive resilience features to handle connection 
 | `CACHE_TIMEOUT_GET_MS` | GET operation timeout (ms) | `1000` | 100-10000 |
 | `CACHE_TIMEOUT_SET_MS` | SET operation timeout (ms) | `2000` | 100-10000 |
 | `CACHE_TIMEOUT_DELETE_MS` | DELETE operation timeout (ms) | `1000` | 100-10000 |
-| `CACHE_TIMEOUT_SCAN_MS` | SCAN operation timeout (ms) | `5000` | 1000-30000 |
-| `CACHE_TIMEOUT_PING_MS` | PING operation timeout (ms) | `500` | 50-5000 |
+| `CACHE_TIMEOUT_SCAN_MS` | SCAN operation timeout (ms) | `5000` | 100-30000 |
+| `CACHE_TIMEOUT_PING_MS` | PING operation timeout (ms) | `500` | 100-5000 |
 | `CACHE_TIMEOUT_CONNECT_MS` | Connection timeout (ms) | `5000` | 1000-30000 |
 
 **Resilience Features:**
@@ -358,17 +357,17 @@ API_CORS_ORIGIN=https://app.example.com
 |---------|---------|---------|
 | `@opentelemetry/*` | Various | Observability stack (traces, metrics, logs) |
 | `opossum` | ^9.0.0 | Circuit breaker for Kong API protection |
-| `redis` | ^5.8.3 | Cache backend for HA mode |
-| `winston` | ^3.18.3 | Structured logging with ECS format |
-| `zod` | ^4.1.12 | Schema validation |
+| `redis` | ^5.11.0 | Cache backend for HA mode |
+| `winston` | ^3.19.0 | Structured logging with ECS format |
+| `zod` | ^4.3.6 | Schema validation |
 
 ### Development Dependencies
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `@biomejs/biome` | ^2.2.5 | Linting and formatting |
-| `@playwright/test` | ^1.56.0 | E2E testing |
-| `@types/bun` | 1.3.9 | Bun runtime types |
+| `@biomejs/biome` | ^2.4.6 | Linting and formatting |
+| `@playwright/test` | ^1.58.2 | E2E testing |
+| `@types/bun` | 1.3.10 | Bun runtime types |
 | `typescript` | ^5.9.3 | TypeScript compiler |
 
 ### Minimum Requirements

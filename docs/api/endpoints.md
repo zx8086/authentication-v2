@@ -31,11 +31,11 @@ All endpoints enforce strict HTTP method validation per [RFC 9110](https://www.r
   "type": "https://httpwg.org/specs/rfc9110.html#status.405",
   "title": "Method Not Allowed",
   "status": 405,
-  "detail": "POST is not allowed on /health. Allowed methods: GET, OPTIONS",
+  "detail": "The requested method is not allowed for this endpoint. Allowed methods: GET, OPTIONS",
   "instance": "/health",
-  "code": "AUTH_007",
   "requestId": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2026-02-14T12:00:00.000Z"
+  "timestamp": "2026-02-14T12:00:00.000Z",
+  "extensions": { "allowedMethods": ["GET", "OPTIONS"] }
 }
 ```
 
@@ -151,18 +151,30 @@ X-Anonymous-Consumer: false
 **Response - Unauthorized (401)**
 ```json
 {
-  "error": "Unauthorized",
-  "message": "Missing Kong consumer headers",
-  "timestamp": "2025-01-15T12:00:00.000Z"
+  "type": "urn:problem-type:auth-service/auth-001",
+  "title": "Missing Consumer Headers",
+  "status": 401,
+  "detail": "Missing Kong consumer headers",
+  "instance": "/tokens",
+  "code": "AUTH_001",
+  "requestId": "req-xxx",
+  "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```
 
 **Response - Service Unavailable (503)**
+
+Note: The response includes a `Retry-After: 30` header.
+
 ```json
 {
-  "error": "Service Unavailable",
-  "message": "Authentication service is temporarily unavailable. Please try again later.",
-  "details": "Kong gateway connectivity issues",
+  "type": "urn:problem-type:auth-service/auth-004",
+  "title": "Kong API Unavailable",
+  "status": 503,
+  "detail": "Authentication service is temporarily unavailable. Please try again later.",
+  "instance": "/tokens",
+  "code": "AUTH_004",
+  "requestId": "req-xxx",
   "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
@@ -223,36 +235,46 @@ X-Consumer-Username: example-consumer
 **Response - Token Expired (401)**
 ```json
 {
-  "error": "Token Expired",
-  "message": "The provided JWT token has expired",
-  "errorCode": "AUTH_010",
-  "statusCode": 401,
-  "expiredAt": "2025-01-15T11:45:00.000Z",
+  "type": "urn:problem-type:auth-service/auth-010",
+  "title": "Token Expired",
+  "status": 401,
+  "detail": "The provided JWT token has expired",
+  "instance": "/tokens/validate",
+  "code": "AUTH_010",
   "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
-  "timestamp": "2025-01-15T12:00:00.000Z"
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "extensions": {
+    "expiredAt": "2025-01-15T11:45:00.000Z"
+  }
 }
 ```
 
 **Response - Invalid Token (400)**
 ```json
 {
-  "error": "Invalid Token",
-  "message": "The provided JWT token is invalid or malformed",
-  "errorCode": "AUTH_011",
-  "statusCode": 400,
-  "reason": "Invalid signature",
+  "type": "urn:problem-type:auth-service/auth-011",
+  "title": "Invalid Token",
+  "status": 400,
+  "detail": "The provided JWT token is invalid or malformed",
+  "instance": "/tokens/validate",
+  "code": "AUTH_011",
   "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
-  "timestamp": "2025-01-15T12:00:00.000Z"
+  "timestamp": "2025-01-15T12:00:00.000Z",
+  "extensions": {
+    "reason": "Invalid signature"
+  }
 }
 ```
 
 **Response - Missing Authorization (400)**
 ```json
 {
-  "error": "Missing Authorization",
-  "message": "Authorization header with Bearer token is required",
-  "errorCode": "AUTH_012",
-  "statusCode": 400,
+  "type": "urn:problem-type:auth-service/auth-012",
+  "title": "Missing Authorization",
+  "status": 400,
+  "detail": "Authorization header with Bearer token is required",
+  "instance": "/tokens/validate",
+  "code": "AUTH_012",
   "requestId": "req-550e8400-e29b-41d4-a716-446655440001",
   "timestamp": "2025-01-15T12:00:00.000Z"
 }
@@ -313,6 +335,14 @@ Host: auth-service.example.com
         "avgLatencyMs": 0.1
       },
       "healthMonitor": null
+    },
+    "dns": {
+      "cacheSize": 0,
+      "hitRate": "0.00%",
+      "hits": 0,
+      "misses": 0,
+      "errors": 0,
+      "totalLookups": 0
     },
     "telemetry": {
       "traces": {
@@ -520,7 +550,7 @@ OTLP validation adds network latency to health check response times:
 See [monitoring.md](../operations/monitoring.md#otlp-connectivity-validation) for detailed OTLP validation documentation.
 
 ### GET /health/ready
-Readiness probe verifying the service can handle requests (validates Kong connectivity).
+Readiness probe verifying the service can handle requests (validates Kong connectivity, lifecycle state, and cache health when HA is enabled).
 
 **Request**
 ```http
@@ -719,7 +749,7 @@ Host: auth-service.example.com
 ```json
 {
   "timestamp": "2025-01-15T12:00:00.000Z",
-  "uptime": "1h",
+  "uptime": 3600,
   "memory": {
     "used": 64,
     "total": 128,
@@ -1078,7 +1108,7 @@ All error responses follow the [RFC 7807 Problem Details](https://www.rfc-editor
 ### Error Response Format (RFC 7807)
 ```json
 {
-  "type": "urn:problem-type:auth-service:auth-001",
+  "type": "urn:problem-type:auth-service/auth-001",
   "title": "Missing Consumer Headers",
   "status": 401,
   "detail": "Required Kong consumer headers are missing from the request",
@@ -1092,7 +1122,7 @@ All error responses follow the [RFC 7807 Problem Details](https://www.rfc-editor
 ### RFC 7807 Fields
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | String | URN identifying the problem type (e.g., `urn:problem-type:auth-service:auth-001`) |
+| `type` | String | URN identifying the problem type (e.g., `urn:problem-type:auth-service/auth-001`) |
 | `title` | String | Short, human-readable summary |
 | `status` | Integer | HTTP status code |
 | `detail` | String | Human-readable explanation specific to this occurrence |
@@ -1127,12 +1157,12 @@ For detailed troubleshooting of each error code, see the [Troubleshooting Guide]
 ```typescript
 // Missing Kong headers
 if (!request.headers.get("x-consumer-id")) {
-  return createUnauthorizedResponse("Missing Kong consumer headers", requestId);
+  return createStructuredErrorResponse("Missing Kong consumer headers", requestId);
 }
 
 // Anonymous consumer
 if (request.headers.get("x-anonymous-consumer") === "true") {
-  return createUnauthorizedResponse("Anonymous consumers are not allowed", requestId);
+  return createStructuredErrorResponse("Anonymous consumers are not allowed", requestId);
 }
 
 // Kong API failure
@@ -1146,7 +1176,7 @@ try {
 try {
   const token = await NativeBunJWT.createToken(...);
 } catch (error) {
-  return createInternalErrorResponse("An unexpected error occurred", requestId);
+  return createStructuredErrorWithMessage("An unexpected error occurred", requestId);
 }
 ```
 
@@ -1157,13 +1187,13 @@ The service includes built-in CORS support for browser-based applications:
 ```http
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username, X-Anonymous-Consumer
+Access-Control-Allow-Headers: Content-Type, Authorization, Accept-Version, X-Consumer-Id, X-Consumer-Username, X-Anonymous-Consumer
 Access-Control-Max-Age: 86400
 ```
 
 ### CORS Configuration
 - **Default**: `*` (wildcard - allows all origins)
-- **Configurable**: Set `API_CORS` environment variable to specific origins
+- **Configurable**: Set `API_CORS_ORIGIN` environment variable to specific origins (`API_CORS` is supported as a legacy fallback)
 - **Security**: Use specific origins in production (e.g., `https://app.example.com`)
 
 ### Preflight Requests
@@ -1177,7 +1207,7 @@ Access-Control-Request-Headers: X-Consumer-ID,X-Consumer-Username
 HTTP/1.1 204 No Content
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, X-Consumer-ID, X-Consumer-Username, X-Anonymous-Consumer
+Access-Control-Allow-Headers: Content-Type, Authorization, Accept-Version, X-Consumer-Id, X-Consumer-Username, X-Anonymous-Consumer
 Access-Control-Max-Age: 86400
 ```
 

@@ -76,7 +76,7 @@ bun run quality:fix        # Auto-fix quality issues
 
 # Individual checks
 bun run biome:check        # Biome linting and formatting
-bun run biome:fix          # Auto-fix Biome issues
+bun run biome:lint:fix     # Auto-fix Biome issues
 ```
 
 ### Testing Commands
@@ -108,7 +108,7 @@ bun run test:k6:pressure:memory # Memory pressure testing
 
 # Test suites
 bun run test:suite         # Run all tests (Bun + Playwright + K6)
-bun run test:suite:quick   # Quick test suite (smoke tests only)
+bun run test:quick         # Quick test suite (smoke tests only)
 ```
 
 ### Script Organization
@@ -143,7 +143,7 @@ bun run test:bun               # Run unit tests
 bun run quality:check          # Validate code quality
 
 # Testing workflow
-bun run test:suite:quick       # Quick validation
+bun run test:quick             # Quick validation
 bun run test:k6:smoke:health   # Performance smoke test
 bun run test:e2e               # Full E2E tests
 
@@ -177,7 +177,7 @@ bun run redis:memkeys      # Memory analysis by key
 ### Health and Debugging
 ```bash
 # Health checks
-bun run health-check       # Quick health check via curl
+bun run server:health-check       # Quick health check via curl
 
 # Debug endpoints
 curl http://localhost:3000/health
@@ -322,7 +322,7 @@ CIRCUIT_BREAKER_ERROR_THRESHOLD=25
 
 ### Modifying Configuration
 1. Update schema in `src/config/schemas.ts`
-2. Add environment variable mapping in `src/config/config.ts`
+2. Add environment variable mapping in `src/config/envMapping.ts`
 3. Update documentation
 4. Add validation tests
 

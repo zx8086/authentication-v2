@@ -160,7 +160,7 @@ The service implements circuit breaker patterns for Kong API calls (via Opossum)
 
 #### Kong API Gateway Unavailable
 
-1. Circuit breaker opens after 5 consecutive failures
+1. Circuit breaker opens when error rate exceeds 50% (with minimum 3 requests in rolling window)
 2. Stale cache serves cached consumer secrets (if available)
 3. New token requests return `AUTH_004` (Kong Unavailable) or `AUTH_005` (Circuit Breaker Open)
 4. Health check reports degraded status
@@ -255,27 +255,27 @@ SLAs are validated via K6 tests in CI/CD:
 
 ```bash
 # Smoke test (quick validation)
-bun run k6:smoke:health
-bun run k6:smoke:tokens
+bun run test:k6:smoke:health
+bun run test:k6:smoke:tokens
 
 # Load test (sustained load)
-bun run k6:load
+bun run test:k6:load
 
 # Stress test (breaking point)
-bun run k6:stress
+bun run test:k6:stress
 ```
 
 ### K6 Threshold Configuration
 
 ```javascript
-// From test/k6/thresholds.ts
+// From test/k6/utils/config.ts
 export const healthThresholds = {
-  http_req_duration: ['p(95)<400', 'p(99)<500'],
+  http_req_duration: ['p(95)<300', 'p(99)<600'],
   http_req_failed: ['rate<0.01'],
 };
 
 export const tokenThresholds = {
-  http_req_duration: ['p(95)<200', 'p(99)<500'],
+  http_req_duration: ['p(95)<50', 'p(99)<100'],
   http_req_failed: ['rate<0.05'],
 };
 ```

@@ -374,7 +374,7 @@ The service is compatible with OpenTelemetry SDK 0.212.0+, which introduced a br
 2. Register LoggerProvider via `logs.setGlobalLoggerProvider()`
 3. Reinitialize Winston logger to pick up the new provider
 
-**Implementation:** `src/telemetry/telemetry.ts`
+**Implementation:** `src/telemetry/instrumentation.ts`
 
 **Troubleshooting:** If console logs are not appearing after telemetry initialization in `TELEMETRY_MODE=both`, ensure the Winston logger is reinitialized after the LoggerProvider is set. The logger caches its reference to the OTLP transport, which must be updated after the SDK is fully initialized.
 
@@ -514,20 +514,20 @@ The telemetry system requires these OpenTelemetry packages:
 {
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.212.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.212.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.212.0",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.212.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
-    "@opentelemetry/host-metrics": "^0.212.0",
-    "@opentelemetry/instrumentation-redis": "^0.212.0",
-    "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/sdk-logs": "^0.212.0",
-    "@opentelemetry/sdk-metrics": "^2.0.0",
-    "@opentelemetry/sdk-node": "^0.212.0",
-    "@opentelemetry/sdk-trace-base": "^2.0.0",
-    "@opentelemetry/semantic-conventions": "^1.28.0",
-    "@opentelemetry/winston-transport": "^0.12.0",
+    "@opentelemetry/api-logs": "^0.213.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.71.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.213.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.213.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
+    "@opentelemetry/host-metrics": "^0.38.3",
+    "@opentelemetry/instrumentation-redis": "^0.61.0",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-logs": "^0.213.0",
+    "@opentelemetry/sdk-metrics": "^2.6.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "@opentelemetry/sdk-trace-base": "^2.6.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@opentelemetry/winston-transport": "^0.23.0",
     "@elastic/ecs-winston-format": "^1.6.2",
     "winston": "^3.18.0"
   }

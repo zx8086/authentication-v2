@@ -99,7 +99,8 @@ strategy:
 
 ```mermaid
 graph TD
-    A[build-and-push] --> B[security-scan Matrix]
+    A[build-and-push]
+    B[security-scan Matrix]
     B --> B1[snyk-code]
     B --> B2[snyk-container]
     B --> B3[trivy-container]
@@ -113,6 +114,8 @@ graph TD
     B5 --> C
     A --> D[supply-chain-verification]
 ```
+
+> **Note**: The `security-scan` job runs independently with no `needs` dependency on `build-and-push`. It also has `if: github.event_name != 'pull_request'`, so it does NOT run on pull requests.
 
 ### Matrix Job Configuration
 
@@ -151,8 +154,9 @@ Each matrix job includes:
 ### Triggering Parallel Scans
 Parallel scans automatically run on:
 - Push to `master` and `develop` branches
-- Pull requests to `master`
 - Tag pushes (`v*`)
+
+> **Note**: The `security-scan` job has `if: github.event_name != 'pull_request'`, so it does NOT run on pull requests.
 
 ### Adding New Security Tools
 1. Add new scan type to matrix:
@@ -178,8 +182,8 @@ Parallel scans automatically run on:
 4. Update summary job to include new tool results
 
 ### Performance Tuning
-- **max-parallel**: Currently set to 5 (one per scan type)
-- **timeout-minutes**: 8 minutes per job (can be adjusted per scan type)
+- **max-parallel**: Currently set to 6 (one per scan type)
+- **timeout-minutes**: 6 minutes per job (can be adjusted per scan type)
 - **Resource allocation**: Each job gets full runner resources
 
 ### Cost Considerations
@@ -192,7 +196,7 @@ Parallel scans automatically run on:
 ### Common Issues
 
 1. **Scan Timeouts**
-   - Individual scan times out after 8 minutes
+   - Individual scan times out after 6 minutes
    - Check scan-specific timeout settings
    - Consider increasing timeout for specific scan types
 
@@ -269,7 +273,7 @@ The implementation includes a comprehensive validation script (`test-parallel-wo
 ## Related Files
 
 - `.github/workflows/build-and-deploy.yml` - Main workflow with parallel security scanning
-- `.github/workflows/codeql-analysis.yml` - CodeQL semantic analysis (GitHub Security Overview)
+- `.github/workflows/build-and-deploy.yml` - CodeQL is embedded as a job within this workflow (not a separate file)
 - `.github/workflows/security-audit.yml` - Comprehensive daily security audit
 - `.github/workflows/dhi-cve-monitor.yml` - DHI CVE monitoring (6-hour scans)
 - `test-parallel-workflow.ts` - Validation script

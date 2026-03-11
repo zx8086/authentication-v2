@@ -799,19 +799,20 @@ LOG_LEVEL=silent bun test
 Use the container's `setLogger()` for test isolation:
 
 ```typescript
+import { mock, beforeEach, afterEach } from "bun:test";
 import { loggerContainer } from "../src/logging/container";
 
 const mockLogger = {
-  debug: vi.fn(),
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  child: vi.fn().mockReturnThis(),
-  flush: vi.fn().mockResolvedValue(undefined),
-  reinitialize: vi.fn(),
-  logHttpRequest: vi.fn(),
-  logAuthenticationEvent: vi.fn(),
-  logKongOperation: vi.fn(),
+  debug: mock(() => {}),
+  info: mock(() => {}),
+  warn: mock(() => {}),
+  error: mock(() => {}),
+  child: mock(() => mockLogger),
+  flush: mock(() => Promise.resolve(undefined)),
+  reinitialize: mock(() => {}),
+  logHttpRequest: mock(() => {}),
+  logAuthenticationEvent: mock(() => {}),
+  logKongOperation: mock(() => {}),
 };
 
 beforeEach(() => {

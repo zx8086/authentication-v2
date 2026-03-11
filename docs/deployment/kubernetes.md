@@ -49,12 +49,12 @@ spec:
         - name: KONG_JWT_AUTHORITY
           valueFrom:
             configMapKeyRef:
-              name: auth-config
+              name: authentication-config
               key: jwt-authority
         - name: KONG_JWT_AUDIENCE
           valueFrom:
             configMapKeyRef:
-              name: auth-config
+              name: authentication-config
               key: jwt-audience
         - name: TELEMETRY_MODE
           value: "otlp"
@@ -75,7 +75,7 @@ spec:
             path: /health
             port: 3000
           initialDelaySeconds: 30
-          periodSeconds: 10
+          periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
         readinessProbe:
@@ -131,7 +131,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: auth-config
+  name: authentication-config
   labels:
     app: authentication-service
 data:
@@ -195,7 +195,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
-      maxSurge: 1
+      maxSurge: 2
   selector:
     matchLabels:
       app: authentication-service
@@ -319,7 +319,7 @@ spec:
     kind: Deployment
     name: authentication-service
   minReplicas: 3
-  maxReplicas: 10
+  maxReplicas: 20
   metrics:
   - type: Resource
     resource:
@@ -335,7 +335,7 @@ spec:
         averageUtilization: 80
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 300
       policies:
       - type: Percent
         value: 100
@@ -680,14 +680,14 @@ roleRef:
 ## Deployment Best Practices
 
 ### Resource Management
-- **CPU Requests**: 100m (guaranteed baseline)
-- **CPU Limits**: 1.0 (burst capacity)
-- **Memory Requests**: 512Mi (baseline usage)
-- **Memory Limits**: 1Gi (production capacity)
+- **CPU Requests**: 50m (guaranteed baseline)
+- **CPU Limits**: 500m (burst capacity)
+- **Memory Requests**: 64Mi (baseline usage)
+- **Memory Limits**: 256Mi (production capacity)
 
 ### Health Checks
 - **Liveness Probe**: `/health` - Detect crashed containers
-- **Readiness Probe**: `/health/ready` - Control traffic routing (checks Kong connectivity)
+- **Readiness Probe**: `/health` - Control traffic routing
 - **Startup Probe**: Handle slow startup scenarios
 
 ### Security Hardening
@@ -748,7 +748,7 @@ kubectl exec -it <pod-name> -- sh
 #### Configuration Issues
 ```bash
 # Verify ConfigMaps
-kubectl get configmap auth-config -o yaml
+kubectl get configmap authentication-config -o yaml
 
 # Check Secrets
 kubectl get secret kong-config -o yaml

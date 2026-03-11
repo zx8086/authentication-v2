@@ -19,8 +19,9 @@ curl -s http://localhost:3000/metrics | jq .
 # Full metrics with all subsystems
 curl -s "http://localhost:3000/metrics?view=full" | jq .
 
-# Debug info (non-production)
-curl -s http://localhost:3000/debug/info | jq .
+# Debug endpoints (non-production)
+curl -s http://localhost:3000/debug/metrics/test | jq .
+curl -s http://localhost:3000/debug/metrics/export | jq .
 ```
 
 ### Service Status Indicators
@@ -509,9 +510,6 @@ curl -v http://localhost:3000/tokens
 
 **Diagnosis**:
 ```bash
-# Check current rate limit configuration
-curl -s http://localhost:3000/debug/info | jq '.rateLimits'
-
 # Monitor rate limit metrics
 curl -s http://localhost:3000/metrics | jq '.rateLimiter'
 

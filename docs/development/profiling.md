@@ -792,7 +792,7 @@ data:
 
 ## Profiling API Endpoints
 
-All profiling endpoints are restricted to development and staging environments only.
+Profiling endpoints are available when `PROFILING_ENABLED=true` is set (any environment).
 
 ### POST /debug/profiling/start
 
@@ -834,7 +834,7 @@ Check profiling system status.
 
 List available profiling reports.
 
-### DELETE /debug/profiling/cleanup
+### POST /debug/profiling/cleanup
 
 Clean up profiling artifacts and sessions.
 

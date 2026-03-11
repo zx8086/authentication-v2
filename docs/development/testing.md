@@ -15,7 +15,7 @@ This document consolidates all testing documentation for the authentication serv
 
 ### Test Organization
 
-112 Bun test files organized into logical subdirectories by domain (121 total files including chaos and integration when run via `bun test`):
+113 Bun test files organized into logical subdirectories by domain (121 total files including chaos and integration when run via `bun test`):
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|
@@ -27,7 +27,7 @@ This document consolidates all testing documentation for the authentication serv
 | `health/` | 6 | Health check endpoints, telemetry |
 | `kong/` | 4 | Kong API Gateway integration |
 | `lifecycle/` | 5 | Lifecycle management, graceful shutdown |
-| `logging/` | 5 | Winston integration, logging container |
+| `logging/` | 6 | Winston integration, logging container |
 | `middleware/` | 1 | Request validation middleware |
 | `mutation/` | 2 | Mutation-resistant test patterns |
 | `services/` | 8 | Service layer (JWT, caching, cache health) |
@@ -260,15 +260,15 @@ Located in `test/k6/` directory.
 
 ```bash
 # Quick smoke tests
-bun run k6:quick               # Health + tokens smoke tests
-bun run k6:smoke:health        # Health endpoint only
-bun run k6:smoke:tokens        # JWT token generation
+bun run test:k6:quick               # Health + tokens smoke tests
+bun run test:k6:smoke:health        # Health endpoint only
+bun run test:k6:smoke:tokens        # JWT token generation
 
 # Load testing
-bun run k6:load                # Sustained load testing
+bun run test:k6:load                # Sustained load testing
 
 # Stress testing
-bun run k6:stress              # High-load stress testing
+bun run test:k6:stress              # High-load stress testing
 ```
 
 ### Performance Thresholds
@@ -306,7 +306,7 @@ The project uses K6 v0.57.0 with native TypeScript support:
 
 **Key Configuration:**
 ```typescript
-// test/k6/shared/config.ts - Centralized threshold configuration
+// test/k6/utils/config.ts - Centralized threshold configuration
 export const smokeOptions = {
   thresholds: {
     http_req_duration: ['p(95)<100', 'p(99)<200'],
@@ -321,7 +321,7 @@ export const smokeOptions = {
 K6_THRESHOLDS_NON_BLOCKING=true
 
 # Smoke test configuration
-K6_SMOKE_VUS=1
+K6_SMOKE_VUS=3
 K6_SMOKE_DURATION=3s
 
 # Load test configuration
@@ -379,17 +379,7 @@ bun run test:mutation:with-kong
 
 ### Targeted Testing
 
-Run mutation testing on specific directories:
-
-```bash
-bun run test:mutation:handlers    # Only handlers
-bun run test:mutation:services    # Only services
-bun run test:mutation:telemetry   # Only telemetry
-bun run test:mutation:config      # Only config
-bun run test:mutation:adapters    # Only adapters
-bun run test:mutation:cache       # Only cache
-bun run test:mutation:utils       # Only utils
-```
+Targeted mutation testing by directory is not currently available as package.json scripts. Use the general `bun run test:mutation` command instead.
 
 ### Performance Characteristics
 

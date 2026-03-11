@@ -43,12 +43,12 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 X-XSS-Protection: 0
 Strict-Transport-Security: max-age=31536000; includeSubDomains
-Content-Security-Policy: default-src 'none'
-Cache-Control: no-store
-Pragma: no-cache
+Content-Security-Policy: default-src 'none'; frame-ancestors 'none'
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
+
+> **Note**: `Cache-Control: no-store` and `Pragma: no-cache` are separate cache headers set on responses independently; they are not part of the V2 security header set returned by `getSecurityHeaders()`.
 
 ### Migration Steps
 
@@ -84,11 +84,7 @@ Deprecation: true
 Link: <migration-url>; rel="sunset"
 ```
 
-**Environment configuration for deprecation headers:**
-```bash
-API_V1_SUNSET_DATE=2028-01-01T00:00:00Z
-API_V1_MIGRATION_URL=https://api.example.com/docs/v2-migration
-```
+**Deprecation configuration:** `API_V1_SUNSET_DATE` and `API_V1_MIGRATION_URL` do not exist as environment variables. Deprecation is configured via the `apiInfo.versioning.deprecation` config object in `src/config/defaults.ts`.
 
 ## Version Testing
 
