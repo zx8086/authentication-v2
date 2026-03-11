@@ -67,3 +67,5 @@ profiles/
 
 # Kong decK configuration (contains credentials)
 /kong/
+
+.zed/
