@@ -248,7 +248,7 @@ src/
 │   ├── cache/             # Cache service implementations
 │   └── profiling/         # Performance profiling utilities
 ├── telemetry/             # OpenTelemetry instrumentation
-│   └── metrics/           # Metrics instruments (65 application metrics)
+│   └── metrics/           # Metrics instruments (77 application metrics)
 ├── types/                 # TypeScript type definitions
 ├── utils/                 # Utility functions
 └── index.ts               # Application entry point

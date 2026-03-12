@@ -1053,12 +1053,13 @@ Returns HTML content of the flamegraph report with `Content-Type: text/html`.
 }
 ```
 
-**Response - Not Found (404)**
+**Response - Not Found (400 AUTH_007)**
 ```json
 {
-  "error": "Not Found",
+  "error": "Invalid Request Format",
   "message": "Report file not found",
-  "statusCode": 404,
+  "statusCode": 400,
+  "errorCode": "AUTH_007",
   "requestId": "req-1705320000000-xyz789"
 }
 ```

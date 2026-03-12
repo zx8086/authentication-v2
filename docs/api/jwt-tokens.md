@@ -60,16 +60,16 @@ This JWT implementation follows **[RFC 7519: JSON Web Token (JWT)](https://datat
 - `iss` (Issuer) - Token authority endpoint - §4.1.1
 - `sub` (Subject) - Consumer identifier - §4.1.2
 - `aud` (Audience) - Target API endpoint(s) - §4.1.3
-- `exp` (Expiration) - Token expiration timestamp - §4.1.4 ✅ Validated
-- `nbf` (Not Before) - Token validity start timestamp - §4.1.5 ✅ Validated
+- `exp` (Expiration) - Token expiration timestamp - §4.1.4 [Validated]
+- `nbf` (Not Before) - Token validity start timestamp - §4.1.5 [Validated]
 - `iat` (Issued At) - Token creation timestamp - §4.1.6
 - `jti` (JWT ID) - Unique token identifier (UUID v4) - §4.1.7
 
 **Validation Compliance**:
-- ✅ **`exp` validation** (§4.1.4): Rejects tokens where current time >= expiration time
-- ✅ **`nbf` validation** (§4.1.5): Rejects tokens where current time < not-before time
-- ✅ **Signature validation**: HMAC-SHA256 signature verification
-- ✅ **Claim uniqueness**: JSON structure ensures no duplicate claims
+- **`exp` validation** (§4.1.4): Rejects tokens where current time >= expiration time
+- **`nbf` validation** (§4.1.5): Rejects tokens where current time < not-before time
+- **Signature validation**: HMAC-SHA256 signature verification
+- **Claim uniqueness**: JSON structure ensures no duplicate claims
 
 **Audience Claim Handling** (RFC 7519 §4.1.3):
 - **Single audience**: String value `"http://api.example.com/"`

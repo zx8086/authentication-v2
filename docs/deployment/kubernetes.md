@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: authentication-service
-        image: example/authentication-service:latest
+        image: zx8086/authentication-v2:latest
         ports:
         - containerPort: 3000
           name: http
@@ -218,7 +218,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: authentication-service
-        image: example/authentication-service:latest
+        image: zx8086/authentication-v2:latest
         env:
         - name: HIGH_AVAILABILITY
           value: "true"

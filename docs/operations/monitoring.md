@@ -327,10 +327,10 @@ The service exports 77 OpenTelemetry metric instruments organized by category. A
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
 | `http_requests_total` | Counter | method, path, status | Total HTTP requests |
-| `http_requests_by_status` | Counter | method, path, status | Requests grouped by status code |
-| `http_response_time` | Histogram | method, path, status | Response time distribution (ms) |
-| `http_request_size` | Histogram | method, path | Request body size (bytes) |
-| `http_response_size` | Histogram | method, path, status | Response body size (bytes) |
+| `http_requests_by_status_total` | Counter | method, path, status | Requests grouped by status code |
+| `http_request_duration_seconds` | Histogram | method, path, status | Response time distribution (seconds) |
+| `http_request_size_bytes` | Histogram | method, path | Request body size (bytes) |
+| `http_response_size_bytes` | Histogram | method, path, status | Response body size (bytes) |
 | `http_active_requests` | Gauge | method, path | Currently processing requests |
 | `http_requests_in_flight` | Gauge | - | Total in-flight requests |
 
@@ -347,46 +347,47 @@ recordActiveRequests(method: string, path: string, delta: number)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `jwt_token_creation_time` | Histogram | consumer_id, success | JWT generation latency (ms) |
-| `authentication_attempts` | Counter | consumer_id, success | Total auth attempts |
-| `authentication_success` | Counter | consumer_id | Successful authentications |
-| `authentication_failure` | Counter | consumer_id, reason | Failed authentications |
+| `jwt_token_creation_duration_seconds` | Histogram | consumer_id, operation, result | JWT generation latency (seconds) |
+| `authentication_attempts_total` | Counter | consumer_id, operation, result | Total auth attempts |
+| `authentication_success_total` | Counter | consumer_id, operation, result | Successful authentications |
+| `authentication_failures_total` | Counter | consumer_id, operation, result | Failed authentications |
 
 **Recording Functions:** `src/telemetry/metrics/auth-metrics.ts`
 ```typescript
-recordJwtTokenCreation(consumerId: string, durationMs: number, success: boolean)
-recordAuthenticationAttempt(consumerId: string, success: boolean)
-recordAuthenticationSuccess(consumerId: string)
-recordAuthenticationFailure(consumerId: string, reason: string)
+recordJwtTokenCreation(durationMs: number, consumerId: string)
+recordAuthenticationAttempt(username: string)
+recordAuthenticationAttempt(type: string, success: boolean, username?: string)
+recordAuthenticationSuccess(username?: string)
+recordAuthenticationFailure(username?: string, reason?: string)
 ```
 
 #### Kong Metrics (4 instruments)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `kong_operations` | Counter | operation, status | Kong Admin API operations |
-| `kong_response_time` | Histogram | operation | Kong API latency (ms) |
-| `kong_cache_hits` | Counter | operation | Cache hits for Kong data |
-| `kong_cache_misses` | Counter | operation | Cache misses requiring Kong call |
+| `kong_operations_total` | Counter | operation, cache_status | Kong Admin API operations |
+| `kong_operation_duration_seconds` | Histogram | operation, cache_status | Kong API latency (seconds) |
+| `kong_cache_hits_total` | Counter | operation, consumer_id, cache_status | Cache hits for Kong data |
+| `kong_cache_misses_total` | Counter | operation, consumer_id, cache_status | Cache misses requiring Kong call |
 
 **Recording Functions:** `src/telemetry/metrics/kong-metrics.ts`
 ```typescript
-recordKongOperation(operation: string, responseTimeMs: number, success?: boolean)
-recordKongResponseTime(operation: string, responseTimeMs: number)
-recordKongCacheHit(operation: string)
-recordKongCacheMiss(operation: string)
+recordKongOperation(operation: string, durationMs: number, cacheHit?: boolean)
+recordKongResponseTime(durationMs: number, operation: string, success?: boolean)
+recordKongCacheHit(consumerId: string, operation: string)
+recordKongCacheMiss(consumerId: string, operation: string)
 ```
 
 #### Redis/Cache Metrics (6 instruments)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `redis_operations` | Counter | operation, status | Redis command executions |
-| `redis_operation_duration` | Histogram | operation | Redis latency (ms) |
-| `redis_connections` | Gauge | state | Active Redis connections |
-| `redis_cache_hits` | Counter | key_prefix | Cache hits |
-| `redis_cache_misses` | Counter | key_prefix | Cache misses |
-| `redis_errors` | Counter | error_type | Redis errors |
+| `redis_operations_total` | Counter | operation, status | Redis command executions |
+| `redis_operation_duration_seconds` | Histogram | operation | Redis latency (seconds) |
+| `redis_connections_active` | Gauge | state | Active Redis connections |
+| `redis_cache_hits_total` | Counter | key_prefix | Cache hits |
+| `redis_cache_misses_total` | Counter | key_prefix | Cache misses |
+| `redis_errors_total` | Counter | error_type | Redis errors |
 
 **Recording Functions:** `src/telemetry/metrics/redis-metrics.ts`
 ```typescript
@@ -395,13 +396,14 @@ recordRedisConnection(state: 'connected' | 'disconnected' | 'reconnecting')
 recordCacheOperation(operation: string, hit: boolean, keyPrefix?: string)
 ```
 
-#### Cache Tier Metrics (3 instruments)
+#### Cache Tier Metrics (4 instruments)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `cache_tier_usage` | Counter | tier, operation, result | Cache tier access patterns |
-| `cache_tier_latency` | Histogram | tier, operation | Tier-specific latency |
-| `cache_tier_errors` | Counter | tier, error_type | Cache tier failures |
+| `cache_tier_usage_total` | Counter | tier, operation, result | Cache tier access patterns |
+| `cache_tier_latency_seconds` | Histogram | tier, operation | Tier-specific latency |
+| `cache_tier_errors_total` | Counter | tier, error_type | Cache tier failures |
+| `operation_duration_seconds` | Histogram | - | Duration of various operations |
 
 **Tier Values:** `redis-primary`, `redis-stale`, `memory-stale`, `kong-fallback`
 
@@ -417,10 +419,10 @@ recordCacheTierError(tier: string, errorType: string)
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
 | `circuit_breaker_state` | Gauge | name | State (0=closed, 1=open, 2=half-open) |
-| `circuit_breaker_requests` | Counter | name, result | Requests through circuit breaker |
-| `circuit_breaker_rejected` | Counter | name | Rejected due to open circuit |
-| `circuit_breaker_fallback` | Counter | name, fallback_type | Fallback invocations |
-| `circuit_breaker_state_transitions` | Counter | name, from_state, to_state | State changes |
+| `circuit_breaker_requests_total` | Counter | name, result | Requests through circuit breaker |
+| `circuit_breaker_rejected_total` | Counter | name | Rejected due to open circuit |
+| `circuit_breaker_fallback_total` | Counter | name, fallback_type | Fallback invocations |
+| `circuit_breaker_state_transitions_total` | Counter | name, from_state, to_state | State changes |
 
 **Recording Functions:** `src/telemetry/metrics/circuit-breaker-metrics.ts`
 ```typescript
@@ -431,32 +433,39 @@ recordCircuitBreakerFallback(name: string, fallbackType: string)
 recordCircuitBreakerStateTransition(name: string, fromState: string, toState: string)
 ```
 
-#### Process Metrics (22 instruments)
+#### Process Metrics (27 instruments)
 
 | Metric Name | Type | Description |
 |-------------|------|-------------|
-| `process_start_time` | Gauge | Process start timestamp |
-| `process_uptime` | Gauge | Uptime in seconds |
-| `process_memory_usage` | Gauge | Total memory usage |
-| `process_heap_used` | Gauge | V8 heap used bytes |
-| `process_heap_total` | Gauge | V8 heap total bytes |
-| `process_rss` | Gauge | Resident set size |
-| `process_external` | Gauge | External memory (C++ objects) |
-| `process_cpu_usage` | Gauge | CPU utilization percentage |
-| `process_event_loop_delay` | Histogram | Event loop delay distribution |
-| `process_event_loop_utilization` | Gauge | Event loop utilization ratio |
-| `system_memory_usage` | Gauge | System memory used |
-| `system_memory_free` | Gauge | System memory free |
-| `system_memory_total` | Gauge | System total memory |
-| `system_cpu_usage` | Gauge | System CPU percentage |
+| `process_start_time_seconds` | Gauge | Process start timestamp |
+| `process_uptime_seconds` | Gauge | Uptime in seconds |
+| `process_memory_usage_bytes` | Gauge | Total memory usage |
+| `process_heap_used_bytes` | Gauge | V8 heap used bytes |
+| `process_heap_total_bytes` | Gauge | V8 heap total bytes |
+| `process_resident_memory_bytes` | Gauge | Resident set size |
+| `process_external_memory_bytes` | Gauge | External memory (C++ objects) |
+| `process_cpu_usage_percent` | Gauge | CPU utilization percentage |
+| `process_event_loop_delay_seconds` | Histogram | Event loop delay distribution |
+| `process_event_loop_utilization_percent` | Gauge | Event loop utilization ratio |
+| `system_memory_usage_bytes` | Gauge | System memory used |
+| `system_memory_free_bytes` | Gauge | System memory free |
+| `system_memory_total_bytes` | Gauge | System total memory |
+| `system_cpu_usage_percent` | Gauge | System CPU percentage |
 | `system_load_average` | Gauge | System load average |
-| `gc_collections` | Counter | GC collection count by type |
-| `gc_duration` | Histogram | GC pause duration |
-| `gc_old_generation_size_before` | Gauge | Old gen size before GC |
-| `gc_old_generation_size_after` | Gauge | Old gen size after GC |
-| `gc_young_generation_size_before` | Gauge | Young gen size before GC |
-| `gc_young_generation_size_after` | Gauge | Young gen size after GC |
+| `gc_collections_total` | Counter | GC collection count by type |
+| `gc_duration_seconds` | Histogram | GC pause duration |
+| `gc_old_generation_size_before_bytes` | Gauge | Old gen size before GC |
+| `gc_old_generation_size_after_bytes` | Gauge | Old gen size after GC |
+| `gc_young_generation_size_before_bytes` | Gauge | Young gen size before GC |
+| `gc_young_generation_size_after_bytes` | Gauge | Young gen size after GC |
 | `file_descriptor_usage` | Gauge | Open file descriptors |
+| `file_descriptor_limit` | Gauge | Maximum file descriptors |
+| `network_bytes_received_total` | Counter | Total bytes received over the network |
+| `network_bytes_sent_total` | Counter | Total bytes sent over the network |
+| `thread_pool_pending_tasks` | Gauge | Pending tasks in thread pool |
+| `thread_pool_active_threads` | Gauge | Active threads in thread pool |
+| `thread_pool_idle_threads` | Gauge | Idle threads in thread pool |
+| `handle_usage` | Gauge | Handles in use |
 
 **Recording Functions:** `src/telemetry/metrics/process-metrics.ts`
 ```typescript
@@ -471,12 +480,12 @@ stopSystemMetricsCollection()
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `api_version_requests` | Counter | version, path | Requests by API version |
-| `api_version_header_source` | Counter | source, version | Version header source |
-| `api_version_unsupported` | Counter | requested_version | Unsupported version requests |
-| `api_version_fallback` | Counter | from_version, to_version | Version fallback events |
-| `api_version_parsing_duration` | Histogram | version | Version parsing latency |
-| `api_version_routing_duration` | Histogram | version | Version routing latency |
+| `api_version_requests_total` | Counter | version, path | Requests by API version |
+| `api_version_header_source_total` | Counter | source, version | Version header source |
+| `api_version_unsupported_total` | Counter | requested_version | Unsupported version requests |
+| `api_version_fallback_total` | Counter | from_version, to_version | Version fallback events |
+| `api_version_parsing_duration_seconds` | Histogram | version | Version parsing latency |
+| `api_version_routing_duration_seconds` | Histogram | version | Version routing latency |
 
 **Recording Functions:** `src/telemetry/metrics/api-version-metrics.ts`
 ```typescript
@@ -500,11 +509,11 @@ recordApiVersionFallback(fromVersion: string, toVersion: string)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `security_events` | Counter | event_type, severity | Security events |
-| `security_headers_applied` | Counter | header_set, version | Security headers applied |
-| `audit_events` | Counter | event_type, consumer_id | Audit log events |
+| `security_events_total` | Counter | event_type, severity | Security events |
+| `security_headers_applied_total` | Counter | header_set, version | Security headers applied |
+| `audit_events_total` | Counter | event_type, consumer_id | Audit log events |
 | `security_risk_score` | Histogram | consumer_id | Risk score distribution |
-| `security_anomalies` | Counter | anomaly_type | Detected anomalies |
+| `security_anomalies_total` | Counter | anomaly_type | Detected anomalies |
 
 **Recording Functions:** `src/telemetry/metrics/security-metrics.ts`
 ```typescript
@@ -517,8 +526,8 @@ recordAuditEvent(eventType: string, consumerId: string)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `error_rate` | Counter | error_code, path | Errors by code |
-| `exceptions` | Counter | exception_type, handled | Exceptions caught |
+| `application_errors_total` | Counter | error_code, path | Errors by code |
+| `application_exceptions_total` | Counter | exception_type, handled | Exceptions caught |
 
 **Recording Functions:** `src/telemetry/metrics/error-metrics.ts`
 ```typescript
@@ -530,8 +539,8 @@ recordException(exceptionType: string, handled: boolean)
 
 | Metric Name | Type | Attributes | Description |
 |-------------|------|------------|-------------|
-| `telemetry_exports` | Counter | signal_type, status | Export attempts |
-| `telemetry_export_errors` | Counter | signal_type, error_type | Export failures |
+| `telemetry_exports_total` | Counter | signal_type, status | Export attempts |
+| `telemetry_export_errors_total` | Counter | signal_type, error_type | Export failures |
 
 **Recording Functions:** `src/telemetry/metrics/telemetry-metrics.ts`
 ```typescript
@@ -559,8 +568,8 @@ Returns service health with dependency status:
   "dependencies": {
     "kong": {
       "status": "healthy",
-      "mode": "KONNECT",
-      "url": "https://us.api.konghq.com/v2/control-planes/abc123",
+      "mode": "ADMIN",
+      "url": "http://192.168.178.3:30001",
       "responseTime": "45ms"
     },
     "telemetry": {
@@ -776,17 +785,24 @@ curl http://localhost:3000/health/metrics
 Returns metrics system status:
 ```json
 {
-  "status": "healthy",
-  "metricsEnabled": true,
-  "exportInterval": 10000,
-  "lastExport": "2025-01-15T12:00:00.000Z",
-  "counters": {
-    "http_requests_total": 1000,
-    "jwt_tokens_generated": 500,
-    "kong_operations": 600,
-    "cache_hits": 450,
-    "cache_misses": 150
-  }
+  "metrics": {
+    "status": "healthy",
+    "exports": {
+      "traces": { "total": 100, "success": 98, "failure": 2 },
+      "metrics": { "total": 50, "success": 50, "failure": 0 },
+      "logs": { "total": 80, "success": 78, "failure": 2 }
+    },
+    "configuration": {
+      "exportInterval": 10000,
+      "batchTimeout": 30000,
+      "endpoint": "https://otel.example.com/v1/metrics"
+    }
+  },
+  "circuitBreakers": {
+    "total": 3,
+    "states": { "closed": 3, "open": 0, "halfOpen": 0 }
+  },
+  "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```
 

@@ -53,7 +53,7 @@ The service produces four telemetry signals:
 
 | Signal | SDK Component | Processor | Export Protocol | Batch Interval |
 |--------|--------------|-----------|-----------------|----------------|
-| Traces | `TracerProvider` | `BatchSpanProcessor` | OTLP/HTTP JSON | 1000ms |
+| Traces | `TracerProvider` | `BatchSpanProcessor` | OTLP/HTTP JSON | 500ms |
 | Metrics | `MeterProvider` | `PeriodicExportingMetricReader` | OTLP/HTTP JSON | 30000ms |
 | Logs | `LoggerProvider` | `BatchLogRecordProcessor` | OTLP/HTTP JSON | SDK default |
 | Console | Pino / Winston | N/A (direct write) | stdout | Immediate |
@@ -120,13 +120,13 @@ src/telemetry/
 ├── instrumentation.ts      # NodeSDK initialization, exporters, processors
 ├── tracer.ts               # Custom span creation API
 ├── telemetry-emitter.ts    # Unified span events + logs API
-├── span-event-names.ts     # Type-safe span event constants (148 events)
+├── span-event-names.ts     # Type-safe span event constants (100 events)
 ├── winston-logger.ts       # Legacy Winston logging with OTLP transport
 ├── metrics.ts              # Legacy metrics entry point
 ├── metrics/                # Modular metrics system
 │   ├── index.ts            # Public API exports
 │   ├── initialization.ts   # Meter and instrument creation
-│   ├── instruments.ts      # 65 application metric instrument definitions
+│   ├── instruments.ts      # 77 application metric instrument definitions
 │   ├── types.ts            # TypeScript attribute types
 │   ├── http-metrics.ts     # HTTP request/response metrics
 │   ├── auth-metrics.ts     # JWT and authentication metrics
@@ -528,8 +528,8 @@ The telemetry system requires these OpenTelemetry packages:
     "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "@opentelemetry/winston-transport": "^0.23.0",
-    "@elastic/ecs-winston-format": "^1.6.2",
-    "winston": "^3.18.0"
+    "@elastic/ecs-winston-format": "^1.5.3",
+    "winston": "^3.19.0"
   }
 }
 ```
@@ -592,7 +592,7 @@ export async function initializeTelemetry(config: {
   // 3. Create processors
   const traceProcessor = new BatchSpanProcessor(traceExporter, {
     maxExportBatchSize: 10,
-    scheduledDelayMillis: 1000,
+    scheduledDelayMillis: 500,
   });
 
   const metricReader = new PeriodicExportingMetricReader({

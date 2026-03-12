@@ -197,7 +197,7 @@ The cache layer includes comprehensive resilience features to handle connection 
 | `CACHE_RECONNECT_MAX_ATTEMPTS` | Max reconnection attempts | `5` | 1-20 |
 | `CACHE_RECONNECT_BASE_DELAY_MS` | Base backoff delay (ms) | `100` | 50-5000 |
 | `CACHE_RECONNECT_MAX_DELAY_MS` | Max backoff delay cap (ms) | `5000` | 1000-60000 |
-| `CACHE_RECONNECT_COOLDOWN_MS` | Cooldown before retry (ms) | `60000` | 10000-600000 |
+| `CACHE_RECONNECT_COOLDOWN_MS` | Cooldown before retry (ms) | `60000` | 10000-300000 |
 
 #### Health Monitor
 
@@ -205,8 +205,8 @@ The cache layer includes comprehensive resilience features to handle connection 
 |----------|-------------|---------|-------|
 | `CACHE_HEALTH_MONITOR_ENABLED` | Enable background monitoring | `true` | boolean |
 | `CACHE_HEALTH_MONITOR_INTERVAL_MS` | Check interval (ms) | `10000` | 1000-60000 |
-| `CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD` | Failures to mark unhealthy | `3` | 1-10 |
-| `CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD` | Successes to mark healthy | `2` | 1-10 |
+| `CACHE_HEALTH_MONITOR_UNHEALTHY_THRESHOLD` | Failures to mark unhealthy | `3` | 1-20 |
+| `CACHE_HEALTH_MONITOR_HEALTHY_THRESHOLD` | Successes to mark healthy | `2` | 1-20 |
 | `CACHE_HEALTH_MONITOR_PING_TIMEOUT_MS` | PING timeout (ms) | `500` | 100-5000 |
 
 #### Operation Timeouts
@@ -217,7 +217,7 @@ The cache layer includes comprehensive resilience features to handle connection 
 | `CACHE_TIMEOUT_SET_MS` | SET operation timeout (ms) | `2000` | 100-10000 |
 | `CACHE_TIMEOUT_DELETE_MS` | DELETE operation timeout (ms) | `1000` | 100-10000 |
 | `CACHE_TIMEOUT_SCAN_MS` | SCAN operation timeout (ms) | `5000` | 100-30000 |
-| `CACHE_TIMEOUT_PING_MS` | PING operation timeout (ms) | `500` | 100-5000 |
+| `CACHE_TIMEOUT_PING_MS` | PING operation timeout (ms) | `500` | 50-5000 |
 | `CACHE_TIMEOUT_CONNECT_MS` | Connection timeout (ms) | `5000` | 1000-30000 |
 
 **Resilience Features:**

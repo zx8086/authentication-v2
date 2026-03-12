@@ -143,7 +143,7 @@ The pipeline includes comprehensive security validation through multiple special
 - name: Run Trivy vulnerability scanner
   uses: aquasecurity/trivy-action@master
   with:
-    image-ref: 'example/authentication-service:latest'
+    image-ref: 'zx8086/authentication-v2:latest'
     format: 'sarif'
     output: 'trivy-results.sarif'
 
@@ -165,7 +165,7 @@ The pipeline includes comprehensive security validation through multiple special
   uses: docker/scout-action@v1
   with:
     command: cves
-    image: example/authentication-service:latest
+    image: zx8086/authentication-v2:latest
     sarif-file: scout-results.sarif
 
 - name: Upload Scout results
@@ -231,7 +231,7 @@ All security scanning results are:
 - name: Generate SBOM
   uses: anchore/sbom-action@v0
   with:
-    image: example/authentication-service:latest
+    image: zx8086/authentication-v2:latest
     format: spdx-json
     output-file: sbom.spdx.json
 
@@ -347,16 +347,16 @@ Provenance is generated natively by BuildKit using SLSA v0.2 format for DHI comp
 - name: Deploy to Staging
   if: github.ref == 'refs/heads/develop'
   run: |
-    docker tag example/authentication-service:latest \
-      example/authentication-service:staging
-    docker push example/authentication-service:staging
+    docker tag zx8086/authentication-v2:latest \
+      zx8086/authentication-v2:staging
+    docker push zx8086/authentication-v2:staging
 
 - name: Deploy to Production
   if: github.ref == 'refs/heads/master'
   run: |
-    docker tag example/authentication-service:latest \
-      example/authentication-service:production
-    docker push example/authentication-service:production
+    docker tag zx8086/authentication-v2:latest \
+      zx8086/authentication-v2:production
+    docker push zx8086/authentication-v2:production
 ```
 
 ### Deployment Features

@@ -416,7 +416,7 @@ Trace ID: abc123def456...
 | `cache_hit_rate` | Counter | Cache effectiveness |
 | `circuit_breaker_state` | Gauge | Current circuit state |
 
-> For the complete telemetry architecture including data flow diagram, SDK configuration, sampling strategy, and memory optimizations, see **[Telemetry Architecture](telemetry.md)**. For the full metrics catalog (65 instruments), see **[Monitoring Guide](../operations/monitoring.md)**.
+> For the complete telemetry architecture including data flow diagram, SDK configuration, sampling strategy, and memory optimizations, see **[Telemetry Architecture](telemetry.md)**. For the full metrics catalog (77 instruments), see **[Monitoring Guide](../operations/monitoring.md)**.
 
 ---
 

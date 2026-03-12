@@ -114,7 +114,7 @@ bun run docker:security:full
 ```bash
 # Multi-platform build (AMD64 for production)
 docker buildx build --platform linux/amd64 \
-  --tag example/authentication-service:latest \
+  --tag zx8086/authentication-v2:latest \
   --push .
 
 # Verify image size (target: <100MB, actual: 58MB)
@@ -434,16 +434,16 @@ docker run --rm --network container:auth-service \
 ### Tagging Strategy
 ```bash
 # Version tags
-docker tag authentication-service:latest example/authentication-service:v2.4.0
-docker tag authentication-service:latest example/authentication-service:latest
+docker tag authentication-service:latest zx8086/authentication-v2:v2.4.0
+docker tag authentication-service:latest zx8086/authentication-v2:latest
 
 # Environment tags
-docker tag authentication-service:latest example/authentication-service:production
+docker tag authentication-service:latest zx8086/authentication-v2:production
 ```
 
 ### Registry Push
 ```bash
 # Push to registry
-docker push example/authentication-service:v2.4.0
-docker push example/authentication-service:latest
+docker push zx8086/authentication-v2:v2.4.0
+docker push zx8086/authentication-v2:latest
 ```

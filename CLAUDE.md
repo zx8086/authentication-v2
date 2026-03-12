@@ -258,7 +258,7 @@ ENABLE_PROFILING=true bun run test:k6:smoke:health
 
 ### Profiling Output
 ```markdown
-### ⚠️ HIGH: Kong Cache
+### HIGH: Kong Cache
 **Issue**: Kong consumer lookups consuming 23.1% CPU time (target: <15%)
 **Expected Impact**: -10-15ms P95 latency, -20% Kong API calls
 **Action Items**:
@@ -307,6 +307,10 @@ When working on specific areas, use these agents:
 | `kong-konnect-engineer` | Kong configuration |
 
 ## Development Guidelines
+
+### Code Changes
+- When fixing or removing something across the codebase, do a verification pass after the first round to catch missed files
+- Never declare "done" without a final grep/search confirmation that no instances remain
 
 ### Code Quality
 - **ABSOLUTELY NO EMOJIS ANYWHERE**

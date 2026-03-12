@@ -802,9 +802,11 @@ Start a profiling session.
 ```json
 {
   "success": true,
-  "message": "Profiling session started",
+  "message": "Profiling session started successfully",
   "sessionId": "prof-12345",
-  "devToolsUrl": "chrome-devtools://devtools/bundled/inspector.html?ws=localhost:9229/12345"
+  "type": "manual",
+  "manual": true,
+  "instructions": "Send SIGUSR2 signal to toggle profiling or use the stop endpoint"
 }
 ```
 
@@ -816,13 +818,10 @@ Stop the current profiling session.
 ```json
 {
   "success": true,
-  "message": "Profiling session stopped",
+  "message": "Profiling session stopped successfully",
   "sessionId": "prof-12345",
-  "duration": "45.2s",
-  "artifacts": [
-    "profiling/profile-12345.cpuprofile",
-    "profiling/heap-12345.heapsnapshot"
-  ]
+  "instructions": "Profile data is available in Chrome DevTools at chrome://inspect",
+  "note": "Use Chrome DevTools to capture and export CPU/Memory profiles"
 }
 ```
 
@@ -832,11 +831,11 @@ Check profiling system status.
 
 ### GET /debug/profiling/reports
 
-List available profiling reports.
+List available profiling reports. Reports are managed through Chrome DevTools.
 
 ### POST /debug/profiling/cleanup
 
-Clean up profiling artifacts and sessions.
+Clean up profiling sessions.
 
 ---
 
