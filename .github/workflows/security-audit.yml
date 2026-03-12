@@ -39,7 +39,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         timeout-minutes: 3
 
       - name: Setup Bun
@@ -49,7 +49,7 @@ jobs:
           bun-version: latest
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         timeout-minutes: 3
         with:
           path: |
@@ -64,7 +64,7 @@ jobs:
         timeout-minutes: 5
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         timeout-minutes: 3
         with:
           registry: ${{ env.REGISTRY }}
@@ -322,7 +322,7 @@ jobs:
       # Archive all security scan results
       - name: Archive comprehensive security scan results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 5
         with:
           name: comprehensive-security-audit-${{ github.run_number }}
