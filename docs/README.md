@@ -99,6 +99,9 @@ Reusable guides extracted from project documentation. These are project-agnostic
 | [bun-kubernetes-guide.md](guides/bun-kubernetes-guide.md) | Kubernetes deployment with security, scaling, monitoring |
 | [bun-otel-guide.md](guides/bun-otel-guide.md) | OpenTelemetry tracing, metrics, and log export |
 | [bun-logging-guide.md](guides/bun-logging-guide.md) | Structured logging with Pino, ECS, and trace context |
+| [zed-devcontainer-guide.md](guides/zed-devcontainer-guide.md) | DevContainer configurations for Zed IDE projects |
+| [zed-tasks-guide.md](guides/zed-tasks-guide.md) | Zed IDE task definitions and command patterns |
+| [bun-testing-guide.md](guides/bun-testing-guide.md) | Bun test runner, Playwright E2E, and K6 performance testing |
 
 ---
 

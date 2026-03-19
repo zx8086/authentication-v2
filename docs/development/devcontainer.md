@@ -1,5 +1,7 @@
 # Zed IDE DevContainer Setup
 
+> For a project-agnostic devcontainer reference, see the [Zed DevContainer Guide](../guides/zed-devcontainer-guide.md).
+
 Containerized infrastructure for local Bun development. Your app runs natively; Kong, Redis, Valkey, and Postgres run in Docker.
 
 ## Architecture

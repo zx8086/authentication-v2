@@ -1,5 +1,7 @@
 # Zed Tasks Reference
 
+> For a project-agnostic task definition reference, see the [Zed Tasks Guide](../guides/zed-tasks-guide.md).
+
 This document describes the Zed IDE tasks available in `.zed/tasks.json` for managing infrastructure, development, and deployment workflows.
 
 ## Overview

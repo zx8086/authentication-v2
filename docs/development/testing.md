@@ -1,5 +1,7 @@
 # Testing Guide
 
+> For a project-agnostic testing reference, see the [Bun Testing Guide](../guides/bun-testing-guide.md).
+
 This document consolidates all testing documentation for the authentication service, including unit tests, E2E tests, performance tests, and mutation testing.
 
 ## Overview
