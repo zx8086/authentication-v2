@@ -96,10 +96,11 @@ export class TelemetryCircuitBreaker {
 
     if (errorMessage) {
       warn(`Telemetry circuit breaker recorded failure`, {
+        event_name: "telemetry.circuit_breaker.failure_recorded",
         component: "telemetry_circuit_breaker",
         operation: this.operation,
         state: this.state,
-        failureCount: this.failureCount,
+        failure_count: this.failureCount,
         error: errorMessage,
       });
     }
@@ -114,21 +115,23 @@ export class TelemetryCircuitBreaker {
     recordCircuitBreakerOperation(this.operation, newState, "state_transition");
 
     log(`Telemetry circuit breaker state transition`, {
+      event_name: `telemetry.circuit_breaker.${newState}`,
       component: "telemetry_circuit_breaker",
       operation: this.operation,
-      previousState,
-      newState,
-      failureCount: this.failureCount,
-      successCount: this.successCount,
-      totalRequests: this.totalRequests,
+      previous_state: previousState,
+      new_state: newState,
+      failure_count: this.failureCount,
+      success_count: this.successCount,
+      total_requests: this.totalRequests,
     });
 
     if (newState === CircuitBreakerStateEnum.OPEN) {
       error(`Telemetry circuit breaker OPENED - ${this.operation} exports failing`, {
+        event_name: "telemetry.circuit_breaker.opened",
         component: "telemetry_circuit_breaker",
         operation: this.operation,
-        failureThreshold: this.config.failureThreshold,
-        failureCount: this.failureCount,
+        failure_threshold: this.config.failureThreshold,
+        failure_count: this.failureCount,
         impact: "Telemetry exports will be rejected until recovery",
       });
     } else if (
@@ -136,10 +139,11 @@ export class TelemetryCircuitBreaker {
       previousState === CircuitBreakerStateEnum.HALF_OPEN
     ) {
       log(`Telemetry circuit breaker RECOVERED - ${this.operation} exports healthy`, {
+        event_name: "telemetry.circuit_breaker.closed",
         component: "telemetry_circuit_breaker",
         operation: this.operation,
-        successThreshold: this.config.successThreshold,
-        recoveryTime: Date.now() - this.lastStateChange,
+        success_threshold: this.config.successThreshold,
+        recovery_time_ms: Date.now() - this.lastStateChange,
       });
     }
   }
@@ -175,6 +179,7 @@ export class TelemetryCircuitBreaker {
     this.rejectedRequests = 0;
 
     log(`Telemetry circuit breaker manually reset`, {
+      event_name: "telemetry.circuit_breaker.reset",
       component: "telemetry_circuit_breaker",
       operation: this.operation,
     });
@@ -208,6 +213,7 @@ export function resetTelemetryCircuitBreakers(): void {
   });
 
   log("All telemetry circuit breakers reset", {
+    event_name: "telemetry.circuit_breaker.reset",
     component: "telemetry_circuit_breaker",
     operation: "reset_all",
   });
@@ -219,6 +225,7 @@ export function shutdownTelemetryCircuitBreakers(): void {
   });
 
   log("All telemetry circuit breakers shutdown", {
+    event_name: "telemetry.circuit_breaker.shutdown",
     component: "telemetry_circuit_breaker",
     operation: "shutdown_all",
   });

@@ -14,6 +14,7 @@ export async function measure<T>(name: string, op: () => Promise<T>) {
   const ms = (isBun() ? Bun.nanoseconds() : performance.now() * 1_000_000 - start) / 1_000_000;
 
   log("Performance measurement", {
+    event_name: "performance.measure.completed",
     component: "performance",
     operation: name,
     duration_ms: Number.parseFloat(ms.toFixed(2)),
@@ -28,6 +29,7 @@ export function measureSync<T>(name: string, op: () => T) {
   const ms = (isBun() ? Bun.nanoseconds() : performance.now() * 1_000_000 - start) / 1_000_000;
 
   log("Performance measurement", {
+    event_name: "performance.measure.completed",
     component: "performance",
     operation: name,
     duration_ms: Number.parseFloat(ms.toFixed(2)),

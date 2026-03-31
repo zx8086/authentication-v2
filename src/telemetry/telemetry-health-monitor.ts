@@ -278,6 +278,7 @@ export class TelemetryHealthMonitor {
     });
 
     log("Telemetry circuit breakers reset via health monitor", {
+      event_name: "telemetry.circuit_breaker.reset",
       component: "telemetry_health_monitor",
       operation: "circuit_breaker_reset",
     });

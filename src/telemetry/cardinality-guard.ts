@@ -125,11 +125,12 @@ export function resetCardinalityTracking(): void {
 
   if (previousSize > 0) {
     log("Cleared cardinality tracking (periodic reset)", {
+      event_name: "metrics.cardinality.reset",
       component: "cardinality-guard",
       action: "periodic_reset",
-      clearedConsumers: previousSize,
-      wasLimitExceeded,
-      intervalMinutes: CARDINALITY_CONFIG.resetIntervalMs / 60000,
+      cleared_consumers: previousSize,
+      was_limit_exceeded: wasLimitExceeded,
+      interval_minutes: CARDINALITY_CONFIG.resetIntervalMs / 60000,
     });
   }
 }

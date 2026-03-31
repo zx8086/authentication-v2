@@ -91,6 +91,7 @@ function collectGCMetrics(): void {
         gcEventCallback(event);
       } catch (err) {
         warn("Error in GC event callback", {
+          event_name: "gc.metrics.callback_error",
           component: "gc_metrics",
           error: err instanceof Error ? err.message : "Unknown error",
         });
@@ -105,6 +106,7 @@ function collectGCMetrics(): void {
 export function initializeGCMetrics(callback: GCEventCallback, intervalMs = 30000): void {
   if (state.initialized) {
     warn("GC metrics already initialized", {
+      event_name: "gc.metrics.already_initialized",
       component: "gc_metrics",
       operation: "initialization",
     });
@@ -121,11 +123,12 @@ export function initializeGCMetrics(callback: GCEventCallback, intervalMs = 3000
   state.initialized = true;
 
   log("GC metrics collection initialized", {
+    event_name: "gc.metrics.started",
     component: "gc_metrics",
     operation: "initialization",
-    intervalMs,
-    initialHeapUsed: state.lastHeapStats.used_heap_size,
-    initialHeapTotal: state.lastHeapStats.total_heap_size,
+    interval_ms: intervalMs,
+    initial_heap_used: state.lastHeapStats.used_heap_size,
+    initial_heap_total: state.lastHeapStats.total_heap_size,
   });
 }
 
@@ -140,11 +143,12 @@ export function shutdownGCMetrics(): void {
   }
 
   log("GC metrics collection shutdown", {
+    event_name: "gc.metrics.stopped",
     component: "gc_metrics",
     operation: "shutdown",
-    totalGCCount: state.gcCount,
-    totalGCDurationMs: state.totalGCDuration,
-    avgGCDurationMs: state.gcCount > 0 ? state.totalGCDuration / state.gcCount : 0,
+    total_gc_count: state.gcCount,
+    total_gc_duration_ms: state.totalGCDuration,
+    avg_gc_duration_ms: state.gcCount > 0 ? state.totalGCDuration / state.gcCount : 0,
   });
 
   state.initialized = false;

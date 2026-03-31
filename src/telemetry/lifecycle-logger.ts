@@ -40,9 +40,10 @@ export class LifecycleObservabilityLogger {
       this.pendingShutdownMessages.push(logData);
 
       log(logData.message, {
+        event_name: "lifecycle.shutdown.step",
         component: "lifecycle",
         operation: "shutdown_sequence",
-        shutdownStep: logData.step,
+        shutdown_step: logData.step,
         timestamp: new Date(logData.timestamp).toISOString(),
         ...logData.metadata,
       });
@@ -66,19 +67,21 @@ export class LifecycleObservabilityLogger {
         log(
           `Lifecycle observability: Successfully flushed ${this.pendingShutdownMessages.length} shutdown messages`,
           {
+            event_name: "lifecycle.shutdown.flush_complete",
             component: "lifecycle",
             operation: "shutdown_flush_complete",
-            messageCount: this.pendingShutdownMessages.length,
-            telemetryMode: telemetryStatus.config.mode,
+            message_count: this.pendingShutdownMessages.length,
+            telemetry_mode: telemetryStatus.config.mode,
           }
         );
       } else {
         log(
           `Lifecycle observability: Console-only mode, ${this.pendingShutdownMessages.length} messages logged`,
           {
+            event_name: "lifecycle.shutdown.console_flush",
             component: "lifecycle",
             operation: "console_only_flush",
-            messageCount: this.pendingShutdownMessages.length,
+            message_count: this.pendingShutdownMessages.length,
           }
         );
       }

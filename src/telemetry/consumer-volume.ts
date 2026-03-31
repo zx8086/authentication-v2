@@ -63,10 +63,11 @@ if (config.server.nodeEnv !== "test") {
     consumerRequestCounts.clear();
     if (previousSize > 0) {
       log("Cleared consumer volume tracking (periodic reset)", {
+        event_name: "metrics.consumer_volume.reset",
         component: "consumer-volume",
         action: "periodic_clear",
-        clearedEntries: previousSize,
-        intervalMinutes: FIFTEEN_MINUTES_MS / 60000,
+        cleared_entries: previousSize,
+        interval_minutes: FIFTEEN_MINUTES_MS / 60000,
       });
     }
   }, FIFTEEN_MINUTES_MS);

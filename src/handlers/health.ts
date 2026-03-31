@@ -67,6 +67,7 @@ async function checkOtlpEndpointHealth(url: string): Promise<{
 
 export async function handleHealthCheck(kongService: IKongService): Promise<Response> {
   log("Processing health check request", {
+    event_name: "health.check.initiated",
     component: "health",
     operation: "handle_health_check",
     endpoint: "/health",
@@ -83,6 +84,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       kongHealth = await kongService.healthCheck();
     } catch (kongError) {
       log("Kong health check failed with exception during health endpoint check", {
+        event_name: "kong.health_check.failed",
         component: "health",
         operation: "kong_health_check",
         error: kongError instanceof Error ? kongError.message : "Unknown error",
@@ -136,6 +138,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         cacheStats = await cacheService.getStats();
       } catch (statsError) {
         log("Failed to get cache stats during health check", {
+          event_name: "cache.stats.failed",
           component: "health",
           operation: "cache_stats",
           error: statsError instanceof Error ? statsError.message : "Unknown error",
@@ -169,6 +172,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         }
       } catch (resilienceError) {
         log("Failed to get cache resilience stats during health check", {
+          event_name: "cache.resilience_stats.failed",
           component: "health",
           operation: "cache_resilience_stats",
           error: resilienceError instanceof Error ? resilienceError.message : "Unknown error",
@@ -202,6 +206,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       }
     } catch (error) {
       log("Cache health check failed", {
+        event_name: "cache.health_check.failed",
         component: "health",
         operation: "cache_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
@@ -247,6 +252,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       circuitBreakerStats = kongService.getCircuitBreakerStats();
     } catch (error) {
       log("Circuit breaker stats retrieval failed (non-critical)", {
+        event_name: "circuit_breaker.stats.failed",
         component: "health",
         operation: "circuit_breaker_stats",
         error: error instanceof Error ? error.message : "Unknown error",
@@ -371,14 +377,15 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     };
 
     log("Health check completed", {
+      event_name: "health.check.success",
       component: "health",
-      duration,
+      duration_ms: duration,
       status: healthStatus,
-      kongHealthy: kongHealth.healthy,
-      cacheHealthy: cacheHealthy,
-      cacheType: cacheHealth.type,
-      telemetryHealthy: telemetryHealthy,
-      requestId,
+      kong_healthy: kongHealth.healthy,
+      cache_healthy: cacheHealthy,
+      cache_type: cacheHealth.type,
+      telemetry_healthy: telemetryHealthy,
+      request_id: requestId,
     });
 
     // Record latency for SLA monitoring
@@ -386,11 +393,12 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     await slaMonitor.recordLatency("/health", duration);
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health",
-      statusCode,
-      duration,
-      requestId,
+      status_code: statusCode,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createHealthResponse(healthData, statusCode, requestId);
@@ -398,18 +406,20 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     const duration = calculateDuration(startTime);
 
     log("Health check failed", {
+      event_name: "health.check.failed",
       component: "health",
-      duration,
+      duration_ms: duration,
       error: error instanceof Error ? error.message : "Unknown error",
-      requestId,
+      request_id: requestId,
     });
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createHealthResponse(
@@ -431,10 +441,11 @@ export function handleTelemetryHealth(): Response {
   const startTime = getHighResTime();
 
   log("Processing telemetry health request", {
+    event_name: "health.telemetry.initiated",
     component: "health",
     operation: "handle_telemetry_health",
     endpoint: "/health/telemetry",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -465,22 +476,24 @@ export function handleTelemetryHealth(): Response {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health/telemetry",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health/telemetry",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
@@ -511,10 +524,11 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
   const startTime = getHighResTime();
 
   log("Processing readiness check request", {
+    event_name: "health.readiness.initiated",
     component: "health",
     operation: "handle_readiness_check",
     endpoint: "/health/ready",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -522,10 +536,11 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
     const lifecycleState = lifecycleStateMachine.getState();
     if (!lifecycleStateMachine.canAcceptRequests()) {
       log("Readiness check failed - service not accepting requests", {
+        event_name: "health.readiness.failed",
         component: "health",
         operation: "readiness_lifecycle_check",
         lifecycle_state: lifecycleState,
-        requestId,
+        request_id: requestId,
       });
 
       return createHealthResponse(
@@ -555,10 +570,11 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
       kongHealth = await kongService.healthCheck();
     } catch (kongError) {
       log("Kong health check failed during readiness probe", {
+        event_name: "kong.health_check.failed",
         component: "health",
         operation: "readiness_kong_check",
         error: kongError instanceof Error ? kongError.message : "Unknown error",
-        requestId,
+        request_id: requestId,
       });
       kongHealth = {
         healthy: false,
@@ -584,10 +600,11 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
         cacheStatus = "unhealthy";
         cacheError = cacheErr instanceof Error ? cacheErr.message : "Cache check failed";
         log("Cache health check failed during readiness probe", {
+          event_name: "cache.health_check.failed",
           component: "health",
           operation: "readiness_cache_check",
           error: cacheError,
-          requestId,
+          request_id: requestId,
         });
       }
     }
@@ -628,22 +645,24 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
     };
 
     log("Readiness check completed", {
+      event_name: "health.readiness.success",
       component: "health",
       operation: "readiness_check_complete",
       ready: isReady,
-      kongHealthy: kongHealth.healthy,
-      cacheHealthy,
+      kong_healthy: kongHealth.healthy,
+      cache_healthy: cacheHealthy,
       lifecycle_state: lifecycleState,
-      duration: totalDuration,
-      requestId,
+      duration_ms: totalDuration,
+      request_id: requestId,
     });
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health/ready",
-      statusCode,
-      duration: totalDuration,
-      requestId,
+      status_code: statusCode,
+      duration_ms: totalDuration,
+      request_id: requestId,
     });
 
     return createHealthResponse(readinessData, statusCode, requestId);
@@ -651,11 +670,12 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
     const duration = calculateDuration(startTime);
 
     log("Readiness check failed", {
+      event_name: "health.readiness.failed",
       component: "health",
       operation: "readiness_check_error",
       error: error instanceof Error ? error.message : "Unknown error",
-      duration,
-      requestId,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createHealthResponse(
@@ -677,10 +697,11 @@ export function handleMetricsHealth(kongService: IKongService): Response {
   const startTime = getHighResTime();
 
   log("Processing metrics health request", {
+    event_name: "health.metrics.initiated",
     component: "health",
     operation: "handle_metrics_health",
     endpoint: "/health/metrics",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -695,6 +716,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
       circuitBreakerStats = kongService.getCircuitBreakerStats();
     } catch (error) {
       log("Failed to get circuit breaker stats during metrics health check", {
+        event_name: "circuit_breaker.stats.failed",
         component: "health",
         operation: "circuit_breaker_stats",
         error: error instanceof Error ? error.message : "Unknown error",
@@ -745,22 +767,24 @@ export function handleMetricsHealth(kongService: IKongService): Response {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health/metrics",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createHealthResponse(responseData, 200, requestId);
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/health/metrics",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 

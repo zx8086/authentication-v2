@@ -20,10 +20,11 @@ export function handleDebugMetricsTest(): Response {
   const requestId = generateRequestId();
 
   log("Processing debug metrics test request", {
+    event_name: "metrics.test.started",
     component: "debug",
     operation: "handle_debug_metrics_test",
     endpoint: "/debug/metrics/test",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -31,19 +32,21 @@ export function handleDebugMetricsTest(): Response {
     const testResult = { success: true, metricsRecorded: 5 };
 
     log("Test metrics recorded", {
+      event_name: "metrics.test.success",
       component: "debug",
       operation: "test_metrics",
       success: testResult.success,
-      metricsRecorded: testResult.metricsRecorded,
+      metrics_recorded: testResult.metricsRecorded,
     });
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/metrics/test",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return new Response(
@@ -61,11 +64,12 @@ export function handleDebugMetricsTest(): Response {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/metrics/test",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
@@ -89,10 +93,11 @@ export async function handleDebugMetricsExport(): Promise<Response> {
   const requestId = generateRequestId();
 
   log("Processing debug metrics export request", {
+    event_name: "metrics.export.started",
     component: "debug",
     operation: "handle_debug_metrics_export",
     endpoint: "/debug/metrics/export",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -101,10 +106,11 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     if (!telemetryStatus.initialized) {
       const duration = calculateDuration(startTime);
       log("Metrics export skipped - telemetry not initialized", {
+        event_name: "metrics.export.skipped",
         component: "debug",
         operation: "force_export",
         success: true,
-        duration,
+        duration_ms: duration,
         reason: "telemetry_not_initialized",
       });
 
@@ -130,20 +136,22 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     const duration = calculateDuration(startTime);
 
     log("Metrics export forced", {
+      event_name: "metrics.export.success",
       component: "debug",
       operation: "force_export",
       success: flushResult.success,
-      duration,
-      exportedMetrics: flushResult.exportedMetrics,
+      duration_ms: duration,
+      exported_metrics: flushResult.exportedMetrics,
       errors: flushResult.errors,
     });
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/metrics/export",
-      statusCode: flushResult.success ? 200 : 500,
-      duration,
-      requestId,
+      status_code: flushResult.success ? 200 : 500,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return new Response(
@@ -166,11 +174,12 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     const duration = calculateDuration(startTime);
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/metrics/export",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
@@ -200,6 +209,7 @@ async function collectOperationalData(kongService: IKongService) {
     cacheStats = await kongService.getCacheStats();
   } catch (error) {
     log("Failed to collect cache stats during metrics collection", {
+      event_name: "metrics.cache_stats.failed",
       component: "metrics",
       operation: "cache_stats",
       error: error instanceof Error ? error.message : "Unknown error",
@@ -229,6 +239,7 @@ async function collectOperationalData(kongService: IKongService) {
     circuitBreakerStats = kongService.getCircuitBreakerStats();
   } catch (error) {
     log("Failed to collect circuit breaker stats during metrics collection", {
+      event_name: "metrics.circuit_breaker_stats.failed",
       component: "metrics",
       operation: "circuit_breaker_stats",
       error: error instanceof Error ? error.message : "Unknown error",
@@ -321,11 +332,12 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
   const view = (url.searchParams.get("view") as MetricsView) || "operational";
 
   log("Processing unified metrics request", {
+    event_name: "metrics.unified.started",
     component: "metrics",
     operation: "handle_unified_metrics",
     endpoint: "/metrics",
     view,
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -388,11 +400,12 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       default: {
         const duration = calculateDuration(startTime);
         log("HTTP request processed", {
+          event_name: "http.request.completed",
           method: "GET",
           url: "/metrics",
-          statusCode: 400,
-          duration,
-          requestId,
+          status_code: 400,
+          duration_ms: duration,
+          request_id: requestId,
         });
         return new Response(
           JSON.stringify({
@@ -410,11 +423,12 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/metrics",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return new Response(JSON.stringify(responseData, null, 2), {
@@ -427,17 +441,19 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("Failed to generate unified metrics", {
+      event_name: "metrics.unified.failed",
       component: "metrics",
       operation: "unified_metrics",
       error: error instanceof Error ? error.message : "Unknown error",
     });
 
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/metrics",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
 

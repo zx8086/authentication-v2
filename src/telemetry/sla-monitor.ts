@@ -42,11 +42,12 @@ export class SlaMonitor {
       );
 
       log("SLA Monitor initialized", {
+        event_name: "sla.monitor.started",
         component: "sla-monitor",
         enabled: config.enabled,
-        autoTrigger: config.autoTriggerOnSlaViolation,
-        throttleMinutes: config.slaViolationThrottleMinutes,
-        outputDir: config.outputDir,
+        auto_trigger: config.autoTriggerOnSlaViolation,
+        throttle_minutes: config.slaViolationThrottleMinutes,
+        output_dir: config.outputDir,
         endpoints: config.slaThresholds.map((t) => t.endpoint),
       });
     }
@@ -110,16 +111,17 @@ export class SlaMonitor {
         recordSlaViolation(endpoint, metrics.p95, metrics.p99, false);
 
         warn("SLA violation detected but profiling blocked", {
+          event_name: "sla.violation.detected",
           component: "sla-monitor",
           endpoint,
           reason,
-          currentP95: metrics.p95.toFixed(2),
-          currentP99: metrics.p99.toFixed(2),
-          thresholdP95: threshold.p95,
-          thresholdP99: threshold.p99,
-          minutesSinceLastTrigger: minutesSinceLastTrigger.toFixed(1),
-          throttleMinutes: this.config.slaViolationThrottleMinutes,
-          sampleSize: metrics.count,
+          current_p95: metrics.p95.toFixed(2),
+          current_p99: metrics.p99.toFixed(2),
+          threshold_p95: threshold.p95,
+          threshold_p99: threshold.p99,
+          minutes_since_last_trigger: minutesSinceLastTrigger.toFixed(1),
+          throttle_minutes: this.config.slaViolationThrottleMinutes,
+          sample_size: metrics.count,
         });
       }
     }
@@ -178,18 +180,20 @@ export class SlaMonitor {
         this.lastProfilingTrigger.set(endpoint, Date.now());
 
         log("Automatic profiling triggered by SLA violation", {
+          event_name: "sla.violation.detected",
           component: "sla-monitor",
           endpoint,
-          currentP95: metrics.p95.toFixed(2),
-          currentP99: metrics.p99.toFixed(2),
-          thresholdP95: threshold.p95,
-          thresholdP99: threshold.p99,
-          sampleSize: metrics.count,
-          outputDir: this.config.outputDir,
+          current_p95: metrics.p95.toFixed(2),
+          current_p99: metrics.p99.toFixed(2),
+          threshold_p95: threshold.p95,
+          threshold_p99: threshold.p99,
+          sample_size: metrics.count,
+          output_dir: this.config.outputDir,
         });
       }
     } catch (err) {
       error("Failed to trigger automatic profiling", {
+        event_name: "sla.profiling.failed",
         component: "sla-monitor",
         endpoint,
         error: err instanceof Error ? err.message : String(err),
@@ -231,6 +235,7 @@ export class SlaMonitor {
     this.isShuttingDown = true;
 
     log("SLA Monitor shutting down", {
+      event_name: "sla.monitor.shutdown",
       component: "sla-monitor",
     });
 

@@ -43,10 +43,11 @@ export class ProfileQueueManager {
     this.ensureOutputDirectory();
 
     log("Profile Queue Manager initialized", {
+      event_name: "profiling.queue.initialized",
       component: "profile-queue-manager",
-      maxConcurrent: this.maxConcurrent,
-      maxStorageGb,
-      outputDir: config.outputDir,
+      max_concurrent: this.maxConcurrent,
+      max_storage_gb: maxStorageGb,
+      output_dir: config.outputDir,
     });
   }
 
@@ -54,6 +55,7 @@ export class ProfileQueueManager {
     if (!existsSync(this.config.outputDir)) {
       mkdirSync(this.config.outputDir, { recursive: true });
       log("Created profiling output directory", {
+        event_name: "profiling.queue.directory_created",
         component: "profile-queue-manager",
         directory: this.config.outputDir,
       });
@@ -82,6 +84,7 @@ export class ProfileQueueManager {
       }
     } catch (err) {
       error("Failed to calculate directory size", {
+        event_name: "profiling.queue.directory_size_failed",
         component: "profile-queue-manager",
         directory: dirPath,
         error: err instanceof Error ? err.message : String(err),
@@ -97,10 +100,11 @@ export class ProfileQueueManager {
 
     if (exceeded) {
       warn("Storage quota exceeded", {
+        event_name: "profiling.queue.storage_exceeded",
         component: "profile-queue-manager",
-        currentSizeMb: (currentSize / 1024 / 1024).toFixed(2),
-        maxSizeMb: (this.maxStorageBytes / 1024 / 1024).toFixed(2),
-        outputDir: this.config.outputDir,
+        current_size_mb: (currentSize / 1024 / 1024).toFixed(2),
+        max_size_mb: (this.maxStorageBytes / 1024 / 1024).toFixed(2),
+        output_dir: this.config.outputDir,
       });
     }
 
@@ -126,6 +130,7 @@ export class ProfileQueueManager {
   async requestProfiling(request: ProfileRequest): Promise<boolean> {
     if (this.isShuttingDown) {
       warn("Cannot request profiling during shutdown", {
+        event_name: "profiling.queue.request_rejected",
         component: "profile-queue-manager",
         endpoint: request.endpoint,
       });
@@ -134,6 +139,7 @@ export class ProfileQueueManager {
 
     if (this.isStorageQuotaExceeded()) {
       warn("Cannot request profiling - storage quota exceeded", {
+        event_name: "profiling.queue.request_rejected",
         component: "profile-queue-manager",
         endpoint: request.endpoint,
         reason: request.reason,
@@ -145,21 +151,23 @@ export class ProfileQueueManager {
       // Enforce max queue size to prevent unbounded memory growth
       if (this.queue.length >= MAX_QUEUE_SIZE) {
         warn("Profiling queue full, rejecting request", {
+          event_name: "profiling.queue.full",
           component: "profile-queue-manager",
           endpoint: request.endpoint,
           reason: request.reason,
-          queueLength: this.queue.length,
-          maxQueueSize: MAX_QUEUE_SIZE,
+          queue_length: this.queue.length,
+          max_queue_size: MAX_QUEUE_SIZE,
         });
         return false;
       }
 
       this.queue.push(request);
       log("Profiling request queued", {
+        event_name: "profiling.queue.request_queued",
         component: "profile-queue-manager",
         endpoint: request.endpoint,
         reason: request.reason,
-        queueLength: this.queue.length,
+        queue_length: this.queue.length,
       });
       return false;
     }
@@ -172,11 +180,12 @@ export class ProfileQueueManager {
       const timestamp = Date.now();
 
       log("Starting profiling session", {
+        event_name: "profiling.session.starting",
         component: "profile-queue-manager",
         endpoint: request.endpoint,
         reason: request.reason,
-        outputDir: this.config.outputDir,
-        violationMetrics: request.violationMetrics,
+        output_dir: this.config.outputDir,
+        violation_metrics: request.violationMetrics,
       });
 
       const subprocess = Bun.spawn(
@@ -215,6 +224,7 @@ export class ProfileQueueManager {
       return true;
     } catch (err) {
       error("Failed to start profiling session", {
+        event_name: "profiling.session.start_failed",
         component: "profile-queue-manager",
         endpoint: request.endpoint,
         error: err instanceof Error ? err.message : String(err),
@@ -237,26 +247,29 @@ export class ProfileQueueManager {
       const durationSeconds = (Date.now() - session.startedAt) / 1000;
 
       log("Profiling session completed", {
+        event_name: "profiling.session.completed",
         component: "profile-queue-manager",
         endpoint: session.request.endpoint,
         reason: session.request.reason,
-        durationSeconds: durationSeconds.toFixed(1),
-        outputDir: session.outputDir,
+        duration_seconds: durationSeconds.toFixed(1),
+        output_dir: session.outputDir,
       });
 
       if (this.queue.length > 0 && !this.isShuttingDown) {
         const nextRequest = this.queue.shift();
         if (nextRequest) {
           log("Processing queued profiling request", {
+            event_name: "profiling.queue.processing",
             component: "profile-queue-manager",
             endpoint: nextRequest.endpoint,
-            queueLength: this.queue.length,
+            queue_length: this.queue.length,
           });
           await this.startProfiling(nextRequest);
         }
       }
     } catch (err) {
       error("Failed to stop profiling session", {
+        event_name: "profiling.session.stop_failed",
         component: "profile-queue-manager",
         endpoint: session.request.endpoint,
         error: err instanceof Error ? err.message : String(err),
@@ -301,9 +314,10 @@ export class ProfileQueueManager {
     this.isShuttingDown = true;
 
     log("Profile Queue Manager shutting down", {
+      event_name: "profiling.queue.shutdown",
       component: "profile-queue-manager",
-      hasActiveProfile: this.activeProfile !== null,
-      queueLength: this.queue.length,
+      has_active_profile: this.activeProfile !== null,
+      queue_length: this.queue.length,
     });
 
     if (this.activeProfile) {

@@ -1,6 +1,5 @@
 /* src/telemetry/telemetry-emitter.ts */
 
-import { trace } from "@opentelemetry/api";
 import { getLogger } from "../logging/container";
 import type { SpanEventName } from "./span-event-names";
 
@@ -78,27 +77,17 @@ class TelemetryEmitter {
       }
     }
 
-    // 1. Always emit span event (captured regardless of LOG_LEVEL)
-    // SIO-618: Use human-readable message as the span event name because
-    // APM server maps event name -> Elasticsearch "message" field.
-    // The structured event identifier goes into event_name attribute.
-    const activeSpan = trace.getActiveSpan();
-    if (activeSpan) {
-      const eventAttrs: Record<string, string | number | boolean> = {
-        "log.level": level,
-        event_name: event,
-        ...cleanAttributes,
-      };
-      if (startTime !== undefined) {
-        eventAttrs.duration_ms = performance.now() - startTime;
-      }
-      activeSpan.addEvent(message, eventAttrs);
-    }
-
-    // 2. Emit log (filtered by LOG_LEVEL)
-    // SIO-447: Use logging container for Pino/Winston backend selection
+    // SIO-618: Span event emission removed. Log records via Pino -> OTelPinoStream
+    // now reach OTLP correctly, producing proper ECS documents with root log.level.
+    // Span events duplicated every log as a separate ES document without root log.level.
     const logger = getLogger();
-    const logContext = { ...cleanAttributes, event_name: event };
+    const logContext: Record<string, string | number | boolean> = {
+      ...cleanAttributes,
+      event_name: event,
+    };
+    if (startTime !== undefined) {
+      logContext.duration_ms = performance.now() - startTime;
+    }
     switch (level) {
       case "debug":
         logger.debug(message, logContext);

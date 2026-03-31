@@ -19,10 +19,11 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling start request", {
+    event_name: "profiling.start.requested",
     component: "profiling",
     operation: "handle_profiling_start",
     endpoint: "/debug/profiling/start",
-    requestId,
+    request_id: requestId,
   });
 
   const status = profilingService.getStatus();
@@ -30,11 +31,12 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
   if (!status.enabled) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/start",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
     return createSuccessResponse(
       {
@@ -58,11 +60,12 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     if (!sessionId) {
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "POST",
         url: "/debug/profiling/start",
-        statusCode: 400,
-        duration,
-        requestId,
+        status_code: 400,
+        duration_ms: duration,
+        request_id: requestId,
       });
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_007,
@@ -76,11 +79,12 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/start",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createSuccessResponse(
@@ -98,11 +102,12 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/start",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(
@@ -121,10 +126,11 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling stop request", {
+    event_name: "profiling.stop.requested",
     component: "profiling",
     operation: "handle_profiling_stop",
     endpoint: "/debug/profiling/stop",
-    requestId,
+    request_id: requestId,
   });
 
   const status = profilingService.getStatus();
@@ -132,11 +138,12 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
   if (!status.enabled) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/stop",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
     return createSuccessResponse(
       {
@@ -159,11 +166,12 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     if (!success) {
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "POST",
         url: "/debug/profiling/stop",
-        statusCode: 500,
-        duration,
-        requestId,
+        status_code: 500,
+        duration_ms: duration,
+        request_id: requestId,
       });
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_008,
@@ -177,11 +185,12 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/stop",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createSuccessResponse(
@@ -196,11 +205,12 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/stop",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(
@@ -219,10 +229,11 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling status request", {
+    event_name: "profiling.status.requested",
     component: "profiling",
     operation: "handle_profiling_status",
     endpoint: "/debug/profiling/status",
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -230,11 +241,12 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/status",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createSuccessResponse(
@@ -256,11 +268,12 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/status",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(
@@ -279,10 +292,11 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling reports request", {
+    event_name: "profiling.reports.requested",
     component: "profiling",
     operation: "handle_profiling_reports",
     endpoint: "/debug/profiling/reports",
-    requestId,
+    request_id: requestId,
   });
 
   const status = profilingService.getStatus();
@@ -290,11 +304,12 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   if (!status.enabled) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/reports",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
     return createSuccessResponse(
       {
@@ -314,11 +329,12 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/reports",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createSuccessResponse(
@@ -336,11 +352,12 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/reports",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(
@@ -359,10 +376,11 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling cleanup request", {
+    event_name: "profiling.cleanup.requested",
     component: "profiling",
     operation: "handle_profiling_cleanup",
     endpoint: "/debug/profiling/cleanup",
-    requestId,
+    request_id: requestId,
   });
 
   const status = profilingService.getStatus();
@@ -370,11 +388,12 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   if (!status.enabled) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/cleanup",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
     return createSuccessResponse(
       {
@@ -393,11 +412,12 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
 
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/cleanup",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
 
     return createSuccessResponse(
@@ -415,11 +435,12 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "POST",
       url: "/debug/profiling/cleanup",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(
@@ -438,10 +459,11 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
   const startTime = getHighResTime();
 
   log("Processing profiling report request", {
+    event_name: "profiling.report.requested",
     component: "profiling",
     operation: "handle_profiling_report",
     endpoint: "/debug/profiling/report",
-    requestId,
+    request_id: requestId,
   });
 
   const status = profilingService.getStatus();
@@ -449,11 +471,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
   if (!status.enabled) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/report",
-      statusCode: 200,
-      duration,
-      requestId,
+      status_code: 200,
+      duration_ms: duration,
+      request_id: requestId,
     });
     return createSuccessResponse(
       {
@@ -474,11 +497,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     if (!filePath) {
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "GET",
         url: "/debug/profiling/report",
-        statusCode: 400,
-        duration,
-        requestId,
+        status_code: 400,
+        duration_ms: duration,
+        request_id: requestId,
       });
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_007,
@@ -496,11 +520,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     if (!requestedReport) {
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "GET",
         url: "/debug/profiling/report",
-        statusCode: 404,
-        duration,
-        requestId,
+        status_code: 404,
+        duration_ms: duration,
+        request_id: requestId,
       });
       return createStructuredErrorWithMessage(
         ErrorCodes.AUTH_007,
@@ -518,11 +543,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
 
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "GET",
         url: "/debug/profiling/report",
-        statusCode: 200,
-        duration,
-        requestId,
+        status_code: 200,
+        duration_ms: duration,
+        request_id: requestId,
       });
 
       return new Response(content, {
@@ -538,11 +564,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     } catch (_fileError) {
       const duration = calculateDuration(startTime);
       log("HTTP request processed", {
+        event_name: "http.request.completed",
         method: "GET",
         url: "/debug/profiling/report",
-        statusCode: 500,
-        duration,
-        requestId,
+        status_code: 500,
+        duration_ms: duration,
+        request_id: requestId,
         error: "Failed to read report file",
       });
       return createStructuredErrorWithMessage(
@@ -557,11 +584,12 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
   } catch (error) {
     const duration = calculateDuration(startTime);
     log("HTTP request processed", {
+      event_name: "http.request.completed",
       method: "GET",
       url: "/debug/profiling/report",
-      statusCode: 500,
-      duration,
-      requestId,
+      status_code: 500,
+      duration_ms: duration,
+      request_id: requestId,
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return createStructuredErrorWithMessage(

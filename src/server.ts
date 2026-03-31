@@ -58,8 +58,8 @@ const prefetchDns = (): void => {
         : 80;
     dns.prefetch(kongUrl.hostname, kongPort);
     log("DNS prefetch initiated", {
+      event_name: "dns.prefetch.initiated",
       component: "dns",
-      event: "prefetch",
       host: kongUrl.hostname,
       port: kongPort,
       service: "kong",
@@ -71,8 +71,8 @@ const prefetchDns = (): void => {
       const redisPort = redisUrl.port ? Number.parseInt(redisUrl.port, 10) : 6379;
       dns.prefetch(redisUrl.hostname, redisPort);
       log("DNS prefetch initiated", {
+        event_name: "dns.prefetch.initiated",
         component: "dns",
-        event: "prefetch",
         host: redisUrl.hostname,
         port: redisPort,
         service: "redis",
@@ -89,8 +89,8 @@ const prefetchDns = (): void => {
           : 80;
       dns.prefetch(otelUrl.hostname, otelPort);
       log("DNS prefetch initiated", {
+        event_name: "dns.prefetch.initiated",
         component: "dns",
-        event: "prefetch",
         host: otelUrl.hostname,
         port: otelPort,
         service: "otel",
@@ -98,8 +98,8 @@ const prefetchDns = (): void => {
     }
   } catch (prefetchError) {
     warn("DNS prefetch failed - service will continue normally", {
+      event_name: "dns.prefetch.failed",
       component: "dns",
-      event: "prefetch_error",
       error: prefetchError instanceof Error ? prefetchError.message : "Unknown error",
     });
   }
@@ -121,10 +121,10 @@ const kongService: IKongService = new KongAdapter(
 try {
   await initializeTelemetry();
   log("Telemetry initialized successfully", {
+    event_name: "telemetry.initialization.completed",
     component: "telemetry",
-    event: "initialization_success",
     mode: config.telemetry.mode,
-    serviceName: config.telemetry.serviceName,
+    service_name: config.telemetry.serviceName,
   });
 
   // Initialize GC metrics collection after telemetry is ready
@@ -144,20 +144,20 @@ try {
   // 60s interval provides adequate GC visibility while reducing overhead by 50%.
   initializeGCMetrics(gcMetricsCallback, 60000);
   log("GC metrics collection started", {
+    event_name: "gc_metrics.initialization.completed",
     component: "gc_metrics",
-    event: "initialization_success",
-    intervalMs: 60000,
+    interval_ms: 60000,
   });
 } catch (initError) {
   error("Failed to initialize OpenTelemetry - service will continue without telemetry export", {
+    event_name: "telemetry.initialization.failed",
     component: "telemetry",
-    event: "initialization_failure",
     error: initError instanceof Error ? initError.message : "Unknown error",
     stack: initError instanceof Error ? initError.stack : undefined,
     mode: config.telemetry.mode,
-    tracesEndpoint: config.telemetry.tracesEndpoint || "not configured",
-    metricsEndpoint: config.telemetry.metricsEndpoint || "not configured",
-    logsEndpoint: config.telemetry.logsEndpoint || "not configured",
+    traces_endpoint: config.telemetry.tracesEndpoint || "not configured",
+    metrics_endpoint: config.telemetry.metricsEndpoint || "not configured",
+    logs_endpoint: config.telemetry.logsEndpoint || "not configured",
     impact: "Traces, metrics, and logs will not be exported to OTLP endpoint",
     recovery: "Service continues operating normally, telemetry data will be lost",
   });
@@ -167,16 +167,16 @@ try {
 logServiceStartup(config.server.port, config.server.nodeEnv);
 
 log("Authentication Service starting up", {
+  event_name: "server.startup.initiated",
   component: "server",
-  event: "startup_initiated",
   version: pkg.version || "1.0.0",
   environment: config.server.nodeEnv,
   port: config.server.port,
 });
 
 log("Checking Kong connectivity...", {
+  event_name: "kong.connectivity.check",
   component: "kong",
-  event: "connectivity_check",
 });
 
 let startupKongHealth: Awaited<ReturnType<IKongService["healthCheck"]>>;
@@ -190,22 +190,24 @@ try {
 
   if (!startupKongHealth.healthy) {
     warn("Kong health check failed during startup - entering degraded mode", {
+      event_name: "kong.health_check.failed",
       component: "kong",
       operation: "health_check",
-      duration: startupKongHealth.responseTime,
+      duration_ms: startupKongHealth.responseTime,
       success: false,
       error: startupKongHealth.error,
       status: "degraded",
     });
   } else {
     log("Kong connectivity verified", {
+      event_name: "kong.health_check.success",
       component: "kong",
-      event: "connectivity_verified",
-      duration: startupKongHealth.responseTime,
+      duration_ms: startupKongHealth.responseTime,
     });
   }
 } catch (startupError) {
   error("Kong health check failed during startup with exception - entering degraded mode", {
+    event_name: "kong.health_check.failed",
     component: "kong",
     operation: "health_check",
     success: false,
@@ -216,6 +218,7 @@ try {
   recordKongOperation("startup_health_check", 0, false);
 
   warn("Server will start in degraded mode - Kong integration unavailable", {
+    event_name: "kong.degraded_mode.entered",
     component: "kong",
     status: "degraded",
     impact: "JWT token issuance will not work until Kong connectivity is restored",
@@ -253,8 +256,8 @@ try {
 } catch (err) {
   if (err instanceof Error && err.message.includes("EADDRINUSE")) {
     error("Server failed to start - port already in use", {
+      event_name: "server.startup.failed",
       component: "server",
-      event: "startup_failed",
       error: err.message,
       port: config.server.port,
       suggestion: `Port ${config.server.port} is already in use. Please stop the existing server or use a different port.`,
@@ -263,16 +266,16 @@ try {
     log(
       "To stop existing servers, run: pkill -f 'bun src/server.ts' or lsof -ti:3000 | xargs kill",
       {
+        event_name: "server.startup.troubleshooting_hint",
         component: "server",
-        event: "troubleshooting_hint",
       }
     );
 
     process.exit(1);
   } else {
     error("Server failed to start with unexpected error", {
+      event_name: "server.startup.failed",
       component: "server",
-      event: "startup_failed",
       error: err instanceof Error ? err.message : "Unknown error",
     });
 
@@ -281,12 +284,12 @@ try {
 }
 
 log("Authentication server started", {
+  event_name: "server.startup.completed",
   component: "server",
-  event: "startup",
-  "server.url": `http://localhost:${config.server.port}`,
-  "server.environment": config.server.nodeEnv,
-  "server.pid": process.pid,
-  "server.port": config.server.port,
+  server_url: `http://localhost:${config.server.port}`,
+  server_environment: config.server.nodeEnv,
+  server_pid: process.pid,
+  server_port: config.server.port,
 });
 
 const allEndpoints = [
@@ -309,14 +312,14 @@ const allEndpoints = [
 ];
 
 log("Server endpoints configured", {
+  event_name: "server.endpoints.configured",
   component: "server",
-  event: "endpoints_configured",
   endpoints: allEndpoints,
 });
 
 log("Metrics debugging endpoints available", {
+  event_name: "metrics.debug_endpoints.ready",
   component: "metrics",
-  event: "debug_endpoints_ready",
   endpoints: {
     test: "POST /debug/metrics/test",
     export: "POST /debug/metrics/export",
@@ -333,26 +336,26 @@ log("Metrics debugging endpoints available", {
 });
 
 log("OpenTelemetry configuration loaded", {
+  event_name: "telemetry.configuration.loaded",
   component: "telemetry",
-  event: "configuration_loaded",
   success: true,
-  "otel.service.name": getSimpleTelemetryStatus().config.serviceName,
-  "otel.service.version": getSimpleTelemetryStatus().config.serviceVersion,
-  "otel.deployment.environment": getSimpleTelemetryStatus().config.environment,
-  "otel.telemetry.mode": getSimpleTelemetryStatus().config.mode,
-  "otel.exporter.traces.endpoint": getSimpleTelemetryStatus().config.tracesEndpoint,
-  "otel.exporter.metrics.endpoint": getSimpleTelemetryStatus().config.metricsEndpoint,
-  "otel.exporter.logs.endpoint": getSimpleTelemetryStatus().config.logsEndpoint,
-  "otel.exporter.timeout_ms": getSimpleTelemetryStatus().config.exportTimeout,
-  "otel.batch.size": getSimpleTelemetryStatus().config.batchSize,
-  "otel.queue.max_size": getSimpleTelemetryStatus().config.maxQueueSize,
-  "otel.enabled": getSimpleTelemetryStatus().config.enableOpenTelemetry,
+  otel_service_name: getSimpleTelemetryStatus().config.serviceName,
+  otel_service_version: getSimpleTelemetryStatus().config.serviceVersion,
+  otel_deployment_environment: getSimpleTelemetryStatus().config.environment,
+  otel_telemetry_mode: getSimpleTelemetryStatus().config.mode,
+  otel_exporter_traces_endpoint: getSimpleTelemetryStatus().config.tracesEndpoint,
+  otel_exporter_metrics_endpoint: getSimpleTelemetryStatus().config.metricsEndpoint,
+  otel_exporter_logs_endpoint: getSimpleTelemetryStatus().config.logsEndpoint,
+  otel_exporter_timeout_ms: getSimpleTelemetryStatus().config.exportTimeout,
+  otel_batch_size: getSimpleTelemetryStatus().config.batchSize,
+  otel_queue_max_size: getSimpleTelemetryStatus().config.maxQueueSize,
+  otel_enabled: getSimpleTelemetryStatus().config.enableOpenTelemetry,
 });
 
 const profilingStatus = profilingService.getStatus();
 log("Profiling service status", {
+  event_name: "profiling.service.status",
   component: "profiling",
-  event: "service_status",
   enabled: profilingStatus.enabled,
   environment: config.server.nodeEnv,
   integration: "Chrome DevTools Protocol",
@@ -374,8 +377,8 @@ logServiceReady(config.server.port);
 lifecycleStateMachine.transitionTo(LifecycleState.READY);
 
 log("Server ready to serve requests", {
+  event_name: "server.lifecycle.ready",
   component: "server",
-  event: "ready",
   status: "ready",
   lifecycle_state: lifecycleStateMachine.getState(),
 });
@@ -397,8 +400,8 @@ const gracefulShutdown = async (signal: string) => {
   // SIO-452: Use lifecycle state machine for duplicate check
   if (isShuttingDown || lifecycleStateMachine.getState() !== LifecycleState.READY) {
     log("Shutdown already in progress, ignoring duplicate signal", {
+      event_name: "server.shutdown.duplicate",
       component: "server",
-      event: "shutdown_duplicate",
       signal,
       lifecycle_state: lifecycleStateMachine.getState(),
     });
@@ -416,8 +419,8 @@ const gracefulShutdown = async (signal: string) => {
   // SIO-452: Increased timeout to allow proper draining (15s vs 10s)
   const shutdownTimeout = setTimeout(() => {
     error("Graceful shutdown timeout - forcing exit", {
+      event_name: "server.shutdown.timeout",
       component: "server",
-      event: "shutdown_timeout",
       pid: process.pid,
       inflight_requests: inflightTracker.getActiveCount(),
     });
@@ -444,8 +447,8 @@ const gracefulShutdown = async (signal: string) => {
     const drainResult = await inflightTracker.waitForCompletion({ timeoutMs: 5000 });
     if (!drainResult.drained) {
       warn("Request drain timeout - forcing shutdown with remaining requests", {
+        event_name: "server.shutdown.drain_timeout",
         component: "server",
-        event: "drain_timeout",
         remaining_requests: drainResult.remaining,
         completed_requests: drainResult.completedCount,
         drain_duration_ms: drainResult.durationMs,
@@ -459,8 +462,8 @@ const gracefulShutdown = async (signal: string) => {
     const shutdownResult = await lifecycleCoordinator.shutdownAll({ componentTimeoutMs: 3000 });
     if (!shutdownResult.success) {
       warn("Some components failed to shutdown gracefully", {
+        event_name: "server.shutdown.partial_failure",
         component: "server",
-        event: "component_shutdown_partial",
         failed_components: shutdownResult.failedComponents,
         total_duration_ms: shutdownResult.totalDurationMs,
       });
@@ -488,8 +491,8 @@ const gracefulShutdown = async (signal: string) => {
     logServiceShutdownError(err instanceof Error ? err : new Error(String(err)));
 
     error("Error during graceful shutdown", {
+      event_name: "server.shutdown.failed",
       component: "server",
-      event: "shutdown_error",
       error: err instanceof Error ? err.message : "Unknown error",
       lifecycle_state: lifecycleStateMachine.getState(),
     });
@@ -504,8 +507,8 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 process.on("unhandledRejection", (reason, promise) => {
   error("Unhandled promise rejection", {
+    event_name: "server.error.unhandled_rejection",
     component: "server",
-    event: "unhandled_rejection",
     reason: reason instanceof Error ? reason.message : String(reason),
     promise: String(promise),
   });
@@ -513,8 +516,8 @@ process.on("unhandledRejection", (reason, promise) => {
 
 process.on("uncaughtException", (err) => {
   error("Uncaught exception", {
+    event_name: "server.error.uncaught_exception",
     component: "server",
-    event: "uncaught_exception",
     error: err.message,
     stack: err.stack,
   });

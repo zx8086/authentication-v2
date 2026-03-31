@@ -53,6 +53,7 @@ export class SharedRedisBackend implements ICacheBackend {
       return true;
     } catch (error) {
       log("Redis cache health check failed", {
+        event_name: "cache.health_check.failed",
         component: "shared_redis_backend",
         operation: "health_check",
         error: error instanceof Error ? error.message : "Unknown error",

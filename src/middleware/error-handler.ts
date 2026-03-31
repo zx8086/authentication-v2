@@ -10,10 +10,11 @@ export function handleNotFound(url: URL): Response {
   const requestId = generateRequestId();
 
   log("HTTP request processed", {
+    event_name: "http.request.completed",
     method: "GET",
     url: url.pathname,
-    statusCode: 404,
-    requestId,
+    status_code: 404,
+    request_id: requestId,
   });
 
   // RFC 7807 Problem Details format for 404 responses
@@ -44,11 +45,12 @@ export function handleServerError(error: Error, request?: Request): Response {
   const method = request?.method || "unknown";
 
   logError("Unhandled server error", error, {
-    requestId,
+    event_name: "http.error.unhandled",
+    request_id: requestId,
     url,
     method,
-    errorName: error.name,
-    errorMessage: error.message,
+    error_name: error.name,
+    error_message: error.message,
   });
 
   return new Response(

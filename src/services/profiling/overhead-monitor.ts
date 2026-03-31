@@ -33,10 +33,11 @@ export class OverheadMonitor {
     this.measurementWindowMs = measurementWindowMs;
 
     log("Overhead Monitor initialized", {
+      event_name: "profiling.overhead_monitor.initialized",
       component: "overhead-monitor",
-      maxOverheadPercent,
-      measurementWindowMs,
-      baselineSampleCount,
+      max_overhead_percent: maxOverheadPercent,
+      measurement_window_ms: measurementWindowMs,
+      baseline_sample_count: baselineSampleCount,
     });
 
     this.startBaselineCollection(baselineSampleCount);
@@ -59,9 +60,10 @@ export class OverheadMonitor {
         this.baselineCpu = this.calculateAverageCpu(this.baselineMeasurements);
 
         log("Baseline CPU measurements complete", {
+          event_name: "profiling.overhead_monitor.baseline_complete",
           component: "overhead-monitor",
-          baselineCpu: this.baselineCpu.toFixed(2),
-          sampleCount,
+          baseline_cpu: this.baselineCpu.toFixed(2),
+          sample_count: sampleCount,
         });
       }
     }, 1000);
@@ -104,6 +106,7 @@ export class OverheadMonitor {
   startProfilingMeasurement(): void {
     if (this.isProfilingActive) {
       warn("Profiling measurement already active", {
+        event_name: "profiling.overhead_monitor.already_active",
         component: "overhead-monitor",
       });
       return;
@@ -124,10 +127,11 @@ export class OverheadMonitor {
       const metrics = this.getOverheadMetrics();
       if (!metrics.isAcceptable) {
         warn("Profiling overhead exceeds threshold", {
+          event_name: "profiling.overhead_monitor.threshold_exceeded",
           component: "overhead-monitor",
-          baselineCpu: metrics.baselineCpu.toFixed(2),
-          currentCpu: metrics.currentCpu.toFixed(2),
-          overheadPercent: metrics.overheadPercent.toFixed(2),
+          baseline_cpu: metrics.baselineCpu.toFixed(2),
+          current_cpu: metrics.currentCpu.toFixed(2),
+          overhead_percent: metrics.overheadPercent.toFixed(2),
           threshold: this.maxOverheadPercent,
         });
       }
@@ -138,24 +142,27 @@ export class OverheadMonitor {
     this.autoCleanupTimeout = setTimeout(() => {
       if (this.isProfilingActive) {
         warn("Auto-stopping profiling measurement after max duration", {
+          event_name: "profiling.overhead_monitor.auto_stop",
           component: "overhead-monitor",
-          maxDurationMs: MAX_PROFILE_DURATION_MS,
-          maxDurationMinutes: MAX_PROFILE_DURATION_MS / 60000,
+          max_duration_ms: MAX_PROFILE_DURATION_MS,
+          max_duration_minutes: MAX_PROFILE_DURATION_MS / 60000,
         });
         this.stopProfilingMeasurement();
       }
     }, MAX_PROFILE_DURATION_MS);
 
     log("Started profiling measurement", {
+      event_name: "profiling.overhead_monitor.started",
       component: "overhead-monitor",
-      baselineCpu: this.baselineCpu.toFixed(2),
-      maxDurationMinutes: MAX_PROFILE_DURATION_MS / 60000,
+      baseline_cpu: this.baselineCpu.toFixed(2),
+      max_duration_minutes: MAX_PROFILE_DURATION_MS / 60000,
     });
   }
 
   stopProfilingMeasurement(): OverheadMetrics {
     if (!this.isProfilingActive) {
       warn("No active profiling measurement to stop", {
+        event_name: "profiling.overhead_monitor.not_active",
         component: "overhead-monitor",
       });
       return this.getOverheadMetrics();
@@ -177,12 +184,13 @@ export class OverheadMonitor {
     const metrics = this.getOverheadMetrics();
 
     log("Stopped profiling measurement", {
+      event_name: "profiling.overhead_monitor.stopped",
       component: "overhead-monitor",
-      baselineCpu: metrics.baselineCpu.toFixed(2),
-      currentCpu: metrics.currentCpu.toFixed(2),
-      overheadPercent: metrics.overheadPercent.toFixed(2),
-      isAcceptable: metrics.isAcceptable,
-      measurementCount: metrics.measurementCount,
+      baseline_cpu: metrics.baselineCpu.toFixed(2),
+      current_cpu: metrics.currentCpu.toFixed(2),
+      overhead_percent: metrics.overheadPercent.toFixed(2),
+      is_acceptable: metrics.isAcceptable,
+      measurement_count: metrics.measurementCount,
     });
 
     this.currentMeasurements.length = 0;
@@ -215,8 +223,9 @@ export class OverheadMonitor {
 
   async shutdown(): Promise<void> {
     log("Overhead Monitor shutting down", {
+      event_name: "profiling.overhead_monitor.shutdown",
       component: "overhead-monitor",
-      isProfilingActive: this.isProfilingActive,
+      is_profiling_active: this.isProfilingActive,
     });
 
     if (this.measurementInterval) {

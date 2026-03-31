@@ -56,11 +56,12 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
   const acceptHeader = req.headers.get("Accept") || undefined;
 
   log("Processing OpenAPI spec request", {
+    event_name: "openapi.spec.requested",
     component: "openapi",
     operation: "handle_openapi_spec",
     endpoint: "/",
     accept_header: acceptHeader,
-    requestId,
+    request_id: requestId,
   });
 
   try {
@@ -76,9 +77,10 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
       cachedYamlETag = await generateETag(cachedYamlContent);
 
       log("OpenAPI spec cached with ETags", {
+        event_name: "openapi.spec.cached",
         component: "openapi",
-        jsonETag: cachedJsonETag,
-        yamlETag: cachedYamlETag,
+        json_etag: cachedJsonETag,
+        yaml_etag: cachedYamlETag,
       });
     }
 
@@ -100,9 +102,10 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
     const ifNoneMatch = req.headers.get("If-None-Match");
     if (etag && ifNoneMatch === etag) {
       log("OpenAPI spec not modified (304)", {
+        event_name: "openapi.spec.not_modified",
         component: "openapi",
         etag,
-        requestId,
+        request_id: requestId,
       });
 
       return createNotModifiedResponse(requestId, etag, {
@@ -128,11 +131,12 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
     headers["Last-Modified"] = new Date().toUTCString();
 
     log("OpenAPI spec served", {
+      event_name: "openapi.spec.served",
       component: "openapi",
-      contentType,
+      content_type: contentType,
       size: content?.length || 0,
       etag,
-      requestId,
+      request_id: requestId,
     });
 
     return new Response(content, {

@@ -194,7 +194,10 @@ export function getMetricsStatus(): {
 export function shutdown(): void {
   stopMemoryPressureMonitoring();
   setMetricsInitialized(false);
-  info("Metrics system shutdown completed");
+  info("Metrics system shutdown completed", {
+    event_name: "metrics.system.shutdown",
+    component: "metrics",
+  });
 }
 
 export function shutdownMetrics(): void {
@@ -203,11 +206,17 @@ export function shutdownMetrics(): void {
 
 export function testMetricRecording(): void {
   if (!isMetricsInitialized()) {
-    warn("Metrics not initialized - cannot test recording");
+    warn("Metrics not initialized - cannot test recording", {
+      event_name: "metrics.test.not_initialized",
+      component: "metrics",
+    });
     return;
   }
 
-  info("Testing metric recording functionality");
+  info("Testing metric recording functionality", {
+    event_name: "metrics.test.started",
+    component: "metrics",
+  });
 
   try {
     const httpMetrics = require("./http-metrics");
@@ -220,9 +229,14 @@ export function testMetricRecording(): void {
     kongMetrics.recordKongOperation("health_check", 50);
     redisMetrics.recordRedisOperation("get", 5);
 
-    info("Test metric recording completed successfully");
+    info("Test metric recording completed successfully", {
+      event_name: "metrics.test.completed",
+      component: "metrics",
+    });
   } catch (err) {
     error("Failed to test metric recording", {
+      event_name: "metrics.test.failed",
+      component: "metrics",
       error: (err as Error).message,
     });
   }

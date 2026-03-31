@@ -31,7 +31,7 @@ class ProfilingService {
     if (this.enabled) {
       log("Profiling service initialized", {
         component: "profiling",
-        event: "service_initialized",
+        event_name: "profiling.service.initialized",
         enabled: this.enabled,
         note: "Uses Chrome DevTools integration - no file generation required",
       });
@@ -45,14 +45,14 @@ class ProfilingService {
       if (configEnabled) {
         log("Profiling enabled in production via explicit configuration", {
           component: "profiling",
-          event: "production_enabled",
+          event_name: "profiling.production.enabled",
         });
       } else {
         log(
           "Profiling available but disabled in production (use PROFILING_ENABLED=true to enable)",
           {
             component: "profiling",
-            event: "production_available",
+            event_name: "profiling.production.available",
           }
         );
       }
@@ -77,7 +77,7 @@ class ProfilingService {
     if (!this.enabled) {
       log("Profiling start attempted but service is disabled", {
         component: "profiling",
-        event: "start_disabled",
+        event_name: "profiling.start.disabled",
         type,
         note: "Profiling service is available but disabled via configuration",
       });
@@ -91,11 +91,11 @@ class ProfilingService {
     const existingSession = runningSessions[0];
     if (existingSession) {
       warn("Profiling start rejected - session already running", {
+        event_name: "profiling.start.rejected",
         component: "profiling",
-        event: "start_rejected_concurrent",
         type,
-        existingSessionId: existingSession.id,
-        existingSessions: runningSessions.length,
+        existing_session_id: existingSession.id,
+        existing_sessions: runningSessions.length,
       });
       return null;
     }
@@ -113,9 +113,9 @@ class ProfilingService {
       this.sessions.set(sessionId, session);
 
       log("Profiling session started", {
+        event_name: "profiling.session.started",
         component: "profiling",
-        event: "session_started",
-        sessionId,
+        session_id: sessionId,
         type,
         manual,
         pid: session.pid,
@@ -130,9 +130,9 @@ class ProfilingService {
       this.sessions.set(sessionId, session);
 
       error("Failed to start profiling session", {
+        event_name: "profiling.session.start_failed",
         component: "profiling",
-        event: "start_failed",
-        sessionId,
+        session_id: sessionId,
         error: err instanceof Error ? err.message : "Unknown error",
       });
 
@@ -143,8 +143,8 @@ class ProfilingService {
   async stopProfiling(sessionId?: string): Promise<boolean> {
     if (!this.enabled) {
       log("Profiling stop attempted but service is disabled", {
+        event_name: "profiling.stop.disabled",
         component: "profiling",
-        event: "stop_disabled",
         note: "Profiling service is available but disabled via configuration",
       });
       return false;
@@ -162,17 +162,17 @@ class ProfilingService {
         this.sessions.set(sessionId, session);
 
         log("Profiling session stopped", {
+          event_name: "profiling.session.stopped",
           component: "profiling",
-          event: "session_stopped",
-          sessionId,
+          session_id: sessionId,
           instructions: "Profile data captured. Use Chrome DevTools to analyze performance data.",
         });
         return true;
       } catch (err) {
         error("Failed to stop profiling session", {
+          event_name: "profiling.session.stop_failed",
           component: "profiling",
-          event: "stop_failed",
-          sessionId,
+          session_id: sessionId,
           error: err instanceof Error ? err.message : "Unknown error",
         });
       }
@@ -186,8 +186,8 @@ class ProfilingService {
 
       if (runningSessions.length === 0) {
         log("No running sessions to stop", {
+          event_name: "profiling.stop.no_sessions",
           component: "profiling",
-          event: "stop_no_sessions",
         });
         return true;
       }
@@ -201,16 +201,16 @@ class ProfilingService {
       }
 
       log("All running profiling sessions stopped", {
+        event_name: "profiling.session.all_stopped",
         component: "profiling",
-        event: "global_sessions_stopped",
-        stoppedCount,
+        stopped_count: stoppedCount,
         instructions: "Use Chrome DevTools at chrome://inspect for profiling analysis",
       });
       return true;
     } catch (err) {
       error("Failed to stop profiling sessions", {
+        event_name: "profiling.session.stop_failed",
         component: "profiling",
-        event: "stop_failed",
         error: err instanceof Error ? err.message : "Unknown error",
       });
       return false;
@@ -230,8 +230,8 @@ class ProfilingService {
 
   getReports(): string[] {
     log("Profile reports are managed through Chrome DevTools", {
+      event_name: "profiling.reports.requested",
       component: "profiling",
-      event: "reports_request",
       instructions: "Use Chrome DevTools at chrome://inspect to capture and export profiles",
       note: "This service uses Chrome DevTools protocol - no file-based reports are generated",
     });
@@ -241,8 +241,8 @@ class ProfilingService {
   async cleanup(): Promise<void> {
     if (!this.enabled) {
       log("Profiling cleanup attempted but service is disabled", {
+        event_name: "profiling.cleanup.disabled",
         component: "profiling",
-        event: "cleanup_disabled",
         note: "Profiling service is available but disabled via configuration",
       });
       return;
@@ -252,15 +252,15 @@ class ProfilingService {
       this.sessions.clear();
 
       log("Profiling session state cleared", {
+        event_name: "profiling.cleanup.completed",
         component: "profiling",
-        event: "cleanup_completed",
         note: "Chrome DevTools profiles are managed independently - no files to clean up",
         instructions: "Use Chrome DevTools at chrome://inspect to manage saved profiles",
       });
     } catch (err) {
       error("Failed to cleanup profiling sessions", {
+        event_name: "profiling.cleanup.failed",
         component: "profiling",
-        event: "cleanup_failed",
         error: err instanceof Error ? err.message : "Unknown error",
       });
     }
@@ -269,16 +269,16 @@ class ProfilingService {
   async shutdown(): Promise<void> {
     if (!this.enabled) {
       log("Profiling shutdown attempted but service is disabled", {
+        event_name: "profiling.shutdown.disabled",
         component: "profiling",
-        event: "shutdown_disabled",
         note: "Profiling service is available but disabled via configuration",
       });
       return;
     }
 
     log("Shutting down profiling service", {
+      event_name: "profiling.shutdown.initiated",
       component: "profiling",
-      event: "shutdown_initiated",
     });
 
     for (const [sessionId, session] of this.sessions.entries()) {
@@ -291,8 +291,8 @@ class ProfilingService {
     this.sessions.clear();
 
     log("Profiling service shutdown completed", {
+      event_name: "profiling.shutdown.completed",
       component: "profiling",
-      event: "shutdown_completed",
     });
   }
 }

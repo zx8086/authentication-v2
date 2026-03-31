@@ -90,10 +90,11 @@ export class CacheHealthService {
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       log("Redis health check failed", {
+        event_name: "cache.health_check.failed",
         component: "cache-health",
         operation: "redis_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
-        responseTime: formatResponseTime(responseTime),
+        response_time: formatResponseTime(responseTime),
       });
 
       return {
@@ -120,10 +121,11 @@ export class CacheHealthService {
       const responseTime = (Bun.nanoseconds() - startTime) / 1_000_000;
 
       log("Memory cache health check failed", {
+        event_name: "cache.health_check.failed",
         component: "cache-health",
         operation: "memory_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
-        responseTime: formatResponseTime(responseTime),
+        response_time: formatResponseTime(responseTime),
       });
 
       return {
