@@ -147,18 +147,12 @@ export async function handleTokenRequest(
   req: Request,
   kongService: IKongService
 ): Promise<Response> {
-  telemetryEmitter.info(SpanEvents.TOKEN_REQUEST_STARTED, "Processing token request", {
-    component: "tokens",
-    operation: "handle_token_request",
-    endpoint: "/tokens",
-  });
-
   const requestId = generateRequestId();
   const ctx = new RequestContext(req);
   const startTime = getHighResTime();
 
   return telemetryTracer.createHttpSpan(req.method, ctx.pathname, 200, async () => {
-    telemetryEmitter.debug(SpanEvents.HTTP_REQUEST_STARTED, "Token request started", {
+    telemetryEmitter.info(SpanEvents.TOKEN_REQUEST_STARTED, "Processing token request", {
       method: req.method,
       url: ctx.pathname,
       request_id: requestId,
@@ -193,6 +187,7 @@ export async function handleTokenRequest(
         status_code: 401,
         duration_ms: duration,
         request_id: requestId,
+        consumer_id: consumerId || undefined,
         error: headerValidation.error,
         error_code: headerValidation.errorCode,
       });
@@ -248,6 +243,8 @@ export async function handleTokenRequest(
           status_code: 503,
           duration_ms: duration,
           request_id: requestId,
+          consumer_id: consumerId || undefined,
+          username: username || undefined,
           error: "Service temporarily unavailable",
           error_code: ErrorCodes.AUTH_004,
         });
@@ -296,6 +293,8 @@ export async function handleTokenRequest(
           status_code: 401,
           duration_ms: duration,
           request_id: requestId,
+          consumer_id: consumerId || undefined,
+          username: username || undefined,
           error: "Invalid consumer credentials",
           error_code: ErrorCodes.AUTH_002,
         });
@@ -338,6 +337,8 @@ export async function handleTokenRequest(
         status_code: 200,
         duration_ms: duration,
         request_id: requestId,
+        consumer_id: consumerId || undefined,
+        username: username || undefined,
       });
 
       return createTokenResponse(tokenData.access_token, tokenData.expires_in, requestId);
@@ -371,6 +372,8 @@ export async function handleTokenRequest(
         status_code: 500,
         duration_ms: duration,
         request_id: requestId,
+        consumer_id: headerValidation.consumerId || undefined,
+        username: headerValidation.username || undefined,
         error: "Unexpected error",
         error_code: ErrorCodes.AUTH_008,
       });
@@ -391,20 +394,19 @@ export async function handleTokenValidation(
   req: Request,
   kongService: IKongService
 ): Promise<Response> {
-  telemetryEmitter.info(
-    SpanEvents.TOKEN_VALIDATION_STARTED,
-    "Processing token validation request",
-    {
-      component: "tokens",
-      operation: "handle_token_validation",
-      endpoint: "/tokens/validate",
-    }
-  );
-
   const requestId = generateRequestId();
   const startTime = Bun.nanoseconds();
 
   return telemetryTracer.createHttpSpan(req.method, "/tokens/validate", 200, async () => {
+    telemetryEmitter.info(
+      SpanEvents.TOKEN_VALIDATION_STARTED,
+      "Processing token validation request",
+      {
+        method: req.method,
+        url: "/tokens/validate",
+        request_id: requestId,
+      }
+    );
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
