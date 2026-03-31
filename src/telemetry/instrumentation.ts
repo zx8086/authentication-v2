@@ -29,6 +29,7 @@ import {
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from "@opentelemetry/semantic-conventions/incubating";
 import { loadConfig } from "../config/index";
 import { loggerContainer } from "../logging/container";
+import { EcsLogRecordProcessor } from "./ecs-log-record-processor";
 import {
   createExportStatsTracker,
   type ExportStats,
@@ -162,12 +163,15 @@ export async function initializeTelemetry(): Promise<void> {
   // Memory optimization: Configure log processor with bounded queue to prevent
   // buffer accumulation. Matches trace processor settings for consistency.
   // Uses same aggressive export settings as trace processor.
-  const logProcessor = new BatchLogRecordProcessor(trackingLogExporter, {
+  const batchLogProcessor = new BatchLogRecordProcessor(trackingLogExporter, {
     maxExportBatchSize: telemetryConfig.batchSize,
     maxQueueSize: telemetryConfig.maxQueueSize,
     scheduledDelayMillis: 500, // Export every 500ms to prevent queue buildup
     exportTimeoutMillis: exportTimeout,
   });
+
+  // SIO-618: Strip redundant ECS metadata and fix span.event namespace collision
+  const logProcessor = new EcsLogRecordProcessor(batchLogProcessor);
 
   // OTel SDK 0.212.0 breaking change: LoggerProvider must be explicitly registered
   // as the global provider for OpenTelemetryTransportV3 (Winston) to work.

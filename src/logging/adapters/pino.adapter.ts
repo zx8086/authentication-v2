@@ -3,8 +3,17 @@
 
 import { ecsFormat } from "@elastic/ecs-pino-format";
 import { isSpanContextValid, trace } from "@opentelemetry/api";
-import pino from "pino";
+import type pino from "pino";
 import type { ILogger, ITelemetryLogger, LogContext, LoggerConfig } from "../ports/logger.port";
+
+// SIO-618: Dynamic require to pick up PinoInstrumentation's patched pino.
+// Static `import pino from "pino"` resolves at module load time BEFORE
+// sdk.start() registers the instrumentation hook. The patched version wraps
+// every new logger with OTelPinoStream for OTLP log export.
+// reinitialize() calls getPino() which returns the instrumented module.
+function getPino(): typeof pino {
+  return require("pino");
+}
 
 /**
  * Pino adapter configuration
@@ -149,22 +158,16 @@ export class PinoAdapter implements ITelemetryLogger {
 
     // ECS format options - see https://www.elastic.co/docs/reference/ecs/logging/nodejs/pino
     const ecsOptions = ecsFormat({
-      // Disable Elastic APM integration - we use OpenTelemetry directly
       apmIntegration: false,
-      // Service metadata for ECS fields
       serviceName: service.name,
       serviceVersion: service.version,
       serviceEnvironment: service.environment,
-      // Enable error conversion to ECS error fields
       convertErr: true,
-      // Enable req/res conversion to ECS HTTP fields
       convertReqRes: true,
     });
 
     // Pino mixin injects OpenTelemetry trace context into every log record.
-    // Uses ECS dot-notation (trace.id, span.id, transaction.id) for Elastic compatibility.
-    // PinoInstrumentation's built-in mixin is disabled (disableLogCorrelation: true)
-    // because it uses underscore format (trace_id, span_id) which conflicts with ECS.
+    // Uses ECS dot-notation for Elastic compatibility.
     const traceMixin = (): Record<string, string> => {
       const span = trace.getActiveSpan();
       if (!span) return {};
@@ -181,27 +184,24 @@ export class PinoAdapter implements ITelemetryLogger {
 
     const pinoOptions: pino.LoggerOptions = {
       level: level === "silent" ? "silent" : level,
-      // ECS format provides formatters and hooks
       ...ecsOptions,
-      // Trace context mixin - runs on every log call
       mixin: traceMixin,
     };
 
+    // Use getPino() to get the PinoInstrumentation-patched module.
+    // This ensures OTelPinoStream is added via multistream for OTLP export.
+    const pinoFactory = getPino();
+
     if (isProductionOutput()) {
-      // Production: raw ECS NDJSON written directly to stdout.
-      // Uses a simple write destination to ensure process.stdout.write captures output
-      // (pino.destination({ dest: 1 }) bypasses process.stdout.write).
       const rawDestination = {
         write: (data: string) => {
           process.stdout.write(data);
         },
       };
-      return pino(pinoOptions, rawDestination);
+      return pinoFactory(pinoOptions, rawDestination);
     }
 
     // Development/Test: human-readable formatted output.
-    // Custom sync destination that formats output like Winston for console.
-    // Avoids pino.transport() worker threads which have issues with Bun.
     const formattedDestination = {
       write: (data: string) => {
         try {
@@ -209,13 +209,12 @@ export class PinoAdapter implements ITelemetryLogger {
           const formatted = this.formatLogLine(obj);
           process.stdout.write(formatted);
         } catch {
-          // Fallback for non-JSON data
           process.stdout.write(data);
         }
       },
     };
 
-    return pino(pinoOptions, formattedDestination);
+    return pinoFactory(pinoOptions, formattedDestination);
   }
 
   // ILogger implementation

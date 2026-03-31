@@ -10,20 +10,6 @@ import type { SpanEventName } from "./span-event-names";
 type EmitLevel = "debug" | "info" | "warn" | "error";
 
 /**
- * OpenTelemetry SeverityNumber mapping.
- * See: https://opentelemetry.io/docs/specs/otel/logs/data-model/#severity-fields
- *
- * Ranges: TRACE(1-4), DEBUG(5-8), INFO(9-12), WARN(13-16), ERROR(17-20), FATAL(21-24)
- * We use the first value in each range for consistency.
- */
-const SEVERITY_NUMBER: Record<EmitLevel, number> = {
-  debug: 5, // DEBUG range: 5-8
-  info: 9, // INFO range: 9-12
-  warn: 13, // WARN range: 13-16
-  error: 17, // ERROR range: 17-20
-};
-
-/**
  * Attributes that can be attached to span events and logs.
  * Supports string, number, and boolean values as per OpenTelemetry spec.
  */
@@ -93,32 +79,26 @@ class TelemetryEmitter {
     }
 
     // 1. Always emit span event (captured regardless of LOG_LEVEL)
-    // Follows OpenTelemetry semantic conventions for events:
-    // - severity_number: OTEL standard numeric severity (5=DEBUG, 9=INFO, 13=WARN, 17=ERROR)
-    // - log.level: ECS/Elastic text severity for Kibana/APM compatibility
-    // - event.message: Human-readable message (events SHOULD minimize body usage)
-    // See: https://opentelemetry.io/docs/specs/semconv/general/events/
+    // SIO-618: Use human-readable message as the span event name because
+    // APM server maps event name -> Elasticsearch "message" field.
+    // The structured event identifier goes into event_name attribute.
     const activeSpan = trace.getActiveSpan();
     if (activeSpan) {
       const eventAttrs: Record<string, string | number | boolean> = {
-        // OTEL SeverityNumber for cross-platform compatibility
-        severity_number: SEVERITY_NUMBER[level],
-        // ECS log.level field for Elasticsearch/Kibana compatibility
         "log.level": level,
-        // Human-readable message (per OTEL events spec: use for display)
-        "event.message": message,
+        event_name: event,
         ...cleanAttributes,
       };
       if (startTime !== undefined) {
-        eventAttrs["event.duration_ms"] = performance.now() - startTime;
+        eventAttrs.duration_ms = performance.now() - startTime;
       }
-      activeSpan.addEvent(event, eventAttrs);
+      activeSpan.addEvent(message, eventAttrs);
     }
 
     // 2. Emit log (filtered by LOG_LEVEL)
     // SIO-447: Use logging container for Pino/Winston backend selection
     const logger = getLogger();
-    const logContext = { ...cleanAttributes, "span.event": event };
+    const logContext = { ...cleanAttributes, event_name: event };
     switch (level) {
       case "debug":
         logger.debug(message, logContext);
