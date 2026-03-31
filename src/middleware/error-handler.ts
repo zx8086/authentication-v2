@@ -49,6 +49,7 @@ export function handleServerError(error: Error, request?: Request): Response {
     request_id: requestId,
     url,
     method,
+    status_code: 500,
     error_name: error.name,
     error_message: error.message,
   });

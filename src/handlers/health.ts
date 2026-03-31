@@ -88,6 +88,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         component: "health",
         operation: "kong_health_check",
         error: kongError instanceof Error ? kongError.message : "Unknown error",
+        request_id: requestId,
       });
       kongHealth = {
         healthy: false,
@@ -142,6 +143,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           component: "health",
           operation: "cache_stats",
           error: statsError instanceof Error ? statsError.message : "Unknown error",
+          request_id: requestId,
         });
       }
 
@@ -176,6 +178,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
           component: "health",
           operation: "cache_resilience_stats",
           error: resilienceError instanceof Error ? resilienceError.message : "Unknown error",
+          request_id: requestId,
         });
       }
 
@@ -210,6 +213,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         component: "health",
         operation: "cache_health_check",
         error: error instanceof Error ? error.message : "Unknown error",
+        request_id: requestId,
       });
       cacheHealth = {
         status: "unhealthy" as const,
@@ -256,6 +260,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
         component: "health",
         operation: "circuit_breaker_stats",
         error: error instanceof Error ? error.message : "Unknown error",
+        request_id: requestId,
       });
     }
 
@@ -541,6 +546,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
         operation: "readiness_lifecycle_check",
         lifecycle_state: lifecycleState,
         request_id: requestId,
+        duration_ms: calculateDuration(startTime),
       });
 
       return createHealthResponse(
@@ -575,6 +581,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
         operation: "readiness_kong_check",
         error: kongError instanceof Error ? kongError.message : "Unknown error",
         request_id: requestId,
+        duration_ms: calculateDuration(startTime),
       });
       kongHealth = {
         healthy: false,
@@ -605,6 +612,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
           operation: "readiness_cache_check",
           error: cacheError,
           request_id: requestId,
+          duration_ms: calculateDuration(startTime),
         });
       }
     }
@@ -720,6 +728,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
         component: "health",
         operation: "circuit_breaker_stats",
         error: error instanceof Error ? error.message : "Unknown error",
+        request_id: requestId,
       });
       circuitBreakerStats = {};
     }

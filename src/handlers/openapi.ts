@@ -81,6 +81,7 @@ export async function handleOpenAPISpec(req: Request): Promise<Response> {
         component: "openapi",
         json_etag: cachedJsonETag,
         yaml_etag: cachedYamlETag,
+        request_id: requestId,
       });
     }
 

@@ -229,6 +229,8 @@ export async function handleTokenRequest(
           SpanEvents.AUTH_REQUEST_FAILED,
           "Kong service unavailable during token request",
           {
+            method: req.method,
+            url: ctx.pathname,
             consumer_id: consumerId,
             username,
             error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
@@ -279,6 +281,8 @@ export async function handleTokenRequest(
           SpanEvents.KONG_CONSUMER_NOT_FOUND,
           "Consumer not found or has no JWT credentials",
           {
+            method: req.method,
+            url: ctx.pathname,
             consumer_id: consumerId,
             username,
             error: "Invalid consumer credentials",
@@ -358,6 +362,8 @@ export async function handleTokenRequest(
         SpanEvents.TOKEN_REQUEST_FAILED,
         "Unexpected error during token generation",
         {
+          method: req.method,
+          url: ctx.pathname,
           error: err instanceof Error ? err.message : "Unknown error",
           consumer_id: headerValidation.consumerId,
           username: headerValidation.username,

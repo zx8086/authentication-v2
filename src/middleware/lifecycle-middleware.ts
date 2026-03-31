@@ -107,6 +107,7 @@ export function lifecycleMiddleware({
         path,
         method,
         state,
+        status_code: 503,
       }
     );
 

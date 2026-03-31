@@ -37,6 +37,8 @@ export function handleDebugMetricsTest(): Response {
       operation: "test_metrics",
       success: testResult.success,
       metrics_recorded: testResult.metricsRecorded,
+      request_id: requestId,
+      duration_ms: calculateDuration(startTime),
     });
 
     const duration = calculateDuration(startTime);
@@ -112,6 +114,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
         success: true,
         duration_ms: duration,
         reason: "telemetry_not_initialized",
+        request_id: requestId,
       });
 
       return new Response(
@@ -143,6 +146,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
       duration_ms: duration,
       exported_metrics: flushResult.exportedMetrics,
       errors: flushResult.errors,
+      request_id: requestId,
     });
 
     log("HTTP request processed", {
@@ -445,6 +449,8 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       component: "metrics",
       operation: "unified_metrics",
       error: error instanceof Error ? error.message : "Unknown error",
+      request_id: requestId,
+      duration_ms: duration,
     });
 
     log("HTTP request processed", {
