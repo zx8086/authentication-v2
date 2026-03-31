@@ -400,7 +400,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health",
+      path: "/health",
       status_code: statusCode,
       duration_ms: duration,
       request_id: requestId,
@@ -421,7 +421,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health",
+      path: "/health",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -483,7 +483,7 @@ export function handleTelemetryHealth(): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health/telemetry",
+      path: "/health/telemetry",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -495,7 +495,7 @@ export function handleTelemetryHealth(): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health/telemetry",
+      path: "/health/telemetry",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -667,7 +667,7 @@ export async function handleReadinessCheck(kongService: IKongService): Promise<R
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health/ready",
+      path: "/health/ready",
       status_code: statusCode,
       duration_ms: totalDuration,
       request_id: requestId,
@@ -778,7 +778,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health/metrics",
+      path: "/health/metrics",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -790,7 +790,7 @@ export function handleMetricsHealth(kongService: IKongService): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/health/metrics",
+      path: "/health/metrics",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,

@@ -12,7 +12,7 @@ export function handleNotFound(url: URL): Response {
   log("HTTP request processed", {
     event_name: "http.request.completed",
     method: "GET",
-    url: url.pathname,
+    path: url.pathname,
     status_code: 404,
     request_id: requestId,
   });

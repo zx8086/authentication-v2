@@ -154,7 +154,7 @@ export async function handleTokenRequest(
   return telemetryTracer.createHttpSpan(req.method, ctx.pathname, 200, async () => {
     telemetryEmitter.info(SpanEvents.TOKEN_REQUEST_STARTED, "Processing token request", {
       method: req.method,
-      url: ctx.pathname,
+      path: ctx.pathname,
       request_id: requestId,
     });
 
@@ -183,7 +183,7 @@ export async function handleTokenRequest(
 
       telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
         method: req.method,
-        url: ctx.pathname,
+        path: ctx.pathname,
         status_code: 401,
         duration_ms: duration,
         request_id: requestId,
@@ -230,7 +230,7 @@ export async function handleTokenRequest(
           "Kong service unavailable during token request",
           {
             method: req.method,
-            url: ctx.pathname,
+            path: ctx.pathname,
             consumer_id: consumerId,
             username,
             error: kongError instanceof Error ? kongError.message : "Unknown Kong error",
@@ -241,7 +241,7 @@ export async function handleTokenRequest(
 
         telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
           method: req.method,
-          url: ctx.pathname,
+          path: ctx.pathname,
           status_code: 503,
           duration_ms: duration,
           request_id: requestId,
@@ -282,7 +282,7 @@ export async function handleTokenRequest(
           "Consumer not found or has no JWT credentials",
           {
             method: req.method,
-            url: ctx.pathname,
+            path: ctx.pathname,
             consumer_id: consumerId,
             username,
             error: "Invalid consumer credentials",
@@ -293,7 +293,7 @@ export async function handleTokenRequest(
 
         telemetryEmitter.warn(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
           method: req.method,
-          url: ctx.pathname,
+          path: ctx.pathname,
           status_code: 401,
           duration_ms: duration,
           request_id: requestId,
@@ -337,7 +337,7 @@ export async function handleTokenRequest(
 
       telemetryEmitter.info(SpanEvents.HTTP_REQUEST_COMPLETED, "HTTP request processed", {
         method: req.method,
-        url: ctx.pathname,
+        path: ctx.pathname,
         status_code: 200,
         duration_ms: duration,
         request_id: requestId,
@@ -363,7 +363,7 @@ export async function handleTokenRequest(
         "Unexpected error during token generation",
         {
           method: req.method,
-          url: ctx.pathname,
+          path: ctx.pathname,
           error: err instanceof Error ? err.message : "Unknown error",
           consumer_id: headerValidation.consumerId,
           username: headerValidation.username,
@@ -374,7 +374,7 @@ export async function handleTokenRequest(
 
       telemetryEmitter.error(SpanEvents.HTTP_REQUEST_FAILED, "HTTP request processed", {
         method: req.method,
-        url: ctx.pathname,
+        path: ctx.pathname,
         status_code: 500,
         duration_ms: duration,
         request_id: requestId,
@@ -409,7 +409,7 @@ export async function handleTokenValidation(
       "Processing token validation request",
       {
         method: req.method,
-        url: "/tokens/validate",
+        path: "/tokens/validate",
         request_id: requestId,
       }
     );

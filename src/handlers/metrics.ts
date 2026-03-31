@@ -45,7 +45,7 @@ export function handleDebugMetricsTest(): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/metrics/test",
+      path: "/debug/metrics/test",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -68,7 +68,7 @@ export function handleDebugMetricsTest(): Response {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/metrics/test",
+      path: "/debug/metrics/test",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -152,7 +152,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/metrics/export",
+      path: "/debug/metrics/export",
       status_code: flushResult.success ? 200 : 500,
       duration_ms: duration,
       request_id: requestId,
@@ -180,7 +180,7 @@ export async function handleDebugMetricsExport(): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/metrics/export",
+      path: "/debug/metrics/export",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -406,7 +406,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
         log("HTTP request processed", {
           event_name: "http.request.completed",
           method: "GET",
-          url: "/metrics",
+          path: "/metrics",
           status_code: 400,
           duration_ms: duration,
           request_id: requestId,
@@ -429,7 +429,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/metrics",
+      path: "/metrics",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -456,7 +456,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/metrics",
+      path: "/metrics",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,

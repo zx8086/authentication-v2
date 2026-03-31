@@ -33,7 +33,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/start",
+      path: "/debug/profiling/start",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -62,7 +62,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "POST",
-        url: "/debug/profiling/start",
+        path: "/debug/profiling/start",
         status_code: 400,
         duration_ms: duration,
         request_id: requestId,
@@ -81,7 +81,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/start",
+      path: "/debug/profiling/start",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -104,7 +104,7 @@ export async function handleProfilingStart(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/start",
+      path: "/debug/profiling/start",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -140,7 +140,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/stop",
+      path: "/debug/profiling/stop",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -168,7 +168,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "POST",
-        url: "/debug/profiling/stop",
+        path: "/debug/profiling/stop",
         status_code: 500,
         duration_ms: duration,
         request_id: requestId,
@@ -187,7 +187,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/stop",
+      path: "/debug/profiling/stop",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -207,7 +207,7 @@ export async function handleProfilingStop(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/stop",
+      path: "/debug/profiling/stop",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -243,7 +243,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/status",
+      path: "/debug/profiling/status",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -270,7 +270,7 @@ export async function handleProfilingStatus(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/status",
+      path: "/debug/profiling/status",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -306,7 +306,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/reports",
+      path: "/debug/profiling/reports",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -331,7 +331,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/reports",
+      path: "/debug/profiling/reports",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -354,7 +354,7 @@ export async function handleProfilingReports(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/reports",
+      path: "/debug/profiling/reports",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -390,7 +390,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/cleanup",
+      path: "/debug/profiling/cleanup",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -414,7 +414,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/cleanup",
+      path: "/debug/profiling/cleanup",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -437,7 +437,7 @@ export async function handleProfilingCleanup(_req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "POST",
-      url: "/debug/profiling/cleanup",
+      path: "/debug/profiling/cleanup",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
@@ -473,7 +473,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/report",
+      path: "/debug/profiling/report",
       status_code: 200,
       duration_ms: duration,
       request_id: requestId,
@@ -499,7 +499,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "GET",
-        url: "/debug/profiling/report",
+        path: "/debug/profiling/report",
         status_code: 400,
         duration_ms: duration,
         request_id: requestId,
@@ -522,7 +522,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "GET",
-        url: "/debug/profiling/report",
+        path: "/debug/profiling/report",
         status_code: 404,
         duration_ms: duration,
         request_id: requestId,
@@ -545,7 +545,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "GET",
-        url: "/debug/profiling/report",
+        path: "/debug/profiling/report",
         status_code: 200,
         duration_ms: duration,
         request_id: requestId,
@@ -566,7 +566,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
       log("HTTP request processed", {
         event_name: "http.request.completed",
         method: "GET",
-        url: "/debug/profiling/report",
+        path: "/debug/profiling/report",
         status_code: 500,
         duration_ms: duration,
         request_id: requestId,
@@ -586,7 +586,7 @@ export async function handleProfilingReport(req: Request): Promise<Response> {
     log("HTTP request processed", {
       event_name: "http.request.completed",
       method: "GET",
-      url: "/debug/profiling/report",
+      path: "/debug/profiling/report",
       status_code: 500,
       duration_ms: duration,
       request_id: requestId,
