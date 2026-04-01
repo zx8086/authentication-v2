@@ -3,12 +3,6 @@
   // SERVICE / SERVER
   // ============================================================
   {
-    "label": "service: version",
-    "command": "echo \"=== Service Version ===\" && jq '{name, version, description}' package.json",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
     "label": "service: endpoints",
     "command": "echo \"=== API Endpoints ===\" && (set -o pipefail; curl -s http://localhost:3000 | jq '.paths | keys') || echo \"Status: Server not responding\"",
     "use_new_terminal": false,
@@ -147,26 +141,8 @@
   // DEPENDENCIES (NPM/BUN)
   // ============================================================
   {
-    "label": "deps: outdated",
-    "command": "echo \"=== Outdated Packages ===\" && bun outdated 2>&1 || echo \"All packages up to date\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "deps: audit",
-    "command": "echo \"=== Security Audit ===\" && npm audit 2>&1 | head -50",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
     "label": "deps: licenses",
     "command": "echo \"=== License Check ===\" && bun scripts/license-check.ts",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "deps: tree",
-    "command": "echo \"=== Dependency Tree ===\" && bun pm ls --all 2>&1 | head -60",
     "use_new_terminal": false,
     "reveal": "always"
   },
@@ -624,12 +600,6 @@
     "use_new_terminal": false,
     "reveal": "always"
   },
-  {
-    "label": "quality: fix",
-    "command": "bun run quality:fix",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
 
   // ============================================================
   // PROFILING
@@ -835,220 +805,6 @@
   {
     "label": "bench: bun version info",
     "command": "echo \"=== Bun Runtime Info ===\" && bun --version && echo '---' && bun --revision",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-
-  // ============================================================
-  // GITHUB
-  // ============================================================
-  {
-    "label": "github: PR list (open)",
-    "command": "echo \"=== Open Pull Requests ===\" && gh pr list --state open",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: PR checks",
-    "command": "echo \"=== PR Check Status ===\" && gh pr checks || echo \"No PR for current branch\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: issues (open)",
-    "command": "echo \"=== Open Issues ===\" && gh issue list --state open --limit 15",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: security alerts (open only)",
-    "command": "echo \"=== Open Security Alerts ===\" && gh api repos/:owner/:repo/code-scanning/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: security alerts (all)",
-    "command": "echo \"=== All Security Alerts ===\" && gh api repos/:owner/:repo/code-scanning/alerts || echo 'No alerts found'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: security alerts (Dependabot)",
-    "command": "echo \"=== Dependabot Alerts ===\" && gh api repos/:owner/:repo/dependabot/alerts --jq '.[] | select(.state == \"open\")' || echo 'No alerts found'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: docker security (Trivy)",
-    "command": "echo \"=== Docker Security Scan (Trivy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh run view {} --log | grep -E '(CRITICAL|HIGH|MEDIUM|CVE-)' | head -100",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: latest workflow run (Build and Deploy)",
-    "command": "echo \"=== Latest Workflow Runs (Build and Deploy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=5",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: latest workflow run (DHI CVE Monitor)",
-    "command": "echo \"=== Latest Workflow Runs (DHI CVE Monitor) ===\" && gh run list --workflow=dhi-cve-monitor.yml --limit=5",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: latest workflow run (Security Audit)",
-    "command": "echo \"=== Latest Workflow Runs (Security Audit) ===\" && gh run list --workflow=security-audit.yml --limit=5",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: latest workflow run (all)",
-    "command": "echo \"=== Latest Workflow Runs (All) ===\" && gh run list --limit=30",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: workflow artifacts (Build and Deploy)",
-    "command": "echo \"=== Workflow Artifacts (Build and Deploy) ===\" && gh run list --workflow=build-and-deploy.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: workflow artifacts (DHI CVE Monitor)",
-    "command": "echo \"=== Workflow Artifacts (DHI CVE Monitor) ===\" && gh run list --workflow=dhi-cve-monitor.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: workflow artifacts (Security Audit)",
-    "command": "echo \"=== Workflow Artifacts (Security Audit) ===\" && gh run list --workflow=security-audit.yml --limit=1 --json databaseId -q '.[0].databaseId' | xargs -I{} gh api repos/:owner/:repo/actions/runs/{}/artifacts",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: trigger security audit",
-    "command": "echo \"=== Triggering Security Audit ===\" && gh workflow run 'Comprehensive Security Audit' --ref master && echo 'Workflow: Comprehensive Security Audit' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"Comprehensive Security Audit\" --limit=1'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "github: trigger DHI CVE Monitor",
-    "command": "echo \"=== Triggering DHI CVE Monitor ===\" && gh workflow run 'DHI CVE Monitoring' --ref master && echo 'Workflow: DHI CVE Monitoring' && echo 'Branch:   master' && echo 'Status:   Triggered' && echo '---' && echo 'Run: gh run list --workflow=\"dhi-cve-monitor.yml\" --limit=1'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-
-  // ============================================================
-  // OPENTELEMETRY
-  // ============================================================
-  {
-    "label": "otel: status (all endpoints)",
-    "command": "echo \"=== OTEL Endpoint Status ===\" && set -a && source .env && set +a && echo '--- Base Endpoint ---' && echo $OTEL_EXPORTER_OTLP_ENDPOINT && curl -sf -o /dev/null -w 'HTTP: %{http_code}\\n' --max-time 3 $OTEL_EXPORTER_OTLP_ENDPOINT 2>/dev/null || echo 'Unreachable' && echo '--- Traces Endpoint ---' && echo $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Metrics Endpoint ---' && echo $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable' && echo '--- Logs Endpoint ---' && echo $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT && curl -sf -X POST -H 'Content-Type: application/json' -d '{}' --max-time 3 $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -w 'HTTP: %{http_code}\\n' 2>/dev/null || echo 'Unreachable'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: show config",
-    "command": "echo \"=== OTEL Configuration ===\" && set -a && source .env && set +a && echo \"Service: $OTEL_SERVICE_NAME\" && echo \"---\" && echo \"Base:    $OTEL_EXPORTER_OTLP_ENDPOINT\" && echo \"Traces:  $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && echo \"Metrics: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && echo \"Logs:    $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: ping collector",
-    "command": "echo \"=== OTEL Collector Ping ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_ENDPOINT\" && curl -sf --max-time 3 -v $OTEL_EXPORTER_OTLP_ENDPOINT 2>&1 || echo 'Unreachable'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: traces endpoint check",
-    "command": "echo \"=== OTEL Traces Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceSpans\":[]}' $OTEL_EXPORTER_OTLP_TRACES_ENDPOINT -v 2>&1 || echo 'Not responding'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: metrics endpoint check",
-    "command": "echo \"=== OTEL Metrics Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceMetrics\":[]}' $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT -v 2>&1 || echo 'Not responding'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: logs endpoint check",
-    "command": "echo \"=== OTEL Logs Endpoint ===\" && set -a && source .env && set +a && echo \"Endpoint: $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\" && curl -sf --max-time 3 -X POST -H 'Content-Type: application/json' -d '{\"resourceLogs\":[]}' $OTEL_EXPORTER_OTLP_LOGS_ENDPOINT -v 2>&1 || echo 'Not responding'",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: network connectivity test",
-    "command": "echo \"=== OTEL Network Test ===\" && set -a && source .env && set +a && OTEL_HOST=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f1) && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Host: $OTEL_HOST\" && echo \"Port: $OTEL_PORT\" && nc -zv -w 3 $OTEL_HOST $OTEL_PORT 2>&1",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: service telemetry health",
-    "command": "echo \"=== Service Telemetry Health ===\" && (set -o pipefail; curl -s http://localhost:3000/health/telemetry | jq .) || echo \"Status: Not responding\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: ssh tunnel start",
-    "command": "echo \"=== SSH Tunnel Start ===\" && OTEL_REMOTE=192.168.178.3 && OTEL_PORT=4318 && if lsof -i :${OTEL_PORT} 2>/dev/null | grep -q ssh; then echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Already running\"; else ssh -L ${OTEL_PORT}:127.0.0.1:${OTEL_PORT} pi@${OTEL_REMOTE} -N -f && echo \"Local:  localhost:${OTEL_PORT}\" && echo \"Remote: ${OTEL_REMOTE}:${OTEL_PORT}\" && echo \"Status: Started\"; fi",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: ssh tunnel stop",
-    "command": "echo \"=== SSH Tunnel Stop ===\" && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && PID=$(lsof -t -i :$OTEL_PORT | head -1) && if [ -n \"$PID\" ]; then kill $PID && echo \"Port:   $OTEL_PORT\" && echo \"PID:    $PID\" && echo \"Status: Stopped\"; else echo \"Port:   $OTEL_PORT\" && echo \"Status: No tunnel running\"; fi",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "otel: ssh tunnel status",
-    "command": "echo \"=== SSH Tunnel Status ===\" && set -a && source .env && set +a && OTEL_PORT=$(echo $OTEL_EXPORTER_OTLP_ENDPOINT | sed 's|http://||' | cut -d: -f2 | cut -d/ -f1) && echo \"Port: $OTEL_PORT\" && lsof -i :$OTEL_PORT 2>&1",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-
-  // ============================================================
-  // CODE ANALYSIS
-  // ============================================================
-  {
-    "label": "code: find TODOs",
-    "command": "echo \"=== TODOs and FIXMEs ===\" && grep -rn 'TODO\\|FIXME' src/ --include='*.ts' | head -30 || echo \"None found\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "code: line count",
-    "command": "echo \"=== Source Code Line Count ===\" && find src -name '*.ts' | xargs wc -l | tail -1",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "code: exports count",
-    "command": "echo \"=== Export Count ===\" && grep -rn '^export' src/ --include='*.ts' | wc -l",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-
-  // ============================================================
-  // ENVIRONMENT
-  // ============================================================
-  {
-    "label": "env: show (safe)",
-    "command": "echo \"=== Environment (Safe View) ===\" && env | grep -E '^(PORT|NODE_ENV|KONG_MODE|TELEMETRY_MODE|HIGH_AVAILABILITY|OTEL_SERVICE_NAME)=' | sort",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "env: diff (.env vs .env.example)",
-    "command": "echo \"=== Environment Diff ===\" && diff <(grep -v '^#' .env | grep '=' | cut -d= -f1 | sort) <(grep -v '^#' .env.example | grep '=' | cut -d= -f1 | sort) || echo \"Files differ (< = .env only, > = .env.example only)\"",
-    "use_new_terminal": false,
-    "reveal": "always"
-  },
-  {
-    "label": "config: validate",
-    "command": "echo \"=== Config Validation ===\" && bun -e \"import { getConfig } from './src/config'; const c = getConfig(); console.log('Config loaded successfully'); console.log('Kong Mode:', c.kong.mode); console.log('Port:', c.server.port);\"",
     "use_new_terminal": false,
     "reveal": "always"
   },
