@@ -40,20 +40,20 @@ If the logging container fails to load, the system falls back gracefully:
 ```typescript
 import { log, warn, error, logError, audit } from "../utils/logger";
 
-// Basic messages
-log("Token generated", { consumerId: "abc-123" });
-warn("Cache miss, falling back to Kong", { key: "consumer:abc-123" });
-error("Failed to generate token", { consumerId: "abc-123", reason: "secret_not_found" });
+// Basic messages (all context keys use snake_case)
+log("Token generated", { consumer_id: "abc-123", event_name: "token.generated" });
+warn("Cache miss, falling back to Kong", { key: "consumer:abc-123", event_name: "cache.miss" });
+error("Failed to generate token", { consumer_id: "abc-123", reason: "secret_not_found", event_name: "token.generation_failed" });
 
 // Error with stack trace
 try {
   await generateToken(consumer);
 } catch (err) {
-  logError("Token generation failed", err as Error, { consumerId: consumer.id });
+  logError("Token generation failed", err as Error, { consumer_id: consumer.id });
 }
 
 // Audit event (adds audit: true and event_type fields)
-audit("token_issued", { consumerId: "abc-123", tokenType: "jwt" });
+audit("token_issued", { consumer_id: "abc-123", token_type: "jwt" });
 ```
 
 **Debug-level logging:** The `src/utils/logger.ts` convenience API does not export a `debug()` function. Use the logger instance directly:
@@ -61,7 +61,7 @@ audit("token_issued", { consumerId: "abc-123", tokenType: "jwt" });
 ```typescript
 import { getLogger } from "../logging/container";
 
-getLogger().debug("Consumer secret lookup details", { consumerId: "abc-123", cacheHit: false });
+getLogger().debug("Consumer secret lookup details", { consumer_id: "abc-123", cache_hit: false });
 ```
 
 Debug messages are only output when `LOG_LEVEL=debug`. They are filtered out at the default `info` level.
@@ -79,6 +79,50 @@ requestLogger.warn("Slow Kong response", { latency: 250 });  // merged context
 ```
 
 Child loggers support nesting -- call `.child()` on an existing child to add more bound context.
+
+### Handler Logging Conventions (SIO-618)
+
+All request handlers follow a consistent logging pattern established in SIO-618:
+
+**Required fields:**
+- `event_name` -- dot-notation string following `<domain>.<action>` convention (e.g., `health.check.success`, `token.generated`, `http.request.completed`)
+- All context keys use **snake_case** exclusively (e.g., `status_code`, `duration_ms`, `request_id`)
+- Use `path` (not `url`) to identify the endpoint, for ECS clarity
+
+**Standard context fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_name` | string | Dot-notation event identifier |
+| `component` | string | Handler/subsystem name |
+| `method` | string | HTTP method |
+| `path` | string | Request path (not URL) |
+| `status_code` | number | HTTP response status |
+| `duration_ms` | number | Operation duration in milliseconds |
+| `request_id` | string | Unique request identifier |
+
+**Example from `src/handlers/health.ts`:**
+
+```typescript
+log("Health check completed", {
+  event_name: "health.check.success",
+  component: "health",
+  duration_ms: duration,
+  status: healthStatus,
+  kong_healthy: kongHealth.healthy,
+  cache_healthy: cacheHealthy,
+  request_id: requestId,
+});
+
+log("HTTP request processed", {
+  event_name: "http.request.completed",
+  method: "GET",
+  path: "/health",
+  status_code: statusCode,
+  duration_ms: duration,
+  request_id: requestId,
+});
+```
 
 ---
 
@@ -495,10 +539,10 @@ Both backends produce ECS-compliant output. Custom fields are automatically mapp
 
 | Input Field | ECS Field | Type |
 |-------------|-----------|------|
-| `consumerId` | `consumer.id` | string |
+| `consumer_id` | `consumer.id` | string |
 | `username` | `consumer.name` | string |
-| `requestId` | `event.id` | string |
-| `totalDuration` | `event.duration` | number (ns) |
+| `request_id` | `event.id` | string |
+| `duration_ms` | `event.duration` | number (ms) |
 
 Fields that do not map to ECS appear under `labels.*` in Elasticsearch. See [monitoring.md ECS Field Mapping](../operations/monitoring.md#ecs-field-mapping) for the complete mapping table.
 
@@ -725,15 +769,35 @@ pino.info("Token generated", { consumerId: "abc-123" })
           |
           +--> Global LoggerProvider (set by instrumentation.ts)
                  |
-                 +--> BatchLogRecordProcessor
+                 +--> EcsLogRecordProcessor (strips redundant ECS keys, renames span.event)
                         |
-                        +--> OTLPLogExporter --> Elastic / collector endpoint
+                        +--> BatchLogRecordProcessor
+                               |
+                               +--> OTLPLogExporter --> Elastic / collector endpoint
 ```
 
 This means:
 - **Console output and OTLP export are independent** -- OTLP failures do not affect console logging
 - **No manual OTLP emission code** in the adapter -- PinoInstrumentation handles it
 - **The adapter must reinitialize** after `instrumentation.ts` sets the global `LoggerProvider`, because PinoInstrumentation wraps the logger at construction time
+
+### EcsLogRecordProcessor (SIO-618)
+
+The `EcsLogRecordProcessor` (`src/telemetry/ecs-log-record-processor.ts`) wraps `BatchLogRecordProcessor` to clean log records before OTLP export. It solves two issues introduced when OTLP export was delegated to PinoInstrumentation's OTelPinoStream:
+
+1. **Strips 15 redundant ECS metadata keys** that duplicate fields already present in OTel Resource or LogRecord metadata. Without this, these fields leak into `labels.*` in Elasticsearch:
+
+   `ecs.version`, `event.dataset`, `event.message`, `event.duration_ms`, `service.name`, `service.version`, `service.environment`, `service.node.name`, `process.pid`, `host.hostname`, `log.logger`, `log.level`, `@timestamp`, `trace.id`, `span.id`, `transaction.id`
+
+2. **Renames `span.event` to `event_name`** to avoid ECS `span.*` namespace collision that causes event/message field swapping in Elasticsearch.
+
+**Pipeline assembly** (from `src/telemetry/instrumentation.ts`):
+
+```typescript
+const batchLogProcessor = new BatchLogRecordProcessor(logExporter, { ... });
+const logProcessor = new EcsLogRecordProcessor(batchLogProcessor);
+loggerProvider = new LoggerProvider({ resource, processors: [logProcessor] });
+```
 
 ### PinoInstrumentation Configuration
 

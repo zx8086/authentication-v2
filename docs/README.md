@@ -45,6 +45,7 @@
 | Document | Description |
 |----------|-------------|
 | [environment.md](configuration/environment.md) | Environment variables, 4-pillar configuration, dependencies |
+| [4-pillar-pattern.md](configuration/4-pillar-pattern.md) | Type-safe 4-pillar configuration architecture with Zod validation |
 
 ### Development
 

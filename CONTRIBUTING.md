@@ -47,7 +47,7 @@ See [Getting Started Guide](docs/development/getting-started.md) for detailed se
 - **No artificial timeouts** - Never apply artificial timeouts to tests
 - Run the full test suite before submitting:
   ```bash
-  bun run test:bun           # Unit + integration tests (3191 tests)
+  bun run test:bun           # Unit + integration tests (3210 tests)
   bun run quality:check      # TypeScript + Biome + YAML validation
   ```
 

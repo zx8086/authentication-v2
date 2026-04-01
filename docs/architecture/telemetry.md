@@ -17,8 +17,8 @@ The telemetry pipeline follows a layered architecture where application code nev
  |   Tracer API    Meter API    Logger API     Console Logger        |
  |       |             |              |              |               |
  |       v             v              v              v               |
- |  BatchSpan     Periodic       BatchLog        stdout/stderr       |
- |  Processor     MetricReader   RecordProcessor                     |
+ |  BatchSpan     Periodic       EcsLogRecord    stdout/stderr       |
+ |  Processor     MetricReader   Processor*                          |
  |       |             |              |                              |
  |       v             v              v                              |
  |  +----------+ +----------+  +----------+                         |
@@ -46,6 +46,8 @@ The telemetry pipeline follows a layered architecture where application code nev
  |  (Elastic APM / Datadog / New Relic / Grafana)                   |
  +-----------------------------------------------------------------+
 ```
+
+*EcsLogRecordProcessor wraps BatchLogRecordProcessor to strip redundant ECS metadata and rename `span.event` to `event_name` before OTLP export. See `src/telemetry/ecs-log-record-processor.ts`.
 
 ### Signal Flow
 
@@ -330,7 +332,8 @@ async function initializeTelemetry(): Promise<void> {
 
   // 4. Create processors (batching for efficiency)
   const traceProcessor = new BatchSpanProcessor(traceExporter, { maxExportBatchSize: 10 });
-  const logProcessor = new BatchLogRecordProcessor(logExporter);
+  const batchLogProcessor = new BatchLogRecordProcessor(logExporter);
+  const logProcessor = new EcsLogRecordProcessor(batchLogProcessor); // SIO-618: strip ECS duplicates
   const metricReader = new PeriodicExportingMetricReader({ exportIntervalMillis: 30000 });
 
   // 5. Register LoggerProvider globally (SDK 0.212.0+ requirement)
@@ -551,6 +554,7 @@ import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { EcsLogRecordProcessor } from "./ecs-log-record-processor";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
@@ -600,7 +604,8 @@ export async function initializeTelemetry(config: {
     exportIntervalMillis: 30000,
   });
 
-  const logProcessor = new BatchLogRecordProcessor(logExporter);
+  const batchLogProcessor = new BatchLogRecordProcessor(logExporter);
+  const logProcessor = new EcsLogRecordProcessor(batchLogProcessor); // SIO-618: strip ECS duplicates
 
   // 4. Create and register LoggerProvider (SDK 0.212.0+ requirement)
   const loggerProvider = new LoggerProvider({

@@ -1043,4 +1043,4 @@ beforeEach(() => {
 | [telemetry.md](../architecture/telemetry.md) | Pipeline architecture: providers, exporters, SDK wiring, configuration |
 | [logging.md](logging.md) | Logging public API, backends, structured logging patterns |
 | [monitoring.md](../operations/monitoring.md) | Dashboards, alerts, metric inventory, SLA thresholds |
-| [testing.md](testing.md) | Full testing guide (3191 tests, mutation testing) |
+| [testing.md](testing.md) | Full testing guide (3210 tests, mutation testing) |
