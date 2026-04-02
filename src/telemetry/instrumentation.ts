@@ -304,21 +304,39 @@ export async function shutdownTelemetry(): Promise<void> {
     hostMetrics = undefined;
   }
 
-  if (loggerProvider) {
-    try {
-      await loggerProvider.shutdown();
-    } catch (error) {
-      console.warn("Error shutting down LoggerProvider:", error);
-    }
-  }
+  // OTel SDK/LoggerProvider shutdown flushes pending telemetry to the collector.
+  // If the collector is unreachable, these calls can hang for the full exporter
+  // timeout (up to 10s each). Cap total telemetry shutdown at 5s to avoid
+  // blocking the server's 15s graceful shutdown timeout.
+  const TELEMETRY_SHUTDOWN_TIMEOUT_MS = 5000;
 
-  if (sdk) {
-    try {
-      await sdk.shutdown();
-    } catch (error) {
-      console.warn("Error shutting down OpenTelemetry:", error);
-    }
-  }
+  await Promise.race([
+    (async () => {
+      if (loggerProvider) {
+        try {
+          await loggerProvider.shutdown();
+        } catch (error) {
+          console.warn("Error shutting down LoggerProvider:", error);
+        }
+      }
+
+      if (sdk) {
+        try {
+          await sdk.shutdown();
+        } catch (error) {
+          console.warn("Error shutting down OpenTelemetry:", error);
+        }
+      }
+    })(),
+    new Promise<void>((resolve) =>
+      setTimeout(() => {
+        console.warn(
+          `Telemetry shutdown timed out after ${TELEMETRY_SHUTDOWN_TIMEOUT_MS}ms - forcing continue`
+        );
+        resolve();
+      }, TELEMETRY_SHUTDOWN_TIMEOUT_MS)
+    ),
+  ]);
 }
 
 export function getTelemetryStatus() {

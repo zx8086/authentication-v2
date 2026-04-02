@@ -397,13 +397,11 @@ let isShuttingDown = false;
  * 6. Transition to STOPPED and exit
  */
 const gracefulShutdown = async (signal: string) => {
-  // SIO-452: Use lifecycle state machine for duplicate check
-  if (isShuttingDown || lifecycleStateMachine.getState() !== LifecycleState.READY) {
+  if (isShuttingDown) {
     log("Shutdown already in progress, ignoring duplicate signal", {
       event_name: "server.shutdown.duplicate",
       component: "server",
       signal,
-      lifecycle_state: lifecycleStateMachine.getState(),
     });
     return;
   }

@@ -55,25 +55,46 @@ export class LifecycleObservabilityLogger {
       return;
     }
 
+    const FLUSH_TIMEOUT_MS = 3000;
+
     try {
       const telemetryStatus = getTelemetryStatus();
 
       if (telemetryStatus.initialized) {
-        const { forceMetricsFlush } = await import("./instrumentation");
-        await forceMetricsFlush();
+        // forceMetricsFlush can hang if the OTLP collector is unreachable.
+        // Cap the flush attempt so it doesn't block the shutdown sequence.
+        const flushed = await Promise.race([
+          (async () => {
+            const { forceMetricsFlush } = await import("./instrumentation");
+            await forceMetricsFlush();
+            return true;
+          })(),
+          new Promise<false>((resolve) => setTimeout(() => resolve(false), FLUSH_TIMEOUT_MS)),
+        ]);
 
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        log(
-          `Lifecycle observability: Successfully flushed ${this.pendingShutdownMessages.length} shutdown messages`,
-          {
-            event_name: "lifecycle.shutdown.flush_complete",
-            component: "lifecycle",
-            operation: "shutdown_flush_complete",
-            message_count: this.pendingShutdownMessages.length,
-            telemetry_mode: telemetryStatus.config.mode,
-          }
-        );
+        if (flushed) {
+          log(
+            `Lifecycle observability: Successfully flushed ${this.pendingShutdownMessages.length} shutdown messages`,
+            {
+              event_name: "lifecycle.shutdown.flush_complete",
+              component: "lifecycle",
+              operation: "shutdown_flush_complete",
+              message_count: this.pendingShutdownMessages.length,
+              telemetry_mode: telemetryStatus.config.mode,
+            }
+          );
+        } else {
+          log(
+            `Lifecycle observability: Flush timed out after ${FLUSH_TIMEOUT_MS}ms, ${this.pendingShutdownMessages.length} messages may be lost`,
+            {
+              event_name: "lifecycle.shutdown.flush_timeout",
+              component: "lifecycle",
+              operation: "shutdown_flush_timeout",
+              message_count: this.pendingShutdownMessages.length,
+              telemetry_mode: telemetryStatus.config.mode,
+            }
+          );
+        }
       } else {
         log(
           `Lifecycle observability: Console-only mode, ${this.pendingShutdownMessages.length} messages logged`,
