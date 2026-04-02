@@ -146,6 +146,7 @@ See the **[Documentation Index](docs/README.md)** for comprehensive guides.
 - **Architecture**: [overview.md](docs/architecture/overview.md) (system design, authentication flow, RFC compliance)
 - **Deployment**: [kubernetes.md](docs/deployment/kubernetes.md), [ci-cd.md](docs/deployment/ci-cd.md), [container-security.md](docs/deployment/container-security.md) (DHI, CVE remediation)
 - **API**: [jwt-tokens.md](docs/api/jwt-tokens.md), [api-best-practices.md](docs/development/api-best-practices.md)
+- **Logging**: [logging.md](docs/development/logging.md) (architecture, public API, backends, ECS compliance)
 - **Operations**: [profiling.md](docs/development/profiling.md), [monitoring.md](docs/operations/monitoring.md) (includes memory monitoring)
 - **Testing**: [testing.md](docs/development/testing.md) (unit, E2E, K6, chaos testing)
 
@@ -161,7 +162,7 @@ bun run quality:check          # Parallel code quality checks (Bun 1.3.9)
 ### Testing
 ```bash
 bun run test:bun              # Unit + integration tests (3210 tests)
-bun run test:e2e              # E2E tests (3 suites)
+bun run test:e2e              # E2E tests (4 suites)
 bun run test:k6:smoke:basic   # Parallel K6 smoke tests (40% faster)
 bun run test:suite            # Full test suite with parallel execution
 ```
