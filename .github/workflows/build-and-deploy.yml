@@ -628,7 +628,7 @@ jobs:
           docker run --rm \
             -v "$PWD":/workspace \
             -v ~/.docker/config.json:/root/.docker/config.json:ro \
-            aquasec/trivy:0.55.2 image --format sarif --output /workspace/trivy-results.sarif \
+            aquasec/trivy:0.55.2@sha256:b6cf72f30a9657af3a8495619c0feccb4363ece9a59898c27f166e15473be229 image --format sarif --output /workspace/trivy-results.sarif \
             --timeout 5m --exit-code 0 --ignore-unfixed --severity HIGH,CRITICAL \
             $IMAGE_TAG || {
             echo "Trivy scan completed with findings or errors"

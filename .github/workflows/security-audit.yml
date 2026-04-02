@@ -163,8 +163,9 @@ jobs:
         continue-on-error: true
 
       # Advanced Trivy Scans
+      # Pinned to full SHA of 0.35.0 (safe, immutable release - not affected by March 2026 supply chain attack)
       - name: Run comprehensive Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.34.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         timeout-minutes: 15
         with:
           scan-type: 'fs'
@@ -176,7 +177,7 @@ jobs:
         continue-on-error: true
 
       - name: Run comprehensive Trivy container scan
-        uses: aquasecurity/trivy-action@0.34.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         timeout-minutes: 15
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
