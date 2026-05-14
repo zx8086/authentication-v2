@@ -25,6 +25,7 @@ import {
   getHighResTime,
 } from "../utils/performance";
 import { createHealthResponse, generateRequestId } from "../utils/response";
+import { determineHealthStatus } from "./health-status";
 
 const config = loadConfig();
 
@@ -275,30 +276,21 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       }
     }
 
-    const cacheHealthy = cacheHealth.status === "healthy";
-    const allHealthy =
-      kongHealth.healthy &&
-      tracesHealth.healthy &&
-      metricsHealth.healthy &&
-      logsHealth.healthy &&
-      cacheHealthy;
+    const { httpStatus: statusCode, healthStatus } = determineHealthStatus({
+      kong: { healthy: kongHealth.healthy },
+      cache: {
+        status: cacheHealth.status,
+        // staleCache is always populated by the cache-health probe above; the ?? false is defensive.
+        staleCacheAvailable: cacheHealth.staleCache?.available ?? false,
+      },
+      telemetry: {
+        traces: { healthy: tracesHealth.healthy },
+        metrics: { healthy: metricsHealth.healthy },
+        logs: { healthy: logsHealth.healthy },
+      },
+    });
 
-    const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
-
-    const statusCode = allHealthy ? 200 : 503;
     const duration = calculateDuration(startTime);
-
-    let healthStatus: string;
-    if (allHealthy) {
-      healthStatus = "healthy";
-    } else if (
-      cacheHealth.status === "degraded" ||
-      (!kongHealth.healthy && telemetryHealthy && cacheHealthy)
-    ) {
-      healthStatus = "degraded";
-    } else {
-      healthStatus = "unhealthy";
-    }
 
     // Get DNS cache stats for observability
     const dnsStats = dns.getCacheStats();
@@ -380,6 +372,9 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       },
       requestId,
     };
+
+    const cacheHealthy = cacheHealth.status === "healthy";
+    const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
 
     log("Health check completed", {
       event_name: "health.check.success",

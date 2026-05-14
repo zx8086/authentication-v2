@@ -71,7 +71,7 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       expect(response.status).not.toBe(500);
     });
 
-    it("should return 503 when Kong is unhealthy", async () => {
+    it("should return 200 when Kong is unhealthy (Kong is not critical path)", async () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
 
       const mockKong = createMockKongService({
@@ -80,12 +80,12 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
 
       const response = await handleHealthCheck(mockKong);
 
-      // Verify exact status code - catches mutations to healthy check
-      expect(response.status).toBe(503);
-      expect(response.status).not.toBe(200);
+      // Kong outage produces degraded, not unhealthy: cache may still serve.
+      expect(response.status).toBe(200);
+      expect(response.status).not.toBe(503);
     });
 
-    it("should return 503 when Kong health check throws", async () => {
+    it("should return 200 when Kong health check throws (Kong is not critical path)", async () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
 
       const mockKong = createMockKongService({
@@ -95,8 +95,8 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
 
       const response = await handleHealthCheck(mockKong);
 
-      expect(response.status).toBe(503);
-      expect(response.status).not.toBe(200);
+      expect(response.status).toBe(200);
+      expect(response.status).not.toBe(503);
     });
   });
 
@@ -117,7 +117,7 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       expect(body.status).not.toBe("unhealthy");
     });
 
-    it("should return status 'unhealthy' when Kong is down", async () => {
+    it("should return status 'degraded' when Kong is down (Kong is not critical)", async () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
 
       const mockKong = createMockKongService({
@@ -127,9 +127,9 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       const response = await handleHealthCheck(mockKong);
       const body = await response.json();
 
-      // With telemetry endpoints not configured, only Kong failure = unhealthy
-      expect(["degraded", "unhealthy"]).toContain(body.status);
+      expect(body.status).toBe("degraded");
       expect(body.status).not.toBe("healthy");
+      expect(body.status).not.toBe("unhealthy");
     });
 
     it("should include Kong status in response body", async () => {

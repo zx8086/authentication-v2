@@ -47,8 +47,17 @@ For lightweight liveness checks without OTLP validation, use `/health/ready` whi
 The service supports degraded mode when Kong is unavailable:
 - Health checks continue to respond
 - Metrics collection continues
-- Token generation returns `AUTH_004` or `AUTH_005` errors
+- Token generation may return `AUTH_004` or `AUTH_005` errors when cache is also exhausted
 - Circuit breaker provides stale cache fallback when enabled
+
+### Health response interpretation for SLA monitoring
+
+A `200 + status: "degraded"` response is a **passing** /health response for SLA purposes — the service is still authenticating consumers. SLA monitoring should treat:
+
+- `200 + healthy` and `200 + degraded` as **available**
+- `503 + unhealthy` as **unavailable**
+
+If monitoring tools assert specifically on `status: "healthy"`, they will trigger spurious incidents during telemetry or Kong partial outages. Update assertions to either check `response.status === 200` or accept both `healthy` and `degraded` as success states.
 
 ## Throughput Targets
 

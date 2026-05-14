@@ -528,7 +528,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       expect(healthCheckCalls).toBe(1);
     });
 
-    it("should return EXACT unhealthy status when Kong fails", async () => {
+    it("should return 200 + degraded when Kong fails alone (cache critical, not Kong)", async () => {
       mockKongService.healthCheck = mock(() =>
         Promise.resolve({
           healthy: false,
@@ -540,14 +540,14 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const response = await handleHealthCheck(mockKongService);
       const body = await response.json();
 
-      // Should be 503 when unhealthy
-      expect(response.status).toBe(503);
+      // Kong outage does NOT pull the pod from rotation; cache may still serve.
+      expect(response.status).toBe(200);
 
-      // Status should NOT be "healthy"
+      // Top-level status is degraded
+      expect(body.status).toBe("degraded");
       expect(body.status).not.toBe("healthy");
-      expect(["unhealthy", "degraded"]).toContain(body.status);
 
-      // Kong dependency should show unhealthy
+      // Kong dependency still reports actual state
       expect(body.dependencies.kong.status).toBe("unhealthy");
     });
 
@@ -557,7 +557,7 @@ describe("Mutation Killer Tests - Strict Assertions", () => {
       const response = await handleHealthCheck(mockKongService);
       const body = await response.json();
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(body.status).not.toBe("healthy");
       expect(body.dependencies.kong.status).toBe("unhealthy");
 

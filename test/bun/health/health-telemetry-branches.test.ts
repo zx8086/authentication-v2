@@ -304,7 +304,7 @@ describe("Health Handler Telemetry Branches", () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
       const response = await handleHealthCheck(invalidKongService);
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
     });
 
     it("should handle missing telemetry endpoints gracefully", async () => {
