@@ -153,6 +153,7 @@ export function wrapLogRecordExporter(
       });
     },
     shutdown: () => exporter.shutdown(),
+    forceFlush: () => exporter.forceFlush?.() ?? Promise.resolve(),
   };
 }
 
