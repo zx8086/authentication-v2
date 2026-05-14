@@ -280,6 +280,7 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       kong: { healthy: kongHealth.healthy },
       cache: {
         status: cacheHealth.status,
+        // staleCache is always populated by the cache-health probe above; the ?? false is defensive.
         staleCacheAvailable: cacheHealth.staleCache?.available ?? false,
       },
       telemetry: {
@@ -372,15 +373,18 @@ export async function handleHealthCheck(kongService: IKongService): Promise<Resp
       requestId,
     };
 
+    const cacheHealthy = cacheHealth.status === "healthy";
+    const telemetryHealthy = tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy;
+
     log("Health check completed", {
       event_name: "health.check.success",
       component: "health",
       duration_ms: duration,
       status: healthStatus,
       kong_healthy: kongHealth.healthy,
-      cache_healthy: cacheHealth.status === "healthy",
+      cache_healthy: cacheHealthy,
       cache_type: cacheHealth.type,
-      telemetry_healthy: tracesHealth.healthy && metricsHealth.healthy && logsHealth.healthy,
+      telemetry_healthy: telemetryHealthy,
       request_id: requestId,
     });
 
