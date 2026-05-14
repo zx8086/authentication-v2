@@ -47,7 +47,7 @@ For lightweight liveness checks without OTLP validation, use `/health/ready` whi
 The service supports degraded mode when Kong is unavailable:
 - Health checks continue to respond
 - Metrics collection continues
-- Token generation returns `AUTH_004` or `AUTH_005` errors
+- Token generation may return `AUTH_004` or `AUTH_005` errors when cache is also exhausted
 - Circuit breaker provides stale cache fallback when enabled
 
 ### Health response interpretation for SLA monitoring
