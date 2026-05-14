@@ -39,6 +39,7 @@ import {
 export class KongAdapter implements IAPIGatewayAdapter {
   private readonly strategy: IKongModeStrategy;
   private cache: IKongCacheService | null = null;
+  private cacheInitPromise: Promise<void> | null = null;
   private circuitBreaker: KongCircuitBreakerService;
 
   constructor(
@@ -61,7 +62,7 @@ export class KongAdapter implements IAPIGatewayAdapter {
       undefined
     );
 
-    this.initializeCache();
+    this.cacheInitPromise = this.initializeCache();
   }
 
   private async initializeCache(): Promise<void> {
@@ -463,8 +464,10 @@ export class KongAdapter implements IAPIGatewayAdapter {
   }
 
   private async ensureCacheInitialized(): Promise<void> {
-    if (!this.cache) {
-      this.cache = await CacheFactory.createKongCache();
+    if (this.cache) return;
+    if (!this.cacheInitPromise) {
+      this.cacheInitPromise = this.initializeCache();
     }
+    await this.cacheInitPromise;
   }
 }
