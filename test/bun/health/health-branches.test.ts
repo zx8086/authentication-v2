@@ -117,7 +117,7 @@ describe("Health Handler Branch Coverage - Mutation Testing", () => {
       expect(body.status).not.toBe("unhealthy");
     });
 
-    it("should return status 'degraded' when Kong is down (kong is not critical)", async () => {
+    it("should return status 'degraded' when Kong is down (Kong is not critical)", async () => {
       const { handleHealthCheck } = await import("../../../src/handlers/health");
 
       const mockKong = createMockKongService({
