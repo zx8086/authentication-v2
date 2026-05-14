@@ -153,12 +153,7 @@ export function wrapLogRecordExporter(
       });
     },
     shutdown: () => exporter.shutdown(),
-    // LogRecordExporter interface does not declare forceFlush, but concrete
-    // OTLP exporters expose it. Probe and forward only if present.
-    ...(() => {
-      const maybeFlush = (exporter as { forceFlush?: () => Promise<void> }).forceFlush;
-      return maybeFlush ? { forceFlush: () => maybeFlush.call(exporter) } : {};
-    })(),
+    forceFlush: () => exporter.forceFlush(),
   };
 }
 
