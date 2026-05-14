@@ -18,8 +18,6 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 # Dependencies stage - cache layer optimization
 FROM deps-base AS deps-dev
 COPY package.json bun.lock ./
-# Copy patches directory for patchedDependencies in package.json
-COPY patches/ ./patches/
 # Copy scripts directory for postinstall script
 COPY scripts/ ./scripts/
 # Use BuildKit cache mount for faster dependency installation
@@ -30,8 +28,6 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 # Production dependencies stage
 FROM deps-base AS deps-prod
 COPY package.json bun.lock ./
-# Copy patches directory for patchedDependencies in package.json
-COPY patches/ ./patches/
 # Copy scripts directory for postinstall script
 COPY scripts/ ./scripts/
 # Install only production dependencies with cache mount
