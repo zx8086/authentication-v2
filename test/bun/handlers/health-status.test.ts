@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { determineHealthStatus, type HealthStatusDeps } from "../../../src/handlers/health-status";
 
+// Overrides replace top-level keys wholesale; nested objects (e.g. telemetry) must be complete.
 const baseDeps = (overrides: Partial<HealthStatusDeps> = {}): HealthStatusDeps => ({
   kong: { healthy: true },
   cache: { status: "healthy", staleCacheAvailable: false },

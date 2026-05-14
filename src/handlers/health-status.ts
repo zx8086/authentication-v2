@@ -1,8 +1,10 @@
 // src/handlers/health-status.ts
 
+import type { CacheHealthResult } from "../services/cache-health.service";
+
 export interface HealthStatusDeps {
   kong: { healthy: boolean };
-  cache: { status: "healthy" | "unhealthy" | "degraded"; staleCacheAvailable: boolean };
+  cache: { status: CacheHealthResult["status"]; staleCacheAvailable: boolean };
   telemetry: {
     traces: { healthy: boolean };
     metrics: { healthy: boolean };
