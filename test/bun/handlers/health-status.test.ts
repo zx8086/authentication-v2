@@ -46,7 +46,7 @@ describe("determineHealthStatus", () => {
     ).toEqual({ httpStatus: 200, healthStatus: "degraded" });
   });
 
-  test("telemetry traces unhealthy alone -> 200 + degraded (THE fix)", () => {
+  test("telemetry traces unhealthy alone -> 200 + degraded", () => {
     expect(
       determineHealthStatus(
         baseDeps({
@@ -102,7 +102,7 @@ describe("determineHealthStatus", () => {
     ).toEqual({ httpStatus: 200, healthStatus: "degraded" });
   });
 
-  test("kong unhealthy, cache+telemetry healthy -> 200 + degraded (THE fix)", () => {
+  test("kong unhealthy, cache+telemetry healthy -> 200 + degraded", () => {
     expect(determineHealthStatus(baseDeps({ kong: { healthy: false } }))).toEqual({
       httpStatus: 200,
       healthStatus: "degraded",
