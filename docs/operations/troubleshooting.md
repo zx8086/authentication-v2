@@ -28,9 +28,29 @@ curl -s http://localhost:3000/debug/metrics/export | jq .
 
 | Endpoint | Expected Response | Unhealthy Sign |
 |----------|-------------------|----------------|
-| `/health` | `{"status":"healthy"}` | Non-200 or timeout |
+| `/health` | `{"status":"healthy"}` or `{"status":"degraded"}` with HTTP 200 | HTTP 503 or timeout |
 | `/health/telemetry` | `{"healthy":true}` | `{"healthy":false}` |
 | `/metrics` | JSON with `circuitBreaker` | Missing or error |
+
+### Health endpoint semantics
+
+`GET /health` returns one of two HTTP status codes:
+
+| HTTP | `status` field | Meaning |
+|------|----------------|---------|
+| 200 | `healthy` | All dependencies fully healthy. Serve traffic normally. |
+| 200 | `degraded` | At least one dependency is sub-fully-healthy (telemetry export unreachable, Kong API unreachable, cache serving from stale fallback, etc.), but the service can still authenticate consumers. Pod stays in rotation. Investigate the `dependencies` block for which dep is degraded. |
+| 503 | `unhealthy` | Primary cache is unreachable AND no stale cache fallback is available. The service cannot read consumer secrets to authenticate new tokens. Pod should be pulled from rotation. |
+
+**Common 200+degraded scenarios:**
+- OTLP collector outage: `dependencies.telemetry.{traces,metrics,logs}.status = "unhealthy"`. Token generation still works; only observability is impacted.
+- Kong Admin API outage: `dependencies.kong.status = "unhealthy"`. Existing consumers served from cache; new consumer enrollment blocked.
+- Primary cache outage with stale fallback: `dependencies.cache.status = "unhealthy"`, `staleCache.available = true`. Existing cached consumers served from stale; primary cache reconnecting.
+
+**Common 503+unhealthy scenarios:**
+- Primary Redis/Valkey down AND stale cache exhausted or never populated. Service is non-functional.
+
+For Kubernetes deployments: use `/health` as both liveness and readiness probe. The 200+degraded response keeps pods in rotation during partial outages, while 503+unhealthy correctly evicts unhealthy pods.
 
 ---
 
@@ -1459,7 +1479,7 @@ A:
 - **Readiness probe**: Use `/health/ready`
 
 **Q: Why does /health return "degraded" status?**
-A: The service is running but one or more dependencies (typically Kong) are unhealthy. Token generation may fail.
+A: The service is running and can still authenticate consumers, but at least one dependency is sub-fully-healthy (Kong unreachable, OTLP collector unreachable, or cache serving from stale fallback). This is a 200 response — the pod stays in rotation. See the "Health endpoint semantics" section above for the full breakdown.
 
 ---
 
