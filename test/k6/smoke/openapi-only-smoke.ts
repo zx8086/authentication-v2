@@ -24,7 +24,7 @@ export default function () {
     "openapi status is 200": (r) => r.status === 200,
     "openapi contains spec": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('"openapi": "3.0.3"');
+      return body.includes('"openapi": "3.1.1"');
     },
     "openapi has info section": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
@@ -52,7 +52,7 @@ export default function () {
     "yaml openapi status is 200": (r) => r.status === 200,
     "yaml contains openapi version": (r) => {
       const body = typeof r.body === "string" ? r.body : "";
-      return body.includes('openapi: "3.0.3"');
+      return body.includes('openapi: "3.1.1"');
     },
     "yaml content type is yaml": (r) => {
       const contentType = r.headers["Content-Type"];
