@@ -67,7 +67,7 @@ describe("Health Handler Mutation Tests", () => {
       expect(body.status).toBe("healthy");
     });
 
-    it("should return 'unhealthy' when Kong is unhealthy and other dependencies too", async () => {
+    it("should return 'degraded' when Kong is unhealthy (cache still serves)", async () => {
       const unhealthyService: IKongService = {
         ...mockKongService,
         healthCheck: mock(() =>
@@ -82,9 +82,9 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(unhealthyService);
       const body = await response.json();
 
-      expect(response.status).toBe(503);
-      // Status depends on other dependencies
-      expect(["unhealthy", "degraded"]).toContain(body.status);
+      // Kong outage alone does not pull the pod from rotation; cache may still serve.
+      expect(response.status).toBe(200);
+      expect(body.status).toBe("degraded");
     });
 
     it("should return 'degraded' when Kong unhealthy but telemetry and cache healthy", async () => {
@@ -102,11 +102,11 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(kongUnhealthyService);
       const body = await response.json();
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(body.status).toBe("degraded");
     });
 
-    it("should return 503 status code when unhealthy", async () => {
+    it("should return 200 status code when only Kong is unhealthy (cache critical, not Kong)", async () => {
       const unhealthyService: IKongService = {
         ...mockKongService,
         healthCheck: mock(() =>
@@ -120,7 +120,7 @@ describe("Health Handler Mutation Tests", () => {
 
       const response = await handleHealthCheck(unhealthyService);
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
     });
 
     it("should return 200 status code when healthy", async () => {
@@ -140,7 +140,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(exceptionService);
       const body = await response.json();
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(body.dependencies.kong.status).toBe("unhealthy");
       expect(body.dependencies.kong.details.error).toBe("Network error");
     });
@@ -154,7 +154,7 @@ describe("Health Handler Mutation Tests", () => {
       const response = await handleHealthCheck(stringRejectionService);
       const body = await response.json();
 
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(body.dependencies.kong.status).toBe("unhealthy");
       expect(body.dependencies.kong.details.error).toBe("Connection failed");
     });
