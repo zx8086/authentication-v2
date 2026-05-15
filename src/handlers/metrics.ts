@@ -15,6 +15,44 @@ import { generateRequestId, getDefaultHeaders } from "../utils/response";
 
 const config = loadConfig();
 
+// Cache stats memo: getCacheStats() issues N Redis SCAN round-trips per call.
+// Memoizing for 2s absorbs concurrent /metrics scrapes (typical Prometheus
+// scrape interval is 10-30s; this is short enough to stay fresh). Keyed by
+// kongService instance so different services (or test mocks) don't share state.
+const CACHE_STATS_TTL_MS = 2000;
+type CacheStatsResult = Awaited<ReturnType<IKongService["getCacheStats"]>>;
+type CacheStatsMemoEntry = {
+  value?: { data: CacheStatsResult; expiresAt: number };
+  inflight?: Promise<CacheStatsResult>;
+};
+const cacheStatsMemo = new WeakMap<IKongService, CacheStatsMemoEntry>();
+
+async function getCachedCacheStats(kongService: IKongService): Promise<CacheStatsResult> {
+  let entry = cacheStatsMemo.get(kongService);
+  if (!entry) {
+    entry = {};
+    cacheStatsMemo.set(kongService, entry);
+  }
+  if (entry.value && entry.value.expiresAt > Date.now()) {
+    return entry.value.data;
+  }
+  if (entry.inflight) {
+    return entry.inflight;
+  }
+  // Errors propagate so the caller can fall back; only successes populate the memo.
+  const memoEntry = entry;
+  memoEntry.inflight = kongService
+    .getCacheStats()
+    .then((data) => {
+      memoEntry.value = { data, expiresAt: Date.now() + CACHE_STATS_TTL_MS };
+      return data;
+    })
+    .finally(() => {
+      memoEntry.inflight = undefined;
+    });
+  return memoEntry.inflight;
+}
+
 export function handleDebugMetricsTest(): Response {
   const startTime = getHighResTime();
   const requestId = generateRequestId();
@@ -208,9 +246,9 @@ type MetricsView = "operational" | "infrastructure" | "telemetry" | "exports" | 
 async function collectOperationalData(kongService: IKongService) {
   const timestamp = new Date().toISOString();
 
-  let cacheStats: Awaited<ReturnType<IKongService["getCacheStats"]>>;
+  let cacheStats: CacheStatsResult;
   try {
-    cacheStats = await kongService.getCacheStats();
+    cacheStats = await getCachedCacheStats(kongService);
   } catch (error) {
     log("Failed to collect cache stats during metrics collection", {
       event_name: "metrics.cache_stats.failed",
@@ -254,14 +292,16 @@ async function collectOperationalData(kongService: IKongService) {
   // Get consumer volume statistics
   const consumerVolumeStats = getConsumerVolumeStats();
 
+  const memUsage = process.memoryUsage();
+
   return {
     timestamp,
     uptime: Math.floor(process.uptime()),
     memory: {
-      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      external: Math.round(process.memoryUsage().external / 1024 / 1024),
+      used: Math.round(memUsage.heapUsed / 1024 / 1024),
+      total: Math.round(memUsage.heapTotal / 1024 / 1024),
+      rss: Math.round(memUsage.rss / 1024 / 1024),
+      external: Math.round(memUsage.external / 1024 / 1024),
     },
     cache: cacheStats,
     circuitBreakers: circuitBreakerStats,
@@ -435,7 +475,7 @@ export async function handleMetricsUnified(kongService: IKongService, url: URL):
       request_id: requestId,
     });
 
-    return new Response(JSON.stringify(responseData, null, 2), {
+    return new Response(JSON.stringify(responseData), {
       status: 200,
       headers: {
         ...getDefaultHeaders(requestId),
