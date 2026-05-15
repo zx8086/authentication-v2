@@ -18,6 +18,7 @@ export function recordError(errorType: string, context?: Record<string, unknown>
     errorRateCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record error metric", {
+      event_name: "metrics.error.record_failed",
       error: (err as Error).message,
       errorType,
       context,
@@ -43,6 +44,7 @@ export function recordException(
     exceptionCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record exception metric", {
+      event_name: "metrics.error.record_failed",
       error: (err as Error).message,
       exceptionType,
       component,

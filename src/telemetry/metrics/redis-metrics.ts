@@ -48,6 +48,7 @@ export function recordRedisOperation(
     }
   } catch (err) {
     error("Failed to record Redis operation", {
+      event_name: "metrics.redis.record_failed",
       error: (err as Error).message,
       operation,
       durationMs,
@@ -85,6 +86,7 @@ export function recordCacheOperation(
     }
   } catch (err) {
     error("Failed to record cache operation", {
+      event_name: "metrics.redis.record_failed",
       error: (err as Error).message,
       operation,
       tier,
@@ -101,6 +103,7 @@ export function recordRedisConnection(increment: boolean): void {
     redisConnectionsGauge.record(increment ? 1 : 0, attributes);
   } catch (err) {
     error("Failed to record Redis connection", {
+      event_name: "metrics.redis.record_failed",
       error: (err as Error).message,
       increment,
     });

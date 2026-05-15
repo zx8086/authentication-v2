@@ -7,6 +7,13 @@ import {
 } from "../types/circuit-breaker.types";
 import { error, log, warn } from "../utils/logger";
 import { recordCircuitBreakerOperation, recordCircuitBreakerState } from "./metrics";
+import { type SpanEventName, SpanEvents } from "./span-event-names";
+
+const TRANSITION_EVENT_NAME: Record<CircuitBreakerStateEnum, SpanEventName> = {
+  [CircuitBreakerStateEnum.CLOSED]: SpanEvents.TELEMETRY_CIRCUIT_BREAKER_CLOSED,
+  [CircuitBreakerStateEnum.OPEN]: SpanEvents.TELEMETRY_CIRCUIT_BREAKER_OPENED,
+  [CircuitBreakerStateEnum.HALF_OPEN]: SpanEvents.TELEMETRY_CIRCUIT_BREAKER_HALF_OPENED,
+};
 
 export { CircuitBreakerStateEnum as CircuitBreakerState };
 export type { TelemetryCircuitBreakerConfig as CircuitBreakerConfig };
@@ -115,7 +122,7 @@ export class TelemetryCircuitBreaker {
     recordCircuitBreakerOperation(this.operation, newState, "state_transition");
 
     log(`Telemetry circuit breaker state transition`, {
-      event_name: `telemetry.circuit_breaker.${newState}`,
+      event_name: TRANSITION_EVENT_NAME[newState],
       component: "telemetry_circuit_breaker",
       operation: this.operation,
       previous_state: previousState,

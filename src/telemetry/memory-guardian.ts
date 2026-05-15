@@ -258,6 +258,7 @@ export class TelemetryMemoryGuardian {
     // Log warnings based on pressure level
     if (health.pressure === "critical") {
       warn("Memory pressure detected", {
+        event_name: "memory.guardian.export_backlog",
         component: "memory-guardian",
         operation: "health_check",
         pressure_level: "critical",
@@ -271,6 +272,7 @@ export class TelemetryMemoryGuardian {
       });
     } else if (health.pressure === "high") {
       warn("Memory pressure detected", {
+        event_name: "memory.guardian.export_failure_rate",
         component: "memory-guardian",
         operation: "health_check",
         pressure_level: "high",

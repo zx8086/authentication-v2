@@ -52,6 +52,7 @@ export function validateMethod(request: Request, pathname: string): Response | n
     const allowedMethods = getAllowedMethods(pathname);
 
     logError("Method not allowed", {
+      event_name: "validation.method.not_allowed",
       component: "validation",
       operation: "method_validation",
       method: request.method,
@@ -91,6 +92,7 @@ export function validateContentType(request: Request): Response | null {
     const requestId = generateRequestId();
 
     logError("Invalid content type", {
+      event_name: "validation.content_type.invalid",
       component: "validation",
       operation: "content_type_validation",
       method: request.method,
@@ -132,6 +134,7 @@ export async function validateBodySize(request: Request): Promise<Response | nul
       const requestId = generateRequestId();
 
       logError("Request body too large", {
+        event_name: "validation.body.too_large",
         component: "validation",
         operation: "body_size_validation",
         method: request.method,

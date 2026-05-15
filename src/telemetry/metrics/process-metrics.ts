@@ -41,6 +41,7 @@ export function startMemoryPressureMonitoring(): void {
       processExternalGauge.record(memUsage.external, attributes);
     } catch (err) {
       error("Failed to record memory metrics", {
+        event_name: "metrics.process.record_failed",
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -71,12 +72,14 @@ export function setupSystemMetricsCollection(): void {
         processUptimeGauge.record(uptime, attributes);
       } catch (err) {
         error("Failed to record process uptime", {
+          event_name: "metrics.process.record_failed",
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }, 10000); // Every 10 seconds
   } catch (err) {
     error("Failed to setup system metrics collection", {
+      event_name: "metrics.process.record_failed",
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -106,6 +109,7 @@ export function recordGCCollection(gcType: string): void {
     gcCollectionCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record GC collection metric", {
+      event_name: "metrics.process.record_failed",
       error: err instanceof Error ? err.message : String(err),
       gcType,
     });
@@ -124,6 +128,7 @@ export function recordGCDuration(durationSeconds: number, gcType: string): void 
     gcDurationHistogram.record(durationSeconds, attributes);
   } catch (err) {
     error("Failed to record GC duration metric", {
+      event_name: "metrics.process.record_failed",
       error: err instanceof Error ? err.message : String(err),
       durationSeconds,
       gcType,
@@ -150,6 +155,7 @@ export function recordGCHeapSizes(
     gcYoungGenerationSizeAfterGauge.record(youngGenAfter, attributes);
   } catch (err) {
     error("Failed to record GC heap size metrics", {
+      event_name: "metrics.process.record_failed",
       error: err instanceof Error ? err.message : String(err),
       oldGenBefore,
       oldGenAfter,

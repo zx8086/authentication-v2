@@ -22,6 +22,7 @@ import { isMetricsInitialized, setMetricsInitialized } from "./state";
 export function initializeMetrics(serviceName?: string, serviceVersion?: string): void {
   if (isMetricsInitialized()) {
     warn("Metrics already initialized", {
+      event_name: "metrics.initialization.log",
       serviceName,
       serviceVersion,
       initialized: true,
@@ -443,6 +444,7 @@ export function initializeMetrics(serviceName?: string, serviceVersion?: string)
     startMemoryPressureMonitoring();
   } catch (err) {
     error("Failed to initialize metrics", {
+      event_name: "telemetry.initialization.failed",
       error: (err as Error).message,
       serviceName,
       serviceVersion,

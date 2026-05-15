@@ -26,6 +26,7 @@ export function recordJwtTokenCreation(durationMs: number, consumerId: string): 
     jwtTokenCreationTimeHistogram.record(durationMs / 1000, attributes);
   } catch (err) {
     error("Failed to record JWT token creation time", {
+      event_name: "metrics.auth.record_failed",
       error: (err as Error).message,
       durationMs,
       attributes,
@@ -54,6 +55,7 @@ export function recordAuthenticationSuccess(username?: string): void {
     authenticationSuccessCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record authentication success metric", {
+      event_name: "metrics.auth.record_failed",
       error: (err as Error).message,
       username,
     });
@@ -75,6 +77,7 @@ export function recordAuthenticationFailure(username?: string, reason?: string):
     authenticationFailureCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record authentication failure metric", {
+      event_name: "metrics.auth.record_failed",
       error: (err as Error).message,
       username,
       reason,
@@ -106,6 +109,7 @@ function recordAuthenticationAttemptImpl(
       authenticationAttemptsCounter.add(1, attributes);
     } catch (err) {
       error("Failed to record authentication attempt metric", {
+        event_name: "metrics.auth.record_failed",
         error: (err as Error).message,
         username: typeOrUsername,
       });
@@ -129,6 +133,7 @@ function recordAuthenticationAttemptImpl(
       }
     } catch (err) {
       error("Failed to record authentication attempt metric", {
+        event_name: "metrics.auth.record_failed",
         error: (err as Error).message,
         type: typeOrUsername,
         success,

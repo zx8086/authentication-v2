@@ -24,6 +24,7 @@ export function recordTelemetryExport(
     }
   } catch (err) {
     error("Failed to record telemetry export", {
+      event_name: "metrics.telemetry.record_failed",
       error: (err as Error).message,
       exporter,
       success,
@@ -46,6 +47,7 @@ export function recordTelemetryExportError(
     telemetryExportErrorCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record telemetry export error", {
+      event_name: "metrics.telemetry.record_failed",
       error: (err as Error).message,
       exporter,
       errorType,

@@ -35,6 +35,7 @@ export function recordSecurityEvent(
     }
   } catch (err) {
     error("Failed to record security event", {
+      event_name: "metrics.security.record_failed",
       error: (err as Error).message,
       attributes,
     });
@@ -54,6 +55,7 @@ export function recordSecurityHeaders(): void {
     securityHeadersAppliedCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record security headers application", {
+      event_name: "metrics.security.record_failed",
       error: (err as Error).message,
     });
   }
@@ -81,6 +83,7 @@ export function recordAuditEvent(eventType: string, auditLevel: string, version?
     auditEventsCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record audit event", {
+      event_name: "metrics.security.record_failed",
       error: (err as Error).message,
       eventType,
       auditLevel,

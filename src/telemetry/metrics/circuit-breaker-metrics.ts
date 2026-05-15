@@ -24,6 +24,7 @@ export function recordCircuitBreakerState(
     circuitBreakerStateGauge.record(stateValue, attributes);
   } catch (err) {
     error("Failed to record circuit breaker state", {
+      event_name: "metrics.circuit_breaker.record_failed",
       error: (err as Error).message,
       operation,
       state,
@@ -57,6 +58,7 @@ export function recordCircuitBreakerOperation(
     }
   } catch (err) {
     error("Failed to record circuit breaker operation", {
+      event_name: "metrics.circuit_breaker.record_failed",
       error: (err as Error).message,
       operation,
       state,

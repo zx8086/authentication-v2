@@ -52,6 +52,7 @@ export function recordHttpRequest(
     }
   } catch (err) {
     error("Failed to record HTTP request metrics", {
+      event_name: "metrics.http.record_failed",
       error: (err as Error).message,
       attributes,
     });
@@ -80,6 +81,7 @@ export function recordHttpResponseTime(
     httpResponseTimeHistogram.record(durationMs / 1000, attributes);
   } catch (err) {
     error("Failed to record HTTP response time", {
+      event_name: "metrics.http.record_failed",
       error: (err as Error).message,
       durationMs,
       attributes,
@@ -94,6 +96,7 @@ export function recordActiveRequests(count: number): void {
     httpActiveRequestsGauge.record(count, { method: "GET", route: "/active" });
   } catch (err) {
     error("Failed to record active requests", {
+      event_name: "metrics.http.record_failed",
       error: (err as Error).message,
       count,
     });
@@ -121,6 +124,7 @@ export function recordHttpResponseSize(
     httpResponseSizeHistogram.record(size, attributes);
   } catch (err) {
     error("Failed to record HTTP response size metric", {
+      event_name: "metrics.http.record_failed",
       error: (err as Error).message,
       attributes,
       size,
@@ -149,6 +153,7 @@ export function recordHttpRequestSize(
     httpRequestSizeHistogram.record(size, attributes);
   } catch (err) {
     error("Failed to record HTTP request size metric", {
+      event_name: "metrics.http.record_failed",
       error: (err as Error).message,
       attributes,
       size,

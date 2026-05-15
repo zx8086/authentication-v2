@@ -31,6 +31,7 @@ export function recordApiVersionUsage(
     }
   } catch (err) {
     error("Failed to record API version usage", {
+      event_name: "metrics.api_version.record_failed",
       error: (err as Error).message,
       attributes,
     });
@@ -56,6 +57,7 @@ export function recordApiVersionParsing(
     apiVersionParsingDurationHistogram.record(durationMs / 1000, attributes);
   } catch (err) {
     error("Failed to record API version parsing duration", {
+      event_name: "metrics.api_version.record_failed",
       error: (err as Error).message,
       attributes,
       durationMs,
@@ -117,6 +119,7 @@ export function recordApiVersionUnsupported(
     apiVersionUnsupportedCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record unsupported API version", {
+      event_name: "metrics.api_version.record_failed",
       error: (err as Error).message,
       version,
       endpoint,
@@ -139,6 +142,7 @@ export function recordApiVersionFallback(version: string, endpoint: string, meth
     apiVersionFallbackCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record API version fallback", {
+      event_name: "metrics.api_version.record_failed",
       error: (err as Error).message,
       version,
       endpoint,
@@ -166,6 +170,7 @@ export function recordApiVersionRoutingDuration(
     apiVersionRoutingDurationHistogram.record(durationMs / 1000, attributes);
   } catch (err) {
     error("Failed to record API version routing duration", {
+      event_name: "metrics.api_version.record_failed",
       error: (err as Error).message,
       version,
       endpoint,

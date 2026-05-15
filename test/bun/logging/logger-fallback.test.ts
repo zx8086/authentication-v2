@@ -44,7 +44,7 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
       const { log } = require("../../../src/utils/logger");
 
-      log("Test message", { key: "value" });
+      log("Test message", { event_name: "auth.request.success", key: "value" });
 
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       const errorCall = consoleErrorSpy.mock.calls[0][0];
@@ -77,7 +77,7 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
       const { warn } = require("../../../src/utils/logger");
 
-      warn("Warning message", { code: "WARN_001" });
+      warn("Warning message", { event_name: "validation.failed", code: "WARN_001" });
 
       expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
       const warnCall = JSON.parse(consoleWarnSpy.mock.calls[0][0]);
@@ -105,7 +105,7 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
       const { error } = require("../../../src/utils/logger");
 
-      error("Error message", { errorCode: "ERR_500" });
+      error("Error message", { event_name: "http.error.unhandled", errorCode: "ERR_500" });
 
       const errorCalls = consoleErrorSpy.mock.calls.filter((call: any[]) => {
         try {
@@ -147,7 +147,7 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
       const { log } = require("../../../src/utils/logger");
 
-      log("Test with default config");
+      log("Test with default config", { event_name: "auth.request.success" });
 
       const logCalls = consoleLogSpy.mock.calls.filter((call: any[]) => {
         try {
@@ -254,9 +254,9 @@ describe("Logger Fallback Behavior", () => {
       delete require.cache[require.resolve("../../../src/utils/logger")];
       const { log, warn, error } = require("../../../src/utils/logger");
 
-      log("Test info message", { key: "info-value" });
-      warn("Test warning message", { key: "warn-value" });
-      error("Test error message", { key: "error-value" });
+      log("Test info message", { event_name: "auth.request.success", key: "info-value" });
+      warn("Test warning message", { event_name: "validation.failed", key: "warn-value" });
+      error("Test error message", { event_name: "http.error.unhandled", key: "error-value" });
 
       expect(consoleLogSpy.mock.calls.length).toBeGreaterThanOrEqual(0);
       expect(consoleWarnSpy.mock.calls.length).toBeGreaterThanOrEqual(0);

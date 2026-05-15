@@ -73,6 +73,7 @@ export function criticalLifecycleError(message: string, context?: Record<string,
  */
 export function logServiceStartup(port: number, environment: string): void {
   criticalLifecycleLog("Authentication Service starting", {
+    event_name: "server.startup.initiated",
     component: "server",
     event: "startup",
     version: pkg.version || "1.0.0",
@@ -89,6 +90,7 @@ export function logServiceStartup(port: number, environment: string): void {
  */
 export function logServiceReady(port: number): void {
   criticalLifecycleLog("Authentication Service ready", {
+    event_name: "server.lifecycle.ready",
     component: "server",
     event: "ready",
     url: `http://localhost:${port}`,
@@ -102,6 +104,7 @@ export function logServiceReady(port: number): void {
  */
 export function logServiceShutdownInitiated(signal: string): void {
   criticalLifecycleLog(`Authentication Service shutdown initiated (${signal})`, {
+    event_name: "server.shutdown.initiated",
     component: "server",
     event: "shutdown_initiated",
     signal,
@@ -115,6 +118,7 @@ export function logServiceShutdownInitiated(signal: string): void {
  */
 export function logServiceShutdownCompleted(): void {
   criticalLifecycleLog("Authentication Service shutdown completed", {
+    event_name: "server.shutdown.completed",
     component: "server",
     event: "shutdown_completed",
     pid: process.pid,
@@ -127,6 +131,7 @@ export function logServiceShutdownCompleted(): void {
  */
 export function logServiceShutdownError(error: Error): void {
   criticalLifecycleError("Authentication Service shutdown error", {
+    event_name: "server.shutdown.error",
     component: "server",
     event: "shutdown_error",
     error: error.message,

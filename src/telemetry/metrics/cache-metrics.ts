@@ -44,6 +44,7 @@ export function recordCacheTierUsage(tier: string, operation: string): void {
     cacheTierUsageCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record cache tier usage", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       tier,
       operation,
@@ -70,6 +71,7 @@ export function recordCacheTierLatency(tier: string, operation: string, latencyM
     cacheTierLatencyHistogram.record(latencyMs / 1000, attributes);
   } catch (err) {
     error("Failed to record cache tier latency", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       tier,
       operation,
@@ -91,6 +93,7 @@ export function recordCacheTierError(tier: string, operation: string, errorType?
     cacheTierErrorCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record cache tier error", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       tier,
       operation,
@@ -111,6 +114,7 @@ export function recordOperationDuration(
     operationDurationHistogram.record(durationMs / 1000, { operation, component: componentName });
   } catch (err) {
     error("Failed to record operation duration", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       operation,
       component,
@@ -156,6 +160,7 @@ export function recordCacheReconnectAttempt(
     }
   } catch (err) {
     error("Failed to record cache reconnect attempt", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       success,
       attemptNumber,
@@ -203,6 +208,7 @@ export function recordCacheCircuitBreakerOperation(
     }
   } catch (err) {
     error("Failed to record cache circuit breaker operation", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       operation,
       state,
@@ -228,6 +234,7 @@ export function recordCacheErrorByCategory(category: CacheErrorCategory, operati
     });
   } catch (err) {
     error("Failed to record cache error by category", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       category,
       operation,
@@ -252,6 +259,7 @@ export function recordCacheOperationTimeout(operation: string, timeoutMs: number
     });
   } catch (err) {
     error("Failed to record cache operation timeout", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       operation,
       timeoutMs,
@@ -285,6 +293,7 @@ export function recordCacheHealthCheck(success: boolean, responseTimeMs?: number
     }
   } catch (err) {
     error("Failed to record cache health check", {
+      event_name: "metrics.cache.record_failed",
       error: (err as Error).message,
       success,
       responseTimeMs,

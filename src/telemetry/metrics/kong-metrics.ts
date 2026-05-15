@@ -42,6 +42,7 @@ export function recordKongOperation(
     }
   } catch (err) {
     error("Failed to record Kong operation", {
+      event_name: "metrics.kong.record_failed",
       error: (err as Error).message,
       operation,
       durationMs,
@@ -74,6 +75,7 @@ export function recordKongResponseTime(
     kongResponseTimeHistogram.record(durationMs, attributes);
   } catch (err) {
     error("Failed to record Kong response time", {
+      event_name: "metrics.kong.record_failed",
       error: (err as Error).message,
       operation,
       durationMs,
@@ -105,6 +107,7 @@ export function recordKongCacheHit(consumerId: string, operation: string): void 
     kongCacheHitCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record Kong cache hit", {
+      event_name: "metrics.kong.record_failed",
       error: (err as Error).message,
       consumerId,
       operation,
@@ -135,6 +138,7 @@ export function recordKongCacheMiss(consumerId: string, operation: string): void
     kongCacheMissCounter.add(1, attributes);
   } catch (err) {
     error("Failed to record Kong cache miss", {
+      event_name: "metrics.kong.record_failed",
       error: (err as Error).message,
       consumerId,
       operation,
